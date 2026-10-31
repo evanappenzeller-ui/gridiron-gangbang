@@ -25,11 +25,20 @@ import TEAM from './dynasty-art-team.js';
 import PREM from './dynasty-art-prem.js';
 import GDAY from './dynasty-art-gday.js';
 import LEG from './dynasty-art-leg.js';
+import {FOIL_VIEW} from './dynasty-art-foil.js';
 
 const esc = data.esc;
 /** How much each pack's art and frame carry: 1 (Starter, Standard) to 5 (Legends), by rarity and price. */
 export const TIER = {start: 1, std: 1, team: 2, prem: 3, gday: 4, leg: 5};
 const ART = {start: START, std: STD, team: TEAM, prem: PREM, gday: GDAY, leg: LEG};
+/** The three foil packs (the owner, Oct 31 2026, with his mock-ups of the case's cover as foil packs: "These can be used
+ *  as the standard packs. Make 3 standard packs, the ones that cost more will have a brighter, more detailed design"):
+ *  a crinkled holographic wrapper round a framed card window, the cover's logo at its head (each pack's own colours,
+ *  img/rivals/packs/logo-<kind>-v1.webp; a design may wear another's: its `logo`), the name below. Their designs
+ *  (views/dynasty-art-foil.js) paint only the window (FOIL_VIEW). Brighter and richer by price: Standard calm, Team
+ *  brighter with a gold frame, Premium neon with a glow, sparkles and a moving foil. */
+export const FOIL = {std: 1, team: 1, prem: 1};
+const logoOf = k => new URL(`../../img/rivals/packs/logo-${k}-v1.webp`, import.meta.url).href;
 // Each pack's emblem (a 100 x 100 drawing, white): the designs' fallback and the placeholders' subject (k.emblem).
 const PACK_ART = {
   std: '<ellipse cx="50" cy="50" rx="30" ry="18" transform="rotate(-35 50 50)" fill="#7B4A26"/><path d="M38 55l24-14M43 52.5l-2.5-4M47.5 50l-2.5-4M52 47.5l-2.5-4M56.5 45l-2.5-4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>',
@@ -107,6 +116,8 @@ const filigree = u => `<linearGradient id="${u}_fg" gradientUnits="userSpaceOnUs
   + `<use href="#${u}_fc" transform="translate(0 20)"/><use href="#${u}_fc" transform="matrix(-1 0 0 1 100 20)"/><use href="#${u}_fc" transform="matrix(.62 0 0 -.62 .9 153.1)"/><use href="#${u}_fc" transform="matrix(-.62 0 0 -.62 99.1 153.1)"/>`
   + `<path fill="url(#${u}_fg)" d="M2.4 80.5l2.2 6.5-2.2 6.5-2.2-6.5zM97.6 80.5l2.2 6.5-2.2 6.5-2.2-6.5zM50 19.6l4.4 2.8-4.4 2.8-4.4-2.8zM50 148.8l4.4 2.8-4.4 2.8-4.4-2.8z"/>`;
 // (the frame's sparkles, clear of the art's middle: x, y in % of the pack, size in cqw, delay)
+// (a Premium foil pack's, on its wrapper round the window)
+const FOIL_SPARKS = [[4, 22, 7, 0], [96, 38, 6, 1.1], [4, 70, 6, 1.9], [96, 80, 7, .6], [26, 5, 5, 2.4], [74, 93, 5, 1.5]];
 const SPARKS = [[13, 25, 9, 0], [86, 33, 7, 1.1], [11, 66, 6, 1.9], [89, 70, 8, .6], [24, 17.5, 5, 2.4], [77, 50, 5, 1.5], [20, 46, 4, .3]];
 /** A booster pack (kind: a core/dynasty.js PACKS key). o: {count (held, shown past 1), big, design (designsOf's index,
  *  wrapped)}. */
@@ -114,13 +125,24 @@ export function packHTML(kind, {count, big, design = 0} = {}) {
   const P = D.PACKS[kind], t = TIER[kind] || 1, list = designsOf(kind), n = list.length;
   const d = list[((Math.floor(+design) || 0) % n + n) % n], u = `pa${(++uid).toString(36)}_`;
   const name = esc(P.name.replace(' Pack', '').toUpperCase()), art = artOf(kind, d, list, u, kit(kind, u));
-  return `<span class="pk-pack${big ? ' is-big' : ''} k-${kind} tier-${t}" style="--pc:${P.color}" data-art="${esc(d.id)}"${art.by !== d.id ? ` data-art-fallback="${esc(art.by)}"` : ''} aria-hidden="true">`
+  const head = `<span class="pk-pack${big ? ' is-big' : ''} k-${kind} tier-${t}${FOIL[kind] ? ' is-foil' : ''}" style="--pc:${P.color}" data-art="${esc(d.id)}"${art.by !== d.id ? ` data-art-fallback="${esc(art.by)}"` : ''} aria-hidden="true">`;
+  const tail = `<span class="pk-pack-crimp"></span>${count > 1 ? `<span class="pk-pack-n">×${count}</span>` : ''}</span>`;
+  if (FOIL[kind]) {
+    const lg = FOIL[d.logo] ? d.logo : kind, sp = t >= 3 ? FOIL_SPARKS : [];
+    return head + '<span class="pk-pack-wrap"></span><span class="pk-pack-band">BOOSTER PACK</span>'
+      + `<span class="pk-pack-art"><svg viewBox="${FOIL_VIEW}" preserveAspectRatio="xMidYMid slice" focusable="false">${art.svg}</svg></span>`
+      + `<span class="pk-pack-brand"><img class="pk-pack-logo" src="${logoOf(lg)}" alt="" decoding="async" draggable="false" onerror="this.remove()"><small>TRADING CARD GAME</small></span>`
+      + `<span class="pk-pack-plate"><b>${name}</b></span><span class="pk-pack-foil"></span>`
+      + (sp.length ? `<span class="pk-pack-spark">${sp.map(([x, y, s, dl]) => `<i style="--x:${x}%;--y:${y}%;--s:${s}cqw;--d:${dl}s"></i>`).join('')}</span>` : '')
+      + tail;
+  }
+  return head
     + `<span class="pk-pack-art"><svg viewBox="0 0 100 160" preserveAspectRatio="xMidYMid slice" focusable="false">${art.svg}</svg></span>`
     + (t >= 2 ? '<span class="pk-pack-emboss"></span>' : '') + (t >= 3 ? '<span class="pk-pack-holo"></span>' : '')
-    + `<span class="pk-pack-top"><i class="pk-pack-ball"></i><b>GRIDIRON<small>DYNASTY</small></b><em>GD1</em></span>`
+    + `<span class="pk-pack-top"><i class="pk-pack-ball"></i><b>GRIDIRON<small>RIVALS</small></b><em>GR1</em></span>`
     + `<span class="pk-pack-name"><small>${kind === 'leg' ? 'DELUXE PACK' : 'BOOSTER PACK'}</small><b><span>${name}</span></b></span>`
     + `<span class="pk-pack-foil"></span>`
     + (t >= 4 ? `<span class="pk-pack-sweep"></span><span class="pk-pack-spark">${SPARKS.slice(0, t >= 5 ? 7 : 4).map(([x, y, s, dl]) => `<i style="--x:${x}%;--y:${y}%;--s:${s}cqw;--d:${dl}s"></i>`).join('')}</span>` : '')
     + (t >= 5 ? `<svg class="pk-pack-frame" viewBox="0 0 100 160" preserveAspectRatio="none" focusable="false">${filigree(u)}</svg>` : '')
-    + `<span class="pk-pack-crimp"></span>${count > 1 ? `<span class="pk-pack-n">×${count}</span>` : ''}</span>`;
+    + tail;
 }

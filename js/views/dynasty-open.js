@@ -90,7 +90,7 @@ const BACK = `<div class="dy-back-in">${SWIRL}<span class="dy-back-brand">${BACK
   + `<span class="dy-back-ball">${BALL}</span><span class="dy-back-brand is-flip">${BACK_WORD}<span class="dy-back-tag">TRADING CARD GAME</span></span></div>`;
 const END_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5v13l9.5-6.5zM18.5 5.5v13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 // a pack's back, in its colour: the seam down the middle, the crimps, the brand (the carousel's spin shows it)
-const PACK_BACK = '<span class="dy-pack-back" aria-hidden="true"><i class="dy-pb-seam"></i><b>GRIDIRON<small>DYNASTY</small></b><em>GD1</em></span>';
+const PACK_BACK = '<span class="dy-pack-back" aria-hidden="true"><i class="dy-pb-seam"></i><b>GRIDIRON<small>RIVALS</small></b><em>GR1</em></span>';
 // (the carousel: the ring in front, the far ring on the horizon)
 const RING = 10, FAR = 18;
 const FF_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.2v11.6L11.6 12zM12.4 6.2v11.6L20.5 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';

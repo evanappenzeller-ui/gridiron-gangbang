@@ -187,3 +187,56 @@
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack *, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack *::before, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack *::after { animation: none !important; }
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-sweep { opacity: 0; }
 }
+
+/* ---------------------------------------------------------------- the foil packs (js/views/dynasty-packs.js FOIL: the
+   Standard, Team and Premium Packs; the owner, Oct 31 2026: "Make 3 standard packs, the ones that cost more will have a
+   brighter, more detailed design"): a crinkled holographic wrapper (img/rivals/packs/foil-v1.webp, tools/dynasty/
+   pack_art.py) round a framed card window (the design, js/views/dynasty-art-foil.js), the case's logo at the window's
+   head, BOOSTER PACK on the top band (where it tears) and the name on the foot's. Standard: a calm, silvery foil and a
+   dark frame; Team: a brighter foil and a gold frame; Premium: the full rainbow foil, shifting on a big pack, a neon
+   frame with a glow, sparkles on the wrapper. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil { background: linear-gradient(135deg, #C9D6E8, #F2E6F8 30%, #D2F0EC 55%, #F6EBD2 80%, #CFD8F0); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-wrap { position: absolute; inset: 0; z-index: 0; background: url(../../img/rivals/packs/foil-v1.webp) center / cover no-repeat;
+  filter: saturate(.5) brightness(1.08) contrast(.92); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil .pk-pack-art { inset: 11.5% 7% 15.5%; z-index: 1; overflow: hidden; border-radius: 3.2cqw;
+  border: 1cqw solid #0B1630; background: #0B1630; box-shadow: 0 0 0 .5cqw rgba(255,255,255,.6), 0 1.2cqw 3cqw rgba(10,20,50,.35); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-band { position: absolute; z-index: 2; left: 0; right: 0; top: 5.4%; text-align: center; font: 800 3.4cqw/1 var(--font-text); letter-spacing: .3em;
+  color: rgba(16,22,48,.62); text-shadow: 0 .3cqw 0 rgba(255,255,255,.6); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-brand { position: absolute; z-index: 2; left: 7%; right: 7%; top: 12.6%; display: flex; flex-direction: column; align-items: center; gap: .6cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-logo { display: block; width: 86%; height: auto; aspect-ratio: 440 / 222; -webkit-user-drag: none; user-select: none;
+  filter: drop-shadow(0 .8cqw 1cqw rgba(0,0,0,.45)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-brand small { font: 800 3cqw/1 var(--font-text); letter-spacing: .26em; color: #fff; text-shadow: 0 .3cqw .8cqw rgba(0,0,0,.8); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-plate { position: absolute; z-index: 2; left: 0; right: 0; top: 86.4%; display: flex; justify-content: center; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-plate b { font: 900 italic 7.6cqw/1 var(--font-text); letter-spacing: .04em; padding: 1.4cqw 6cqw 1.6cqw; border-radius: 99px; color: #fff;
+  background: #0B1630; box-shadow: 0 0 0 .5cqw rgba(255,255,255,.75), 0 1cqw 2cqw rgba(10,20,50,.35); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil .pk-pack-foil { opacity: .7; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil .pk-pack-crimp {
+  background: linear-gradient(180deg, rgba(255,255,255,.5), transparent 1.2%) top / 100% 4% no-repeat,
+    repeating-linear-gradient(90deg, rgba(255,255,255,.55) 0 1.4cqw, rgba(0,0,0,.18) 1.4cqw 2.2cqw, transparent 2.2cqw 3.4cqw) top / 100% 4% no-repeat,
+    repeating-linear-gradient(90deg, rgba(0,0,0,.26) 0 1.4cqw, rgba(255,255,255,.3) 1.4cqw 2.2cqw, transparent 2.2cqw 3.4cqw) bottom / 100% 4.4% no-repeat,
+    linear-gradient(90deg, rgba(255,255,255,.35), rgba(255,255,255,0) 2.6%, transparent 97.4%, rgba(0,0,0,.2)); }
+/* Team: a brighter foil, a gold frame and plate */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil.tier-2 .pk-pack-wrap { filter: saturate(.95) brightness(1.06); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil.tier-2 .pk-pack-art { border: 1.2cqw solid transparent;
+  background: linear-gradient(160deg, #FFF4C2, #E9BD48 28%, #9A6A10 52%, #F6D978 76%, #B88412) border-box;
+  box-shadow: 0 0 0 .4cqw rgba(70,40,0,.55), 0 0 0 1cqw rgba(255,255,255,.35), 0 1.4cqw 3.4cqw rgba(10,20,50,.4); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil.tier-2 .pk-pack-plate b { color: #FFE9A0; background: linear-gradient(180deg, #1A2A6A, #0B1440);
+  box-shadow: 0 0 0 .6cqw #E9BD48, 0 0 0 1cqw rgba(70,40,0,.55), 0 1cqw 2cqw rgba(10,20,50,.4); text-shadow: 0 .4cqw 0 rgba(0,0,0,.5); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil.tier-2 .pk-pack-logo { filter: drop-shadow(0 .8cqw 1cqw rgba(0,0,0,.45)) drop-shadow(0 0 2cqw rgba(255,226,120,.35)); }
+/* Premium: the full rainbow foil (its colours drifting on a big pack), a neon frame and plate, glowing */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil.tier-3 { box-shadow: 0 6px 18px rgba(120,40,200,.4), 0 0 14px rgba(255,90,220,.35), inset 0 0 0 1px rgba(255,255,255,.6); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil.tier-3 .pk-pack-wrap { filter: saturate(1.4) brightness(1.1) contrast(1.05); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil.tier-3.is-big .pk-pack-wrap { animation: pa-foil-shift 7s ease-in-out infinite alternate; }
+@keyframes pa-foil-shift { from { filter: saturate(1.4) brightness(1.1) contrast(1.05) hue-rotate(0deg); } to { filter: saturate(1.4) brightness(1.1) contrast(1.05) hue-rotate(70deg); } }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil.tier-3 .pk-pack-art { border: 1.3cqw solid transparent;
+  background: linear-gradient(135deg, #FF4FD8, #FFD84F 22%, #4FFFC8 44%, #4FB8FF 66%, #C04FFF 88%, #FF4FD8) border-box;
+  box-shadow: 0 0 0 .5cqw rgba(255,255,255,.85), 0 0 3cqw 1cqw rgba(255,80,220,.7), 0 0 7cqw 2cqw rgba(120,80,255,.45); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil.tier-3 .pk-pack-plate b { background: linear-gradient(90deg, #FF3FC0, #8A4CFF 50%, #3FC8FF);
+  box-shadow: 0 0 0 .5cqw #fff, 0 0 3cqw rgba(255,80,220,.8), 0 1cqw 2cqw rgba(40,10,80,.4); text-shadow: 0 .4cqw 0 rgba(40,0,60,.55); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil.tier-3 .pk-pack-logo { filter: drop-shadow(0 .8cqw 1cqw rgba(0,0,0,.45)) drop-shadow(0 0 2.4cqw rgba(255,120,230,.55)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil.tier-3 .pk-pack-band { color: rgba(40,10,70,.7); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-foil .pk-pack-spark i { opacity: .95; }
+@container pk-pack (max-width: 120px) {
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-band, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-brand small { display: none; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-plate b { font-size: 10cqw; padding: 1.6cqw 5cqw; }
+}

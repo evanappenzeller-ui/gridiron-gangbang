@@ -172,6 +172,13 @@ The case's booklet matches the pastel start screen, floating cards and yellow/bl
 the disc matches the cover (Oct 31 2026, Evan: "Change the disc to match the design of the front"): the cover's
 holographic foil rim and gold bevel, its royal-blue rayed face, its gold logo and glowing football, Trading Card Game
 round the foot, the clear hole unchanged (`dynasty-disc-v4`, built from the cover by `tools/dynasty/disc_v4.py`).
+Foil packs (Oct 31 2026, Evan, with mock-ups of the case's cover as foil packs: "Make 3 standard packs, the ones that cost
+more will have a brighter, more detailed design"): the Standard, Team and Premium Packs (`views/dynasty-packs.js` FOIL) wear a
+crinkled holographic wrapper round a framed card window, the cover's logo at its head, a swirl of light round the cover's
+football (`views/dynasty-art-foil.js` helpers; designs in `dynasty-art-std/team/prem.js`, viewBox 0 0 86 114). Brighter and
+richer by price: Standard calm silver foil and a dark frame; Team brighter foil, gold frame, rings and rays; Premium rainbow
+foil that shifts, neon frame and glow, stacked cards, sparkles. `tools/dynasty/pack_art.py` builds `img/rivals/packs/`
+(foil, ball, logo-<kind>) from the cover. Gameday, Legends and the Starter Pack keep their designs. Prices and odds unchanged.
 Card details retain standard 63:88 proportions; printed attacks and stats use compact spacing and smaller damage
 numbers while keeping rarity frames, team scenery, portrait credits and small-card behavior intact.
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`
