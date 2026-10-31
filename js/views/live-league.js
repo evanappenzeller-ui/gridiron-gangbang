@@ -5,7 +5,9 @@
 // opens the game's sheet: the live score and both lineups slot by slot. A game already in the league file shows
 // Yahoo's final and opens the matchup sheet (views/matchup.js). Each side's projected total sits under its score (Oct 30
 // 2026, the owner: "Add total point projections"): Yahoo's projection before kickoff, then moved by the scores
-// (core/fantasy-live.js). The week's Matchup of the Week (Oct 31 2026, the owner: "Be sure to highlight the matchup
+// (core/fantasy-live.js). Each side's chance to win sits beside its score, green for the favourite and red for the other
+// (Oct 31 2026, the owner: "Add a percentage to the win probability for each matchup. Use green and red";
+// fantasy-live.js winChance). The week's Matchup of the Week (Oct 31 2026, the owner: "Be sure to highlight the matchup
 // of the week") leads the list as its own card: the league's vote (core/week.js, the same tally and tie-break as the
 // Matchup tab), "Leading the vote" until kickoff locks it. Styles: css/views/live.css (.ll-, .sh-ll). Owner: LIVE.
 //
@@ -66,24 +68,36 @@ const say = n => `${n} player${n === 1 ? '' : 's'} left`;
 // "Proj 126.77" under a score: green while it's ahead of the other side's, red while behind.
 const projLine = (p, o) => p == null ? ''
   : `<span class="ll-proj${o == null || p === o ? '' : p > o ? ' is-up' : ' is-down'}"><i>Proj</i> ${esc(total(p))}</span>`;
+// Each side's chance to win in whole percents adding to 100 ({a, b}; never 0 or 100 while it can still turn), or null.
+function winOf(m) {
+  const c = fl.winChance(m);
+  if (c == null) return null;
+  const a = c > 0 && c < 1 ? Math.max(1, Math.min(99, Math.round(c * 100))) : Math.round(c * 100);
+  return {a, b: 100 - a};
+}
+const winLine = (p, o) => p == null ? ''
+  : `<span class="ll-wp${p === o ? '' : p > o ? ' is-up' : ' is-down'}">${p}%<span class="sr-only"> chance to win</span></span>`;
+const winSay = (a, b, w) => w ? `, chance to win ${nm(a)} ${w.a}%, ${nm(b)} ${w.b}%` : '';
 const projSay = (a, b, pa, pb) => pa == null || pb == null ? '' : `, projected ${nm(a)} ${total(pa)}, ${nm(b)} ${total(pb)}`;
 function liveItem(cur, s, x, lv) {
+  const w = lv.over ? null : winOf(lv), k = id => id === x.a ? 'a' : 'b';
   const side = (id, t, o) => `<span class="bug-side ${t.pts >= o.pts ? 'is-fav' : 'is-dog'}">${ui.avatar(id, {size: 24, you: id === data.me()})}`
     + `<span class="bug-name"><b>${esc(nm(id))}</b><span class="bug-team">${esc(recOf(s, id))}</span></span>`
-    + (t.left ? `<span class="ll-left">${t.left} left</span>` : '')
+    + (t.left ? `<span class="ll-left">${t.left} left</span>` : '') + (w ? winLine(w[k(id)], w[k(id) === 'a' ? 'b' : 'a']) : '')
     + `<span class="ll-sc"><span class="bug-score n4 ll-pts">${ui.score(t.pts)}</span>${lv.over ? '' : projLine(t.proj, o.proj)}</span></span>`;
-  const pj = lv.over ? '' : projSay(x.a, x.b, lv.a.proj, lv.b.proj);
+  const pj = lv.over ? '' : projSay(x.a, x.b, lv.a.proj, lv.b.proj) + winSay(x.a, x.b, w);
   const label = `${nm(x.a)} ${total(lv.a.pts)}, ${nm(x.b)} ${total(lv.b.pts)}, ${lv.over ? 'final, unofficial' : 'live'}${pj}. Show the lineups`;
   return `<button type="button" class="bug bug-row ll-gm is-live" data-ll-g="${esc(x.key)}" data-press="row" aria-haspopup="dialog" aria-label="${esc(label)}">`
     + side(x.a, lv.a, lv.b) + side(x.b, lv.b, lv.a) + `</button>`;
 }
 // Before kickoff: both managers' records where the scores will be.
 function preItem(cur, s, x) {
-  const yp = ypOf(cur, x);
+  const yp = ypOf(cur, x), w = yp && winOf({a: {pts: 0, proj: yp.a}, b: {pts: 0, proj: yp.b}});
   const side = (id, p, o) => { const t = s ? data.teamIn(s, id) : data.team(id); return `<span class="bug-side">${ui.avatar(id, {size: 24, you: id === data.me()})}`
     + `<span class="bug-name"><b>${esc(nm(id))}</b>${t ? `<span class="bug-team">${esc(t)}</span>` : ''}</span>`
+    + (w ? winLine(w[id === x.a ? 'a' : 'b'], w[id === x.a ? 'b' : 'a']) : '')
     + `<span class="ll-sc"><span class="bug-score ll-rec">${esc(recOf(s, id))}</span>${projLine(p, o)}</span></span>`; };
-  const pj = yp ? projSay(x.a, x.b, yp.a, yp.b) : '';
+  const pj = yp ? projSay(x.a, x.b, yp.a, yp.b) + winSay(x.a, x.b, w) : '';
   return `<button type="button" class="bug bug-row ll-gm is-pre" data-ll-g="${esc(x.key)}" data-press="row" aria-haspopup="dialog"`
     + ` aria-label="${esc(`${nm(x.a)}, ${recOf(s, x.a)}, versus ${nm(x.b)}, ${recOf(s, x.b)}. Not under way yet${pj}. Show the lineups`)}">`
     + side(x.a, yp && yp.a, yp && yp.b) + side(x.b, yp && yp.b, yp && yp.a) + `</button>`;
@@ -193,12 +207,14 @@ function lineupsBlock(L, cur, x) {
 function heroHTML(L, cur, x) {
   const s = data.seasonByYear(cur.year);
   const lv = liveOf(L, cur, x), on = !!(lv && lv.started), yp = ypOf(cur, x);
+  const w = on ? (lv.over ? null : winOf(lv)) : yp && winOf({a: {pts: 0, proj: yp.a}, b: {pts: 0, proj: yp.b}});
   const side = (id, k) => {
     const t = s ? data.teamIn(s, id) : data.team(id), ko = k === 'a' ? 'b' : 'a';
     const me = on && lv[k], o = on && lv[ko];
     const pj = on ? (lv.over ? '' : projLine(me.proj, o.proj)) : yp ? projLine(yp[k], yp[ko]) : '';
     return `<span class="bug-side ${on ? (me.pts > o.pts ? 'is-win' : me.pts < o.pts ? 'is-lose' : 'is-tie') : 'is-tie'}">${ui.avatar(id, {size: 40, you: id === data.me()})}`
       + `<span class="bug-name"><b>${esc(nm(id))}</b>${t ? `<span class="bug-team">${esc(t)}</span>` : ''}</span>`
+      + (w ? winLine(w[k], w[ko]) : '')
       + `<span class="ll-sc">${on ? `<span class="bug-score n3 ll-live">${ui.score(me.pts)}</span>` : `<span class="bug-score n4 ll-place">${esc(recOf(s, id))}</span>`}${pj}</span></span>`;
   };
   const left = on ? lv.a.left + lv.b.left : 0;

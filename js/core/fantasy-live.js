@@ -19,6 +19,8 @@
 //                                 (feed: gameday.watch's update for the week: {games, boxes})
 //   matchup(feed, ups, a, b, yp) -> {a, b (teamScores), started, over, on} or null (no lineup for a side);
 //                                 yp: Yahoo's projections {a, b} or null
+//   winChance(m)                -> side a's chance of winning, 0 to 1, from {a, b: {pts, proj}} (a matchup's sides, or
+//                                 Yahoo's projections with no points yet); null without both projections
 //   gameLeft(game)              -> how much of a game is still to play, 1 before kickoff to 0 once it's over
 //   watch(year, week, fn)       -> stop; gameday.watch for that week (and again once the player list's ranks load)
 import * as gd from './gameday.js';
@@ -128,6 +130,24 @@ export function matchup(feed, ups, a, b, yp = null) {
   if (!feed || !ups || !ups.get(a) || !ups.get(b)) return null;
   const A = teamScore(feed, ups.get(a), yp && yp.a), B = teamScore(feed, ups.get(b), yp && yp.b);
   return {a: A, b: B, started: A.started || B.started, over: A.done && B.done, on: A.on + B.on};
+}
+
+// Win probability (Oct 31 2026, the owner: "Add a percentage to the win probability for each matchup"): the projected
+// margin against how much is still to play. What a side has left to score (its projection less its points) swings
+// about as a team's week does: a variance of WIN_VAR a projected point, so ~25 points either way on a 120-point week,
+// which reads Yahoo's own 49%/51% for 42.20 (127.52 projected) against 0 (128.85). Nothing left: the leader's.
+const WIN_VAR = 5.2;
+function phi(z) { // the standard normal's distribution (Abramowitz and Stegun 7.1.26)
+  const t = 1 / (1 + .3275911 * Math.abs(z) / Math.SQRT2);
+  const e = 1 - t * (.254829592 + t * (-.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429)))) * Math.exp(-z * z / 2);
+  return z < 0 ? (1 - e) / 2 : (1 + e) / 2;
+}
+export function winChance(m) {
+  const a = m && m.a, b = m && m.b;
+  if (!a || !b || a.proj == null || b.proj == null || !isFinite(a.proj) || !isFinite(b.proj)) return null;
+  const left = Math.max(0, a.proj - (a.pts || 0)) + Math.max(0, b.proj - (b.pts || 0)), d = a.proj - b.proj;
+  if (!(left > .005)) return d > .005 ? 1 : d < -.005 ? 0 : .5;
+  return phi(d / Math.sqrt(WIN_VAR * left));
 }
 
 export function watch(year, week, fn) {

@@ -3,8 +3,8 @@
 // Local only: the app is served from this folder with Firebase disabled, and ESPN's scoreboard and box scores are
 // stand-ins built from the league file's own lineups (every starter gets a line), so nothing reaches the network.
 // For Evan, another member and a visitor: Scores opens on NFL with the NFL · League switch; League shows this week's
-// games with each side's live score, projected total (Yahoo's, moved by the scores: never under the score) and players
-// left, the Matchup of the Week (once voted) first in its own card; Evan's game opens the sheet with the live score and projections, both lineups
+// games with each side's live score, projected total (Yahoo's, moved by the scores: never under the score), chance to win (green
+// and red, adding to 100) and players left, the Matchup of the Week (once voted) first in its own card; Evan's game opens the sheet with the live score and projections, both lineups
 // (nine slots, under each side's name, which sticks) whose points add up to the score, and the next feed update moves it; League is remembered after a
 // reload, NFL comes back with the octobox; Matchup's "Live scores" opens League; then the kit checks "Live league
 // scores" and "Live Games".
@@ -156,11 +156,18 @@ async function run(url) {
       assert.ok(items >= 4, p.tag + ': the week\u2019s games');
       assert.match(await page.locator('.v-live .ll-games .lg-at').textContent(), /Updated/, p.tag + ': the week reads live');
       const label = await page.locator('.v-live .ll-gm.is-live').first().getAttribute('aria-label');
-      assert.match(label, /\d+\.\d\d, .+ \d+\.\d\d, live, projected .+ \d+\.\d\d, .+ \d+\.\d\d\. Show the lineups/, p.tag + ': a live game reads its score and projections');
+      assert.match(label, /\d+\.\d\d, .+ \d+\.\d\d, live, projected .+ \d+\.\d\d, .+ \d+\.\d\d, chance to win .+ \d+%, .+ \d+%\. Show the lineups/, p.tag + ': a live game reads its score, projections and chances');
       const pj = await page.evaluate(() => [...document.querySelectorAll('.v-live .ll-gm.is-live .bug-side')].map(sd => ({
         pts: parseFloat(sd.querySelector('.ll-pts').textContent.replace(/[^\d.]/g, '')), proj: sd.querySelector('.ll-proj') && parseFloat(sd.querySelector('.ll-proj').textContent.replace(/[^\d.]/g, ''))})));
       assert.equal(pj.length, items * 2, p.tag + ': both sides of every game');
       assert.ok(pj.every(x => x.proj != null && x.proj >= x.pts - .005), p.tag + ': every side has a projection, never under its score ' + JSON.stringify(pj));
+      // Each side's chance to win (Oct 31 2026): the two add to 100, the favourite (the higher projection) green, the other red.
+      const wp = await page.evaluate(() => [...document.querySelectorAll('.v-live .ll-gm.is-live')].map(g => [...g.querySelectorAll('.bug-side')].map(sd => {
+        const w = sd.querySelector('.ll-wp'), c = w && getComputedStyle(w).color.match(/\d+/g).map(Number);
+        return w && {pct: parseInt(w.textContent, 10), proj: parseFloat(sd.querySelector('.ll-proj').textContent.replace(/[^\d.]/g, '')), up: w.classList.contains('is-up'), down: w.classList.contains('is-down'), green: c[1] > c[0], red: c[0] > c[1]};
+      })));
+      assert.ok(wp.every(([a, b]) => a && b && a.pct + b.pct === 100 && a.pct > 0 && b.pct > 0), p.tag + ': both chances, adding to 100 ' + JSON.stringify(wp));
+      assert.ok(wp.every(g => g.every((x, i) => { const o = g[1 - i]; return x.pct === o.pct || (x.pct > o.pct ? x.up && x.green && x.proj > o.proj : x.down && x.red && x.proj < o.proj); })), p.tag + ': the favourite green, the other red ' + JSON.stringify(wp));
       await page.waitForTimeout(400);
       await snap(page, p.tag + '-games');
       // Evan's game (Jayton's for the visitor too): the sheet.
@@ -181,6 +188,7 @@ async function run(url) {
       assert.deepEqual(sheet.slots.slice(0, 1).concat(sheet.slots.slice(-2)), ['QB', 'K', 'DEF'], p.tag + ': Yahoo\u2019s slot order');
       assert.equal(sheet.hero.length, 2, p.tag + ': the live score in the hero');
       assert.equal(await page.locator('.sh-ll .ll-bug .ll-proj').count(), 2, p.tag + ': the projections in the hero');
+      assert.equal(await page.evaluate(() => [...document.querySelectorAll('.sh-ll .ll-bug .ll-wp')].reduce((a, w) => a + parseInt(w.textContent, 10), 0)), 100, p.tag + ': the chances in the hero');
       assert.ok(Math.abs(sheet.hero[0] - sheet.sumA) < .011 && Math.abs(sheet.hero[1] - sheet.sumB) < .011, `${p.tag}: the lineups add up to the score (${sheet.hero} vs ${sheet.sumA}, ${sheet.sumB})`);
       assert.match(sheet.foot, /LIVE · \d+ PLAYERS? LEFT/, p.tag + ': the foot says live');
       assert.equal(sheet.head, 'Lineups · live');
