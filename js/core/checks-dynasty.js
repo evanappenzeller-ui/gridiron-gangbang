@@ -284,7 +284,7 @@ export async function dynastyChecks(check) {
         && V.realHTML(c).includes(R.realUrl(c.p, c.real));
     });
     const commons = D.CARDS.filter(c => c.r === 'common'), framed = commons.length > 0 && commons.every(c => !c.real && !D.markOf(c).full && D.markOf(c).mark === '◆')
-      && commons.filter(c => c.head).slice(0, 50).every(c => { const h = V.cardHTML(c); return !/is-real|is-full/.test(h) && h.includes('class="pk-c-ph" src='); });
+      && commons.filter(c => c.head).slice(0, 50).every(c => { const h = V.cardHTML(c); return !/is-real|is-full/.test(h) && h.includes(V.isPhoto(c.head) ? 'class="pk-c-ph is-photo" src=' : 'class="pk-c-ph" src='); });
     // (the foil: the rarity's class on the card, which css/views/dynasty.css animates from Epic up)
     const foil = ['common', 'rare', 'epic', 'legendary', 'mythic'].every(r => { const c = D.CARDS.find(x => x.r === r); return c && V.cardHTML(c).includes(` r-${r} `); });
     const allen = D.CARDS.filter(c => c.p === '0034857').map(c => c.real), apart = allen.length >= 3 && new Set(allen).size === allen.length;
@@ -294,5 +294,24 @@ export async function dynastyChecks(check) {
     const got = await Promise.all(urls.map(u => fetch(u, {method: 'HEAD', cache: 'no-store'}).then(r => r.ok).catch(() => false)));
     return {pass: known && shows && framed && foil && apart && close && namesake && got.every(Boolean),
       detail: `${urls.length} pictures for ${keys.length} players on ${cards.length} cards, ${commons.length} Common; Josh Allen’s ${allen.map(R.realName).join(', ')}; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
+  });
+  check('Gridiron Rivals: the Legends’ photos (the owner, Oct 31 2026: "Import into game for me to see"): a Legend with a freely licensed Wikimedia photo shows it as his card’s portrait, filling the window; his card up close credits its author, licence and Commons page; a Legend without one keeps his number; every photo loads', async () => {
+    const [V, L, data] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-legends.js'), import('./data.js')]);
+    const keys = Object.keys(L.PHOTO), legends = D.CARDS.filter(c => c.s === 'X');
+    const known = keys.length >= 100 && keys.every(p => D.DATA.players[p] && p.startsWith('x') && L.PHOTO[p].length === 5 && L.PHOTO[p][1] && L.PHOTO[p][2] && L.PHOTO[p][3]);
+    const shows = legends.every(c => {
+      const el = document.createElement('div'); el.innerHTML = V.cardHTML(c);
+      const img = el.querySelector('.pk-c-ph');
+      if (!L.PHOTO[c.p]) return !img && !!el.querySelector('.pk-c-num') && !V.creditHTML(c);
+      const cr = V.creditHTML(c), r = L.legendCredit(c.p);
+      return c.head === 'w:' + c.p && img?.classList.contains('is-photo') && img.getAttribute('src') === L.legendUrl(c.p)
+        && cr.includes(r.page) && cr.includes(data.esc(r.author)) && cr.includes(data.esc(r.licence));
+    });
+    // (a cut-out headshot stays one: a Live card's portrait isn't a photo)
+    const live = D.CARDS.find(c => c.s === 'L' && c.head), cut = !!live && !V.isPhoto(live.head) && !V.cardHTML(live).includes('is-photo');
+    const urls = keys.map(L.legendUrl);
+    const got = await Promise.all(urls.map(u => fetch(u, {method: 'HEAD', cache: 'no-store'}).then(r => r.ok).catch(() => false)));
+    return {pass: known && shows && cut && got.every(Boolean),
+      detail: `${keys.length} of ${legends.length} Legends with a photo; without: ${legends.filter(c => !L.PHOTO[c.p]).map(c => c.name).join(', ') || 'none'}; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
   });
 }

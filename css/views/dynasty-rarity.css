@@ -55,6 +55,10 @@
   position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: contain;
   object-position: center bottom; transform: none; filter: drop-shadow(0 .8cqw 1.2cqw #07172680); user-select: none;
 }
+/* (a Legend's photo is a rectangle, not a cut-out: it fills the window, his face in the upper part) */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-ph.is-photo {
+  object-fit: cover; object-position: center 35%; filter: none;
+}
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-num {
   position: absolute; z-index: 1; top: 51%; left: 0; right: 0; transform: translateY(-50%);
   color: #f3fff3cc; font: 800 36cqw/1 var(--font-text); text-shadow: 0 1cqw 2cqw #071726a0; letter-spacing: -.06em;

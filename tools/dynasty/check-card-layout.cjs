@@ -31,7 +31,7 @@ async function geometry(page, selector) {
     const face = q('.pk-c-face');
     return {name: card.getAttribute('aria-label'), card: rect(card), header: rect(q('.pk-c-head')), art: rect(art), nameBox: rect(name), hpBox: rect(q('.pk-c-hp')), footer: rect(q('.pk-c-meta')),
       nameVisible: !!name && name.offsetHeight > 0, nameClipped: name.scrollHeight > name.clientHeight + 1, faceOpacity: getComputedStyle(face).opacity,
-      faceClipped: face.scrollHeight > face.clientHeight + 1, imageFit: image && getComputedStyle(image).objectFit,
+      faceClipped: face.scrollHeight > face.clientHeight + 1, imageFit: image && getComputedStyle(image).objectFit, isPhoto: !!image && image.classList.contains('is-photo'),
       artFallback: !!q('.pk-c-num'), bodyVisible: getComputedStyle(body).display !== 'none', small: card.classList.contains('sz-s'),
       rarity: q('.pk-c-rar').textContent, hasPrintedScan: !!q('.is-real'),
       vitals: rect(q('.pk-c-hp')), attacks: [...card.querySelectorAll('.pk-c-atk')].map(rect)};
@@ -52,7 +52,8 @@ function checkGeometry(rows) {
     assert.ok(r.rarity.length > 2, r.name + ': rarity is labelled in words');
     assert.equal(r.bodyVisible, !r.small, r.name + ': small cards omit unreadable attack text');
     assert.ok(r.vitals.bottom <= r.card.bottom + 1, r.name + ': health and type remain inside the card');
-    if (r.imageFit) assert.equal(r.imageFit, 'contain', r.name + ': portrait is not cropped');
+    // (a cut-out headshot is never cropped; a Legend's photo is a rectangle that fills the window)
+    if (r.imageFit) assert.equal(r.imageFit, r.isPhoto ? 'cover' : 'contain', r.name + (r.isPhoto ? ': a Legend photo fills the window' : ': portrait is not cropped'));
     if (!r.small) for (const a of r.attacks) assert.ok(a.bottom <= r.card.bottom + 1, r.name + ': attacks remain inside the card');
   }
 }
