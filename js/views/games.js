@@ -521,7 +521,9 @@ export function mountList(el, ctx, opts = {}) {
     let best = 0, bd = Infinity;
     // (every case measured first, then every change written, and only what changed: a measure after a write has the
     // phone work out the whole shelf's styles again, once a case, every frame of a swipe)
-    const all = slots(), ds = all.map(sl => { const r = sl.getBoundingClientRect(); return (r.left + r.width / 2 - mid) / (r.width || 1); });
+    // (a case within a pixel or so of the middle counts as dead centre: its tilt moves its snap box, so a hair's tilt
+    // had the shelf snap a pixel, tilt back, snap back, every frame, forever, on a 390px-wide phone)
+    const all = slots(), ds = all.map(sl => { const r = sl.getBoundingClientRect(), d = (r.left + r.width / 2 - mid) / (r.width || 1); return Math.abs(d) < .02 ? 0 : d; });
     all.forEach((sl, i) => {
       const d = ds[i], a = Math.min(1, Math.abs(d)), k = a.toFixed(3), dd = Math.max(-1.5, Math.min(1.5, d)).toFixed(3);
       if (sl._gmK !== k) { sl._gmK = k; sl.style.setProperty('--k', k); }
@@ -623,15 +625,20 @@ export function mountList(el, ctx, opts = {}) {
   // The screen doesn't scroll (the owner's ask, Oct 27 2026), so the case leaves room for the tallest of what goes under
   // the shelf, whichever game is in the middle: --gm-sel, which
   // the case's size and the room kept under it go by (css/views/puzzles.css). A change puts the case back in the middle.
-  function room() {
+  // (measured again only when what goes under the shelf, or the room it has, changed: a tab switch home stays cheap)
+  let roomKey = '';
+  function room(force = false) {
     if (st.dead || !shelf.clientWidth) return;
+    const htmls = list().map(g => selHTML(g, stateOf(g))), key = el.clientWidth + '|' + htmls.join('|');
+    if (!force && key === roomKey) return;
+    roomKey = key;
     const m = document.createElement('div');
     m.className = 'gm-sel';
     m.setAttribute('aria-hidden', 'true');
     m.style.cssText = 'position: absolute; left: 0; right: 0; top: 0; min-height: 0; visibility: hidden; pointer-events: none;';
     el.append(m);
     let h = 0;
-    for (const g of list()) { m.innerHTML = selHTML(g, stateOf(g)); h = Math.max(h, m.offsetHeight); }
+    for (const html of htmls) { m.innerHTML = html; h = Math.max(h, m.offsetHeight); }
     m.remove();
     const v = Math.ceil(h) + 'px'; // (just what's there: the case takes the rest, the owner's ask, Oct 31 2026)
     if (el.style.getPropertyValue('--gm-sel') === v) return;
@@ -922,7 +929,7 @@ export function mountList(el, ctx, opts = {}) {
   if ('onscrollend' in shelf) shelf.addEventListener('scrollend', onUp);
   shelf.addEventListener('keydown', onKey);
   el.addEventListener('click', onClick);
-  const onResize = () => { room(); center(st.cur, false); layout(); };
+  const onResize = () => { room(true); center(st.cur, false); layout(); };
   addEventListener('resize', onResize, {passive: true});
   // (a team sheet opened over the case pushes a history entry: its back comes down to where the case was opened, and
   // leaves the case up)
@@ -947,7 +954,7 @@ export function mountList(el, ctx, opts = {}) {
     // and still there once the page has settled (fonts, the covers, the panel under the shelf): back to the middle
     // row if anything moved it out to a copy
     [400, 1200].forEach(ms => setTimeout(settle, ms));
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setTimeout(() => { room(); settle(); }, 50), () => {});
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setTimeout(() => { room(true); settle(); }, 50), () => {});
   };
   requestAnimationFrame(start);
 
