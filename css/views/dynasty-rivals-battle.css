@@ -79,7 +79,7 @@ html.is-dynasty-battle { --col-w: 640px; }
   filter: drop-shadow(0 0 1cqw #ffffff80) drop-shadow(0 2cqw 2cqw #0009);
 }
 .v-dynasty-battle .db-face-art[data-team-scene] img {
-  z-index: 2; left: 50%; right: auto; width: auto; height: 97%; transform: translateX(-50%);
+  z-index: 2; left: 50%; right: auto; width: auto; height: 86%; transform: translateX(-50%);
 }
 .v-dynasty-battle .db-face-art[data-team-scene] .db-face-number {
   position: relative; z-index: 2; justify-self: start; margin-left: 5%;

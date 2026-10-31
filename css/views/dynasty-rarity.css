@@ -267,9 +267,10 @@ div.pk-open .pk-card.pk-rivals-card {
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-art:has([data-team-scene]) {
   background: var(--tp);
 }
-/* The player is the focal point (the owner, Oct 31 2026): a large centred headshot, the team mark a corner badge. */
+/* The player is the focal point (the owner, Oct 31 2026): a large centred headshot, the team mark a corner badge.
+   Headshots sit a little smaller (the owner, Oct 31 2026: "slightly smaller on the basic cards"); action photos keep 100%. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-art:has([data-team-scene]) .pk-c-ph {
-  inset: auto auto 0 50%; width: auto; height: 97%; transform: translateX(-50%); object-position: center bottom;
+  inset: auto auto 0 50%; width: auto; height: 86%; transform: translateX(-50%); object-position: center bottom;
   filter: drop-shadow(.35cqw 0 0 #ffffffb3) drop-shadow(-.35cqw 0 0 #ffffffb3) drop-shadow(0 1cqw 2cqw #02020de6);
 }
 /* A Rare or better card's action photo is cut out (its own headroom built in): he stands on the team's colours. */
