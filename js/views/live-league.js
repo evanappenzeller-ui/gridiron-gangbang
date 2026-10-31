@@ -5,7 +5,9 @@
 // opens the game's sheet: the live score and both lineups slot by slot. A game already in the league file shows
 // Yahoo's final and opens the matchup sheet (views/matchup.js). Each side's projected total sits under its score (Oct 30
 // 2026, the owner: "Add total point projections"): Yahoo's projection before kickoff, then moved by the scores
-// (core/fantasy-live.js). Styles: css/views/live.css (.ll-, .sh-ll). Owner: LIVE.
+// (core/fantasy-live.js). The week's Matchup of the Week (Oct 31 2026, the owner: "Be sure to highlight the matchup
+// of the week") leads the list as its own card: the league's vote (core/week.js, the same tally and tie-break as the
+// Matchup tab), "Leading the vote" until kickoff locks it. Styles: css/views/live.css (.ll-, .sh-ll). Owner: LIVE.
 //
 //   eyebrow()           -> the title's eyebrow for this screen
 //   html(shown)         -> the screen's markup (hidden unless shown)
@@ -105,14 +107,32 @@ function statusHTML(L, cur) {
   const k = closeText(cur);
   return k ? `Kickoff ${esc(k)}` : `Week ${esc(cur.week)}`;
 }
+// The week's Matchup of the Week: {x (the week's game), total (votes), open (voting still open)} or null (nobody voted,
+// or the votes can't be read). The most votes wins, a tie going to the higher hype (week.leader, as the Matchup tab).
+function motwOf(L, cur) {
+  const v = L.votes;
+  if (!v || v.key !== cur.key || !v.snap || !v.snap.total) return null;
+  let k = null;
+  try { k = week.leader(v.snap.tally, week.ranking(cur.year, cur.week)); } catch (e) { console.error(e); k = null; }
+  const x = k && cur.games.find(g => week.samePair(g.key, k));
+  return x ? {x, total: v.snap.total, open: !lockedNow(cur)} : null;
+}
+function motwHTML(L, cur, s, mo) {
+  const votes = `${mo.total} vote${mo.total === 1 ? '' : 's'}`;
+  return `<div class="ll-motw-w">` + ui.group(`<div class="ll-motw-hd"><span class="ll-motw-t" id="ll-mh">${ui.icon('versus', {size: 14})}<span>Matchup of the Week</span></span>`
+    + `<span class="ll-motw-v">${esc(mo.open ? `Leading the vote · ${votes}` : votes)}</span></div>` + itemHTML(L, cur, s, mo.x),
+  {cls: 'll-gms ll-motw', attrs: {role: 'group', 'aria-labelledby': 'll-mh'}}) + `</div>`;
+}
 function listHTML(L) {
   const cur = curWeek();
   if (!cur) return ui.empty({icon: 'calendar', title: 'No league games this week.', body: 'The league’s matchups show up here once the schedule is in.'});
   const s = data.seasonByYear(cur.year);
   const ups = upsOf(cur), played = cur.games.every(x => gameOf(cur, x));
   const wait = !ups && !played ? `<p class="lg-lead-in">Live scores start once Yahoo\u2019s Week ${esc(cur.week)} lineups sync.</p>` : '';
+  const mo = motwOf(L, cur), rest = mo ? cur.games.filter(x => x !== mo.x) : cur.games;
   return `<div class="sh lg-sh"><h2 id="ll-h">This week’s games</h2><span class="lg-at">${statusHTML(L, cur)}</span></div>` + wait
-    + ui.group(cur.games.map(x => itemHTML(L, cur, s, x)).join(''), {cls: 'll-gms', attrs: {'aria-labelledby': 'll-h'}});
+    + (mo ? motwHTML(L, cur, s, mo) : '')
+    + ui.group(rest.map(x => itemHTML(L, cur, s, x)).join(''), {cls: 'll-gms', attrs: {'aria-labelledby': 'll-h'}});
 }
 
 // ---------------------------------------------------------------------------------------------- The sheet
@@ -196,7 +216,7 @@ function openGame(L, key) {
   if (g) { openMatchup(g, L.ctx); return; }
   const {a, b} = x;
   const hero = heroHTML(L, cur, x), lu = lineupsBlock(L, cur, x);
-  const ovl = `Week ${cur.week} · ${cur.year}`;
+  const mo = motwOf(L, cur), ovl = `${mo && mo.x === x ? 'Matchup of the Week · ' : ''}Week ${cur.week} · ${cur.year}`;
   const lv = liveOf(L, cur, x);
   const body = `<div class="mu"><div class="mu-hero"><div class="ll-hero">${hero}</div></div><div class="ll-lu-w">${lu}</div>`
     + `<div class="mu-actions">${ui.button({label: 'Matchup preview', kind: 'secondary', icon: 'versus', attrs: {'data-ll-go': 'matchup'}})}`
@@ -243,7 +263,7 @@ export function html(shown) {
 }
 
 export function create(ctx, el) {
-  const L = {ctx, el, key: '', feed: null, stop: null, sheet: null, on: false, html: ''};
+  const L = {ctx, el, key: '', feed: null, stop: null, sheet: null, on: false, html: '', votes: null};
   const list = () => el.querySelector('[data-ll-list]');
   const draw = () => {
     const w = list();
@@ -272,16 +292,32 @@ export function create(ctx, el) {
       patchSheet(L);
     });
   };
+  // The week's Matchup of the Week votes, followed while this screen shows (they move until kickoff locks them).
+  const stopVotes = () => { if (L.votes && L.votes.un) { try { L.votes.un(); } catch (_) {} } L.votes = null; };
+  const startVotes = () => {
+    const cur = curWeek(), key = cur ? cur.key : '';
+    if (L.votes && L.votes.key === key) return;
+    stopVotes();
+    if (!key) return;
+    const v = L.votes = {key, snap: null, un: null};
+    try {
+      v.un = week.subscribeVotes(key, snap => {
+        if (L.votes !== v || !snap) return;
+        v.snap = snap.error && !snap.total ? null : snap;
+        draw();
+      });
+    } catch (e) { console.error(e); }
+  };
   const onClick = e => {
     const t = e.target.closest && e.target.closest('[data-ll-g]');
     if (t && L.on) openGame(L, t.dataset.llG);
   };
   el.addEventListener('click', onClick);
   return {
-    show() { L.on = true; draw(); startFeed(); },
-    hide() { L.on = false; stopFeed(); },
+    show() { L.on = true; draw(); startFeed(); startVotes(); },
+    hide() { L.on = false; stopFeed(); stopVotes(); },
     // A new league file or a new "me": the week, the lineups and the you-rings.
-    draw() { L.html = ''; draw(); if (L.on) startFeed(); },
-    stop() { L.on = false; stopFeed(); el.removeEventListener('click', onClick); if (L.sheet && L.sheet.sh.open) L.sheet.sh.close(); L.sheet = null; }
+    draw() { L.html = ''; draw(); if (L.on) { startFeed(); startVotes(); } },
+    stop() { L.on = false; stopFeed(); stopVotes(); el.removeEventListener('click', onClick); if (L.sheet && L.sheet.sh.open) L.sheet.sh.close(); L.sheet = null; }
   };
 }

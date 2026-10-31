@@ -189,6 +189,16 @@
    records where the scores will be. The sheet: the live score, then both lineups slot by slot. */
 .lg-body .ll-games > .lg-sh:first-child { margin-top: 8px; }
 .lg-body .ll-gms { --stack-ring: var(--surface-1); }
+/* The Matchup of the Week: its own card at the top, ringed in gold with a gold banner (over every skin's .group). */
+.lg-body .ll-motw-w { margin-bottom: 12px; }
+.v-live .lg-body .group.ll-motw {
+  background: linear-gradient(180deg, var(--gold-soft), transparent 72px), var(--surface-1);
+  box-shadow: var(--pixel-shadow), 0 0 28px -12px var(--gold), inset 0 0 0 2px var(--gold);
+}
+.lg-body .ll-motw-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px 2px; }
+.lg-body .ll-motw-t { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--gold); font: 400 10px/16px var(--font-pixel); text-transform: uppercase; white-space: nowrap; }
+.lg-body .ll-motw-t > svg { flex: none; }
+.lg-body .ll-motw-v { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); white-space: nowrap; }
 .lg-body .ll-gm { padding-top: 8px; padding-bottom: 8px; }
 .lg-body .ll-gm:focus-visible { outline-offset: -2px; border-radius: var(--r-group); }
 .lg-body .ll-gm.is-pre .bug-side { color: var(--ink); }
