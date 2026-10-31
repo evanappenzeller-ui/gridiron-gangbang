@@ -1,4 +1,4 @@
-// Team poster coverage and resilience. Local fixture only; remote portraits/logos are deliberately failed.
+// Team graphic coverage and resilience. Local fixture only; remote portraits are deliberately failed.
 // Usage: node tools/dynasty/check-team-scenes.cjs [--shots=<directory>]
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http');
 const crypto = require('node:crypto'), assert = require('node:assert/strict');
@@ -65,18 +65,34 @@ async function run(url) {
       const url = /url\(["']?([^"')]+)["']?\)/.exec(style.getPropertyValue('--team-scene'))?.[1];
       const image = new Image(); image.src = url || '';
       let decoded = false;
-      try { await image.decode(); decoded = image.naturalWidth >= 500 && image.naturalHeight >= 200; } catch (_) {}
-      return {team: scene.dataset.teamScene, url, decoded, background: getComputedStyle(scene).backgroundImage};
+      try { await image.decode(); decoded = image.naturalWidth === 500 && image.naturalHeight === 500; } catch (_) {}
+      // Graphic layers may be stacked on the scene or its decorative pseudo-elements.
+      const background = [getComputedStyle(scene), getComputedStyle(scene, '::before'), getComputedStyle(scene, '::after')]
+        .map(layer => layer.backgroundImage).join(' ');
+      const plasmaStyle = getComputedStyle(scene, '::before'), plasmaBackground = plasmaStyle.backgroundImage;
+      const plasmaUrl = /url\(["']?([^"')]+\/team-graphics-v2\/plasma\.webp)["']?\)/.exec(plasmaBackground)?.[1];
+      const plasma = new Image(); plasma.src = plasmaUrl || '';
+      let plasmaDecoded = false;
+      try { await plasma.decode(); plasmaDecoded = plasma.naturalWidth >= 500 && plasma.naturalHeight >= 200; } catch (_) {}
+      return {team: scene.dataset.teamScene, url, decoded, background, plasmaUrl, plasmaDecoded, plasmaBlend: plasmaStyle.backgroundBlendMode};
     })));
     assert.equal(new Set(assets.map(a => a.url)).size, 32, 'Each franchise has its own image URL, including shared cities');
     const hashes = assets.map(a => {
-      assert.equal(a.decoded, true, a.team + ': local photo decodes at useful resolution');
-      assert.ok(a.background.includes(a.url), a.team + ': the photo is applied to the visible scenery');
+      assert.equal(a.decoded, true, a.team + ': local 500px team graphic decodes');
+      assert.match(new URL(a.url).pathname, /\/img\/rivals\/team-graphics-v2\/[a-z]+\.png$/, a.team + ': uses the versioned graphic asset');
+      assert.ok(a.background.includes(a.url), a.team + ': the team graphic is applied to the visible scenery');
+      assert.equal(a.plasmaDecoded, true, a.team + ': visible plasma layer is backed by a decoded local texture');
+      assert.equal(a.plasmaBlend.split(',').at(-1).trim(), 'normal', a.team + ': the base plasma texture is not multiplied into its black backing');
       const file = path.resolve(root, '.' + new URL(a.url).pathname);
       assert.ok(file.startsWith(root + path.sep), a.team + ': asset is part of the deployed app');
       return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
     });
-    assert.equal(new Set(hashes).size, 32, 'All 32 photographs have distinct contents');
+    assert.equal(new Set(hashes).size, 32, 'All 32 team graphics have distinct contents');
+    assert.equal(new Set(assets.map(a => a.plasmaUrl)).size, 1, 'All teams reuse the same local plasma texture');
+    const labels = await page.locator('[data-team-scene]').evaluateAll(scenes => Object.fromEntries(scenes.map(scene =>
+      [scene.dataset.teamScene, scene.parentElement.querySelector('.pk-c-city')?.textContent])));
+    assert.equal(labels.BAL, 'RAVENS', 'Baltimore displays its franchise nickname');
+    assert.equal(labels.MIN, 'VIKINGS', 'Minnesota displays its franchise nickname');
     for (const [viewport, width] of [[1200, 280], [390, 160], [390, 92]]) {
       await page.setViewportSize({width: viewport, height: 900});
       await page.locator('figure').evaluateAll((figures, width) => figures.forEach(f => {
@@ -94,7 +110,7 @@ async function run(url) {
       for (const g of geometry) {
         assert.ok(g.scene.width > 20 && g.scene.height > 20, g.team + ': scene stays visible at ' + width + 'px');
         assert.ok(g.scene.left >= g.art.left - 1 && g.scene.right <= g.art.right + 1 && g.scene.top >= g.art.top - 1 && g.scene.bottom <= g.art.bottom + 1, g.team + ': background stays inside art');
-        assert.ok(g.city.left >= g.art.left - 1 && g.city.right <= g.art.right + 1, g.team + ': city label fits at ' + width + 'px');
+        assert.ok(g.city.left >= g.art.left - 1 && g.city.right <= g.art.right + 1, g.team + ': franchise label fits at ' + width + 'px');
         assert.equal(g.fallbackVisible, true, g.team + ': failed portrait leaves number and scenery visible');
         assert.equal(g.pointerEvents, 'none', g.team + ': scenery does not block card interaction');
         assert.equal(g.motion, false, g.team + ': collection scenery stays still');
@@ -102,7 +118,7 @@ async function run(url) {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'Gallery fits the ' + viewport + 'px viewport');
       if (shots) await page.locator('main').screenshot({path: path.join(shots, `teams-${width}.png`)});
     }
-    // An unsupported team still gets a visible rarity stadium, never a broken photo reference.
+    // An unsupported team still gets a visible rarity stadium, never a broken graphic reference.
     const fallback = await page.evaluate(async () => {
       const D = await import('/js/core/dynasty.js'), V = await import('/js/views/dynasty.js');
       const c = {...D.CARDS.find(c => c.r === 'common'), team: 'UNKNOWN'};
@@ -111,7 +127,7 @@ async function run(url) {
     });
     assert.match(fallback, /field-common\.svg/, 'Unknown teams display the edition fallback');
     assert.deepEqual(errors, [], 'No browser errors');
-    console.log(`PASS: 32 distinct decoded team photos; ${coverage.count} cards across ${coverage.series.length} series; ${coverage.trainers} team trainers`);
+    console.log(`PASS: 32 distinct decoded team graphics; ${coverage.count} cards across ${coverage.series.length} series; ${coverage.trainers} team trainers`);
     console.log('PASS: 280px, 160px and 92px cards; failed portraits; unknown-team fallback; still, nonblocking scenery');
     await context.close();
   } finally { await browser.close(); }

@@ -862,7 +862,7 @@ function menuSheet(st) {
   ];
   const body = `<ul class="pk-list pk-menu">${items.map(x => `<li><button type="button" class="pk-menu-b${x.cls ? ' ' + x.cls : ''}" data-dy-m="${x.id}"><i class="pk-menu-i">${ui.icon(x.ic, {size: 20})}</i>`
     + `<span class="pk-row-t"><b>${esc(x.label)}</b><small>${esc(x.sub)}</small></span>${ui.icon('chevron-right', {size: 16})}</button></li>`).join('')}</ul>`
-    + `<p class="pk-note pk-menu-foot">Gridiron Rivals · Ver. ${APP_VER}.${D.VERSION} · Support ID ${supportId()}<br><a href="${new URL('../../img/rivals/teams-v1/credits.html', import.meta.url).href}" target="_blank" rel="noopener">Artwork credits</a></p>`;
+    + `<p class="pk-note pk-menu-foot">Gridiron Rivals · Ver. ${APP_VER}.${D.VERSION} · Support ID ${supportId()}<br><a href="${new URL('../../img/rivals/team-graphics-v2/credits.html', import.meta.url).href}" target="_blank" rel="noopener">Artwork credits</a></p>`;
   const sh = ui.openSheet({title: 'Menu', body, cls: 'pk-sheet', detents: ['fit']});
   sh.body.addEventListener('click', e => {
     const b = e.target.closest('[data-dy-m]');

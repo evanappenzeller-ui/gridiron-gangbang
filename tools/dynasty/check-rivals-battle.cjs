@@ -37,10 +37,10 @@ async function main(url) {
     const checkScenes = async selector => {
       const scenes = await page.locator(selector).evaluateAll(nodes => nodes.map(node => {
         const art = node.querySelector('.db-face-art');
-        return {name: node.getAttribute('aria-label'), team: art?.dataset.teamScene, tactic: art?.classList.contains('is-tactic'), background: art && getComputedStyle(art).backgroundImage};
+        return {name: node.getAttribute('aria-label'), team: art?.dataset.teamScene, tactic: art?.classList.contains('is-tactic'), background: art && getComputedStyle(art, '::after').backgroundImage};
       }));
       assert.ok(scenes.length > 0, selector + ': cards are present');
-      for (const scene of scenes.filter(s => s.team)) assert.ok(scene.background.includes('/teams-v1/' + scene.team.toLowerCase() + '.webp'), scene.name + ': battle paints the matching team photograph');
+      for (const scene of scenes.filter(s => s.team)) assert.ok(scene.background.includes('/team-graphics-v2/' + scene.team.toLowerCase() + '.png'), scene.name + ': battle paints the matching team graphic');
       for (const scene of scenes.filter(s => !s.tactic)) assert.ok(scene.team, scene.name + ': player card has team scenery');
     };
     await checkScenes('[data-db-hand]');
