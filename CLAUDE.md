@@ -169,7 +169,9 @@ Resolved play events drive the skippable stadium scenes; animations never submit
 Queue opponent scenes while a details sheet is open; clear presentation on profile changes or leaving the battle.
 The shared card reverse uses a royal blue frame, textured teal/cream swirl, copper football and mirrored wordmarks.
 The case's booklet matches the pastel start screen, floating cards and yellow/blue logo (`dynasty-book-v4`);
-the disc keeps its restrained navy, ivory and silver artwork (`dynasty-disc-v3`).
+the disc matches the cover (Oct 31 2026, Evan: "Change the disc to match the design of the front"): the cover's
+holographic foil rim and gold bevel, its royal-blue rayed face, its gold logo and glowing football, Trading Card Game
+round the foot, the clear hole unchanged (`dynasty-disc-v4`, built from the cover by `tools/dynasty/disc_v4.py`).
 Card details retain standard 63:88 proportions; printed attacks and stats use compact spacing and smaller damage
 numbers while keeping rarity frames, team scenery, portrait credits and small-card behavior intact.
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`
