@@ -140,19 +140,19 @@ async function run(url) {
     });
     checkGeometry(await geometry(detail, '.pk-zoom .pk-card'));
     const scenery = await detail.locator('.pk-zoom .pk-c-scenery').evaluate(async scene => {
-      const background = getComputedStyle(scene).backgroundImage;
-      const url = /url\(["']?([^"')]+\/teams-v1\/pit\.webp)["']?\)/.exec(background)?.[1];
+      const background = getComputedStyle(scene, '::after').backgroundImage;
+      const url = /url\(["']?([^"')]+\/team-graphics-v2\/pit\.png)["']?\)/.exec(background)?.[1];
       const image = new Image(); image.src = url || ''; await image.decode();
       return {team: scene.dataset.teamScene, url, width: image.naturalWidth};
     });
     assert.equal(scenery.team, 'PIT', 'the reported card uses Pittsburgh scenery in its actual detail sheet');
-    assert.ok(scenery.width >= 500 && scenery.url.includes('/teams-v1/pit.webp'), 'Pittsburgh photograph loads in the Mythic card detail');
+    assert.ok(scenery.width === 500 && scenery.url.includes('/team-graphics-v2/pit.png'), 'Pittsburgh team graphic loads in the Mythic card detail');
     assert.ok(await detail.locator('.pk-zoom .pk-c-foil, .pk-zoom .pk-c-glint').evaluateAll(els => els.every(el => getComputedStyle(el).pointerEvents === 'none')), 'Decorative foil never blocks card interaction');
     assert.equal(await detail.locator('.pk-info .pk-atk li').count(), 2, 'Full attack rules remain available in detail');
     assert.equal(await detail.locator('.pk-signature-note').count(), 1, 'Signature energy spend is explained in detail');
     if (process.env.CARD_LIVE_PORTRAITS === '1') await detail.locator('.pk-zoom .pk-c-ph').evaluate(image => image.decode());
     if (shots) await detail.screenshot({path: path.join(shots, 'tj-watt-prime-detail.png')});
-    console.log('PASS: T.J. Watt Prime Mythic detail uses its decoded Pittsburgh photograph and clear rules');
+    console.log('PASS: T.J. Watt Prime Mythic detail uses its decoded Pittsburgh team graphic and clear rules');
     await mobile.close();
   } finally { await browser.close(); }
 }

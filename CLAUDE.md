@@ -139,13 +139,14 @@ Rarity finishes follow the owner's card references: type-tinted silver Common, g
 illuminated gold Legendary, and prismatic cosmic Mythic. Keep the name/HP header and framed artwork readable.
 `dynasty-rarity.css` and `img/rivals/` own the materials; `dynasty-foil.js` adds reflections in details and reveals.
 Collection previews stay still, with reduced-motion support. Verify `check-card-layout.cjs`.
-Team backgrounds (October 30, 2026): every franchise has its own local hometown photograph,
-team-color poster treatment and crop (`views/dynasty-team-scenes.js`, `img/rivals/teams-v1/`).
+Team backgrounds (October 30, 2026): the owner replaced hometown photos with electric sports-poster graphics,
+inspired by his Ravens/Vikings examples. Every franchise uses its own local logo, team colors, nickname, plasma
+texture and angled accents (`views/dynasty-team-scenes.js`, `img/rivals/team-graphics-v2/`).
 Use the card's team, including historical series, in collectible faces, team Stadiums and battle cards.
 Rarity still controls the frame/foil; portraits and readable game panels stay separate. Keep unknown-team and
-failed-portrait fallbacks. Photos load/cache on demand. The Rivals Menu links the source/author/license page;
-regenerate it with `node tools/dynasty/build-team-credits.cjs` after updating photo metadata. Verify
-`node tools/dynasty/check-team-scenes.cjs` with the card-layout and existing Dynasty checks.
+failed-portrait fallbacks. Artwork loads/caches on demand. The Rivals Menu links the artwork credits page;
+logo provenance is in `sources.json` and the generated texture prompt in `tools/dynasty/team-graphics-prompt.txt`.
+Verify `node tools/dynasty/check-team-scenes.cjs` with card-layout and existing Dynasty checks.
 Card-table battles (Oct 30 2026, the owner: "The gameplay is far too confusing. I want it to include the cards that are
 in play laid out and the available cards in your hand are spread out at the bottom. Clicking on each card will show the
 attacks and allow the player to choose which one or put the card back down. Energy is automatically added to the cards
