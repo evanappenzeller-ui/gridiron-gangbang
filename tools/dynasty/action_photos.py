@@ -35,7 +35,43 @@ CACHE = os.path.join(ROOT, 'tools', 'dynasty', '.cache', 'action')
 UA = 'GridironRivalsActionPhotos/1.0 (https://github.com/evanappenzeller-ui/gridiron-gangbang)'
 W, H = 600, 660  # the card's picture window (a little taller than wide)
 S = 2           # the crop is cut out at twice the window's size
-MODEL = 'birefnet-portrait'  # rembg's model for the cut-out (pip install rembg; it downloads the model once)
+MODEL = 'birefnet-portrait'  # rembg's model for the cut-out's edge (pip install rembg; it downloads the model once)
+SAM = 'sam'     # rembg's Segment Anything: keeps only our player where others touch him
+REAL_IMG = os.path.join(ROOT, 'img', 'dynasty', 'real')
+EDSR = 'https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x4.pb'  # 4x upscaling of the card scans
+VERSION = 'v2'  # in the file names: a changed picture needs a new name (sw.js keeps pictures across releases)
+
+# The trading-card photos (the owner, Oct 31 2026: "Where can we find live action pictures of the players that would be
+# used for trading cards? There should be a clean cutout of the player in game"): a Rare+ player's cut-out comes from his
+# own trading card (img/dynasty/real, from the owner's CardSight downloads): his newest base card, else his first card
+# that is a photo. CARD_SKIP: cards that aren't a game photo (checked by eye); CARD: a chosen card instead.
+CARD_SKIP = {
+    'fc82d7dd', '3093deb0', '9a235ca8', 'ae347531', 'bba16172',  # All-Time Gridiron Kings: painted
+    '286a2648',  # Aidan Hutchinson, Gridiron Kings: a painted portrait
+    '92700d36', '9dfab4c9', '07bb8346',  # Bomb Squad (Marino, Favre, Caleb Williams): comic-book art round the photo
+    'e867d665',  # Morten Andersen, 2024 Mosaic: his Hall of Fame enshrinement
+    '6997530b',  # Joe Montana, Downtown: his photo on a drawn city
+    'ec2e8d1f',  # Jan Stenerud, Legend Series: a portrait
+    '7b65f17e',  # Tim Brown, 2025 Score: two small photos in a frame
+    '65617d0d',  # Ken Houston, 2025 Score: a faded black-and-white photo
+    '1528d5d5',  # Anthony Muñoz, 2025 Donruss: his photo won't come apart from its frame
+    '4e796bee',  # John Mackey, 2007 Donruss: his photo won't come apart from its patterned ground
+    'e2dd5e60',  # Jalen Carter, Champ Is Here: lettering over him
+    'd406c52a',  # Wyatt Teller, 2023 Score: its frame runs through him
+    'ecb05cda',  # Tykee Smith, 2024 Topps Chrome: won't come apart from the refractor
+}
+CARD = {}
+# Players whose Commons photo (PICK) is used ahead of his card's: where the card's cut-out falls short
+COMMONS_FIRST = {
+    '0034759', '0034856', '0039067', '0040663', '0033131', '0034815',  # Kolton Miller, Denzel Ward, Rashee Rice, Harold
+    # Fannin Jr., Maliek Collins, Fred Warner: their cards' patterns stay on the cut-out
+}
+# (Commons photos that are a portrait, a posed head-and-shoulders or a stamp, not a game, are left out of PICK: the owner,
+# Oct 31 2026, "Remove any headshot of the legend players")
+# The card's own lettering (team names across the top, name plates and logos along the foot) stays off the cut-out:
+# a card scan's cut-out keeps only what lies inside these bands (fractions of its width and height)
+CARD_KEEP = (.04, .05, .96, .84)
+BAND = {'Canton Kings': (.04, .05, .96, .76)}  # (a set whose lettering sits higher: its own bands)
 SEASON = 2026   # this season (a Live player's first season: SEASON - his years in the league)
 
 # player key -> the Commons file chosen by eye (its name as the file page has it, without "File:")
@@ -53,10 +89,8 @@ PICK = {
     "xraylewis": "Ray-Lewis-2008-Steelers-regseason-game.jpg",  # Ray Lewis, 2008
     "xwalterpayton": "1986_Jeno's_Pizza_-_12_-_Walter_Payton_(Walter_Payton_crop).jpg",  # Walter Payton, 1984
     "xcalvinjohnson": "Calvin_Johnson_(cropped).png",  # Calvin Johnson, 2012
-    "xdeaconjones": "Deacon_Jones.png",  # Deacon Jones, 1972
     "xedreed": "Ed_reed_ravens2012.jpg",  # Ed Reed, 2012
     "xgalesayers": "Gale_sayers_playing.jpg",  # Gale Sayers, 1972
-    "xjoegreene": "Mean_Joe_Greene_1975.JPG",  # Joe Greene, 1975
     "xladainiantomli": "LT_Chargers.jpg",  # LaDainian Tomlinson, 2006
     "xrobgronkowski": "Rob_Gronkowski_2021_(cropped).jpg",  # Rob Gronkowski, 2021
     "xronnielott": "Ronnie_lott_big_portrait.jpg",  # Ronnie Lott, 2013
@@ -64,7 +98,6 @@ PICK = {
     "xboblilly": "Bob_lilly_signed.jpg",  # Bob Lilly, 1961
     "xbrettfavre": "19981213_36_Brett_Favre,_Lambeau_Field_Cropped.jpg",  # Brett Favre, 1998
     "xdarrellerevis": "Darrelle_Revis_2014.jpg",  # Darrelle Revis, 2007
-    "xdicknighttrain": "Dick_Lane_1962.JPG",  # Dick "Night Train" Lane, 2014
     "xdrewbrees": "New_Orleans_Saints_Quarterback,_Drew_Brees_(23262414434)_(cropped).jpg",  # Drew Brees, 2013
     "xericdickerson": "1985_Police_Raiders-Rams_-_20_Eric_Dickerson_(crop).jpg",  # Eric Dickerson, 1984
     "xjacklambert": "Jack_Lambert_in_December_1975.JPG",  # Jack Lambert, 1975
@@ -75,55 +108,37 @@ PICK = {
     "xtonygonzalez": "Pass-Interference-Chargers-vs-Chiefs-Nov-9-08.jpg",  # Tony Gonzalez, 2008
     "xtroypolamalu": "Troy_Polamalu_2013_(cropped).jpg",  # Troy Polamalu, 2013
     "xadrianpeterson": "Adrian_Peterson_Vikings.jpg",  # Adrian Peterson, 2012
-    "xalanpage": "1986_Jeno's_Pizza_-_18_-_Alan_Page_(Alan_Page_crop).jpg",  # Alan Page, 1977
     "xbartstarr": "Bart_Starr_1958.jpg",  # Bart Starr, 1958
     "xbrucematthews": "Bruce_Matthews_cropped.jpg",  # Bruce Matthews, 1984
     "xchampbailey": "Champ_Bailey_2010.JPG",  # Champ Bailey, 2010
     "xcharleswoodson": "Charles_Woodson_2014_2_(cropped).JPG",  # Charles Woodson, 2014
-    "xchuckbednarik": "ChuckBednarik1952Bowman.jpg",  # Chuck Bednarik, 1952
     "xdarrellgreen": "Darrell_Green_8-4-02_020804-N-5086M-004.jpg",  # Darrell Green, 2002
     "xfrantarkenton": "Tarkenton_calling_vikings.jpg",  # Fran Tarkenton, 1978
     "xginomarchetti": "Gino_Marchetti_1961.jpg",  # Gino Marchetti, 1961
     "xjackham": "JackHamPIT.png",  # Jack Ham, 1982
-    "xjimparker": "Parker-Jim-1960.jpg",  # Jim Parker, ?
     "xjoenamath": "1986_Jeno's_Pizza_-_37_-_Joe_Namath_(Joe_Namath_crop).jpg",  # Joe Namath, 1969
     "xjuniorseau": "Junior_Seau_with_Patriots_side_view_cropped.jpg",  # Junior Seau, 2008
     "xmarvinharrison": "Marvin_Harrison_in_2007_Training_Camp_2.jpg",  # Marvin Harrison, 2008
-    "xmerlinolsen": "Merlin_Olsen.png",  # Merlin Olsen, 1971
-    "xraymondberry": "Berry_1961_Topps.jpg",  # Raymond Berry, 1961
     "xraynitschke": "Nitschke_packers.jpg",  # Ray Nitschke, 1966
-    "xstevelargent": "SteveLargent.png",  # Steve Largent, 1985
     "xterrellowens": "Terrell-Owens-Aug302007-Vikings-Preseason.jpg",  # Terrell Owens, 2007
     "xwalterjones": "Walter-Jones-2008-11-02-vsEagles.jpg",  # Walter Jones, 2008
     "xbriandawkins": "Brian_Dawkins.JPG",  # Brian Dawkins, 2009
     "xcriscarter": "CC_Pro_Bowl.JPG",  # Cris Carter, 1999
     "xdanfouts": "1986_Jeno's_Pizza_-_53_-_Dan_Fouts_and_Don_Macek_(Dan_Fouts_crop).jpg",  # Dan Fouts, 1982
-    "xderrickbrooks": "Dbrooks_03_(cropped).jpg",  # Derrick Brooks, 2003
-    "xforrestgregg": "ForrestGreggGB.png",  # Forrest Gregg, 1963
     "xfrancoharris": "1986_Jeno's_Pizza_-_46_-_Terry_Bradshaw_(Franco_Harris_crop).jpg",  # Franco Harris, 1980
     "xjustintucker": "Justin_Tucker_Ravens_Camp_AUG2022_(cropped).jpg",  # Justin Tucker, 2022
     "xkellenwinslow": "Kellen_Winslow_circa_1986.jpg",  # Kellen Winslow, 1987
     "xkurtwarner": "Kurt_Warner_(2009_Pro_Bowl).jpg",  # Kurt Warner, 2009
-    "xlougroza": "Lou_Groza_1957.jpg",  # Lou Groza, 1957
     "xmarcusallen": "1985_Police_Raiders-Rams_-_01_Marcus_Allen_(crop).jpg",  # Marcus Allen, 1984
     "xpaulwarfield": "Paul_Warfield_1971MIA.png",  # Paul Warfield, 1971
     "xterrybradshaw": "1983_Steelers_Police_-_04_Terry_Bradshaw_(crop).jpg",  # Terry Bradshaw, 1982
     "xwillielanier": "WillieLanierKC.png",  # Willie Lanier, 1986
-    "xbuckbuchanan": "BuckBuchananKC.png",  # Buck Buchanan, 1965
-    "xdonmaynard": "Don_Maynard_1963_(cropped).jpg",  # Don Maynard, 1963
-    "xemlentunnell": "Emlen_Tunnell_1954_Bowman.jpg",  # Emlen Tunnell, 1954
     "xjackyoungblood": "JackYoungbloodLA.png",  # Jack Youngblood, 1980
-    "xjanstenerud": "Jan_stenerud_chiefs_signed_photo.jpg",  # Jan Stenerud, 1967
-    "xjohnmackey": "John_mackey_press_photo_1972.jpg",  # John Mackey, 1972
-    "xkenhouston": "KenHouston.png",  # Ken Houston, 1969
-    "xlarrywilson": "LarryWilson.png",  # Larry Wilson, 1969
     "xlembarney": "LemBarneyDET.png",  # Lem Barney, 1968
     "xlendawson": "Kansas_City_Chiefs_at_Denver_Broncos_1985-12-14_(ticket)_(crop).jpg",  # Len Dawson, 1970
     "xlennymoore": "1956_topps_lenny_moore.jpg",  # Lenny Moore, 1956
-    "xmikeditka": "Mike_ditka_topps_card_cropped.jpg",  # Mike Ditka, 1963
     "xpaulkrause": "1986_Jeno's_Pizza_-_18_-_Alan_Page_(Paul_Krause_crop).jpg",  # Paul Krause, 1977
     "xsamhuff": "Sam_huff_redskins.jpg",  # Sam Huff, 1964
-    "xsonnyjurgensen": "1958_topps_sonny_jurgensen.jpg",  # Sonny Jurgensen, 1958
     "xwarrenmoon": "Warren_Moon_and_Mike_Rozier_1987.jpg",  # Warren Moon, 1987
     "xjohnriggins": "JohnRiggins1983TrainingCamp.jpg",  # John Riggins, 2008
     "0027857": "Trent_Willams_2020_(cropped).jpg",  # Trent Williams, 2020
@@ -366,13 +381,31 @@ def rare_players():
     return set(re.findall(r"^\s*'([^']+)':\s*\[\[", src, re.M))
 
 
+def real_cards():
+    """Each player's real trading cards (core/dynasty-real.js REAL): key -> [[card id's first 8, year, release, set, number]]."""
+    src = open(REAL_JS, encoding='utf-8').read()
+    return {k: json.loads(v.replace("'", '"')) for k, v in re.findall(r"^  '([^']+)': (\[\[.*?\]\]),", src, re.M)}
+
+
+def card_for(key, real):
+    """The trading card whose photo his action cut-out comes from: CARD's, else his newest base card, else his first card
+    that is a photo (CARD_SKIP: painted and portrait inserts); None for none."""
+    cards = real.get(key, [])
+    if key in CARD:
+        return next((e for e in cards if e[0] == CARD[key]), None)
+    ok = [e for e in cards if e[0] not in CARD_SKIP]
+    # (Donruss base cards first: a clean photo on a light frame; Topps Chrome's dark refractors cut out worse)
+    return next((e for e in ok if e[3] == 'Base Set' and 'Donruss' in e[2]), next((e for e in ok if e[3] == 'Base Set'), ok[0] if ok else None))
+
+
 def club():
-    """The players on Rare or better cards: [(key, name, team name, pos, college, (first season, last season))]."""
+    """The players on Rare or better cards, and every Legend (no Legend wears a headshot): [(key, name, team name, pos,
+    college, (first season, last season))]."""
     d = json.load(open(DATA, encoding='utf-8'))
     rare = rare_players()
     best, span = {}, {}
     for c in d['cards']:
-        if c[2] in rare:
+        if c[2] in rare or c[1] == 'X':
             best[c[2]] = max(best.get(c[2], 0), c[3])
             if c[1] == 'X' and c[5]:
                 y = years(re.sub(r'[–-](\d\d)\b', lambda m: '–' + c[5][0][:2] + m.group(1), c[5][0]))
@@ -592,33 +625,101 @@ def crop(src, out, hand=None):
     return bool(f)
 
 
+def main_figure(a):
+    """The largest figure near the middle of a mask (a: alpha array): its labels, its label and the labels' areas and
+    centres; (None, ...) for an empty mask."""
+    import numpy as np
+    from scipy import ndimage
+    lab, n = ndimage.label(a > 110)
+    if not n:
+        return None, None, None, None
+    idx = range(1, n + 1)
+    area = ndimage.sum(np.ones_like(a), lab, idx)
+    centre = ndimage.center_of_mass(np.ones_like(a), lab, idx)
+    w = a.shape[1]
+    main = max(range(n), key=lambda i: area[i] * (1.15 - abs(centre[i][1] / w - .5)))
+    return lab, main + 1, area, centre
+
+
 def masks(todo):
-    """Each crop's cut-out mask (BiRefNet's portrait model through rembg, on the CPU), for [(crop PNG, mask PNG)] whose
-    mask isn't made yet. Without the memory arena, so one process can do them all."""
-    todo = [(c, m) for c, m in todo if not os.path.exists(m)]
-    if not todo:
-        return
+    """Each picture's masks: BiRefNet's portrait model (rembg) for the edge, then Segment Anything prompted with the main
+    figure's box and chest, so only he is kept where others touch him. On the CPU, without the memory arena, so one
+    process can do them all. todo: [(picture, mask, SAM mask)]."""
+    import numpy as np
     import onnxruntime as ort
     from PIL import Image
     from rembg import new_session
     opts = ort.SessionOptions()
     opts.enable_cpu_mem_arena = False
     opts.enable_mem_pattern = False
-    sess = new_session(MODEL, sess_opts=opts)
-    for n, (c, m) in enumerate(todo):
-        sess.predict(Image.open(c).convert('RGB'))[0].convert('L').save(m)
-        print(f'  cut out {n + 1}/{len(todo)}', os.path.basename(c), file=sys.stderr)
+    need = [(c, m) for c, m, _ in todo if not os.path.exists(m)]
+    if need:
+        sess = new_session(MODEL, sess_opts=opts)
+        for n, (c, m) in enumerate(need):
+            sess.predict(Image.open(c).convert('RGB'))[0].convert('L').save(m)
+            print(f'  cut out {n + 1}/{len(need)}', os.path.basename(c), file=sys.stderr)
+        del sess
+    need = [(c, m, q) for c, m, q in todo if not os.path.exists(q)]
+    if need:
+        sam = new_session(SAM, sess_opts=opts)
+        for n, (c, m, q) in enumerate(need):
+            img = Image.open(c).convert('RGB')
+            a = np.asarray(Image.open(m).convert('L').resize(img.size)).astype(np.float32)
+            lab, main, _, _ = main_figure(a)
+            if lab is None:
+                Image.new('L', img.size, 255).save(q)
+                continue
+            fig = lab == main
+            ys, xs = np.nonzero(fig)
+            y0, y1, x0, x1 = ys.min(), ys.max(), xs.min(), xs.max()
+            if fig.sum() > .5 * fig.size:
+                # (it took the whole card, his frame and all: ask for the figure inside the card's photo instead)
+                h, w = fig.shape
+                x0, y0, x1, y1 = int(w * CARD_KEEP[0]), int(h * CARD_KEEP[1]), int(w * CARD_KEEP[2]), int(h * CARD_KEEP[3])
+                fig = np.zeros_like(fig)
+                fig[y0:y1, x0:x1] = True
+            r = int(y0 + .3 * (y1 - y0))
+            band = np.nonzero(fig[max(0, r - 3):r + 4])[1]
+            chest = [int(np.median(band)) if len(band) else int((x0 + x1) / 2), r]
+            prompt = [{'type': 'rectangle', 'label': 1, 'data': [int(x0), int(y0), int(x1), int(y1)]},
+                      {'type': 'point', 'label': 1, 'data': chest}]
+            sam.predict(img, sam_prompt=prompt)[0].convert('L').save(q)
+            print(f'  isolated {n + 1}/{len(need)}', os.path.basename(c), file=sys.stderr)
 
 
-def cutout(src, mask, out):
+def cutout(src, mask, out, sam=None, card=None):
     """The player cut out of his crop: the largest figure near the middle (with what's small and on him, a ball or a
     hand), the rest made clear; trimmed to him and set in the W x H window, standing on its foot and centred (or kept
     against the side the photo cut him at), a little headroom above unless the photo cut his head; a WebP with alpha."""
     import numpy as np
     from PIL import Image
     from scipy import ndimage
+    from PIL import ImageFilter
     img = Image.open(src).convert('RGB')
+    if card:
+        img = img.filter(ImageFilter.UnsharpMask(radius=2, percent=70, threshold=2))
     a = np.asarray(Image.open(mask).convert('L').resize(img.size, Image.LANCZOS)).astype(np.float32)
+    if card:
+        # (card: the bands of the card's photo to keep, a scan's lettering outside them)
+        h, w = a.shape
+        band = np.zeros_like(a)
+        band[int(h * card[1]):int(h * card[3]), int(w * card[0]):int(w * card[2])] = 1
+        a = a * band
+        lab, main, _, _ = main_figure(a)
+        if lab is not None and (lab == main).sum() > .45 * a.size and sam and os.path.exists(sam):
+            # (BiRefNet took the whole card: Segment Anything's figure, its edge softened, and nothing outside it)
+            from PIL import ImageFilter as F
+            a = np.asarray(Image.open(sam).convert('L').resize(img.size).filter(F.GaussianBlur(1.5))).astype(np.float32) * band
+            sam = None
+    if sam and os.path.exists(sam):
+        # (only what Segment Anything found him to be, a little wider so his edge stays BiRefNet's; unless it found only
+        # a part of him, his head or his jersey: then the largest figure alone)
+        keep = ndimage.binary_dilation(np.asarray(Image.open(sam).convert('L').resize(img.size)) > 127,
+                                       iterations=max(3, round(min(img.size) * .012)))
+        lab, main, _, _ = main_figure(a)
+        if lab is not None and (keep & (lab == main)).sum() >= .75 * (lab == main).sum():
+            a = np.where(keep, a, 0)
+    a = np.where(a < 32, 0, a)
     lab, n = ndimage.label(a > 110)
     if n:
         ih, iw = a.shape
@@ -629,8 +730,10 @@ def cutout(src, mask, out):
         ys, xs = np.nonzero(lab == main + 1)
         x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
         mx, my = (x1 - x0) * .12, (y1 - y0) * .12
+        # (and what is small and on him or right by him, a ball or a hand; not lettering or a logo further off)
+        near_main = ndimage.binary_dilation(lab == main + 1, iterations=max(2, round(min(a.shape) * .015)))
         keep = [i + 1 for i in range(n) if i == main or area[i] < area[main] * .08
-                and x0 - mx <= cx[i] <= x1 + mx and y0 - my <= cy[i] <= y1 + my]
+                and x0 - mx <= cx[i] <= x1 + mx and y0 - my <= cy[i] <= y1 + my and (near_main & (lab == i + 1)).any()]
         # (the soft edge round what's kept, not the faint halo of what isn't)
         near = ndimage.binary_dilation(np.isin(lab, keep), iterations=6)
         a = np.where(near, a, 0)
@@ -650,28 +753,55 @@ def cutout(src, mask, out):
     frame.save(out, 'WEBP', quality=84, method=6)
 
 
+def upscale(src, out):
+    """A card scan (160 x 225) at four times its size (OpenCV's EDSR), for the cut-out."""
+    import cv2
+    model = os.path.join(CACHE, 'EDSR_x4.pb')
+    if not os.path.exists(model) and not fetch(EDSR, model):
+        raise SystemExit('could not fetch the EDSR model')
+    sr = cv2.dnn_superres.DnnSuperResImpl_create()
+    sr.readModel(model)
+    sr.setModel('edsr', 4)
+    cv2.imwrite(out, sr.upsample(cv2.imread(src)))
+
+
 def prepare():
-    """Each picked Rare+ player's photo, fetched at full size and cropped round him: (rows for ACTION, [(key, crop, mask)])."""
+    """Each Rare+ player's (and each Legend's) photo, ready to cut out: his trading card's photo upscaled, else his Commons
+    photo fetched at full size and cropped round him. (rows for ACTION, [(key, source picture, mask, SAM mask, card?)])."""
     players = {k: (name, span) for k, name, _, _, _, span in club()[0]}
+    real, rare = real_cards(), rare_players()
     rows, todo = [], []
-    for key, f in PICK.items():
-        if key not in players:
-            continue  # (his cards are Common: they keep the headshot)
-        i = file_info(f.replace(' ', '_'))
-        if not i or not i['licence']:
-            print('no licence found:', key, f, file=sys.stderr)
+    for key in players:
+        stem = f'{slug(key)}-{VERSION}'
+        e = card_for(key, real) if key not in COMMONS_FIRST else None
+        if e:
+            src = os.path.join(CACHE, f'card-{slug(key)}-{e[0]}-x4.png')
+            if not os.path.exists(src):
+                upscale(os.path.join(REAL_IMG, f'{key}-{e[0]}.jpg'), src)
+            tag = f'card-{e[0]}'
+            row = [stem, 'card:' + e[0], '', '', '', e[1]]
+        elif key in PICK:
+            f = PICK[key]
+            i = file_info(f.replace(' ', '_'))
+            if not i or not i['licence']:
+                print('no licence found:', key, f, file=sys.stderr)
+                continue
+            width = min(1600, i['w'] or 1600)
+            raw = os.path.join(CACHE, f'raw-{slug(key)}-{width}.jpg')
+            if not fetch(thumb(i['file'], width), raw):
+                continue
+            # (the crop and its mask are named for what made them, so a new pick or crop makes them again)
+            tag = hashlib.sha1(json.dumps([i['file'], width, CROP.get(key), W, H, S]).encode()).hexdigest()[:10]
+            src = os.path.join(CACHE, f'crop-{slug(key)}-{tag}.png')
+            if not os.path.exists(src):
+                crop(raw, src, CROP.get(key))
+            row = [stem, i['file'], plain(i['author'])[:120], i['licence'], i['licenceUrl'], i['year'] or 0]
+        else:
             continue
-        width = min(1600, i['w'] or 1600)
-        raw = os.path.join(CACHE, f'raw-{slug(key)}-{width}.jpg')
-        if not fetch(thumb(i['file'], width), raw):
-            continue
-        # (the crop and its mask are named for what made them, so a new pick or crop makes them again)
-        tag = hashlib.sha1(json.dumps([i['file'], width, CROP.get(key), W, H, S]).encode()).hexdigest()[:10]
-        src, mask = os.path.join(CACHE, f'crop-{slug(key)}-{tag}.png'), os.path.join(CACHE, f'mask-{slug(key)}-{tag}.png')
-        if not os.path.exists(src):
-            crop(raw, src, CROP.get(key))
-        todo.append((key, src, mask))
-        rows.append(f"  {json.dumps(key)}: {json.dumps([slug(key), i['file'], plain(i['author'])[:120], i['licence'], i['licenceUrl'], i['year'] or 0], ensure_ascii=False)}, // {players[key][0]}")
+        mask = os.path.join(CACHE, f'mask-{slug(key)}-{tag}.png')
+        band = next((b for k, b in BAND.items() if e and k in e[3]), CARD_KEEP) if e else None
+        todo.append((key, src, mask, os.path.join(CACHE, f'sam-{slug(key)}-{tag}.png'), band))
+        rows.append(f"  {json.dumps(key)}: {json.dumps(row, ensure_ascii=False)}, // {players[key][0]}")
     return rows, todo, players
 
 
@@ -682,7 +812,7 @@ def crops():
     for n in range(0, len(todo), 30):
         sheet = Image.new('RGB', (10 * 150, 3 * 185), 'white')
         d = ImageDraw.Draw(sheet)
-        for i, (key, src, _) in enumerate(todo[n:n + 30]):
+        for i, (key, src, *_) in enumerate(todo[n:n + 30]):
             x, y = i % 10 * 150, i // 10 * 185
             sheet.paste(Image.open(src).convert('RGB').resize((140, 154)), (x, y))
             d.text((x, y + 157), f'{key} {players[key][0]}'[:24], fill='black')
@@ -693,10 +823,10 @@ def crops():
 def build():
     os.makedirs(IMG, exist_ok=True)
     rows, todo, players = prepare()
-    masks([(c, m) for _, c, m in todo])
-    for key, src, mask in todo:
-        cutout(src, mask, os.path.join(IMG, slug(key) + '.webp'))
-    keep = {slug(k) + '.webp' for k, _, _ in todo}
+    masks([(c, m, q) for _, c, m, q, _ in todo])
+    for key, src, mask, sam, card in todo:
+        cutout(src, mask, os.path.join(IMG, f'{slug(key)}-{VERSION}.webp'), sam, card)
+    keep = {f'{slug(k)}-{VERSION}.webp' for k, *_ in todo}
     for old in os.listdir(IMG):
         if old not in keep:
             os.remove(os.path.join(IMG, old))
@@ -704,7 +834,7 @@ def build():
     a, b = js.index('// <action-photos>'), js.index('// </action-photos>')
     js = js[:a] + '// <action-photos> (written by tools/dynasty/action_photos.py)\nexport const ACTION = {\n' + '\n'.join(rows) + '\n};\n' + js[b:]
     open(JS, 'w', encoding='utf-8').write(js)
-    print(f'{len(rows)} of {len(players)} players on Rare or better cards have an action photo', file=sys.stderr)
+    print(f'{len(rows)} of {len(players)} players (Rare+ and Legends) have an action photo, {sum(1 for t in todo if t[4] is not None)} from their trading cards', file=sys.stderr)
 
 
 def merge():

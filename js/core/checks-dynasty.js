@@ -284,7 +284,7 @@ export async function dynastyChecks(check) {
         && V.realHTML(c).includes(R.realUrl(c.p, c.real));
     });
     const commons = D.CARDS.filter(c => c.r === 'common'), framed = commons.length > 0 && commons.every(c => !c.real && !D.markOf(c).full && D.markOf(c).mark === '◆')
-      && commons.filter(c => c.head).slice(0, 50).every(c => { const h = V.cardHTML(c); return !/is-real|is-full/.test(h) && h.includes(V.isPhoto(c.head) ? 'class="pk-c-ph is-photo" src=' : 'class="pk-c-ph" src='); });
+      && commons.filter(c => c.head).slice(0, 50).every(c => { const h = V.cardHTML(c); return !/is-real|is-full/.test(h) && h.includes(V.isPhoto(c.head) ? 'class="pk-c-ph is-photo" src=' : V.isAction(c.head) ? 'class="pk-c-ph is-action" src=' : 'class="pk-c-ph" src='); });
     // (the foil: the rarity's class on the card, which css/views/dynasty.css animates from Epic up)
     const foil = ['common', 'rare', 'epic', 'legendary', 'mythic'].every(r => { const c = D.CARDS.find(x => x.r === r); return c && V.cardHTML(c).includes(` r-${r} `); });
     const allen = D.CARDS.filter(c => c.p === '0034857').map(c => c.real), apart = allen.length >= 3 && new Set(allen).size === allen.length;
@@ -295,44 +295,40 @@ export async function dynastyChecks(check) {
     return {pass: known && shows && framed && foil && apart && close && namesake && got.every(Boolean),
       detail: `${urls.length} pictures for ${keys.length} players on ${cards.length} cards, ${commons.length} Common; Josh Allen’s ${allen.map(R.realName).join(', ')}; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
   });
-  check('Gridiron Rivals: the Legends’ photos (the owner, Oct 31 2026: "Import into game for me to see"): a Legend with a freely licensed Wikimedia photo shows it as his card’s portrait, filling the window; his card up close credits its author, licence and Commons page; a Legend without one keeps his number; every photo loads', async () => {
-    const [V, L, data, A] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-legends.js'), import('./data.js'), import('./dynasty-action.js')]);
-    // (a Rare or better Legend with an action photo wears that instead: the next check's)
-    const keys = Object.keys(L.PHOTO), legends = D.CARDS.filter(c => c.s === 'X' && c.head !== 'a:' + c.p);
-    const known = keys.length >= 100 && keys.every(p => D.DATA.players[p] && p.startsWith('x') && L.PHOTO[p].length === 5 && L.PHOTO[p][1] && L.PHOTO[p][2] && L.PHOTO[p][3]);
+  check('Gridiron Rivals: no Legend wears a headshot (the owner, Oct 31 2026: "Remove any headshot of the legend players"): every Legend card wears his action photo, cut out, or else shows his number; no card wears a lead photo or portrait; a Common Live card keeps its cut-out headshot', async () => {
+    const [V, A] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-action.js')]);
+    const legends = D.CARDS.filter(c => c.s === 'X');
     const wrong = legends.filter(c => {
       const el = document.createElement('div'); el.innerHTML = V.cardHTML(c);
       const img = el.querySelector('.pk-c-ph');
-      if (!L.PHOTO[c.p]) return !(!img && !!el.querySelector('.pk-c-num') && !V.creditHTML(c));
-      const cr = V.creditHTML(c), r = L.legendCredit(c.p);
-      return !(c.head === 'w:' + c.p && img?.classList.contains('is-photo') && img.getAttribute('src') === L.legendUrl(c.p)
-        && cr.includes(data.esc(r.page)) && cr.includes(data.esc(r.author)) && cr.includes(data.esc(r.licence)));
-    }), shows = !wrong.length;
-    // (a cut-out headshot stays one: a Common Live card's portrait isn't a photo)
-    const live = D.CARDS.find(c => c.s === 'L' && c.head && c.r === 'common'), cut = !!live && !V.isPhoto(live.head) && !V.cardHTML(live).includes('is-photo');
-    const urls = keys.map(L.legendUrl);
-    const got = await Promise.all(urls.map(u => fetch(u, {method: 'HEAD', cache: 'no-store'}).then(r => r.ok).catch(() => false)));
-    return {pass: known && shows && cut && got.every(Boolean),
-      detail: `${keys.length} Legends with a photo, ${legends.length} wearing it (the rest wear a playing-days photo)${wrong.length ? `; wrong: ${wrong.map(c => c.name).join(', ')}` : ''}; without: ${legends.filter(c => !L.PHOTO[c.p]).map(c => c.name).join(', ') || 'none'}; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
+      return A.ACTION[c.p] ? !(c.head === 'a:' + c.p && img?.classList.contains('is-action') && img.getAttribute('src') === A.actionUrl(c.p))
+        : !(!c.head && !img && !!el.querySelector('.pk-c-num'));
+    });
+    const portraits = D.CARDS.filter(c => /^w:/.test(String(c.head)) || V.cardHTML(c).includes('is-photo'));
+    const live = D.CARDS.find(c => c.s === 'L' && c.head && c.r === 'common'), cut = !!live && !V.isPhoto(live.head) && !V.isAction(live.head);
+    return {pass: legends.length > 100 && !wrong.length && !portraits.length && cut,
+      detail: `${legends.length} Legend cards, ${legends.filter(c => A.ACTION[c.p]).length} with an action photo${wrong.length ? `; wrong: ${wrong.map(c => c.name).join(', ')}` : ''}; showing his number: ${[...new Set(legends.filter(c => !A.ACTION[c.p]).map(c => c.name))].join(', ') || 'none'}${portraits.length ? `; portraits on ${portraits.map(c => c.name).join(', ')}` : ''}`};
   });
-  check('Gridiron Rivals: action photos on the Rare and better cards (the owner, Oct 31 2026: "Leave the headshot pictures for the common cards. For rare or higher, the photo should be an action photo of the player with a background color to match the team"): every Rare, Epic, Legendary or Mythic card of a player with one wears it, cut out over its team\u2019s colours, credited up close (author, licence, Commons page); every Common card keeps its headshot; every photo loads', async () => {
-    const [V, A, L, data] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-action.js'), import('./dynasty-legends.js'), import('./data.js')]);
+  check('Gridiron Rivals: action photos (the owner, Oct 31 2026: "There should be a clean cutout of the player in game ... All cards aside from the common \u201cbasic\u201d cards should have an action photo of them in their playing days"): every Rare, Epic, Legendary or Mythic card of a player with one, and every Legend card, wears it cut out over its team\u2019s colours; up close it names the trading card the photo is from, or credits the Commons photo (author, licence, page); every Common card but a Legend\u2019s keeps its headshot; every photo loads', async () => {
+    const [V, A, R, data] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-action.js'), import('./dynasty-real.js'), import('./data.js')]);
     const keys = Object.keys(A.ACTION);
-    const known = keys.length >= 100 && keys.every(p => D.DATA.players[p] && A.ACTION[p].length === 6 && A.ACTION[p][1] && A.ACTION[p][2] && A.ACTION[p][3]
-      && D.CARDS.some(c => c.p === p && c.r !== 'common'));
-    const rare = D.CARDS.filter(c => c.r !== 'common'), wearing = rare.filter(c => A.ACTION[c.p]), common = D.CARDS.filter(c => c.r === 'common');
+    const known = keys.length >= 150 && keys.every(p => D.DATA.players[p] && A.ACTION[p].length === 6 && A.actionCredit(p)
+      && D.CARDS.some(c => c.p === p && (c.r !== 'common' || c.s === 'X')));
+    const wears = c => A.ACTION[c.p] && (c.r !== 'common' || c.s === 'X');
+    const rare = D.CARDS.filter(c => c.r !== 'common'), wearing = D.CARDS.filter(wears), common = D.CARDS.filter(c => c.r === 'common' && c.s !== 'X');
     const shows = wearing.length > 0 && wearing.every(c => {
       const el = document.createElement('div'); el.innerHTML = V.cardHTML(c);
       const img = el.querySelector('.pk-c-ph'), cr = V.creditHTML(c), r = A.actionCredit(c.p), T = D.teamOf(c.team);
+      const credited = r.card ? cr.includes(data.esc(R.realName(r.card))) : cr.includes(data.esc(r.page)) && cr.includes(data.esc(r.author)) && cr.includes(data.esc(r.licence));
       return c.head === 'a:' + c.p && img?.classList.contains('is-action') && !img.classList.contains('is-photo') && img.getAttribute('src') === A.actionUrl(c.p)
-        && /\.webp$/.test(A.actionUrl(c.p)) && el.firstElementChild.style.getPropertyValue('--tp') === T.pri
-        && cr.includes(data.esc(r.page)) && cr.includes(data.esc(r.author)) && cr.includes(data.esc(r.licence));
+        && /\.webp$/.test(A.actionUrl(c.p)) && el.firstElementChild.style.getPropertyValue('--tp') === T.pri && credited;
     });
-    const kept = common.every(c => c.head === (D.DATA.players[c.p][4] || (L.PHOTO[c.p] ? 'w:' + c.p : '')) && !V.cardHTML(c).includes('is-action'));
+    const kept = common.every(c => c.head === (D.DATA.players[c.p][4] || '') && !V.cardHTML(c).includes('is-action'));
+    const fromCards = keys.filter(p => A.ACTION[p][1].startsWith('card:')).length;
     const without = [...new Set(rare.filter(c => !A.ACTION[c.p]).map(c => c.name))];
     const urls = keys.map(A.actionUrl);
     const got = await Promise.all(urls.map(u => fetch(u, {method: 'HEAD', cache: 'no-store'}).then(r => r.ok).catch(() => false)));
     return {pass: known && shows && kept && got.every(Boolean),
-      detail: `${keys.length} players on ${wearing.length} of ${rare.length} Rare or better cards; ${common.length} Common cards keep their headshot; without one: ${without.join(', ') || 'none'}; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
+      detail: `${keys.length} players (${fromCards} from their trading cards) on ${wearing.length} cards; ${common.length} Common cards keep their headshot; Rare+ without one: ${without.join(', ') || 'none'}; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
   });
 }

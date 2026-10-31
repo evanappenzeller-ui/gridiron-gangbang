@@ -183,20 +183,23 @@ Card details retain standard 63:88 proportions; printed attacks and stats use co
 numbers while keeping rarity frames, team scenery, portrait credits and small-card behavior intact.
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`
 (the kit check "Gridiron Rivals Solo ladder…" covers the ladder's decks, moves, unlocking and pay).
-Legends' photos (Oct 31 2026, Evan: "Import into game for me to see"): each Legend's freely licensed Wikipedia lead photo
-is his card's portrait (`js/core/dynasty-legends.js` PHOTO, `img/dynasty/legends/`, head `w:<key>`, beside its team scenery);
-his card details credit the author, licence and Commons page, which the licences require: keep the credit. Rebuild with
-`tools/dynasty/legend_photos.py` (TITLE/FILE/SKIP/CROP for fixes; check the crops by eye). Legends without one keep their
-number. The kit check "Gridiron Rivals: the Legends' photos…" covers it.
-Action photos on the Rare and better cards (Oct 31 2026, Evan: "Leave the headshot pictures for the common cards. For rare
-or higher, the photo should be an action photo of the player with a background color to match the team"; it replaced the
-same day's 90+ rule): every Rare, Epic, Legendary and Mythic card whose player has one wears a freely licensed Commons photo
-of him in uniform (a game, a Pro Bowl, a practice, a period trading card; a college game where no NFL one is free), cut out
-so the card's own team colours and graphic stand behind him (`js/core/dynasty-action.js` ACTION, `img/dynasty/action/<key>.webp`
-with alpha, head `a:<key>`, class `is-action`, credited like the Legends'). Common cards keep their headshot (or a Legend's
-lead photo). `tools/dynasty/action_photos.py find missing` lists candidates on contact sheets; PICK (chosen by eye: him, in
-uniform, NFL over college) and CROP (checked by eye on the cut-outs) feed `build`, which cuts out with rembg's BiRefNet
-portrait model. The kit check "Gridiron Rivals: action photos on the Rare and better cards…" covers it.
+Action photos (Oct 31 2026, Evan: "Leave the headshot pictures for the common cards. For rare or higher, the photo should be
+an action photo of the player with a background color to match the team", then "Where can we find live action pictures of
+the players that would be used for trading cards? There should be a clean cutout of the player in game. Remove any headshot
+of the legend players. All cards aside from the common 'basic' cards should have an action photo of them in their playing
+days"): every Rare, Epic, Legendary and Mythic card, and every Legend's card, wears the player cut out in game, only him, on
+the card's own team colours and graphic (`js/core/dynasty-action.js` ACTION, `img/dynasty/action/<key>-v2.webp` with
+alpha, head `a:<key>`, class `is-action`). The photo is his own trading card's (the CardSight scans in `img/dynasty/real`:
+newest base card, else his first card that is a game photo; `CARD_SKIP` leaves out painted, portrait and comic inserts,
+`CARD` picks another), upscaled 4x (OpenCV EDSR) and cut out with rembg's BiRefNet portrait model plus Segment Anything so
+teammates and opponents go; else a freely licensed Commons photo of him in uniform (`PICK`/`CROP`, credited with author,
+licence and page, which the licences require; `COMMONS_FIRST` prefers it). Card details name the trading card a photo
+comes from. Common cards keep their headshot; no Legend wears a headshot or Wikipedia lead photo (those are retired:
+`dynasty-legends.js` PHOTO is no longer worn), a Legend without an action photo shows his number. Rebuild with
+`tools/dynasty/action_photos.py build` (about 45 s a player on the CPU; `crops` for Commons framing), check the cut-outs
+by eye, and give changed output a new `VERSION` (sw.js keeps pictures across releases). Sharper cut-outs need larger scans
+from the owner's CardSight downloader. The kit checks "Gridiron Rivals: no Legend wears a headshot…" and "Gridiron Rivals:
+action photos…" cover it.
 
 ## Live league scores (October 30, 2026)
 

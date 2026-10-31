@@ -170,6 +170,7 @@ export function realHTML(c) {
 export function creditHTML(c) {
   const r = String(c.head).startsWith('a:') ? actionCredit(c.p) : String(c.head).startsWith('w:') ? legendCredit(c.p) : null;
   if (!r) return '';
+  if (r.card) return `<p class="pk-credit">Photo: from his ${esc(realName(r.card))} card</p>`;
   const lic = r.licenceUrl ? `<a href="${esc(r.licenceUrl)}" target="_blank" rel="noopener">${esc(r.licence)}</a>` : esc(r.licence);
   return `<p class="pk-credit">Photo: ${esc(r.author)} · ${lic} · <a href="${esc(r.page)}" target="_blank" rel="noopener">Wikimedia Commons</a></p>`;
 }
