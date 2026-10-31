@@ -512,6 +512,8 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-lines dd { margin: 0; color: var(--ink-2); }
 /* his real trading cards up close (views/dynasty.js realHTML): a row to scroll, the one on this card ringed */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-real { margin: 16px 0 4px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-credit { margin: 12px 0 4px; font: 500 11px/1.4 var(--font-text); color: var(--ink-3); overflow-wrap: anywhere; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-credit a { color: inherit; text-decoration: underline; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-real-row { display: flex; gap: 12px; overflow-x: auto; margin: 0 -16px; padding: 4px 16px 10px; scrollbar-width: none; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-real-row::-webkit-scrollbar { display: none; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-real-c { flex: none; width: 80px; margin: 0; }
