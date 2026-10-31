@@ -305,7 +305,7 @@ export async function dynastyChecks(check) {
       if (!L.PHOTO[c.p]) return !img && !!el.querySelector('.pk-c-num') && !V.creditHTML(c);
       const cr = V.creditHTML(c), r = L.legendCredit(c.p);
       return c.head === 'w:' + c.p && img?.classList.contains('is-photo') && img.getAttribute('src') === L.legendUrl(c.p)
-        && cr.includes(r.page) && cr.includes(data.esc(r.author)) && cr.includes(data.esc(r.licence));
+        && cr.includes(data.esc(r.page)) && cr.includes(data.esc(r.author)) && cr.includes(data.esc(r.licence));
     });
     // (a cut-out headshot stays one: a Live card's portrait isn't a photo)
     const live = D.CARDS.find(c => c.s === 'L' && c.head), cut = !!live && !V.isPhoto(live.head) && !V.cardHTML(live).includes('is-photo');

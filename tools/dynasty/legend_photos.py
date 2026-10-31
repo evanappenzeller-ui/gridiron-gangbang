@@ -8,7 +8,8 @@ Needs en.wikipedia.org and upload.wikimedia.org; the face crop uses OpenCV 4 (op
 otherwise the top-centre of the photo.
 
 TITLE names the article where the plain name is ambiguous; FILE puts a chosen Commons file in place of the article's lead
-photo; SKIP leaves a Legend without one (his card keeps his number).
+photo; SKIP leaves a Legend without one (his card keeps his number); CROP sets the crop by hand where the face finder
+misses (checked by eye on a contact sheet).
 """
 import hashlib, html, json, os, re, ssl, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 
@@ -31,6 +32,10 @@ TITLE = {
 }
 FILE = {}
 SKIP = set()
+# name -> (centre x, top, height) as fractions of the photo's width and height
+CROP = {
+    'Bruce Smith': (.45, .08, .6), 'Gale Sayers': (.5, 0, .58), 'Earl Campbell': (.55, .02, .62), 'Eric Dickerson': (.5, .1, .5),
+}
 
 
 CACHE = None  # (main sets it: the API's answers are kept there, so a rerun after a rate limit picks up where it stopped)
@@ -104,13 +109,19 @@ def faces(img):
     return sorted((tuple(int(v) for v in f) for f in found), key=lambda f: -f[2] * f[3])
 
 
-def crop(src, out):
-    """A 4:3 head-and-shoulders crop round the largest face (else the photo's top centre), saved as a 600 x 450 JPEG."""
+def crop(src, out, hand=None):
+    """A 4:3 head-and-shoulders crop (hand's, else round the largest face, else the photo's top centre), saved as a
+    600 x 450 JPEG."""
     from PIL import Image, ImageOps
     img = ImageOps.exif_transpose(Image.open(src)).convert('RGB')
     iw, ih = img.size
-    f = faces(img)
-    if f:
+    f = [] if hand else faces(img)
+    if hand:
+        ch = min(ih, hand[2] * ih); cw = ch * W / H
+        if cw > iw:
+            cw = iw; ch = cw * H / W
+        left, top = hand[0] * iw - cw / 2, hand[1] * ih
+    elif f:
         x, y, w, h = f[0]
         ch = min(ih, max(h * 3.4, ih * .3))
         cw = ch * W / H
@@ -182,7 +193,7 @@ def main():
         ext = os.path.splitext(urllib.parse.urlparse(i['url']).path)[1].lower() or '.jpg'
         raw = os.path.join(cache, slug(key) + ext)
         fetch(i['urls'], raw)
-        found += crop(raw, os.path.join(IMG, slug(key) + '.jpg'))
+        found += crop(raw, os.path.join(IMG, slug(key) + '.jpg'), CROP.get(name))
         rows.append(f"  {json.dumps(key, ensure_ascii=False)}: {json.dumps([slug(key), f, i['artist'][:120], i['lic'], i['licUrl']], ensure_ascii=False)}, // {name}")
     keep = {slug(k) + '.jpg' for k in files}
     for old in os.listdir(IMG):
@@ -192,7 +203,7 @@ def main():
     a, b = js.index('// <legend-photos>'), js.index('// </legend-photos>')
     js = js[:a] + '// <legend-photos> (written by tools/dynasty/legend_photos.py)\nexport const PHOTO = {\n' + '\n'.join(rows) + '\n};\n' + js[b:]
     open(JS, 'w', encoding='utf-8').write(js)
-    print(f'{len(rows)} of {len(legends)} Legends have a photo; {found} cropped round a face', file=sys.stderr)
+    print(f'{len(rows)} of {len(legends)} Legends have a photo; {found} cropped round a face, {len(CROP)} by hand', file=sys.stderr)
 
 
 if __name__ == '__main__':
