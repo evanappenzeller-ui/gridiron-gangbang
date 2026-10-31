@@ -38,6 +38,7 @@ import './core/avatars.js'; // pictures in place of initials, before anything dr
 import {needsWelcome, showWelcome} from './views/welcome.js';
 import {available, dynastyOpen} from './core/features.js';
 import {showReleaseNotice} from './core/release.js';
+import {beginHomeTransition, syncHomeChrome} from './core/home-navigation.js';
 
 export const APP_VERSION = '3.0';
 
@@ -643,6 +644,7 @@ function syncVisibility() {
   const top = visibleScreen();
   allMounted().forEach(s => { if (s !== top) setVisible(s, false); });
   if (top) setVisible(top, true);
+  syncHomeChrome(top && top.el);
 }
 
 // ============================================================================ Transitions (5.2)
@@ -935,6 +937,7 @@ addEventListener('popstate', e => {
     if (!L.claimed) run(applyAnchor);
     return;
   }
+  newRouteIntent();
   run(() => handlePop(st, hash));
 });
 
@@ -1348,9 +1351,12 @@ async function opBack({animate = true} = {}) {
 }
 
 // ============================================================================ Public navigation API
+let routeIntent = 0;
+function newRouteIntent() { routeIntent++; requestedTab = null; }
 /** Navigate: tab-root routes switch tabs (resetting that stack), 'any' routes push, covers open over their route's tab.
  *  opts.morphFrom: the tapped avatar element (flies to the new screen's [data-morph] element). */
 export function nav(path, o = {}) {
+  newRouteIntent();
   const morphRect = o.morphFrom && o.morphFrom.getBoundingClientRect ? o.morphFrom.getBoundingClientRect() : null;
   return run(async () => {
     const r = parseRoute(path);
@@ -1362,8 +1368,8 @@ export function nav(path, o = {}) {
   });
 }
 /** UI back: history.back() through the op queue. */
-export function back(o) { return run(() => opBack(o)); }
-function replaceFrom(scr, path, o) { return run(() => opReplace(scr, path, o || {})); }
+export function back(o) { newRouteIntent(); return run(() => opBack(o)); }
+function replaceFrom(scr, path, o) { newRouteIntent(); return run(() => opReplace(scr, path, o || {})); }
 
 ui._setHistory({
   pushOverlay(rec) {
@@ -1598,10 +1604,11 @@ async function doRetap(T) {
 }
 /** Opens tab T (a tap, a scrub along the bar or a swipe across a screen); resolves once it shows. motion: the tab's
  *  own arrival fade (a swipe brings its own slide). */
-function goTab(T, {motion = true} = {}) {
+function goTab(T, {motion = true, canCommit = null} = {}) {
   if (swNew && !typing()) { updateReload(topOf(T).route.path); return Promise.resolve(); } // a new version: swap it in here
   finishTransitions();
   return run(async () => {
+    if (canCommit && !canCommit()) return;
     if (T === S.tab) return;
     await stripOverlays();
     await switchTabUI(T, {motion});
@@ -1674,7 +1681,7 @@ const pager = {
     prepareCard(cur);
     if (indAnim) { indAnim.cancel(); indAnim = null; }
     $('stage').classList.add('is-cards');
-    this.on = {ci, pos: ci, s: 1, w, ind, offsets, shown: new Set([ci]), raf: 0, inputRaf: 0, pending: null};
+    this.on = {ci, entry: topOf(S.tab), intent: routeIntent, pos: ci, s: 1, w, ind, offsets, shown: new Set([ci]), raf: 0, inputRaf: 0, pending: null};
     ui.busy.inc();
     return this.on;
   },
@@ -1739,16 +1746,26 @@ const pager = {
     moveIndicator($('tabbar').querySelector(`.tab[data-tab="${TABS[k]}"]`), true);
     await new Promise(res => {
       const t0 = performance.now();
+      const finish = () => {
+        cancelAnimationFrame(P.raf);
+        document.removeEventListener('visibilitychange', hidden);
+        removeEventListener('resize', finish);
+        res();
+      };
+      const hidden = () => { if (document.hidden) finish(); };
+      document.addEventListener('visibilitychange', hidden);
+      addEventListener('resize', finish, {once: true});
       const step = now => {
         const t = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - t, 3);
         // The card lands, then fills the screen (the growing back trails the slide a little).
         this.show(from + (to - from) * e, s0 + (1 - s0) * Math.pow(t, 1.6));
-        if (t < 1 && !document.hidden) P.raf = requestAnimationFrame(step); else res();
+        if (t < 1 && !document.hidden) P.raf = requestAnimationFrame(step); else finish();
       };
-      P.raf = requestAnimationFrame(step);
+      if (document.hidden) finish(); else P.raf = requestAnimationFrame(step);
     });
     this.show(to, 1);
-    try { if (TABS[k] !== S.tab) await goTab(TABS[k], {motion: false}); } finally {
+    const canCommit = () => routeIntent === P.intent && S.tab === TABS[P.ci] && topOf(S.tab) === P.entry && !S.cover && !S.sheets.length;
+    try { if (TABS[k] !== S.tab && canCommit()) await goTab(TABS[k], {motion: false, canCommit}); } finally {
       P.shown.forEach(i => this.hide(i));
       const cur = layerOf(S.tab);
       uncard(cur);
@@ -1756,6 +1773,7 @@ const pager = {
       $('stage').classList.remove('is-cards');
       this.on = null;
       ui.busy.dec();
+      syncHomeChrome(visibleScreen()?.el);
       warmNeighbours(S.tab);
       drainTabRequest();
     }
@@ -1795,23 +1813,41 @@ function slideTo(T) {
   if (ui.RM || pager.on || S.cover || S.sheets.length || (swNew && !typing()) || T === S.tab) return goTab(T);
   sliding = (async () => {
     finishTransitions();
-    const ci = TABS.indexOf(S.tab), dir = TABS.indexOf(T) > ci ? 1 : -1, e = topOf(T);
+    const fromTab = S.tab, fromEntry = topOf(fromTab), intent = routeIntent;
+    const canCommit = () => routeIntent === intent && S.tab === fromTab && topOf(fromTab) === fromEntry && !S.cover && !S.sheets.length;
+    const ci = TABS.indexOf(fromTab), dir = TABS.indexOf(T) > ci ? 1 : -1, e = topOf(T);
     moveIndicator($('tabbar').querySelector(`.tab[data-tab="${T}"]`), true);
     if (!e.scr) await loadViewSafe(e.route.view);
+    // A second tap while the module loads replaces the first destination. Nothing has moved yet.
+    if (requestedTab && requestedTab !== T) return;
+    requestedTab = null;
+    if (!canCommit()) return;
     if (!e.scr) ensureScreenSync(e, {z: S.stacks[T].length, restore: true, transition: 'none'});
-    if (!e.scr) { await goTab(T); return; } // its view didn't load: the plain switch shows its error
+    if (!e.scr) { await goTab(T, {canCommit}); return; } // its view didn't load: the plain switch shows its error
     e.scr.el.removeAttribute('data-under');
     const stage = $('stage'), cur = layerOf(S.tab), nxt = layerOf(T), w = stage.clientWidth;
-    prepareCard(cur); prepareCard(nxt);
-    cardAt(nxt, dir * w + CARD.gap, 1);
+    // Measure both screens in their resting positions, then fly the icons with the page (not after it).
     setLayerHidden(nxt, false);
     restoreLayerScroll(T);
+    beginHomeTransition(fromEntry.scr?.el, e.scr.el, T, TAB_MS);
+    prepareCard(cur); prepareCard(nxt);
+    cardAt(nxt, dir * w + CARD.gap, 1);
     stage.classList.add('is-cards');
     ui.busy.inc();
     // Shrink, slide, grow: the cards dip to their smallest about a third of the way across. Quick (TAB_MS), so a tab
     // tap feels instant.
     await new Promise(res => {
       const t0 = performance.now();
+      let raf = 0;
+      const finish = () => {
+        cancelAnimationFrame(raf);
+        document.removeEventListener('visibilitychange', hidden);
+        removeEventListener('resize', finish);
+        res();
+      };
+      const hidden = () => { if (document.hidden) finish(); };
+      document.addEventListener('visibilitychange', hidden);
+      addEventListener('resize', finish, {once: true});
       const frame = now => {
         const t = ui.RM ? 1 : Math.min(1, (now - t0) / TAB_MS);
         const p = t * t * t * (t * (t * 6 - 15) + 10); // smootherstep: off gently, across, in gently
@@ -1819,18 +1855,26 @@ function slideTo(T) {
         const step = cardStep(w, sc);
         cardAt(cur, -dir * p * step, sc);
         cardAt(nxt, dir * (1 - p) * step, sc);
-        if (t < 1 && !document.hidden) requestAnimationFrame(frame); else res();
+        if (t < 1 && !document.hidden) raf = requestAnimationFrame(frame); else finish();
       };
-      requestAnimationFrame(frame);
+      if (document.hidden) finish(); else raf = requestAnimationFrame(frame);
     });
     cardAt(cur, -dir * w, 1); cardAt(nxt, 0, 1);
-    try { await goTab(T, {motion: false}); } finally {
+    try {
+      // A route, sheet or cover opened during the slide takes precedence over its older tap.
+      if (canCommit()) await goTab(T, {motion: false, canCommit});
+    } finally {
       uncard(cur); uncard(nxt);
       stage.classList.remove('is-cards');
       if (S.tab !== T) setLayerHidden(nxt, true);
       ui.busy.dec();
     }
-  })().finally(() => { sliding = null; warmNeighbours(S.tab); drainTabRequest(); });
+  })().finally(() => {
+    sliding = null;
+    syncHomeChrome(visibleScreen()?.el);
+    moveIndicator($('tabbar').querySelector(`.tab[data-tab="${S.tab}"]`), false);
+    warmNeighbours(S.tab); drainTabRequest();
+  });
   return sliding;
 }
 

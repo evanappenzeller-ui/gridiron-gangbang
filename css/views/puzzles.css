@@ -293,25 +293,26 @@ html.lite .hm-ic { background: var(--bar-solid); -webkit-backdrop-filter: none; 
 @media (hover: hover) { .hm-app:hover .hm-ic { color: var(--ink); } }
 html.rm .hm-ic { transition: none; }
 @media (prefers-reduced-motion: reduce) { .hm-ic { transition: none; } }
-/* Away from home the apps hide (they stand in for the bar): on the way back in they wait, then the bar's icons rise
-   into them (views/puzzles.js barToApps); on the way out they fall into the bar (appsToBar). */
+/* The shell coordinates the apps and bar with the page slide (core/home-navigation.js). */
 html:not(.is-home) .hm-app .hm-ic, html.hm-morph .hm-app .hm-ic { opacity: 0; transition: none; }
 html:not(.is-home) .hm-lb { opacity: 0; transition: none; }
 /* the tab bar steps aside on the home screen (the apps lead to every tab), sinking away and rising back */
-#tabbar { transition: opacity .22s ease, translate .3s cubic-bezier(.22,1,.36,1), visibility 0s; }
-html.is-home #tabbar { opacity: 0; translate: 0 24px; visibility: hidden; pointer-events: none; transition: opacity .16s ease, translate .2s ease, visibility 0s .2s; }
+#tabbar { transition: opacity .16s ease, translate .2s cubic-bezier(.22,1,.36,1), visibility 0s; }
+html.is-home #tabbar { opacity: 0; translate: 0 18px; visibility: hidden; pointer-events: none; transition: opacity .16s ease, translate .2s ease, visibility 0s .2s; }
 html.rm #tabbar, html.rm.is-home #tabbar { transition: none; }
 @media (prefers-reduced-motion: reduce) { #tabbar, html.is-home #tabbar { transition: none; } }
-/* The morph between them: the bar stands still and bare while stand-ins (its capsule, each icon, the pill) fly between
-   the apps' places and its own, then it takes over where they land. */
+/* Stand-ins use only transform and opacity; their fixed-size surfaces never sample the moving pages. */
 html.hm-morph #tabbar { transition: none !important; background: transparent !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; } /* (over every theme's) */
 html.hm-morph #tabbar .tab-ic, html.hm-morph #tabbar .tab-ind { visibility: hidden; }
+html.hm-morph:not(.is-home) #tabbar { opacity: 1; translate: none; visibility: visible; pointer-events: auto; }
 .hm-morph-layer { position: absolute; inset: 0; z-index: var(--z-tab); pointer-events: none; overflow: hidden; contain: strict; }
 .hm-morph-layer > * { position: absolute; margin: 0; will-change: transform, opacity; }
+.hm-morph-cap { transform-origin: 0 0; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 .hm-ghost { display: grid; place-items: center; color: var(--ink-2); }
-.hm-ghost > .hm-ic { position: absolute; inset: 0; width: auto; height: auto; transition: none; }
+.hm-ghost > .hm-ic { position: absolute; inset: 0; width: auto; height: auto; transition: none; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 .hm-ghost > .ic { position: relative; grid-area: 1 / 1; width: 30px; height: 30px; }
 .hm-ghost > .ic + .ic { opacity: 0; }
+.hm-ghost-tab > .ic { width: 26px; height: 26px; }
 /* ---------------------------------------------------------------- The shelf of games (views/games.js) */
 /* A shelf of game cases swiped along (scroll snap): the one in the middle big and lit, a white ring round it; the
    others smaller, turned in toward it. Each is a black case: the Gridiron Hub band, then the game's cover. Under it,
