@@ -225,6 +225,24 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-meta .pk-c-rar,
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-meta .pk-c-set { position: static; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-meta .pk-c-set { margin-left: auto; color: #354B5C; opacity: 1; }
+/* Compact printed stats for the current Rivals editions. Keep the rarity material and
+   small-card rules; the extra non-small selector carries this geometry through the edition styles. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer):not(.sz-s) .pk-c-body {
+  min-height: 0; padding: 1.1cqw 1cqw; gap: .6cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer):not(.sz-s) .pk-c-ab {
+  font-size: 4cqw; line-height: 1.1; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer):not(.sz-s) .pk-c-atk {
+  min-height: 5.4cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer):not(.sz-s) .pk-c-atk > b {
+  font-size: 4.3cqw; line-height: 1.1; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer):not(.sz-s) .pk-c-atk > em {
+  font-size: 5.4cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer):not(.sz-s) .pk-c-fx {
+  font-size: 3cqw; line-height: 1.15; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer):not(.sz-s) .pk-c-foot {
+  min-height: 5cqw; padding-top: .5cqw; padding-bottom: .5cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer):not(.sz-s) .pk-c-meta {
+  min-height: 4cqw; padding-top: .4cqw; }
 /* The printed rarity border provides the foil finish; no sheen covers artwork or game text. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-shine { display: none; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-new { position: absolute; top: -2.4cqw; left: -2.4cqw; z-index: 2; padding: 1.4cqw 2.6cqw; border-radius: 99px; background: linear-gradient(180deg, #FF6FA6, #E8337B);
@@ -482,7 +500,6 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 
 /* ---------------------------------------------------------------- a card up close (its sheet), and other sheets */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom { width: min(280px, 76%); margin: 4px auto 12px; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom > .pk-card:not(.pk-trainer) { aspect-ratio: 63 / 126; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom.is-s { width: min(190px, 56%); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-own { margin: 0 0 12px; text-align: center; font: 700 13px var(--font-text); color: var(--ink-3); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-own .pk-e { font-size: 16px; }

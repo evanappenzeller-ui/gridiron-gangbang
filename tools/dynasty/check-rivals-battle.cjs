@@ -64,7 +64,13 @@ async function main(url) {
     await page.locator('[data-db-lineup="hand"]').click();
     assert.equal(await page.locator('[data-db-hand]').count(), handBefore + 1, 'Back to hand returns the starter to the hand');
     await checkScenes('[data-db-hand]');
-    await page.locator('[data-db-hand]').first().click();
+    const starterIndex = await page.locator('[data-db-hand]').evaluateAll(async cards => {
+      const B = await import('/js/core/dynasty-battle.js');
+      const hand = window.battleSolo.get(window.battleTestMid).G.p[0].hand;
+      return cards.map(card => Number(card.dataset.dbHand)).find(i => B.isBasic(hand[i]));
+    });
+    assert.notEqual(starterIndex, undefined, 'the returned starter is a Basic player in hand');
+    await page.locator(`[data-db-hand="${starterIndex}"]`).click();
     await page.locator('[data-db-lineup="act"]').click();
     assert.equal(await page.locator('[data-db-hand]').count(), handBefore, 'a lifted hand card can start');
     await page.locator('[data-db-ready]').click();

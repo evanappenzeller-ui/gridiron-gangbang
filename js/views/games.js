@@ -40,7 +40,7 @@ export const GAMES = [
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover-v3.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
   {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-man-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in'},
   {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'},
-  {id: 'dynasty', name: 'Gridiron Rivals', title: 'Gridiron Rivals', art: 'img/games/dynasty-cover-v3.webp', book: 'img/games/dynasty-book-v3.webp', disc: 'img/games/dynasty-disc-v3.webp'}
+  {id: 'dynasty', name: 'Gridiron Rivals', title: 'Gridiron Rivals', art: 'img/games/dynasty-cover-v3.webp', book: 'img/games/dynasty-book-v4.webp', disc: 'img/games/dynasty-disc-v3.webp'}
 ];
 // The games that go on with no day's final, countdown or board (Keepfall, Gridiron Dynasty): a printed back on their
 // case, never IN PROGRESS.

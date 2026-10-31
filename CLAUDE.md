@@ -167,7 +167,10 @@ time, packs every fifth game). Keep the twelve earlier opponents readable so an 
 Resolved play events drive the skippable stadium scenes; animations never submit moves or resolve damage.
 Queue opponent scenes while a details sheet is open; clear presentation on profile changes or leaving the battle.
 The shared card reverse uses a royal blue frame, textured teal/cream swirl, copper football and mirrored wordmarks.
-The case's booklet and disc use restrained navy, ivory and silver artwork (`dynasty-book-v3` / `dynasty-disc-v3`).
+The case's booklet matches the pastel start screen, floating cards and yellow/blue logo (`dynasty-book-v4`);
+the disc keeps its restrained navy, ivory and silver artwork (`dynasty-disc-v3`).
+Card details retain standard 63:88 proportions; printed attacks and stats use compact spacing and smaller damage
+numbers while keeping rarity frames, team scenery, portrait credits and small-card behavior intact.
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`
 (the kit check "Gridiron Rivals Solo ladder…" covers the ladder's decks, moves, unlocking and pay).
 Legends' photos (Oct 31 2026, Evan: "Import into game for me to see"): each Legend's freely licensed Wikipedia lead photo
