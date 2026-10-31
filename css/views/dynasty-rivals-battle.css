@@ -30,6 +30,7 @@
 .v-dynasty-battle .db-face { display: flex; flex-direction: column; position: relative; overflow: hidden; border-top: 3px solid var(--type); width: 100%; height: 100%; background: #F6F4E9; color: #132B32; }
 .v-dynasty-battle .db-face-art { position: relative; flex: none; display: grid; place-items: center; overflow: hidden; height: 65px; background: radial-gradient(ellipse at 50% 0, #FFFFFF38, transparent 80%), var(--team, #3E6266); }
 .v-dynasty-battle .db-face-art img { position: absolute; height: 110%; width: 100%; object-fit: contain; object-position: center bottom; bottom: 0; }
+.v-dynasty-battle .db-face-art img.is-photo { inset: 0; height: 100%; object-fit: cover; object-position: center 35%; }
 .v-dynasty-battle .db-face-number { font: 900 50px/1 var(--font-text); color: #FFFFFF68; font-style: italic; }
 .v-dynasty-battle .db-face-art.is-tactic { color: #E8DBAC; background: #345359; }
 .v-dynasty-battle .db-face-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 6px 7px; }
