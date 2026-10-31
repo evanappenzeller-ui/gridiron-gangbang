@@ -3,6 +3,9 @@
 name: Yahoo sync
 
 on:
+  push:  # TEMP probe
+    branches: [claude/17-0-game-mode]
+    paths: [tools/yahoo/sync.py, .github/workflows/yahoo-sync.yml]
   schedule:
     - cron: '23 10 * * *'  # 6:23 AM Eastern (5:23 in winter): picks up Tuesday's finals
     - cron: '23 22 * * *'  # 6:23 PM Eastern: fresher projections before games
