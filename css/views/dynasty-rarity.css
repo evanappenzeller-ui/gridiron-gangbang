@@ -248,7 +248,7 @@ div.pk-open .pk-card.pk-rivals-card {
    These sit below the portrait; edition metal and readable rule panels stay above. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card .pk-c-scenery[data-team-scene] {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background: radial-gradient(ellipse at 76% 42%, color-mix(in srgb, var(--tp) 82%, #fff), transparent 67%),
+  background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--tp) 82%, #fff), transparent 67%),
     linear-gradient(135deg, #05050d, var(--tp) 55%, #05050d);
   isolation: isolate;
 }
@@ -260,20 +260,21 @@ div.pk-open .pk-card.pk-rivals-card {
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card .pk-c-scenery[data-team-scene]::after {
   content: ''; position: absolute; inset: 0;
-  background: var(--team-scene) 96% 60% / auto 88% no-repeat,
+  background: var(--team-scene) right 2.4cqw top 2.4cqw / 21cqw auto no-repeat,
     linear-gradient(var(--team-slant, 15deg), transparent 0 9%, #ffffff95 9% 9.4%, transparent 9.4% 12%, var(--ts) 12% 13%, transparent 13% 86%, #ffffff80 86% 86.4%, transparent 86.4%);
   filter: drop-shadow(0 0 .6cqw #ffffff80) drop-shadow(0 1.3cqw 1.3cqw #0009);
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-art:has([data-team-scene]) {
   background: var(--tp);
 }
+/* The player is the focal point (the owner, Oct 31 2026): a large centred headshot, the team mark a corner badge. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-art:has([data-team-scene]) .pk-c-ph {
-  left: -7%; width: 84%; object-position: center bottom;
+  inset: auto auto 0 50%; width: auto; height: 97%; transform: translateX(-50%); object-position: center bottom;
   filter: drop-shadow(.35cqw 0 0 #ffffffb3) drop-shadow(-.35cqw 0 0 #ffffffb3) drop-shadow(0 1cqw 2cqw #02020de6);
 }
 /* A rectangular playing-days portrait fades into the team graphic at its edge. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-art:has([data-team-scene]) .pk-c-ph.is-photo {
-  left: 0; width: 76%; object-position: center 35%; filter: none;
+  inset: 0; width: 76%; height: 100%; transform: none; object-position: center 35%; filter: none;
   -webkit-mask-image: linear-gradient(90deg, #000 58%, transparent);
   mask-image: linear-gradient(90deg, #000 58%, transparent);
 }
@@ -286,9 +287,9 @@ div.pk-open .pk-card.pk-rivals-card {
   left: 2cqw; right: auto; opacity: .88; text-shadow: 0 .8cqw 1.6cqw #061222;
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-city {
-  position: absolute; z-index: 3; top: 2.4cqw; right: 2.4cqw; max-width: 87%;
+  position: absolute; z-index: 3; top: 2.4cqw; left: 2.4cqw; max-width: 64%;
   font: italic 900 4.5cqw/1.2 var(--font-text); letter-spacing: .07em; color: #fff;
-  text-align: right; text-shadow: 0 .4cqw 1cqw #000, 0 0 2cqw #000; pointer-events: none;
+  text-align: left; text-shadow: 0 .4cqw 1cqw #000, 0 0 2cqw #000; pointer-events: none;
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic:has([data-team-scene]) .pk-c-face {
   background: linear-gradient(135deg, color-mix(in srgb, var(--tp) 70%, #090719), #141027 60%, color-mix(in srgb, var(--ts) 35%, #141027));

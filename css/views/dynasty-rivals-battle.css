@@ -64,7 +64,7 @@ html.is-dynasty-battle { --col-w: 640px; }
 .v-dynasty-battle .db-face-art.is-tactic .ic { width: 38cqw; height: 38cqw; }
 .v-dynasty-battle .db-face-art[data-team-scene] {
   isolation: isolate;
-  background: radial-gradient(ellipse at 76% 42%, color-mix(in srgb, var(--team) 82%, #fff), transparent 67%),
+  background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--team) 82%, #fff), transparent 67%),
     linear-gradient(135deg, #05050d, var(--team) 55%, #05050d);
 }
 .v-dynasty-battle .db-face-art[data-team-scene]::before {
@@ -75,11 +75,11 @@ html.is-dynasty-battle { --col-w: 640px; }
 }
 .v-dynasty-battle .db-face-art[data-team-scene]::after {
   content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-  background: var(--team-scene) 98% 55% / auto 87% no-repeat;
+  background: var(--team-scene) right 4cqw top 4cqw / 28cqw auto no-repeat;
   filter: drop-shadow(0 0 1cqw #ffffff80) drop-shadow(0 2cqw 2cqw #0009);
 }
 .v-dynasty-battle .db-face-art[data-team-scene] img {
-  z-index: 2; left: -6%; width: 84%;
+  z-index: 2; left: 50%; right: auto; width: auto; height: 97%; transform: translateX(-50%);
 }
 .v-dynasty-battle .db-face-art[data-team-scene] .db-face-number {
   position: relative; z-index: 2; justify-self: start; margin-left: 5%;
@@ -87,7 +87,7 @@ html.is-dynasty-battle { --col-w: 640px; }
 .v-dynasty-battle .db-face-art[data-team-scene]:has(img) .db-face-number { opacity: 0; }
 .v-dynasty-battle .db-face-art[data-team-scene] > .ic { position: relative; z-index: 2; }
 .v-dynasty-battle .db-face-art[data-team-scene] img.is-photo {
-  left: 0; width: 76%; right: auto;
+  left: 0; width: 76%; right: auto; height: 100%; transform: none;
   -webkit-mask-image: linear-gradient(90deg, #000 58%, transparent);
   mask-image: linear-gradient(90deg, #000 58%, transparent);
 }

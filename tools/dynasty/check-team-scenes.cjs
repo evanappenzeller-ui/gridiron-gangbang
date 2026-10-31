@@ -58,7 +58,7 @@ async function run(url) {
     assert.deepEqual(coverage.bad, [], 'Every series and team-specific trainer follows its card team');
     assert.equal(coverage.unknown, true, 'Unknown teams retain rarity fallback without an invalid asset URL');
     await page.locator('.pk-c-ph').evaluateAll(images => images.forEach(image => { image.loading = 'eager'; }));
-    await page.waitForFunction(() => !document.querySelector('.pk-c-ph'));
+    await page.waitForFunction(() => !document.querySelector('.pk-c-ph:not(.is-photo)'));
     await page.evaluate(() => document.fonts.ready);
     const assets = await page.locator('[data-team-scene]').evaluateAll(async scenes => Promise.all(scenes.map(async scene => {
       const card = scene.closest('.pk-card'), style = getComputedStyle(card);
@@ -103,7 +103,8 @@ async function run(url) {
         const card = scene.closest('.pk-card'), art = scene.parentElement, city = art.querySelector('.pk-c-city');
         const rect = el => { const r = el.getBoundingClientRect(); return {left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height}; };
         return {team: scene.dataset.teamScene, art: rect(art), scene: rect(scene), city: rect(city),
-          fallbackVisible: getComputedStyle(art.querySelector('.pk-c-num')).display !== 'none',
+          // (local Legend and playing-days photos load; only a failed portrait must leave the number)
+          fallbackVisible: !!art.querySelector('.pk-c-ph.is-photo') || getComputedStyle(art.querySelector('.pk-c-num')).display !== 'none',
           pointerEvents: getComputedStyle(scene).pointerEvents,
           motion: card.getAnimations({subtree: true}).some(a => a.playState === 'running')};
       }));
