@@ -397,6 +397,54 @@ def sync_moves(tok, key, data, season, ids, year, week):
     return changed
 
 
+def probe(tok, key, w):  # TEMP: what Yahoo offers for projections
+    def tags(root, pick):
+        seen = {}
+        def walk(el, path):
+            for c in el:
+                if not isinstance(c.tag, str):
+                    continue
+                q = path + '/' + c.tag
+                if pick(q) and q not in seen:
+                    seen[q] = (c.text or '').strip()[:40]
+                walk(c, q)
+        walk(root, '')
+        return seen
+    want = lambda q: any(x in q.lower() for x in ('proj', 'live', 'remain', 'win_prob'))
+    tk = f'{key}.t.1'
+    for path in [f'league/{key}/scoreboard;week={w}',
+                 f'team/{tk}/roster;week={w}/players/stats;type=week;week={w}',
+                 f'team/{tk}/roster;week={w}/players/projected_stats;type=week;week={w}',
+                 f'team/{tk}/roster;week={w}/players/stats;type=projected_week;week={w}',
+                 f'team/{tk}/roster;week={w}/players/stats;type=week;week={w};is_projected=1',
+                 f'team/{tk}/roster;week={w}/players/stats;type=week;week={w};out=projected_points',
+                 f'team/{tk}/roster;week={w}/players;out=projected_points',
+                 f'team/{tk}/roster;week={w}/players;out=player_projected_points',
+                 f'team/{tk}/matchups;weeks={w}',
+                 f'team/{tk}/stats;type=week;week={w}']:
+        try:
+            root = get(tok, path)
+            t = tags(root, want)
+            print(f'PROBE {path}: {len(t)} tags')
+            for q, v in list(t.items())[:25]:
+                print(f'PROBE   {q} = {v}')
+            if 'players' in path:
+                pl = root.find('.//player')
+                if pl is not None:
+                    print('PROBE   first player: ' + ET.tostring(pl, encoding='unicode')[:1800])
+        except Exception as e:
+            print(f'PROBE {path}: error {e}')
+    for u in [f'https://api.sleeper.app/projections/nfl/2026/{w}?season_type=regular&position[]=QB',
+              f'https://api.sleeper.app/v1/projections/nfl/regular/2026/{w}']:
+        try:
+            with urllib.request.urlopen(urllib.request.Request(u, headers={'User-Agent': 'Mozilla/5.0'}), timeout=30) as r:
+                j = json.load(r)
+            first = j[0] if isinstance(j, list) and j else next(iter(j.items())) if isinstance(j, dict) and j else j
+            print(f'PROBE {u}: {type(j).__name__} {len(j)}; first: {json.dumps(first)[:900]}')
+        except Exception as e:
+            print(f'PROBE {u}: error {e}')
+
+
 # --- the sync --------------------------------------------------------------------------------------
 
 ROUNDS = ['final', 'semi', 'quarter']
@@ -498,6 +546,12 @@ def sync():
     season['schedule'] = sorted(future + sched, key=lambda g: g['week'])
     season['inProgress'] = not finished
     extras = sync_moves(tok, key, data, season, ids, year, cur_w)
+    try:
+        probe(tok, key, cur_w)
+    except Waiting:
+        raise
+    except Exception as e:
+        print(f'PROBE failed: {e}')
 
     after = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
     changed = after != before
