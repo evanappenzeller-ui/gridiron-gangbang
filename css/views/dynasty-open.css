@@ -51,10 +51,10 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-stage[hidden] { display: none; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-stage > * { grid-area: 1 / 1; }
 
-/* ---------------------------------------------------------------- the rip: the strip above the tear line (13% down) tears
-   from the side you started to your finger (--p, 0 to 1: how far across the tear front is), the torn part lifting hinged at
-   the tear front, the rest still flat on the body beyond it (the owner, Oct 29 2026: "The pack should split as I drag my
-   finger across") */
+/* ---------------------------------------------------------------- the rip: the strip above the cut (13% down) is slit
+   straight across from the side you started to your finger (--p, 0 to 1: how far across the cut is), the slit part lifting
+   a little at the cut's end, the rest still flat on the body beyond it (the owner, Oct 29 2026: "The pack should split as I
+   drag my finger across"; Oct 31 2026: "slit straight across and have a 3d appearance so the pack looks open") */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack { position: relative; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 16px; cursor: grab; outline: none;
   touch-action: none; user-select: none; -webkit-user-select: none; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack[hidden] { display: none; }
@@ -72,19 +72,57 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
    at the front, 22° once the tear is a quarter across; and the rest (.dy-rip-rest), from the front to the far side, flat
    on the body's own art, so the pack looks whole beyond your finger. All three copies run all along, so their art keeps
    in step. The band's insets: --dir 1 tears from the left, -1 from the right) */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-body { z-index: 1; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-top, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-rest { z-index: 2; visibility: hidden; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-body { z-index: 3; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-top, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-rest { z-index: 5; visibility: hidden; }
+/* (the slit part lifts only a little, 4° at most about the slit's end and 3px up: a clean cut, not a rip; views/dynasty-open.js
+   LIFT, LIFT_Y) */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-top { clip-path: inset(0 calc((1 - var(--p)) * (1 + var(--dir)) * 50%) 80% calc((1 - var(--p)) * (1 - var(--dir)) * 50%));
   transform-origin: calc(50% + var(--dir) * (var(--p) - .5) * 100%) 13%;
-  transform: translateY(calc(var(--p) * -10px)) rotate(calc(var(--dir) * min(1, var(--p) * 4) * 22deg)); }
+  transform: translateY(calc(var(--p) * -3px)) rotate(calc(var(--dir) * min(1, var(--p) * 4) * 4deg)); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-top .dy-rip-strip { clip-path: var(--ct); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-rest { clip-path: inset(0 calc(var(--p) * (1 - var(--dir)) * 50%) 80% calc(var(--p) * (1 + var(--dir)) * 50%)); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack:is(.is-drag, .is-touched, .is-torn) .dy-rip-body { clip-path: var(--cb); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack:is(.is-drag, .is-touched, .is-torn) :is(.dy-rip-top, .dy-rip-rest) { visibility: visible; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack:is(.is-drag, .is-touched, .is-torn) .dy-rip-top { filter: drop-shadow(0 calc(var(--p) * 8px) 6px rgba(0,0,0,.3)); }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-line { position: absolute; z-index: 3; top: 13%; height: 3px; margin-top: -1px; width: calc(var(--p) * 100%); border-radius: 2px; pointer-events: none;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack:is(.is-drag, .is-touched, .is-torn) .dy-rip-top { filter: drop-shadow(0 calc(var(--p) * 3px) 3px rgba(0,0,0,.25)); }
+/* (the cut so far: a glowing line straight across, from the side you started to your finger, brightest at its head) */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-line { position: absolute; z-index: 6; top: 13%; height: 4px; margin-top: -2px; width: calc(var(--p) * 100%); border-radius: 2px; pointer-events: none;
   left: calc(50% - var(--dir) * 50%); transform: translateX(calc((var(--dir) - 1) / 2 * 100%));
-  background: repeating-linear-gradient(90deg, #fff 0 5px, rgba(255,255,255,.5) 5px 8px); box-shadow: 0 0 8px 2px rgba(255,255,255,.75); opacity: min(1, calc(var(--p) * 6)); }
+  background: linear-gradient(calc(var(--dir) * 90deg), rgba(170,215,255,.55), #fff 70%, #fff);
+  box-shadow: 0 0 6px 2px rgba(255,255,255,.9), 0 0 16px 5px rgba(110,180,255,.75); opacity: min(1, calc(var(--p) * 6)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-line::after { content: ""; position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px -11px 0; border-radius: 50%;
+  left: calc(50% + var(--dir) * 50%); background: radial-gradient(closest-side, #fff 30%, rgba(190,225,255,.75) 55%, rgba(120,180,255,0)); }
+/* (the ground dims as the cut goes across (--cut, on the overlay), and lights up again once it's open) */
+div.pk-open .dy-dim { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: rgba(26,32,50,.6); opacity: calc(var(--cut, 0) * .85); transition: opacity .15s; }
+div.pk-open:has(.dy-open-pack.is-torn) .dy-dim { transition: opacity .45s ease-out; }
+/* (a pack you could hold: its sides and middle shaded round, on the body and the strip's copies alike so the cut meets) */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip :is(.dy-rip-body, .dy-rip-strip)::after { content: ""; position: absolute; inset: 0; z-index: 5; border-radius: 4% / 2.5%; pointer-events: none;
+  background: linear-gradient(90deg, rgba(12,20,48,.34), rgba(12,20,48,.08) 8%, rgba(255,255,255,.12) 28%, rgba(255,255,255,0) 46%, rgba(12,20,48,0) 72%, rgba(12,20,48,.1) 90%, rgba(12,20,48,.38)); }
+/* ---------------------------------------------------------------- the open mouth (Oct 31 2026: "have a 3d appearance so the
+   pack looks open"): the inside of the back panel (.dy-rip-in, behind the cards as they rise: dark down into the pack, its
+   cut edge a band of foil, .dy-rip-rim), the front panel (.dy-rip-body, before them) its lip bowed down and shaded as it
+   bends away (.dy-rip-shade), a bright band along that lip (.dy-rip-lip). Shut (the polygons on the cut, views/dynasty-open.js
+   TEAR) none of it shows; they ease open together. Torn, the pack is no layer of its own (z-index auto), so the cards
+   (.dy-deal, z-index 2) go between the inside (1) and the front (3). All 2D: a 3D tilt draws the art soft */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-in, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-lip, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-rim, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-shade { position: absolute; inset: 0; pointer-events: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-in { z-index: 1; clip-path: var(--ci); visibility: hidden;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--pc, #6B7CFF) 55%, #1C2340) 10%, color-mix(in srgb, var(--pc, #6B7CFF) 28%, #0B1022) 13.5%, #05070F 17%); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-in::after { content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,0) 20%, rgba(255,255,255,.07) 50%, rgba(0,0,0,0) 80%, rgba(0,0,0,.55)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-rim { z-index: 1; clip-path: var(--cr);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pc, #6B7CFF) 55%, #9AA6C8), #F4F7FF 22%, color-mix(in srgb, var(--pc, #6B7CFF) 35%, #E6ECFA) 42%, #FFFFFF 58%,
+    color-mix(in srgb, var(--pc, #6B7CFF) 40%, #DCE4F6) 78%, color-mix(in srgb, var(--pc, #6B7CFF) 55%, #9AA6C8)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-shade { z-index: 6; clip-path: var(--cs);
+  background: linear-gradient(to bottom, rgba(8,12,30,.5) 13%, rgba(8,12,30,.18) 16.5%, rgba(255,255,255,.1) 18.5%, rgba(255,255,255,0) 20.5%); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-lip { z-index: 4; clip-path: var(--cl); visibility: hidden;
+  background: linear-gradient(90deg, rgba(200,225,255,.75), #fff 30%, #fff 70%, rgba(200,225,255,.75)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn :is(.dy-rip-in, .dy-rip-lip) { visibility: visible; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn { z-index: auto; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn :is(.dy-rip-body, .dy-rip-in, .dy-rip-lip, .dy-rip-rim, .dy-rip-shade) { transition: clip-path .42s cubic-bezier(.2,.9,.3,1.25); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-rip-body { clip-path: var(--cbo); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-rip-in { clip-path: var(--cio); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-rip-lip { clip-path: var(--clo); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-rip-rim { clip-path: var(--cro); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-rip-shade { clip-path: var(--cso); }
 /* the hint: a fingertip glides along the tear line, a dotted trail behind it, till you start */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip-hint { position: absolute; z-index: 3; left: 4%; right: 4%; top: 13%; height: 0; pointer-events: none; opacity: .8; transition: opacity .25s; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-touched .dy-rip-hint, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-drag .dy-rip-hint { opacity: 0; }
@@ -107,7 +145,7 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn { cursor: default; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-rip-line, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-rip-hint { transition: opacity .15s; opacity: 0; }
 /* (a white flare, rainbow-rimmed, along the tear line) */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-flare { position: absolute; z-index: 3; left: -34%; right: -34%; top: 13%; height: 24%; pointer-events: none; opacity: 0; transform: translateY(-50%); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-flare { position: absolute; z-index: 6; left: -34%; right: -34%; top: 13%; height: 24%; pointer-events: none; opacity: 0; transform: translateY(-50%); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-flare::before { content: ""; position: absolute; inset: 0; border-radius: 50%;
   background: conic-gradient(from 220deg, #FF6FD8, #FFB45E, #FFF27A, #7DFFAA, #62D6FF, #9D8CFF, #FF6FD8);
   -webkit-mask: radial-gradient(closest-side, transparent 60%, #000 76%, transparent 100%); mask: radial-gradient(closest-side, transparent 60%, #000 76%, transparent 100%); }
@@ -115,14 +153,20 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-flare { animation: dy-flare .5s cubic-bezier(.2,.7,.3,1) both; }
 @keyframes dy-flare { 0% { opacity: 0; transform: translateY(-50%) scale(.2, .35); } 20% { opacity: 1; transform: translateY(-50%) scale(1, 1); }
   55% { opacity: .9; transform: translateY(-50%) scale(1.1, .8); } 100% { opacity: 0; transform: translateY(-50%) scale(1.22, .4); } }
+/* (and a beam of light straight along the cut, out past the pack's sides, as Pocket's) */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-beam { position: absolute; z-index: 6; left: -70%; right: -70%; top: 13%; height: 6px; margin-top: -3px; border-radius: 3px; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, rgba(255,255,255,0), #fff 28%, #fff 72%, rgba(255,255,255,0)); box-shadow: 0 0 14px 4px rgba(150,205,255,.8); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-beam { animation: dy-beam .6s cubic-bezier(.2,.7,.3,1) both; }
+@keyframes dy-beam { 0% { opacity: 0; transform: scaleX(.35); } 14% { opacity: 1; transform: scaleX(1); } 60% { opacity: .85; transform: scale(1.05, .8); } 100% { opacity: 0; transform: scale(1.1, .2); } }
 /* (the strip, whole now (--p 1: the torn band the whole strip, the rest none), spins away, up and toward the side the swipe
    went, about its own middle: --sx, --sy keep the pose the tear left it in, views/dynasty-open.js torn) */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-rip-rest { display: none; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-rip-top { clip-path: none; transform-origin: 50% 6.5%; filter: none; animation: dy-strip .74s cubic-bezier(.3,.5,.5,1) both; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-rip-top { z-index: 7; clip-path: none; transform-origin: 50% 6.5%; filter: none; animation: dy-strip 1s cubic-bezier(.25,.55,.45,1) both; }
 @keyframes dy-strip {
-  0% { transform: perspective(700px) translate3d(var(--sx), var(--sy), 0) rotateZ(calc(var(--dir) * 22deg)) rotateY(0deg) rotateX(0deg) scale(1); }
-  35% { transform: perspective(700px) translate3d(calc(var(--sx) + var(--dir) * 14vw), calc(var(--sy) - 17vh), 0) rotateZ(calc(var(--dir) * 95deg)) rotateY(calc(var(--dir) * 150deg)) rotateX(35deg) scale(.85); }
-  100% { transform: perspective(700px) translate3d(calc(var(--sx) + var(--dir) * 62vw), calc(var(--sy) - 68vh), 0) rotateZ(calc(var(--dir) * 250deg)) rotateY(calc(var(--dir) * 430deg)) rotateX(110deg) scale(.4); }
+  0% { transform: perspective(700px) translate3d(var(--sx), var(--sy), 0) rotateZ(calc(var(--dir) * 4deg)) rotateX(0deg) scale(1); }
+  30% { transform: perspective(700px) translate3d(calc(var(--sx) + var(--dir) * 14vw), calc(var(--sy) - 13vh), 0) rotateZ(calc(var(--dir) * 17deg)) rotateX(35deg) scale(.9); }
+  65% { transform: perspective(700px) translate3d(calc(var(--sx) + var(--dir) * 30vw), calc(var(--sy) - 22vh), 0) rotateZ(calc(var(--dir) * 24deg)) rotateX(130deg) scale(.78); }
+  100% { transform: perspective(700px) translate3d(calc(var(--sx) + var(--dir) * 78vw), calc(var(--sy) - 38vh), 0) rotateZ(calc(var(--dir) * 36deg)) rotateX(250deg) scale(.6); }
 }
 /* (a fan of rainbow light up out of the pack's mouth, behind its front, and sparkles rising) */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rays { position: absolute; z-index: 0; left: -50%; right: -50%; bottom: 87%; height: 125%; pointer-events: none; opacity: 0; }
@@ -135,15 +179,15 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 @keyframes dy-rays { 0% { opacity: 0; transform: scaleY(.3); } 18% { opacity: 1; transform: scaleY(1); } 58% { opacity: .85; } 100% { opacity: 0; transform: scaleY(1.12); } }
 @keyframes dy-ray { from { transform: rotate(var(--a)) scaleY(.82); opacity: .7; } to { transform: rotate(var(--a)) scaleY(1.05); opacity: 1; } }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-sink .dy-rays { transition: translate .42s cubic-bezier(.45,0,.25,1); translate: 0 var(--sink); }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-motes { position: absolute; z-index: 3; left: 0; right: 0; top: 13%; height: 0; pointer-events: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-motes { position: absolute; z-index: 6; left: 0; right: 0; top: 13%; height: 0; pointer-events: none; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-motes .dy-spk { left: var(--x); top: 0; opacity: 0; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-motes .dy-spk { animation: dy-mote var(--t) cubic-bezier(.25,.6,.45,1) var(--d) both; }
 @keyframes dy-mote { 0% { opacity: 0; transform: translate(0, 0) scale(.3); } 15% { opacity: 1; transform: translate(calc(var(--w) * .25), -7vh) scale(1); }
   45% { opacity: .55; transform: translate(calc(var(--w) * .6), -20vh) scale(.5); } 70% { opacity: 1; transform: translate(calc(var(--w) * .85), -30vh) scale(.95); }
   100% { opacity: 0; transform: translate(var(--w), -40vh) scale(.3); } }
 /* (the pack sinks toward the foot of the screen, the first card rises out of it, and it drops away) */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-sink .dy-rip-body { transition: transform .42s cubic-bezier(.45,0,.25,1); transform: translateY(var(--sink)); }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-drop .dy-rip-body { transition: transform .5s cubic-bezier(.55,0,.85,.35), opacity .3s .2s; transform: translateY(calc(var(--sink) + 50vh)); opacity: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-sink :is(.dy-rip-body, .dy-rip-in, .dy-rip-lip) { transition: transform .42s cubic-bezier(.45,0,.25,1); transform: translateY(var(--sink)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-drop :is(.dy-rip-body, .dy-rip-in, .dy-rip-lip) { transition: transform .5s cubic-bezier(.55,0,.85,.35), opacity .3s .2s; transform: translateY(calc(var(--sink) + 50vh)); opacity: 0; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-gone { transition: opacity .2s; opacity: 0; }
 
 /* ---------------------------------------------------------------- the cards: a stack, the top one showing */
@@ -156,8 +200,9 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-dc:not(.is-top):not(.is-fly) { visibility: hidden; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-deck.is-drag .dy-dc:not(.t6) { visibility: visible; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-dc.is-fly { z-index: 3; pointer-events: none; }
-/* (the first card, hidden under the sunk pack till it rises out of it: --y0, --s0, --h0 from views/dynasty-open.js torn) */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-dc.is-hid { visibility: hidden; transition: none; transform-origin: 50% 0; transform: translateY(var(--y0)) scale(var(--s0)); }
+/* (the first card, hidden under the sunk pack till it rises out of it: --y0, --s0, --h0 from views/dynasty-open.js torn;
+   opacity too, as a Common's face is visible of its own and would show through visibility alone) */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-dc.is-hid { visibility: hidden; opacity: 0; transition: none; transform-origin: 50% 0; transform: translateY(var(--y0)) scale(var(--s0)); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-dc.is-rise { transform-origin: 50% 0; animation: dy-rise .76s cubic-bezier(.3,.55,.25,1) both; }
 @keyframes dy-rise { 0% { transform: translateY(var(--y0)) scale(var(--s0)); } 36% { transform: translateY(calc(var(--y0) - var(--h0) * .8)) scale(var(--s0)); }
   100% { transform: translateY(0) scale(1); } }
@@ -522,6 +567,8 @@ div.pk-open .dy-end svg { width: 20px; height: 20px; }
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-foil, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-shine, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack .dy-rip, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-res-c, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-bg-spk .dy-spk, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rays > i, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deal-c, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deal-c * { animation: none !important; }
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rays, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-motes, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-flare, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-wash { display: none; }
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-rip-top { animation: none; transition: opacity .15s; opacity: 0; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn :is(.dy-rip-body, .dy-rip-in, .dy-rip-lip, .dy-rip-rim, .dy-rip-shade) { transition: none; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-beam { display: none; }
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-dc, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-dc.is-top { transform: none; transition: opacity .2s; }
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-dc.is-hid { transform: none; }
   /* (the reveal: the card simply there, face up, its ground and stamp still) */

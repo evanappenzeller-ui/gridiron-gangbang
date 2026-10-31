@@ -70,13 +70,16 @@ const SAVE = {v: 1, born: Date.now() - 864e5, at: Date.now(), o: {'C-timeout': 2
   await page.goto(url);
   await page.waitForFunction(() => window.__ggBooted, null, {timeout: 30000});
   await page.evaluate(async () => (await import('/js/app.js')).nav('/puzzles/dynasty'));
-  await page.locator('.pk-bigpack').waitFor({timeout: 30000});
   // (the title screen on entering, Oct 29 2026, views/dynasty.js startHTML: a tap through it once the cards are in)
+  await page.locator('.pk-start.is-ready, .pk-tab[data-dy-tab="packs"]').first().waitFor({timeout: 30000});
   if (await page.locator('.pk-start').count()) {
     await page.locator('.pk-start.is-ready').waitFor({timeout: 30000});
     await page.locator('.pk-start').click({position: {x: Math.round(SIZE[0] / 2), y: Math.round(SIZE[1] * .76)}}); // (low on the screen, whatever its size)
     await page.waitForFunction(() => !document.querySelector('.pk-start'), null, {timeout: 10000});
   }
+  // (Rivals' four tabs, Oct 30 2026: the packs are on Packs)
+  await page.locator('.pk-tab[data-dy-tab="packs"]').click();
+  await page.locator('.pk-bigpack').waitFor({timeout: 30000});
   await page.waitForTimeout(600);
   let shotMs = 0, shots = 0;
   const shot = async name => { const f = path.join(OUT, name + '.png'), t0 = Date.now(); await page.screenshot({path: f}); shotMs += Date.now() - t0; shots++; return f; };
@@ -181,6 +184,16 @@ const SAVE = {v: 1, born: Date.now() - 864e5, at: Date.now(), o: {'C-timeout': 2
     // (the tear's tween runs on frames: on a busy machine it can take longer than a fixed wait)
     await page.waitForFunction(() => document.querySelector('.dy-open-pack').classList.contains('is-torn'), null, {timeout: 3000}).catch(() => {});
     assert.ok(await torn(), 'it rips');
+    // (Oct 31 2026: slit straight across, the pack open in 3D: its body's top bows down, the inside of the back shows, and the
+    // pack is no layer of its own, so the first card rises between the back and the front)
+    const mouth = await page.evaluate(() => {
+      const pk = document.querySelector('.dy-open-pack'), cs = el => getComputedStyle(pk.querySelector(el));
+      return {cut: getComputedStyle(document.querySelector('.dy-rip')).getPropertyValue('--ct').trim(), z: getComputedStyle(pk).zIndex,
+        inner: cs('.dy-rip-in').visibility, lip: cs('.dy-rip-lip').visibility, body: cs('.dy-rip-body').zIndex, deal: getComputedStyle(document.querySelector('.dy-deal')).zIndex};
+    });
+    assert.equal(mouth.cut, 'polygon(0% 0%,100% 0%,100% 13%,0% 13%)', 'the strip is cut straight across');
+    assert.ok(mouth.inner === 'visible' && mouth.lip === 'visible', 'the open mouth shows');
+    assert.ok(mouth.z === 'auto' && +mouth.body > +mouth.deal, 'the cards rise between the inside and the front');
     mark('ripped');
     if (KEYS) {
       // (Enter during the opening: straight to the first card; then the arrows; Skip; Escape)

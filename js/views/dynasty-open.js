@@ -3,10 +3,12 @@
 // "Opening packs should have this animation"). You rip it open with a swipe across its top (Oct 28 2026: "ripping it
 // open by swiping across", with "a subtle hint showing players how to do this": a fingertip gliding along the tear line
 // till you start), the strip tearing under your finger as it goes (Oct 29 2026: "The pack should split as I drag my finger
-// across": the torn part lifts behind the finger, the rest lies flat ahead of it; short of far enough it springs back;
-// Enter rips it too). Then a
-// flash along the tear, the strip spun away, rainbow light out of the pack; the pack sinks and the first card rises out of
-// it. The cards are a stack, the best last: swipe the top one away (or tap) for the next. Each card is revealed by its
+// across"; Oct 31 2026, with Pocket's again: "The pack should be slit straight across and have a 3d appearance so the pack
+// looks open": a straight slit, a glowing line along it to the finger, the ground dimming, the slit part lifting a little
+// behind it; short of far enough it springs back; Enter rips it too). Then a beam of light along the cut, the strip spun
+// away, the pack's mouth parting (the front's lip bowing down and shaded as it bends away, the inside of the back showing
+// above it, its cut edge a band of foil: TEAR), rainbow light out of it; the pack sinks and the first card rises out of its mouth, between the back
+// and the front. The cards are a stack, the best last: swipe the top one away (or tap) for the next. Each card is revealed by its
 // rarity as it comes to the top (the owner, Oct 29 2026: "Each player rarity should get a different animation when being
 // opened in a pack. The more rare the player, the more exciting the animation"; revealOf, REVEAL): a Common is dealt
 // face up; a Rare comes face down (Pocket's card back, the front hidden till the back has turned edge-on: nothing of the
@@ -150,7 +152,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   ov.style.setProperty('--pc', P.color);
   const s0 = D.mine(), heldOf = id => (s0.o && s0.o[id]) || 0;
   const big = packHTML(kind, {big: true, design}), small = packHTML(kind, {design});
-  ov.innerHTML = `<div class="pk-open-bg" aria-hidden="true"><i class="pk-open-tint"></i><span class="dy-bg-spk">${DRIFT}</span></div>`
+  ov.innerHTML = `<div class="pk-open-bg" aria-hidden="true"><i class="pk-open-tint"></i><span class="dy-bg-spk">${DRIFT}</span></div><i class="dy-dim" aria-hidden="true"></i>`
     + `<div class="dy-pick" data-dy-carousel tabindex="0" role="button" aria-label="Choose a pack: swipe to turn them, then tap the one in front, or press Enter">`
     + `<i class="dy-pick-floor" aria-hidden="true"></i><div class="dy-pick-far" aria-hidden="true">${Array.from({length: FAR}, () => `<div class="dy-fp">${small}</div>`).join('')}</div>`
     + `<div class="dy-pick-ring" aria-hidden="true">${Array.from({length: RING}, () => `<div class="dy-pp"><div class="dy-pp-f">${big}</div><div class="dy-pp-b">${PACK_BACK}</div></div>`).join('')}</div>`
@@ -159,12 +161,14 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     + `<div class="dy-deck" tabindex="-1" role="group" aria-label="The cards: tap, swipe or press Enter for the next"></div>`
     + `<p class="dy-deck-meta" aria-hidden="true"><span class="dy-marks"></span><b class="pk-deal-n"></b><span class="dy-deal-hint">Tap or swipe</span></p></div>`
     + `<div class="dy-open-pack" data-dy-tear tabindex="0" role="button" aria-label="Rip the pack open: swipe across its top, or press Enter" hidden>`
-    + `<div class="dy-rip" style="--p:0;--dir:1;--ct:${TEAR.top};--cb:${TEAR.body}"><span class="dy-rays" aria-hidden="true">${RAYS}</span><span class="dy-motes" aria-hidden="true">${MOTES}</span>`
-    + `<div class="dy-rip-body">${big}</div>`
+    + `<div class="dy-rip" style="--p:0;--dir:1;--ct:${TEAR.top};--cb:${TEAR.body};--cbo:${TEAR.bodyOpen};--ci:${TEAR.inner};--cio:${TEAR.innerOpen};--cl:${TEAR.lip};--clo:${TEAR.lipOpen};--cr:${TEAR.rim};--cro:${TEAR.rimOpen};--cs:${TEAR.shade};--cso:${TEAR.shadeOpen}">`
+    + `<span class="dy-rays" aria-hidden="true">${RAYS}</span><span class="dy-motes" aria-hidden="true">${MOTES}</span>`
+    // (the open mouth, Oct 31 2026: the inside of the back panel behind the cards, the front panel and its cut lip before them)
+    + `<i class="dy-rip-in" aria-hidden="true"><i class="dy-rip-rim"></i></i><div class="dy-rip-body">${big}<i class="dy-rip-shade"></i></div><i class="dy-rip-lip" aria-hidden="true"></i>`
     // (the strip's two bands, css: the torn part, lifting behind the finger, and the rest still flat beyond it)
     + `<div class="dy-rip-top"><div class="dy-rip-strip">${big}</div></div>`
     + `<div class="dy-rip-rest"><div class="dy-rip-strip">${big}</div></div>`
-    + `<span class="dy-rip-line" aria-hidden="true"></span><span class="dy-flare" aria-hidden="true"></span>`
+    + `<span class="dy-rip-line" aria-hidden="true"></span><span class="dy-flare" aria-hidden="true"></span><span class="dy-beam" aria-hidden="true"></span>`
     + `<span class="dy-rip-hint" aria-hidden="true"><i class="dy-rip-trail"></i><i class="dy-rip-finger"></i></span></div>`
     + `<p class="dy-rip-say">Swipe across the top to rip it open</p></div></div>`
     + `<i class="dy-wash" aria-hidden="true"></i>`
@@ -271,10 +275,12 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     ui.haptic('medium');
     setPhase('open');
     const rr = rip.getBoundingClientRect(), dr = deck.getBoundingClientRect();
-    // (the strip spins about its own middle from where the tear left it: the same pose, about a new point)
-    const th = dir * 22 * Math.PI / 180, vx = dir * rr.width / 2, vy = rr.height * .065;
+    // (the strip spins about its own middle from where the slit left it: the same pose (css .dy-rip-top: LIFT° about the
+    // far end, LIFT_Y px up), about a new point)
+    const th = dir * LIFT * Math.PI / 180, vx = dir * rr.width / 2, vy = rr.height * .065;
     rip.style.setProperty('--sx', (vx - (vx * Math.cos(th) - vy * Math.sin(th))).toFixed(1) + 'px');
-    rip.style.setProperty('--sy', (vy - (vx * Math.sin(th) + vy * Math.cos(th)) - 10).toFixed(1) + 'px');
+    rip.style.setProperty('--sy', (vy - (vx * Math.sin(th) + vy * Math.cos(th)) - LIFT_Y).toFixed(1) + 'px');
+    ov.style.setProperty('--cut', '0'); // (the ground lights up again)
     const mouth = rr.top + rr.height * .13, sink = Math.max(0, innerHeight * .76 - mouth), s0 = Math.min(1, rr.width * .84 / dr.width);
     pk.style.setProperty('--sink', sink.toFixed(0) + 'px');
     pk.classList.add('is-torn'); ov.classList.add('is-tearflash');
@@ -671,6 +677,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   const set = v => {
     prog = Math.max(0, Math.min(1, v));
     rip.style.setProperty('--p', prog.toFixed(3)); rip.style.setProperty('--dir', String(dir));
+    ov.style.setProperty('--cut', prog.toFixed(3)); // (the ground dims as the cut goes across, as Pocket's)
   };
   const tween = (to, ms, then) => {
     cancelAnimationFrame(anim);
@@ -787,11 +794,30 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
 }
 // The tear line across a pack, a zigzag 13% down from its top: the strip above it and the body below (clip-paths that
 // meet exactly; css: --ct, --cb).
+// The cut, straight across the pack 13% down (the owner, Oct 31 2026, with a recording of Pocket's: "The pack should be
+// slit straight across and have a 3d appearance so the pack looks open"), as clip-path polygons in the pack's own
+// percentages. Shut, every edge lies on the cut; open, the mouth parts: the front panel's lip bows down (the body) and the
+// inside of the back panel shows above it, its cut edge bowed up (the inner); the lip a bright band along the front's
+// edge, the rim a band of foil along the back's, the shade the front bending away under its lip. (No 3D transform: it
+// would draw the pack's art soft.) Each pair has the same points, so css eases one into the other. LIFT, LIFT_Y: the slit strip's lift under the
+// finger at most (css .dy-rip-top), which views/dynasty-open.js torn spins it away from.
+const LIFT = 4, LIFT_Y = 3;
 const TEAR = (() => {
-  const CUT = 13, n = 12, pts = [];
-  for (let i = 0; i <= n; i++) pts.push([+(i * 100 / n).toFixed(2), CUT + (i % 2 ? 1.6 : -0.6)]);
-  const p = a => a.map(([x, y]) => `${x}% ${y}%`).join(',');
-  return {top: `polygon(0% 0%,100% 0%,${p(pts.slice().reverse())})`, body: `polygon(${p(pts)},100% 100%,0% 100%)`};
+  const CUT = 13, n = 16, xs = Array.from({length: n + 1}, (_, i) => i * 100 / n);
+  const bow = x => Math.pow(Math.sin(Math.PI * x / 100), .7); // (0 at the sides, where the seams hold, 1 in the middle)
+  const p = a => a.map(([x, y]) => `${+x.toFixed(2)}% ${+y.toFixed(2)}%`).join(',');
+  const edge = d => xs.map(x => [x, CUT + d * bow(x)]);
+  const FRONT = 3.2, BACK = -2.4, LIP = .7, RIM = 1.1, SHADE = 3.4;
+  const band = (d, w) => `polygon(${p(edge(d))},${p(xs.map(x => [x, CUT + d * bow(x) + w]).reverse())})`;
+  return {
+    top: `polygon(0% 0%,100% 0%,100% ${CUT}%,0% ${CUT}%)`,
+    body: `polygon(${p(edge(0))},100% 100%,0% 100%)`, bodyOpen: `polygon(${p(edge(FRONT))},100% 100%,0% 100%)`,
+    inner: `polygon(${p(edge(0))},100% 24%,0% 24%)`, innerOpen: `polygon(${p(edge(BACK))},100% 24%,0% 24%)`,
+    lip: `polygon(${p(edge(0))},${p(edge(0).reverse())})`,
+    lipOpen: `polygon(${p(edge(FRONT))},${p(xs.map(x => [x, CUT + FRONT * bow(x) + LIP * bow(x)]).reverse())})`,
+    // (the back panel's cut edge, a band of foil along it; and the front panel bending away under its lip, a shade along it)
+    rim: band(0, 0), rimOpen: band(BACK, RIM), shade: band(0, 0), shadeOpen: band(FRONT, SHADE)
+  };
 })();
 /** A card up close (views/dynasty.js cardSheet's): it tilts toward your finger (or the mouse) while it's on the card, a
  *  glare following, and a rare card's foil (◆◆◆◆, ★, ★★, a crown, a Legendary Trainer card) catching the light; flat at
