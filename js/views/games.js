@@ -432,10 +432,13 @@ function ctaHTML(s) {
 // scoreboard or flip case button", first Return Man's; every case but Keepfall's since Oct 26 2026, finished or not: a
 // finished one stands on its board, so it starts as Flip to the cover. mountList's syncFlip keeps its words to the side
 // the case is on). Small, right under the case, with no row of dots between (the owner's ask, Oct 31 2026: "Make the
-// games larger, the scoreboard icon smaller and remove the other icon directly under the case")
+// games larger, the scoreboard icon smaller and remove the other icon directly under the case"). Not before anyone's
+// played today (Oct 31 2026: "If no one has yet played, the scoreboard icon should not be visible"): it comes with
+// today's first row on the board.
 const flipHTML = s => {
   if (!(s.turns || s.kind === 'done') || !features.available()) return '';
   const on = s.kind === 'done';
+  if (!on && !(s.rows || []).length) return '';
   return `<div class="gm-flipw">${ui.button({label: on ? 'Flip to the cover' : 'View scoreboard', kind: 'secondary', size: 's', icon: on ? 'swap' : 'trophy', attrs: {'data-gm-flip': '', 'aria-pressed': String(on)}, cls: 'gm-flipb'})}</div>`;
 };
 function cdHTML(g) {

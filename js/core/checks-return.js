@@ -524,9 +524,10 @@ export async function returnChecks(check) {
     const pass = /\bis-turns\b/.test(cls) && !/\bis-done\b/.test(cls) && shows && !others && turns;
     return {pass, detail: `the case ${cls}; its back ${shows ? 'today\'s leaderboard' : 'WRONG: ' + txt.slice(0, 80)} (board ${board}); cases with no scoreboard: ${others || 'none'}; grabbed and turned like a finished one ${turns}`};
   });
-  check('Every case but Keepfall\'s has a flip button under it (the owner\'s ask, Oct 22 2026: "Add a view scoreboard or flip case button"; every game\'s, Oct 26 2026): View scoreboard turns the case in the middle round to its leaderboard, Flip to the cover turns it back, finished or not', async () => {
+  check('Every case but Keepfall\'s has a flip button under it (the owner\'s ask, Oct 22 2026: "Add a view scoreboard or flip case button"; every game\'s, Oct 26 2026): View scoreboard turns the case in the middle round to its leaderboard, Flip to the cover turns it back, finished or not; not before anyone\'s played today (Oct 31 2026: "If no one has yet played, the scoreboard icon should not be visible")', async () => {
     const [view, turner] = await Promise.all(['../views/games.js', '../views/game-case.js'].map(f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '')));
-    const gated = /if \(!\(s\.turns \|\| s\.kind === 'done'\) \|\| !features\.available\(\)\) return '';/.test(view) && /\n  return flipHTML\(s\);\n\}/.test(view)
+    const gated = /if \(!\(s\.turns \|\| s\.kind === 'done'\) \|\| !features\.available\(\)\) return '';/.test(view)
+      && /if \(!on && !\(s\.rows \|\| \[\]\)\.length\) return '';/.test(view) && /\n  return flipHTML\(s\);\n\}/.test(view)
       && /\(done \? cdHTML\(g\) \+ flipHTML\(s\) : ctaHTML\(s\)\)/.test(view);
     const wired = /if \(e\.target\.closest\('\[data-gm-flip\]'\)\) \{/.test(view) && /turner\.flip\(c\) != null/.test(view) && /shelfTurner\(shelf, \{rest: \(\) => syncFlip\(\)\}\)/.test(view)
       && /on \? 'Flip to the cover' : 'View scoreboard'/.test(view);
