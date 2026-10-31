@@ -194,7 +194,9 @@ Yahoo's final (the sync) replaces it. Each side's projected total sits under its
 point projections"): Yahoo gives only the team's projection (schedule `pa`/`pb`, not moved by results), so
 `fantasy-live.js` shares it among the starters (position and `data/nfl-players.json` relevance, `gameday.rankOf`) and
 counts points scored plus each share for the time left in his game; before kickoff it is Yahoo's number. The Yahoo sync also runs as each game-day window kicks off so the lineups are the
-locked ones. Verify `node tools/matchup/check-live-browser.cjs` and the kit check "Live league scores…".
+locked ones. The week's Matchup of the Week leads League's list in its own gold card (Oct 31 2026, the owner: "Be sure to highlight
+the matchup of the week"): the league's vote (`week.leader`, as the Matchup tab), "Leading the vote" until kickoff locks it;
+no card while nobody has voted. Verify `node tools/matchup/check-live-browser.cjs` and the kit check "Live league scores…".
 
 ## Home screen (October 30, 2026)
 

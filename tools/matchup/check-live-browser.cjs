@@ -4,7 +4,7 @@
 // stand-ins built from the league file's own lineups (every starter gets a line), so nothing reaches the network.
 // For Evan, another member and a visitor: Scores opens on NFL with the NFL · League switch; League shows this week's
 // games with each side's live score, projected total (Yahoo's, moved by the scores: never under the score) and players
-// left; Evan's game opens the sheet with the live score and projections, both lineups
+// left, the Matchup of the Week (once voted) first in its own card; Evan's game opens the sheet with the live score and projections, both lineups
 // (nine slots, under each side's name, which sticks) whose points add up to the score, and the next feed update moves it; League is remembered after a
 // reload, NFL comes back with the octobox; Matchup's "Live scores" opens League; then the kit checks "Live league
 // scores" and "Live Games".
@@ -96,6 +96,7 @@ function summary(id) {
 }
 
 const PROFILES = [{tag: 'evan', me: 'evan'}, {tag: 'mason', me: 'mason'}, {tag: 'visitor', me: 'none'}];
+const w8same = (k1, k2) => !!k1 && !!k2 && k1.split('|').sort().join('|') === k2.split('|').sort().join('|');
 const snap = (page, name) => (shots ? page.screenshot({path: path.join(shots, name + '.png')}) : Promise.resolve());
 
 async function run(url) {
@@ -133,6 +134,21 @@ async function run(url) {
       await page.waitForSelector('.v-live .ll-gm.is-live', {timeout: 20000});
       await page.waitForTimeout(600); // (the cross-fade's snapshot goes)
       assert.equal(await page.locator('.v-live [data-lg-nfl]').isHidden(), true, p.tag + ': NFL hides');
+      // The Matchup of the Week (the league's vote, seeded on the dev stand-in) leads the list in its own gold card.
+      assert.equal(await page.locator('.v-live .ll-motw').count(), 0, p.tag + ': no Matchup of the Week before anyone votes');
+      await page.evaluate(() => import('/js/core/week.js').then(w => w.__dev.seed(null, 7)));
+      await page.waitForSelector('.v-live .ll-motw .ll-gm', {timeout: 10000});
+      const motw = await page.evaluate(() => import('/js/core/week.js').then(w => {
+        const c = w.current(), s = w.__dev.store().motw[c.key], t = {};
+        Object.values(s).forEach(v => { t[v.pick] = (t[v.pick] || 0) + 1; });
+        return {want: w.leader(t, w.ranking(c.year, c.week)), got: document.querySelector('.v-live .ll-motw .ll-gm').dataset.llG,
+          hd: document.querySelector('.v-live .ll-motw-hd').textContent, rest: document.querySelectorAll('.v-live .ll-gms:not(.ll-motw) .ll-gm').length};
+      }));
+      assert.ok(w8same(motw.want, motw.got), p.tag + `: the vote's leader leads (${motw.got} for ${motw.want})`);
+      assert.match(motw.hd, /Matchup of the Week.*7 votes/, p.tag + ': the banner and the votes');
+      assert.equal(motw.rest, 5, p.tag + ': the other five games follow');
+      await snap(page, p.tag + '-motw');
+      await page.evaluate(() => { localStorage.removeItem('gg-dev-week'); });
       assert.match(await page.locator('.v-live .lt-eyebrow').textContent(), /^League · Week \d+ · Live$/);
       const items = await page.locator('.v-live .ll-gm').count();
       const liveN = await page.locator('.v-live .ll-gm.is-live').count();
