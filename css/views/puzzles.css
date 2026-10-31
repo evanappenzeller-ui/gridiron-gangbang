@@ -229,8 +229,22 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
    month and day, kept on one line), and at its foot every other tab as an app icon, like an iPhone's home screen, in
    place of the tab bar (which steps aside while the home shows and comes back everywhere else). The apps take the room
    the bar had and more: --tab-h here is their height, so the case (--cw above) gives way to them. */
-.screen.v-puzzles[data-path="/puzzles"] { --hm-h: 184px; --tab-h: calc(var(--hm-h) + var(--tb-gap)); padding-bottom: var(--tb-gap); }
+.screen.v-puzzles[data-path="/puzzles"] { --hm-h: 200px; --tab-h: calc(var(--hm-h) + var(--tb-gap)); padding-bottom: var(--tb-gap); }
 .screen.v-puzzles[data-path="/puzzles"] .lt-title { white-space: nowrap; }
+/* the date smaller, and the buttons by it, so the case has the room (the owner's ask, Oct 31 2026: "The game cases should
+   be even bigger. Make the date smaller to create room"); the owner's Test pill sits in the row with them */
+/* (the empty bar over it shorter too: home doesn't scroll, so its collapsed title never shows) */
+.screen.v-puzzles[data-path="/puzzles"] { --nav-h: calc(16px + var(--sa-t)); }
+.screen.v-puzzles[data-path="/puzzles"] .lt { padding-bottom: 4px; min-height: 0; }
+/* (the apps sit at the foot now, so their grid holds all of a two-line name: --hm-h above) */
+.screen.v-puzzles[data-path="/puzzles"] .hm-app { gap: 4px; padding: 2px 0; }
+.screen.v-puzzles[data-path="/puzzles"] .lt-eyebrow { font-size: 11px; line-height: 14px; }
+.screen.v-puzzles[data-path="/puzzles"] .lt-title { font-size: 28px; line-height: 30px; padding-top: 0; }
+.screen.v-puzzles[data-path="/puzzles"] .lt-trail { padding-bottom: 0; gap: 6px; }
+.screen.v-puzzles[data-path="/puzzles"] .c-gear-btn { width: 34px; height: 34px; }
+.screen.v-puzzles[data-path="/puzzles"] .c-gear-btn > .ic { width: 19px; height: 19px; }
+.screen.v-puzzles[data-path="/puzzles"] .c-you-btn { width: 38px; height: 38px; margin-right: -3px; }
+.screen.v-puzzles[data-path="/puzzles"] .c-test-btn { position: relative; top: auto; right: auto; flex: none; height: 24px; }
 .hm-apps {
   flex: none; height: calc(var(--hm-h) - 10px); margin-top: 10px;
   display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; align-items: start; gap: 4px 8px;
@@ -307,7 +321,7 @@ html.hm-morph #tabbar .tab-ic, html.hm-morph #tabbar .tab-ind { visibility: hidd
    Oct 2026), and stays put: it doesn't scroll (the owner's ask, Oct 27 2026: "You shouldn't be able to scroll down on
    the daily games screen"). The case is sized so everything fits (--cw below), and the smoke behind it, bigger than
    the screen, is cut off at its edges rather than leaving room to scroll into. */
-.screen.v-puzzles[data-path="/puzzles"] { display: flex; flex-direction: column; padding-bottom: calc(var(--tab-h) + 12px); overflow: hidden; overscroll-behavior: none; }
+.screen.v-puzzles[data-path="/puzzles"] { display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
 @supports (overflow: clip) { .screen.v-puzzles[data-path="/puzzles"] { overflow: clip; } }
 .screen.v-puzzles[data-path="/puzzles"] > * { flex: none; }
 .screen.v-puzzles[data-path="/puzzles"] > .screen-body { flex: 1 0 auto; display: flex; flex-direction: column; }
@@ -316,7 +330,7 @@ html.hm-morph #tabbar .tab-ic, html.hm-morph #tabbar .tab-ind { visibility: hidd
      as the room between the title and the tab bar leaves after the tallest of what goes under the shelf
      (--gm-sel: views/games.js room(); the screen doesn't scroll, so on a short phone the case is the one to give way).
      (The app's frame, cqh, not svh: an iPhone's home-screen app reports svh short by the status bar's height.) */
-  --cw: min(calc(100cqw - 40px), 440px, calc((100cqh - var(--nav-h) - var(--tab-h) - 118px - var(--gm-sel, 60px)) / 1.38));
+  --cw: min(calc(100cqw - 40px), 440px, calc((100cqh - var(--nav-h) - var(--tab-h) - 96px - var(--gm-sel, 60px)) / 1.38));
   --ch: calc(var(--cw) * 1.38);
   position: relative; margin-top: 2px; flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center;
 }
