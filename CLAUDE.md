@@ -178,6 +178,14 @@ is his card's portrait (`js/core/dynasty-legends.js` PHOTO, `img/dynasty/legends
 his card details credit the author, licence and Commons page, which the licences require: keep the credit. Rebuild with
 `tools/dynasty/legend_photos.py` (TITLE/FILE/SKIP/CROP for fixes; check the crops by eye). Legends without one keep their
 number. The kit check "Gridiron Rivals: the Legends' photos…" covers it.
+Playing-days photos on the 90+ cards (Oct 31 2026, Evan: "The pictures being used for the legend players are too formal
+... for any players that are in the 90+ overall club. Find photos of them playing or some sort of playing card design"):
+every card rated 90 or more (Legends and current players) whose player has one wears a freely licensed Commons photo of
+him in uniform from his playing days (a game, a Pro Bowl, a practice, a period trading card) in place of the lead photo
+or headshot (`js/core/dynasty-action.js` ACTION/CLUB, `img/dynasty/action/`, head `a:<key>`, credited like the Legends').
+His cards under 90 keep their portrait. `tools/dynasty/action_photos.py find` lists each player's candidates on contact
+sheets; PICK (chosen by eye: him, in uniform, NFL over college) and CROP (checked by eye) feed `build`. The kit check
+"Gridiron Rivals: playing-days photos on the 90+ cards…" covers it.
 
 ## Live league scores (October 30, 2026)
 
