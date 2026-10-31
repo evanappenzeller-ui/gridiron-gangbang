@@ -201,7 +201,7 @@ async function playerFlow(page, p, {reduced}) {
     const s = D.mine();
     if (s.pk.start) D.open('start', {free: true});
     D.setDeck(D.autoDeck(D.mine().o));
-    const r = SOLO.start(SOLO.OPPONENTS[0].id);
+    const r = SOLO.start('g1');
     if (!r.ok) return r.why;
     await app.nav('/puzzles/dynasty/battle/' + r.mid);
     return r.mid;

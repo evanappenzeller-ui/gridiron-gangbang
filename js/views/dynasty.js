@@ -620,8 +620,9 @@ function renameSheet(st) {
 }
 
 // ---------------------------------------------------------------------------------------------------- Battle
-// Pocket's Battle screen: the banner, then Solo (against the computer: core/dynasty-solo.js; the owner, Oct 29 2026:
-// "Provide a solo mode against the computer") and Versus (your matches and challenges), then Rankings, the Guide and Decks.
+// Pocket's Battle screen: the banner (your next Solo ladder game: core/dynasty-solo.js; the owner, Oct 30 2026: "This
+// game mode should be focused on games against the cpu getting increasingly difficult"), then the ladder and Versus
+// (your matches and challenges), then Rankings, the Guide and Decks.
 const ago = ms => { const m = Math.round(ms / 60000); return m < 60 ? `${Math.max(1, m)}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
 const avatarOf = (o, size = 36) => (o.member ? ui.avatar(o.member, {size}) : ui.nickAvatar(o.name, {size}));
 export function battleHome(st, s = D.mine()) {
@@ -630,19 +631,20 @@ export function battleHome(st, s = D.mine()) {
   const resume = move || cur;
   const stars = dk.ids.map(id => D.card(id)).filter(Boolean).filter((c, i, a) => a.findIndex(x => x.id === c.id) === i).slice(0, 3);
   const starter = !dk.ok && s.pk.start > 0;
-  const action = resume ? `data-dy-go="${resume.mid}"` : dk.ok ? 'data-dy-solo="rookie-camp"' : starter ? 'data-dy-tab="packs"' : 'data-dy-tab="decks"';
-  const label = resume ? 'Continue match' : dk.ok ? 'Play solo' : starter ? 'Open starter pack' : 'Prepare your deck';
-  return `<section class="rh-hero" aria-label="Play Rivals"><div class="rh-kicker"><span class="rh-live"></span> YOUR NEXT BIG PLAY</div>`
-    + `<h2>Build your team.<br>Outplay your rival.</h2><p>${resume ? `Your match against ${esc(resume.opp.name)} is waiting.` : 'Collect the stars. Find your combination. First to three touchdowns wins.'}</p>`
+  const at = SOLO.ladderAt(s), next = SOLO.stage(Math.min(at, SOLO.LADDER));
+  const action = resume ? `data-dy-go="${resume.mid}"` : dk.ok ? `data-dy-solo="${next.id}"` : starter ? 'data-dy-tab="packs"' : 'data-dy-tab="decks"';
+  const label = resume ? 'Continue match' : dk.ok ? `Play game ${next.n}` : starter ? 'Open starter pack' : 'Prepare your deck';
+  return `<section class="rh-hero" aria-label="Play Rivals"><div class="rh-kicker"><span class="rh-live"></span> ${at > SOLO.LADDER ? 'LADDER COMPLETE · REPLAY THE FINAL' : `SOLO LADDER · GAME ${next.n} OF ${SOLO.LADDER}`}</div>`
+    + `<h2>${esc(next.name)}</h2><p>${resume ? `Your match against ${esc(resume.opp.name)} is waiting.` : `${esc(next.tier.name)}: ${esc(next.tier.blurb)}`}</p>`
     + `<button type="button" class="rh-play" ${action}>${ui.icon('play-fill', {size: 18})}${label}${ui.icon('chevron-right', {size: 18})}</button>`
-    + `<span class="rh-hero-note">${resume ? 'Your cards and progress are saved' : starter ? 'Your first pack builds a ready-to-play deck' : 'Solo practice · Play at your pace'}</span>`
+    + `<span class="rh-hero-note">${resume ? 'Your cards and progress are saved' : starter ? 'Your first pack builds a ready-to-play deck' : 'Each win unlocks the next game · First to three touchdowns'}</span>`
     + `<div class="rh-yard" aria-hidden="true"><span>20</span><span>40</span><span>50</span><span>40</span><span>20</span></div></section>`
     + `<button type="button" class="rh-active-deck" data-dy-tab="decks"><span class="rh-deck-art" aria-hidden="true">${stars.slice(0, 2).map((c, i) => `<span style="--i:${i}">${cardHTML(c, {size: 's', tag: false, noCount: true})}</span>`).join('')}</span>`
     + `<span class="rh-deck-copy"><small>ACTIVE DECK</small><b>${esc(D.teamName(s))}</b><span>${dk.ids.length}/20 cards · ${dk.ok ? 'Ready to play' : esc(dk.why)}</span></span>${ui.icon('chevron-right', {size: 18})}</button>`
     + `<div class="rh-section-head"><h2>Choose your matchup</h2><span>${nf(s.rec.w)} W · ${nf(s.rec.l)} L</span></div>`
-    + `<div class="pk-modes"><button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Challenge a friend</b><small>${wait ? `${wait} ${wait === 1 ? 'match needs' : 'matches need'} your attention` : 'Take turns, on your schedule'}</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button>`
-    + `<button type="button" class="pk-mode" data-dy-bv="solo">${MODE_IC.solo}<b>Solo challenges</b><small>12 opponents · 4 difficulties</small></button></div>`
-    + `<details class="rh-how"><summary>Make every card count <span>How to play</span></summary><ol><li><b>Build your lineup.</b> One active player, up to three on the bench.</li><li><b>Prepare your play.</b> Attach energy, use a Coach, or switch players.</li><li><b>Choose your moment.</b> Quick plays keep energy. Signature plays spend one energy for a bigger effect.</li></ol><p>Knockouts score touchdowns. First to three wins. Matches already in progress keep their original rules.</p></details>`
+    + `<div class="pk-modes"><button type="button" class="pk-mode" data-dy-bv="solo">${MODE_IC.solo}<b>Solo ladder</b><small>${at > SOLO.LADDER ? 'All 30 games won' : `Game ${at} of ${SOLO.LADDER} · ${esc(next.tier.name)}`}</small></button>`
+    + `<button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Challenge a friend</b><small>${wait ? `${wait} ${wait === 1 ? 'match needs' : 'matches need'} your attention` : 'Take turns, on your schedule'}</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button></div>`
+    + `<details class="rh-how"><summary>Make every card count <span>How to play</span></summary><ol><li><b>Set your lineup.</b> One active player, up to three on the bench.</li><li><b>Tap a card.</b> It lifts up with its plays. Pick one, or put it back.</li><li><b>Energy is automatic.</b> Each turn it goes on your active player (or the bench player who needs it).</li><li><b>Choose your moment.</b> Quick plays keep energy. Signature plays spend one energy for a bigger hit.</li></ol><p>Knockouts score touchdowns. First to three wins. Matches already in progress keep their original rules.</p></details>`
     + `<div class="pk-row-s"><button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Rules</span></button>`
     + `<button type="button" class="pk-mini" data-dy-tab="decks">${TILE.decks}<span>Decks</span></button>`
     + `<button type="button" class="pk-mini" data-dy-bv="rank">${MODE_IC.rank}<span>Rankings</span></button>`
@@ -693,28 +695,31 @@ function guideSheet() {
   const body = `<ol class="pk-guide">`
     + `<li><b>Build a deck</b>20 cards: players and Trainers, at most 2 of any one, with at least one Basic player.</li>`
     + `<li><b>Set up</b>Start with 5 cards. Put a Basic player out as your active player and up to 3 on your bench.</li>`
-    + `<li><b>Each turn</b>Draw a card. Take the energy from your Energy Zone (you see the next one coming) and attach it to a player. Put Basics on your bench, evolve, play Items (as many as you like), one Supporter and a Stadium, and switch out your active player once.</li>`
+    + `<li><b>Each turn</b>Draw a card. The turn’s energy goes on by itself: your active player while his plays need it, else the bench player it helps most. Put Basics on your bench, evolve, play Items (as many as you like), one Coach card and a Stadium, and switch out your active player once.</li>`
+    + `<li><b>Tap any card</b>It lifts off the table with what it can do now: your active player’s plays, a bench player’s Send in, a hand card’s play. Put back sets it down.</li>`
     + `<li><b>Attack</b>An attack needs its energy on your active player. Attacking ends your turn. In new matches, the second (signature) attack spends one attached energy; quick plays keep it. Existing matches keep their original rules. Hitting a weakness does +20: Air beats Blitz, Blitz beats Ground, Ground beats Coverage, Coverage beats Air.</li>`
     + `<li><b>Win</b>Knock out a player for a point (a Legend or Prime ex for two). Three points wins.</li>`
-    + `<li><b>Solo</b>Battle the computer: four levels, three opponents each. A win pays coins, and your first win over each opponent pays packs too.</li>`
+    + `<li><b>Solo ladder</b>Thirty games against the computer, each win unlocking the next. The first ones are gentle; from game 16 the computer counters your deck’s main type and plays every trick. A win pays coins (double the first time), and every fifth game’s first win pays packs.</li>`
     + `<li><b>Versus</b>Battles go in turns: play yours when you like, and your opponent gets YOUR MOVE on their Rivals case.</li></ol>`;
   ui.openSheet({title: 'Guide', body, cls: 'pk-sheet', detents: ['large']});
 }
-// Solo: your battle in play, then the computer's opponents by level, each with what a win pays and your wins over it.
+// Solo: your battle in play, then the ladder by tier: each game won, the next one to play, or locked, with what it pays.
 function soloHTML() {
-  const s = D.mine(), dk = D.deckOf(s), cur = SOLO.current();
+  const s = D.mine(), dk = D.deckOf(s), cur = SOLO.current(), at = SOLO.ladderAt(s);
   let h = `<button type="button" class="pk-backrow" data-dy-bv="">${ui.icon('chevron-left', {size: 16})} Play</button>`;
   if (!dk.ok) h += `<button type="button" class="pk-alert is-gold" data-dy-tab="decks">${ui.icon('info', {size: 18})}<span>Your deck isn’t ready: ${esc(dk.why)}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
   if (cur) h += `<button type="button" class="pk-alert" data-dy-go="${cur.mid}">${MODE_IC.solo}<span>Your battle against ${esc(cur.opp.name)}: ${cur.state === 'theirs' ? 'its move' : 'your move'} · ${cur.G.p[0].pts}–${cur.G.p[1].pts}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
   const packs = rw => Object.entries(rw).map(([k, n]) => `${n > 1 ? n + ' ' : ''}${D.PACKS[k].name}${n > 1 ? 's' : ''}`).join(', ');
-  SOLO.LEVELS.forEach(L => {
-    const P = D.SOLO_PAY[L.id];
-    h += `<section class="pk-sec"><h2 class="pk-h">${esc(L.name)}</h2><p class="pk-note">${esc(L.blurb)}</p><ul class="pk-list pk-solo">`
-      + SOLO.OPPONENTS.filter(o => o.lv === L.id).map(o => {
-        const wins = s.so[o.id] || 0;
-        return `<li><span class="pk-solo-t">${o.types.map(t => pipHTML(B.TYPES[t].e)).join('')}</span><span class="pk-row-t"><b>${esc(o.name)}${wins ? ` <i class="pk-tag is-won">${ui.icon('check', {size: 11})} ${wins}</i>` : ''}</b>`
-          + `<small>${esc(o.types.map(t => B.TYPES[t].name).join(' · '))}</small><small class="pk-solo-r">${wins ? `${nf(P.coins)} coins a win` : `First win: ${esc(packs(P.first))} + ${nf(P.coins)} coins`}</small></span>`
-          + `<button type="button" class="pk-btn is-go" data-dy-solo="${o.id}"${dk.ok ? '' : ' disabled'}>Battle</button></li>`;
+  h += `<p class="pk-note">${at > SOLO.LADDER ? 'You’ve won all thirty. Replay any game for coins.' : `Game ${at} of ${SOLO.LADDER}. Win a game to unlock the next.`}</p>`;
+  SOLO.TIERS.forEach((T, i) => {
+    const to = (SOLO.TIERS[i + 1] || {from: SOLO.LADDER + 1}).from - 1;
+    h += `<section class="pk-sec"><h2 class="pk-h">${esc(T.name)} <small>Games ${T.from}–${to}</small></h2><p class="pk-note">${esc(T.blurb)}</p><ul class="pk-list pk-solo">`
+      + SOLO.STAGES.filter(g => g.n >= T.from && g.n <= to).map(g => {
+        const wins = s.so[g.id] || 0, open = g.n <= at, P = D.ladderPay(g.n);
+        const pay = wins ? `${nf(P.coins)} coins a win` : `First win: ${nf(P.coins * 2)} coins${P.first ? ` + ${esc(packs(P.first))}` : ''}`;
+        return `<li class="${g.n === at ? 'is-next' : open ? '' : 'is-locked'}"><span class="pk-solo-n">${wins ? ui.icon('check', {size: 14}) : open ? g.n : ui.icon('lock', {size: 13})}</span><span class="pk-row-t"><b>${esc(g.name)}${wins ? ` <i class="pk-tag is-won">${wins}</i>` : ''}</b>`
+          + `<small>Game ${g.n}</small><small class="pk-solo-r">${pay}</small></span>`
+          + `<button type="button" class="pk-btn ${g.n === at ? 'is-go' : 'is-soft'}" data-dy-solo="${g.id}"${dk.ok && open ? '' : ' disabled'}>${wins ? 'Replay' : open ? 'Play' : 'Locked'}</button></li>`;
       }).join('') + '</ul></section>';
   });
   return h;

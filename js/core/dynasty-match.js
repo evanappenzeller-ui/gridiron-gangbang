@@ -34,7 +34,7 @@ export function cleanSide(M) {
   if (!M || typeof M !== 'object' || typeof M.o !== 'string' || !M.o) return null;
   return {o: M.o, k: Array.isArray(M.k) ? M.k.filter(x => typeof x === 'string').slice(0, B.DECK_SIZE) : [], m: Array.isArray(M.m) ? M.m.slice(0, 200) : [],
     ch: M.ch ? 1 : 0, z: ['decline', 'cancel', 'resign', 'claim'].includes(M.z) ? M.z : '', c: Number(M.c) || 0, at: Number(M.at) || 0, ...(M.done ? {done: 1} : {}),
-    ...(Number(M.v) >= 2 ? {v: Number(M.v) >= 3 ? 3 : 2} : {})};
+    ...(Number(M.v) >= 2 ? {v: Math.min(4, Math.floor(Number(M.v)))} : {})};
 }
 function selectProfile() {
   const key = profileKey();

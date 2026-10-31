@@ -446,7 +446,7 @@ export function rewardText(rw) {
 //  pk {pack kind: unopened}, cl {collection id: when claimed}, dk [the battle deck's 20 ids], kit (the starter Coach
 //  cards given: 1), kit2 (the starter Items given: 1), kit3 (the Starter Pack given: 1), pp (pack points), dd (the last day the daily pack was taken,
 //  YYYY-MM-DD), rec {w, l, d}, tr (trophies), bt {match id:
-//  'w'|'l'|'d', paid}, so {computer opponent id: Solo wins}, sl [the latest Solo battles paid], nm (team name), lp (the latest pulls, newest first: 24 at most), nw (cards pulled for the first time
+//  'w'|'l'|'d', paid}, so {computer opponent id (a ladder game: g1…g30): Solo wins}, sl [the latest Solo battles paid], nm (team name), lp (the latest pulls, newest first: 24 at most), nw (cards pulled for the first time
 //  and not looked at yet: NEW)}
 export const dayKey = (t = new Date()) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
 /** A new Dynasty: the starter Coach cards and Items, the Starter Pack to open (its players make the deck: open()), and
@@ -472,7 +472,7 @@ export function clean(s) {
   if (Array.isArray(s.nw)) out.nw = [...new Set(s.nw.filter(k => typeof k === 'string' && out.o[k] > 0))].slice(0, 60);
   // (the battles paid: the latest 200)
   Object.entries(obj(s.bt)).slice(-200).forEach(([k, v]) => { if (['w', 'l', 'd'].includes(v)) out.bt[k] = v; });
-  Object.entries(obj(s.so)).slice(0, 40).forEach(([k, v]) => { if (n(v) > 0) out.so[k] = Math.min(9999, n(v)); });
+  Object.entries(obj(s.so)).slice(0, 80).forEach(([k, v]) => { if (n(v) > 0) out.so[k] = Math.min(9999, n(v)); });
   return out;
 }
 
@@ -770,12 +770,18 @@ export function payBattle(mid, res, s = mine()) {
 // (core/dynasty-solo.js, against the computer) A win pays its level's coins, and the first win over each opponent its
 // bonus packs too; a draw 50 coins, a loss nothing. Never trophies or the versus record: Rankings are between players.
 export const SOLO_PAY = {beg: {coins: 150, first: {std: 1}}, int: {coins: 250, first: {std: 2}}, adv: {coins: 400, first: {prem: 1}}, exp: {coins: 600, first: {prem: 2}}};
-/** Pays Solo battle gid (opponent opp at level lv) its result: once. {coins, packs, first} or null when already paid. */
+// (the Solo ladder, core/dynasty-solo.js: game n's win pays 100 + 10n coins; the first win over it twice that, and every
+// fifth game's first win packs too)
+const LADDER_PACKS = {5: {std: 1}, 10: {std: 2}, 15: {prem: 1}, 20: {prem: 1, std: 1}, 25: {prem: 2}, 30: {leg: 1}};
+export const ladderPay = n => ({coins: 100 + 10 * n, first: LADDER_PACKS[n] || null});
+/** Pays Solo battle gid (opponent opp at level lv: a ladder game's number, or an earlier opponent's level) its result:
+ *  once. {coins, packs, first} or null when already paid. */
 export function paySolo(gid, opp, lv, res, s = mine()) {
-  if (!SOLO_PAY[lv] || !['w', 'l', 'd'].includes(res) || s.sl.includes(gid)) return null;
+  const P = typeof lv === 'number' ? ladderPay(lv) : SOLO_PAY[lv];
+  if (!P || !['w', 'l', 'd'].includes(res) || s.sl.includes(gid)) return null;
   s.sl = [gid, ...s.sl].slice(0, 20);
   const first = res === 'w' && !s.so[opp];
-  const pay = {coins: res === 'w' ? SOLO_PAY[lv].coins : res === 'd' ? 50 : 0, packs: first ? SOLO_PAY[lv].first : null, first};
+  const pay = {coins: res === 'w' ? P.coins * (first && typeof lv === 'number' ? 2 : 1) : res === 'd' ? 50 : 0, packs: first ? P.first : null, first};
   if (res === 'w') s.so[opp] = (s.so[opp] || 0) + 1;
   credit(s, pay.coins); if (pay.packs) addPacks(s, pay.packs);
   touch('battle'); return pay;
