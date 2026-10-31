@@ -163,6 +163,11 @@ The shared card reverse uses a royal blue frame, textured teal/cream swirl, copp
 The case's booklet and disc use restrained navy, ivory and silver artwork (`dynasty-book-v3` / `dynasty-disc-v3`).
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`
 (the kit check "Gridiron Rivals Solo ladder…" covers the ladder's decks, moves, unlocking and pay).
+Legends' photos (Oct 31 2026, Evan: "Import into game for me to see"): each Legend's freely licensed Wikipedia lead photo
+is his card's portrait (`js/core/dynasty-legends.js` PHOTO, `img/dynasty/legends/`, head `w:<key>`, filling the window);
+his card details credit the author, licence and Commons page, which the licences require: keep the credit. Rebuild with
+`tools/dynasty/legend_photos.py` (TITLE/FILE/SKIP/CROP for fixes; check the crops by eye). Legends without one keep their
+number. The kit check "Gridiron Rivals: the Legends' photos…" covers it.
 
 ## Live league scores (October 30, 2026)
 
