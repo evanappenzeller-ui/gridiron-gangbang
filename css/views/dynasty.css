@@ -351,7 +351,7 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list { list-style: none; margin: 0; padding: 4px 0; background: #fff; border-radius: 16px; box-shadow: var(--pk-shadow); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list > li { display: flex; align-items: center; gap: 10px; padding: 10px 14px; min-height: 52px; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list > li + li { box-shadow: inset 0 1px 0 var(--separator); }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list > li > span:first-child:not(.pk-rk):not(.pk-solo-t), :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-row-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list > li > span:first-child:not(.pk-rk):not(.pk-solo-t):not(.pk-solo-n), :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-row-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list b { font: 700 14px/1.25 var(--font-text); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list small { font-size: var(--fs-cap); color: var(--ink-3); line-height: 1.3; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list em { font: 800 14px/1 var(--font-text); font-style: normal; color: var(--gold); }

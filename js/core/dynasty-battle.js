@@ -16,6 +16,9 @@
 //   ahead (the Energy Zone's next), and Item cards. A match made before keeps version 1's energy draw (newGame's v).
 // - Version 3 (Rivals): signature plays spend one matching energy after resolving; quick plays keep their energy.
 //   Juke reduces signature damage by 30 instead of cancelling a whole attack on a coin flip. Old logs retain v1/v2.
+// - Version 4 (Oct 30 2026, the owner: "Energy is automatically added to the cards each round"): the turn's energy goes
+//   on by itself as the turn starts (autoEnergy: the active player while it helps his plays, else the bench player it
+//   brings nearest his signature play); after a knockout, onto the player sent in. Nothing else changes from v3.
 // - Knock out the other side's active player for a touchdown (a Legend or Prime: two). Three wins it, as does knocking
 //   out their last player. 50 turns between you and it's whoever's ahead.
 // - Types (football's own logic): Air (QB, WR, TE) beats Blitz, Ground (RB, OL) beats Coverage, Blitz (DL, LB) beats
@@ -38,7 +41,7 @@ export const POS_TYPE = {QB: 'A', WR: 'A', TE: 'A', RB: 'G', OL: 'G', DL: 'B', L
 export const WEAK = {A: 'C', G: 'B', B: 'A', C: 'G'};
 export const WEAK_BONUS = 20;
 export const DECK_SIZE = 20, HAND_START = 5, BENCH_MAX = 3, WIN_POINTS = 3, MAX_COPIES = 2, TURN_CAP = 50;
-export const RULES_VERSION = 3;
+export const RULES_VERSION = 4;
 
 // ---------------------------------------------------------------------------------------------------- Coach and Stadium cards
 // (C-: Coach cards, one a turn, Pokémon's Supporters; I-: Items, any number a turn; S-: Stadiums, in play for both sides
@@ -217,7 +220,7 @@ function shuffle(G, a) { for (let i = a.length - 1; i > 0; i--) { const j = Math
 //  came into play)}
 /** A new game: seed (the match id), decks [[ids], [ids]]. */
 export function newGame(seed, decks, v = 1) {
-  const G = {seed: String(seed), v: v >= 3 ? 3 : v >= 2 ? 2 : 1, rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
+  const G = {seed: String(seed), v: v >= 4 ? 4 : v >= 3 ? 3 : v >= 2 ? 2 : 1, rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
   G.first = coin(G) ? 0 : 1; G.cur = G.first;
   for (let i = 0; i < 2; i++) {
     const deck = shuffle(G, (decks[i] || []).slice());
@@ -277,6 +280,25 @@ function startTurn(G) {
     me.en = G.turn === 0 && who === G.first ? null : energyFor(G, who, me.n);
     me.next = energyFor(G, who, me.n + 1);
   } else me.en = G.turn === 0 && who === G.first ? null : me.types[Math.floor(rand(G) * me.types.length)];
+  autoEnergy(G, who);
+}
+/** How many of a cost's energy en still leaves unpaid. */
+export function unpaid(cost, en) {
+  const pool = en.slice();
+  let left = 0;
+  for (const c of cost) { if (c === '*') continue; const i = pool.indexOf(c); if (i < 0) left++; else pool.splice(i, 1); }
+  return left + Math.max(0, cost.filter(c => c === '*').length - pool.length);
+}
+/** Version 4: the turn's energy, attached for side who (none while he has no active player: it waits for the promote). */
+export function autoEnergy(G, who) {
+  const me = G.p[who];
+  if (G.v < 4 || !me.en || me.used.energy || !me.active) return;
+  const e = me.en, sig = s => stats(s.id).attacks[stats(s.id).attacks.length - 1].cost;
+  const gain = s => unpaid(sig(s), s.en) - unpaid(sig(s), [...s.en, e]);
+  const to = gain(me.active) > 0 ? me.active
+    : me.bench.filter(s => gain(s) > 0).sort((x, y) => unpaid(sig(x), x.en) - unpaid(sig(y), y.en))[0] || me.active;
+  to.en.push(e); me.en = null; me.used.energy = true;
+  say(G, who, 'energy', {u: to.u, id: to.id, e, auto: true});
 }
 function endTurn(G) {
   const who = G.cur, me = G.p[who];
@@ -396,7 +418,7 @@ function doMove(G, who, m) {
     case 'promote': {
       const i = me.bench.findIndex(s => s.u === m.u);
       me.active = me.bench.splice(i, 1)[0]; me.promote = false;
-      say(G, who, 'promote', {u: m.u, id: me.active.id}); return;
+      say(G, who, 'promote', {u: m.u, id: me.active.id}); autoEnergy(G, who); return;
     }
     case 'bench': takeFromHand(me, m.id); me.bench.push(newSlot(G, m.id)); say(G, who, 'bench', {id: m.id}); return;
     case 'evolve': {

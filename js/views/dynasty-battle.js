@@ -1,6 +1,9 @@
 // Gridiron Rivals match (/puzzles/dynasty/battle/<match id>). Rules and saved turns live in the core modules.
-// A tabletop holds both lineups and a sortable, fanned hand. Tapping a hand card previews it;
-// explicit Play commits it or highlights legal targets. Attacks show damage ranges and version-aware costs on the board.
+// A card table (the owner, Oct 30 2026: "The gameplay is far too confusing. I want it to include the cards that are in
+// play laid out and the available cards in your hand are spread out at the bottom. Clicking on each card will show the
+// attacks and allow the player to choose which one or put the card back down"): both lineups as cards on the felt, your
+// hand fanned along the foot. Tapping any card lifts it (focusHTML): its plays or what it can do now, and Put back.
+// Energy goes on by itself in rules v4; earlier matches keep a Give energy action on the lifted card.
 // Collectible card details, the complete log and match options remain available without interrupting ordinary moves.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -28,7 +31,7 @@ function evText(ev, you, opp) {
     case 'draw': return mine ? `You drew ${nameOf(ev.id)}.` : '';
     case 'bench': return `${who} put ${nameOf(ev.id)} on the bench.`;
     case 'evolve': return `${who} evolved ${short(ev.from)} into ${D.card(ev.id) && D.card(ev.id).t ? D.card(ev.id).t : D.SERIES[(D.card(ev.id) || {}).s] ? D.SERIES[D.card(ev.id).s].name : ''} ${short(ev.id)}.`;
-    case 'energy': return `${who} gave ${short(ev.id)} a ${B.ENERGY[ev.e]} energy.`;
+    case 'energy': return ev.auto ? `${mine ? 'Your' : `${opp}’s`} ${short(ev.id)} got a ${B.ENERGY[ev.e]} energy.` : `${who} gave ${short(ev.id)} a ${B.ENERGY[ev.e]} energy.`;
     case 'stadium': return `${who} played ${nameOf(ev.id)}.`;
     case 'item': return `${who} played ${nameOf(ev.id)}${ev.got && mine ? `: ${nameOf(ev.got)}` : ''}${ev.heal ? `: healed ${ev.heal}` : ''}.`;
     case 'retreat': return `${who} switched ${short(ev.from)} out for ${short(ev.to)}.`;
@@ -63,36 +66,7 @@ function evText(ev, you, opp) {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------- presentation
-// Sort copies carrying original hand indexes: duplicate cards and setup selections keep their identity.
-function handType(id) {
-  const t = D.trainer(id), s = B.stats(id);
-  return t ? {coach: 'Coach', item: 'Item', stadium: 'Stadium'}[t.kind] : `${B.TYPES[s.type].name} · ${s.stage ? 'Upgrade' : 'Basic'}`;
-}
-function handOrder(hand, sort) {
-  const cards = hand.map((id, i) => ({id, i}));
-  const power = id => Math.max(0, ...(B.stats(id)?.attacks || []).map(a => a.dmg));
-  return cards.sort((a, b) => (sort === 'name' ? nameOf(a.id).localeCompare(nameOf(b.id))
-    : sort === 'type' ? handType(a.id).localeCompare(handType(b.id))
-    : sort === 'power' ? power(b.id) - power(a.id) : 0) || a.i - b.i);
-}
-function revealHand(st, card) {
-  const hand = st.el.querySelector('.db-hand');
-  card = card || hand?.querySelector('.is-sel');
-  if (!hand || !card) return;
-  const box = card.getBoundingClientRect(), frame = hand.getBoundingClientRect();
-  hand.scrollLeft += box.left + box.width / 2 - frame.left - frame.width / 2;
-}
-function browseHand(st, step, edge) {
-  const cards = [...st.el.querySelectorAll('[data-db-hand]')];
-  if (!cards.length) return;
-  const at = cards.findIndex(c => c === document.activeElement);
-  const remembered = cards.findIndex(c => Number(c.dataset.dbHand) === st.browseI);
-  const current = at >= 0 ? at : remembered >= 0 ? remembered : cards.findIndex(c => c.classList.contains('is-sel'));
-  const n = edge === 'first' ? 0 : edge === 'last' ? cards.length - 1
-    : current < 0 ? step > 0 ? 0 : cards.length - 1 : (current + step + cards.length) % cards.length;
-  cards[n].focus({preventScroll: true}); revealHand(st, cards[n]);
-}
+// ---------------------------------------------------------------------------------------------------- the stadium scenes
 function athleteHTML(id, role) {
   const c = D.card(id), team = c && D.teamOf(c.team);
   // Vector athletes remain crisp at phone and desktop sizes and need no downloaded animation assets.
@@ -166,68 +140,153 @@ function nextCinema(st) {
 }
 
 // ---------------------------------------------------------------------------------------------------- pieces
-// Match cards use a readable game face; the full collectible is available from Details.
+// One card face for the felt, the hand and the lifted card: type pip, name and HP across the top, the portrait, then
+// (in play) the HP meter and the attached energy, or (in hand) what kind of card it is.
 function faceHTML(id, slot = null) {
   const c = D.card(id), t = D.trainer(id), stats = c && B.stats(id);
   const team = c && D.teamOf(c.team), type = stats && B.TYPES[stats.type];
-  const rarity = (c || t).r || 'common';
+  const rarity = (c || t || {}).r || 'common';
   const hp = stats ? Math.max(0, stats.hp - (slot ? slot.dmg : 0)) : 0;
-  const art = c ? `<span class="db-face-art" style="--team:${team.pri}"><span class="db-face-number">${esc(c.num || c.pos)}</span>${c.head && !/^https?:/.test(c.head) ? `<img src="${esc(headUrl(c.head, 300))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`
-    : `<span class="db-face-art is-tactic">${ui.icon(t.kind === 'stadium' ? 'star' : t.kind === 'coach' ? 'football' : 'bolt', {size: 28})}</span>`;
-  return `<span class="db-face r-${esc(rarity)}${c ? '' : ' is-tactic'}" style="--type:${type ? type.color : '#C59A48'}">${art}`
-    + `<span class="db-face-copy"><span class="db-face-role">${c ? `${esc(c.pos)} · ${esc(team.abbr || c.team)}` : esc({coach: 'Coach', item: 'Item', stadium: 'Stadium'}[t.kind])}</span>`
-    + `<b class="db-face-name">${esc(nameOf(id))}</b>`
-    + (c ? `<span class="db-face-health"><b>${hp}</b><small> / ${stats.hp} HP</small></span><span class="db-face-meter"><i style="width:${Math.round(hp / stats.hp * 100)}%"></i></span>`
-      : `<span class="db-face-hint">${esc(t.kind === 'coach' ? 'One per turn' : t.kind === 'stadium' ? 'Changes the field' : 'Play from hand')}</span>`)
-    + '</span></span>';
+  const pip = stats ? pipHTML(type.e) : `<span class="db-face-ic">${ui.icon(t.kind === 'stadium' ? 'star' : t.kind === 'coach' ? 'football' : 'bolt', {size: 12})}</span>`;
+  const art = c ? `<span class="db-face-art" style="--team:${esc(team.pri)}"><span class="db-face-number">${esc(c.num || c.pos)}</span>${c.head && !/^https?:/.test(c.head) ? `<img src="${esc(headUrl(c.head, 300))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`
+    : `<span class="db-face-art is-tactic">${ui.icon(t.kind === 'stadium' ? 'star' : t.kind === 'coach' ? 'football' : 'bolt', {size: 30})}</span>`;
+  const foot = !c ? `<span class="db-face-role">${esc({coach: 'Coach · one a turn', item: 'Item', stadium: 'Stadium'}[t.kind])}</span>`
+    : slot ? `<span class="db-face-meter"><i style="width:${Math.round(hp / stats.hp * 100)}%"></i></span><span class="db-face-en">${slot.en.length ? slot.en.map(pipHTML).join('') : '<small>No energy</small>'}</span>`
+    : `<span class="db-face-role">${esc(c.pos)} · ${esc(team.abbr || c.team)}${stats.stage ? ' · Upgrade' : ''}</span>`;
+  return `<span class="db-face r-${esc(rarity)}${c ? '' : ' is-tactic'}" style="--type:${type ? type.color : '#C59A48'}">`
+    + `<span class="db-face-top">${pip}<b class="db-face-name">${esc(c ? short(id) : nameOf(id))}</b>${stats ? `<span class="db-face-hp">${hp}<small>HP</small></span>` : ''}</span>`
+    + art + `<span class="db-face-foot">${foot}</span>`
+    + (slot && (slot.stun || slot.inj) ? `<span class="db-conds">${slot.stun ? '<i>Stunned</i>' : ''}${slot.inj ? '<i class="is-inj">Injured</i>' : ''}</span>` : '')
+    + '</span>';
 }
-function slotHTML(slot, side, act, pick) {
-  if (!slot) return `<div class="db-slot is-empty${act ? ' is-act' : ''}"><span>${act ? 'Active player' : 'Bench'}</span></div>`;
+/** A card on the felt (side: 'me' | 'opp'), a button that lifts it; pick: a target for the move being chosen. */
+function slotHTML(slot, side, act, {pick = false, ready = false, lifted = false} = {}) {
+  if (!slot) return `<div class="db-slot is-empty${act ? ' is-act' : ''}"><span>${act ? 'Active' : 'Bench'}</span></div>`;
   const stats = B.stats(slot.id), hp = stats.hp, left = Math.max(0, hp - slot.dmg);
-  const label = `${nameOf(slot.id)}, ${left} of ${hp} HP, ${slot.en.length} energy${slot.stun ? ', Stunned' : ''}${slot.inj ? ', Injured' : ''}${pick ? ', choose this player' : ', view details'}`;
-  return `<button type="button" class="db-slot${act ? ' is-act' : ''}${pick ? ' is-pick' : ''}${left <= hp * 0.3 ? ' is-low' : ''}" data-db-slot="${slot.u}" data-side="${side}" aria-label="${esc(label)}">`
-    + faceHTML(slot.id, slot)
-    + `<span class="db-en" aria-label="${slot.en.length} attached energy">${slot.en.length ? slot.en.map(pipHTML).join('') : '<small>No energy</small>'}</span>`
-    + (slot.stun || slot.inj ? `<span class="db-conds">${slot.stun ? '<i>Stunned</i>' : ''}${slot.inj ? '<i class="is-inj">Injured</i>' : ''}</span>` : '')
-    + '</button>';
+  const label = `${nameOf(slot.id)}, ${left} of ${hp} HP, ${slot.en.length} energy${slot.stun ? ', Stunned' : ''}${slot.inj ? ', Injured' : ''}${pick ? ', choose this player' : ready ? ', ready to attack' : ''}`;
+  return `<button type="button" class="db-slot${act ? ' is-act' : ''}${pick ? ' is-pick' : ''}${ready ? ' is-ready' : ''}${lifted ? ' is-lifted' : ''}${left <= hp * 0.3 ? ' is-low' : ''}" data-db-slot="${slot.u}" data-side="${side}" aria-label="${esc(label)}">`
+    + faceHTML(slot.id, slot) + (ready ? '<span class="db-tag">Tap to attack</span>' : pick ? '<span class="db-tag">Choose</span>' : '') + '</button>';
 }
+/** What a hand card does when played now: {a, candidates, targeted, ok, why, label}. */
 function handAction(G, who, id) {
   const t = D.trainer(id), stats = B.stats(id), me = G.p[who];
   const a = t ? t.kind : stats && stats.stage ? 'evolve' : 'bench';
   const targeted = a === 'evolve' || !!(t && t.target);
   const candidates = targeted ? B.slots(me).filter(s => B.check(G, who, {a, id, on: s.u}).ok) : [];
   const result = targeted ? candidates.length ? {ok: true} : B.check(G, who, {a, id, on: (B.slots(me)[0] || {}).u}) : B.check(G, who, {a, id});
-  return {a, candidates, targeted, ...result, label: a === 'bench' ? 'Add to bench' : a === 'evolve' ? 'Upgrade player' : 'Play card'};
+  const label = a === 'bench' ? 'Put on bench' : a === 'evolve' ? `Upgrade ${candidates.length === 1 ? short(candidates[0].id) : 'player'}` : `Play ${t.name}`;
+  return {a, candidates, targeted, ...result, label};
 }
-function selectedHTML(st, x) {
-  const me = x.G.p[x.you], i = st.handI;
-  if (i == null || me.hand[i] !== st.handId || x.state === 'setup') return '';
-  const id = me.hand[i], t = D.trainer(id), stats = B.stats(id), action = handAction(x.G, x.you, id);
-  const text = t ? t.text : `${stats.stage ? 'Upgrade the matching Basic player.' : 'Add this player to your bench.'}${stats.ability ? ' ' + B.abilityText(stats.ability, x.G.v) : ''}`;
-  const why = st.mode ? 'Choose a highlighted player on the field.' : x.state !== 'yours' ? 'You can play this card on your turn.' : action.ok ? '' : action.why;
-  return `<section class="db-selection" aria-label="Selected card"><span class="db-selection-art">${faceHTML(id)}</span><div class="db-selection-copy"><b>${esc(nameOf(id))}</b><p>${esc(text)}</p>`
-    + (why ? `<small>${esc(why)}</small>` : '')
-    + `<div class="db-selection-actions"><button type="button" class="db-play-card" data-db-play-hand${x.state === 'yours' && action.ok && !st.mode ? '' : ' disabled'}>${esc(action.label)}</button><button type="button" class="db-link" data-db-details="${esc(id)}">Details</button><button type="button" class="db-link" data-db-deselect aria-label="Close selected card">Close</button></div></div></section>`;
+// (setup: the lineup picked so far, as slots on the felt; ids from the hand by their index, so duplicates stay apart)
+function setupSlots(st) {
+  const S = st.setup;
+  return {active: S.act ? {u: -1, id: S.act, dmg: 0, en: []} : null, bench: S.bench.map((id, k) => ({u: -2 - k, id, dmg: 0, en: []}))};
 }
-function attacksHTML(st, x) {
-  const G = x.G, me = G.p[x.you];
-  if (!me.active || G.phase === 'setup' || x.state === 'over') return '';
-  const stats = B.stats(me.active.id);
-  return `<section class="db-playbook" aria-label="Your active player's attacks"><div class="db-playbook-title"><b>${esc(short(me.active.id))}’s plays</b><span>Attacking ends your turn</span></div><div class="db-plays">`
-    + stats.attacks.map((a, n) => {
-      const p = B.attackPreview(G, x.you, n);
-      const disabled = x.state !== 'yours' || !p.ok || !!st.mode;
-      const reason = x.state !== 'yours' ? 'Available on your turn' : st.mode ? 'Finish your selection first' : !p.ok ? p.why : '';
-      return `<button type="button" class="db-play${n ? ' is-signature' : ''}" data-db-attack="${n}"${disabled ? ' disabled' : ''}><span class="db-play-top"><small>${n ? 'SIGNATURE' : 'QUICK PLAY'}</small><span class="db-play-cost" aria-label="Requires ${a.cost.map(e => B.ENERGY[e]).join(', ')}">${a.cost.map(pipHTML).join('')}</span></span>`
-        + `<span class="db-play-name"><b>${esc(a.name)}</b><strong>${esc(p.damageText)}<small>DMG</small></strong></span>`
-        + `<span class="db-play-effect">${esc([p.text || B.fxText(a) || 'Reliable damage. Keep your energy.', ...(p.notes || [])].join(' '))}</span>`
-        + (reason ? `<span class="db-play-why">${esc(reason)}</span>` : '<span class="db-play-why is-ready">Play now</span>') + '</button>';
-    }).join('') + '</div></section>';
+function suggestLineup(st, hand) {
+  const power = id => B.stats(id).hp + Math.max(0, ...B.stats(id).attacks.map(a => a.dmg)) * 2;
+  const basics = hand.map((id, i) => ({id, i})).filter(c => B.isBasic(c.id)).sort((a, b) => power(b.id) - power(a.id));
+  const S = st.setup = {act: null, actI: -1, bench: [], benchI: [], init: true};
+  if (!basics.length) return;
+  S.act = basics[0].id; S.actI = basics[0].i;
+  basics.slice(1, 1 + B.BENCH_MAX).forEach(c => { S.bench.push(c.id); S.benchI.push(c.i); });
+}
+
+// ---------------------------------------------------------------------------------------------------- the lifted card
+// A tapped card rises off the table: big, with what it can do now. Your active player: his plays, each with its cost,
+// damage and what it still needs (and Switch out); a bench player: Send in; a hand card: its play; theirs: their plays
+// to read. Put back sets it down again.
+function attackButtons(st, x, slot, mine) {
+  const G = x.G, stats = B.stats(slot.id), me = G.p[x.you];
+  const active = mine && slot === me.active;
+  return stats.attacks.map((a, n) => {
+    const p = active ? B.attackPreview(G, x.you, n) : null;
+    const missing = B.unpaid(a.cost, slot.en);
+    const dmg = p ? p.damageText : `${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}`;
+    const can = active && x.state === 'yours' && !st.mode && p.ok;
+    const why = !mine ? '' : !active ? 'Only your active player attacks.' : x.state !== 'yours' ? 'On your turn.'
+      : missing ? `Needs ${missing} more energy.` : p.ok ? '' : p.why;
+    const text = [B.fxText(a), B.signatureText(G, n), ...(p ? p.notes || [] : [])].filter(Boolean).join(' ');
+    return `<button type="button" class="db-move${n ? ' is-signature' : ''}" data-db-attack="${n}"${can ? '' : ' disabled'}>`
+      + `<span class="db-move-cost" aria-label="Costs ${a.cost.map(e => B.ENERGY[e]).join(', ')}">${a.cost.map(pipHTML).join('')}</span>`
+      + `<span class="db-move-name"><b>${esc(a.name)}</b>${text ? `<small>${esc(text)}</small>` : ''}${why ? `<small class="db-move-why">${esc(why)}</small>` : ''}</span>`
+      + `<strong>${esc(dmg)}<small>DMG</small></strong></button>`;
+  }).join('');
+}
+function focusHTML(st, x, mySlots) {
+  const F = st.focus;
+  if (!F) return '';
+  const G = x.G, you = x.you, me = G.p[you], op = G.p[1 - you], yours = x.state === 'yours', setup = x.state === 'setup';
+  let id, slot = null, sub = '', moves = '', why = '';
+  const btn = (label, attrs, kind = 'go') => `<button type="button" class="db-act is-${kind}" ${attrs}>${esc(label)}</button>`;
+  if (F.kind === 'hand') {
+    id = me.hand[F.i];
+    const t = D.trainer(id), stats = B.stats(id);
+    sub = t ? t.text : `${B.TYPES[stats.type].name} · ${stats.stage ? `Upgrades ${short(id)}’s Basic card` : 'Basic player'} · ${stats.hp} HP`;
+    if (setup) {
+      if (!B.isBasic(id)) why = 'Only Basic players start the game.';
+      else moves = btn(st.setup.act ? 'Make him the starter' : 'Start with him', 'data-db-lineup="act"')
+        + (st.setup.act && st.setup.bench.length < B.BENCH_MAX ? btn('Put on bench', 'data-db-lineup="bench"', 'soft') : '');
+    } else {
+      const action = handAction(G, you, id);
+      moves += btn(action.label, `data-db-play-hand${yours && action.ok && !me.promote ? '' : ' disabled'}`);
+      why = !yours ? 'You can play this on your turn.' : me.promote ? 'Send in a new active player first.' : action.ok ? '' : action.why;
+      if (stats) moves = `<div class="db-moves is-info">${attackPreviewList(stats)}</div>` + moves;
+    }
+  } else if (F.kind === 'slot') {
+    const side = F.side === 'opp' ? op : null;
+    slot = side ? B.slots(op).find(s => s.u === F.u) : [mySlots.active, ...mySlots.bench].filter(Boolean).find(s => s.u === F.u);
+    if (!slot) return '';
+    id = slot.id;
+    const stats = B.stats(id), left = Math.max(0, stats.hp - slot.dmg);
+    const ab = stats.ability ? ` · ${B.ABILITY[stats.ability].name}: ${B.abilityText(stats.ability, G.v)}` : '';
+    sub = `${B.TYPES[stats.type].name} · ${left} of ${stats.hp} HP${stats.weak ? ` · Weak to ${B.TYPES[stats.weak].name}` : ''}${ab}`;
+    if (setup) {
+      const act = F.u === -1;
+      moves = (act ? '' : btn('Make him the starter', 'data-db-lineup="promote"')) + btn('Back to hand', 'data-db-lineup="hand"', 'soft');
+    } else if (side) {
+      moves = `<div class="db-moves">${attackButtons(st, x, slot, false)}</div>`;
+      why = 'Their plays, for reading.';
+    } else {
+      const isAct = slot === me.active;
+      moves = `<div class="db-moves">${attackButtons(st, x, slot, true)}</div>`;
+      if (yours && me.promote && !isAct) moves = btn('Send him in', `data-db-promote="${slot.u}"`) + moves;
+      else if (yours && !isAct) {
+        const r = B.check(G, you, {a: 'retreat', to: slot.u}), cost = me.active ? B.retreatCost(me.active, me) : 0;
+        moves = btn(`Send him in${cost ? ` (costs ${cost} energy)` : ''}`, `data-db-retreat="${slot.u}"${r.ok ? '' : ' disabled'}`, 'soft') + moves;
+        if (!r.ok) why = r.why === 'One switch a turn.' ? 'You’ve switched once this turn.' : r.why;
+      }
+      if (yours && isAct && me.bench.length && !me.promote) {
+        const r = B.check(G, you, {a: 'retreat', to: me.bench[0].u}), cost = B.retreatCost(me.active, me);
+        moves += btn(`Switch him out${cost ? ` (costs ${cost} energy)` : ''}`, `data-db-switch${r.ok ? '' : ' disabled'}`, 'soft');
+      }
+      // (matches begun before v4: the turn's energy is given by hand)
+      if (yours && me.en && !me.used.energy && !me.promote && B.check(G, you, {a: 'energy', on: slot.u}).ok) moves = btn(`Give him the ${B.ENERGY[me.en]} energy`, `data-db-energy="${slot.u}"`) + moves;
+    }
+  }
+  if (!id) return '';
+  return `<div class="db-focus" role="dialog" aria-modal="true" aria-labelledby="db-focus-name"><div class="db-focus-in">`
+    + `<div class="db-focus-card">${faceHTML(id, slot)}</div>`
+    + `<div class="db-focus-copy"><b id="db-focus-name">${esc(nameOf(id))}</b><p>${esc(sub)}</p></div>`
+    + moves + (why ? `<p class="db-focus-why">${esc(why)}</p>` : '')
+    + `<div class="db-focus-foot"><button type="button" class="db-act is-back" data-db-putback>Put back</button><button type="button" class="db-link" data-db-details="${esc(id)}">Card details</button></div>`
+    + '</div></div>';
+}
+// (a hand player's plays, to read before he's out)
+function attackPreviewList(stats) {
+  return stats.attacks.map(a => `<span class="db-move is-read"><span class="db-move-cost">${a.cost.map(pipHTML).join('')}</span><span class="db-move-name"><b>${esc(a.name)}</b>${B.fxText(a) ? `<small>${esc(B.fxText(a))}</small>` : ''}</span><strong>${a.dmg}<small>DMG</small></strong></span>`).join('');
 }
 
 // (no app menu at the foot while you play, as on the Dynasty page: views/dynasty.js fullScreen)
 function fullScreen(st, on) {
   document.documentElement.classList.toggle('is-dynasty-battle', !!on && !st.dead && D.mayPlay());
+}
+// (the focus: dropped when what it lifted is gone)
+function focusValid(st, x, mySlots) {
+  const F = st.focus, me = x.G.p[x.you];
+  if (!F) return null;
+  if (F.kind === 'hand') return me.hand[F.i] === F.id && !(x.state === 'setup' && (st.setup.actI === F.i || st.setup.benchI.includes(F.i))) ? F : null;
+  const list = F.side === 'opp' ? B.slots(x.G.p[1 - x.you]) : [mySlots.active, ...mySlots.bench].filter(Boolean);
+  return list.some(s => s.u === F.u) ? F : null;
 }
 function draw(st) {
   if (st.dead) return;
@@ -246,53 +305,59 @@ function draw(st) {
   st.x = x;
   const G = x.G, you = x.you, me = G.p[you], op = G.p[1 - you], over = x.state === 'over';
   const myMove = x.state === 'yours' || x.state === 'setup';
-  const mode = myMove ? st.mode : null;
+  if (x.state === 'setup' && !st.setup.init) suggestLineup(st, me.hand);
+  if (!myMove) st.mode = null;
+  const mode = st.mode;
+  const mySlots = x.state === 'setup' ? setupSlots(st) : me;
+  st.focus = focusValid(st, x, mySlots);
   const can = m => myMove && B.check(G, you, m).ok;
   const pickMine = u => {
-    if (G.phase === 'setup') return false;
-    if (me.promote) return me.bench.some(s => s.u === u);
-    if (!mode) return false;
-    if (mode.k === 'energy') return can({a: 'energy', on: u});
+    if (!mode || G.phase === 'setup') return false;
     if (mode.k === 'evolve') return can({a: 'evolve', id: mode.id, on: u});
     if (mode.k === 'coach') return can({a: 'coach', id: mode.id, on: u});
     if (mode.k === 'item') return can({a: 'item', id: mode.id, on: u});
     if (mode.k === 'retreat') return can({a: 'retreat', to: u});
     return false;
   };
+  const canAttack = x.state === 'yours' && !me.promote && me.active && B.stats(me.active.id).attacks.some((a, n) => B.check(G, you, {a: 'attack', n}).ok);
   // the status line
   let status;
   if (over) status = `<b class="${x.result === 'w' ? 'is-w' : x.result === 'l' ? 'is-l' : ''}">${x.result === 'w' ? 'You win!' : x.result === 'l' ? 'You lose' : 'A draw'}</b> ${esc({points: 'Three touchdowns.', empty: 'No players left.', time: 'The turn limit.', resign: x.result === 'w' ? 'They resigned.' : 'You resigned.', claim: 'Left 72 hours.'}[x.why] || '')}`;
-  else if (x.state === 'setup') status = st.setup.act ? `Bench: tap up to ${B.BENCH_MAX} more Basic players, then Ready.` : 'Pick your starting player: tap a Basic player in your hand.';
-  else if (x.state === 'theirs') status = G.phase === 'setup' ? `Waiting for ${esc(x.opp.name)} to set up.` : x.solo ? `${esc(x.opp.name)} is thinking…` : `${esc(x.opp.name)}’s turn. You’ll see it here when they move.`;
-  else if (me.promote) status = 'Your player was knocked out: pick who comes in from your bench.';
-  else if (mode) status = {energy: 'Tap a player to give him the energy.', evolve: 'Tap the player to evolve.', coach: 'Tap a player for it.', item: 'Tap a player for it.', retreat: 'Tap the bench player to send in.'}[mode.k] + ' <button type="button" class="db-link" data-db-cancel>Cancel</button>';
-  else status = `<b>Your turn.</b> ${me.en && !me.used.energy ? `Attach ${B.ENERGY[me.en]} energy or ` : ''}choose a play below.`;
-  // the hand (yours; theirs, face down)
-  const ordered = handOrder(me.hand, st.sort);
-  const handHTML = ordered.map(({id, i}, n) => {
-    const fan = Math.max(-4, Math.min(4, n - (ordered.length - 1) / 2));
-    const sel = x.state === 'setup' ? (st.setup.act === id && st.setup.actI === i || st.setup.benchI.includes(i)) : st.handI === i && st.handId === id;
-    const setupLabel = x.state === 'setup' && sel ? st.setup.actI === i ? 'Active' : 'Bench' : '';
-    return `<button type="button" class="db-card${sel ? ' is-sel' : ''}" style="--fan-angle:${fan * 2.5}deg;--fan-lift:${Math.abs(fan) * 3}px;--fan-order:${n}" data-db-hand="${i}" aria-pressed="${sel}" aria-label="${esc(nameOf(id))}${setupLabel ? ', selected for ' + setupLabel : ''}">${faceHTML(id)}<span class="db-card-hint">${esc(handType(id))}</span>${setupLabel ? `<span class="db-hand-role">${setupLabel}</span>` : ''}</button>`;
+  else if (x.state === 'setup') status = st.setup.act ? '<b>Your lineup is set.</b> Tap a card to change it, then Start.' : 'Tap a Basic player in your hand to start with him.';
+  else if (x.state === 'theirs') status = G.phase === 'setup' ? `Waiting for ${esc(x.opp.name)} to set up.` : x.solo ? `${esc(x.opp.name)} is playing…` : `${esc(x.opp.name)}’s turn. You’ll see it here when they move.`;
+  else if (me.promote) status = '<b>Your player was knocked out.</b> Tap a bench player to send in.';
+  else if (mode) status = {evolve: 'Tap the player to upgrade.', coach: 'Tap a player for it.', item: 'Tap a player for it.', retreat: 'Tap the bench player to send in.'}[mode.k] + ' <button type="button" class="db-link" data-db-cancel>Cancel</button>';
+  else status = canAttack ? '<b>Your turn.</b> Your active player is ready to attack.' : '<b>Your turn.</b> Play cards from your hand, or end your turn.';
+  // your hand, fanned (setup: the cards not in the lineup)
+  const inLineup = i => x.state === 'setup' && (st.setup.actI === i || st.setup.benchI.includes(i));
+  const hand = me.hand.map((id, i) => ({id, i})).filter(c => !inLineup(c.i));
+  const mid = (hand.length - 1) / 2, spread = Math.min(5, 20 / Math.max(1, hand.length));
+  const handHTML = hand.map(({id, i}, n) => {
+    const off = n - mid, lifted = st.focus && st.focus.kind === 'hand' && st.focus.i === i;
+    const playable = x.state === 'yours' && !me.promote && !mode && handAction(G, you, id).ok;
+    return `<button type="button" class="db-card${lifted ? ' is-lifted' : ''}${playable ? ' is-playable' : ''}" style="--rot:${(off * spread).toFixed(1)}deg;--lift:${Math.round(off * off * spread * 0.55)}px;--z:${n + 1}" data-db-hand="${i}" aria-label="${esc(nameOf(id))}${playable ? ', playable' : ''}">${faceHTML(id)}</button>`;
   }).join('');
   const stadium = G.stadium ? `<span class="db-stad">${ui.icon('star', {size: 13})}${esc(D.trainer(G.stadium.id).name)}</span>` : '';
-  // (setup: what you've picked so far, before it goes up)
-  const preview = x.state === 'setup' ? {active: st.setup.act ? {u: -1, id: st.setup.act, dmg: 0, en: []} : null, bench: st.setup.bench.map((id, i) => ({u: -2 - i, id, dmg: 0, en: []}))} : null;
-  const mySlots = preview || me;
-  const log = G.ev.map(e => ({e, t: evText(e, you, x.opp.name)})).filter(l => l.t).slice(-2).reverse();
-  const handScroll = host.querySelector('.db-hand')?.scrollLeft || 0;
-  const focus = document.activeElement && host.contains(document.activeElement) ? [...document.activeElement.attributes].filter(a => a.name.startsWith('data-db-')).map(a => [a.name, a.value])[0] : null;
-  host.innerHTML = `<header class="db-top">${close}<div class="db-match-title"><small>GRIDIRON RIVALS</small><b>${esc(x.solo ? 'Solo match' : 'Friend match')}</b></div><span class="db-score" aria-label="Score: you ${me.pts}, opponent ${op.pts}"><b>${me.pts}</b><i>:</i><b>${op.pts}</b><small>First to ${B.WIN_POINTS}</small></span>${ui.iconButton({icon: 'list', label: 'Battle log and options', cls: 'db-more', attrs: 'data-db-more'})}</header>`
-    + `<div class="db-table"><div class="db-opponent-hand" aria-hidden="true">${Array.from({length: Math.min(op.hand.length, 7)}, () => '<span>R</span>').join('')}</div><section class="db-team is-opp" aria-label="Opponent's field"><div class="db-team-title"><b>${esc(x.opp.name)}</b><span>${op.hand.length} in hand · ${op.deck.length} in deck</span></div><div class="db-field"><div class="db-row is-active is-opp">${slotHTML(op.active, 'opp', true, false)}</div><div class="db-row is-bench is-opp">${[0, 1, 2].map(i => slotHTML(op.bench[i], 'opp', false, false)).join('')}</div></div></section>`
-    + `<div class="db-mid"><p class="db-status" aria-live="polite">${status}</p>${stadium}</div>`
-    + `<section class="db-team is-me" aria-label="Your field"><div class="db-team-title"><b>Your lineup</b><span>${me.deck.length} in deck</span></div><div class="db-field"><div class="db-row is-active is-me">${slotHTML(mySlots.active, 'me', true, mySlots.active && pickMine(mySlots.active.u))}</div><div class="db-row is-bench is-me">${[0, 1, 2].map(i => slotHTML(mySlots.bench[i], 'me', false, mySlots.bench[i] && pickMine(mySlots.bench[i].u))).join('')}</div></div></section>`
-    + '</div>' + attacksHTML(st, x)
-    + `<button type="button" class="db-log" data-db-log aria-label="Open battle log">${log.map((l, i) => `<span class="${i === 0 ? 'is-new' : ''}">${esc(l.t)}</span>`).join('') || '<span>Set your lineup. First to three touchdowns wins.</span>'}</button>`
-    + selectedHTML(st, x)
-    + `<section class="db-hand-section" aria-label="Your hand"><div class="db-team-title"><b>Your hand <span>${me.hand.length}</span></b><span>${x.state === 'setup' ? 'Choose your lineup' : 'Browse · select · play'}</span></div><div class="db-hand-tools"><label class="db-sort">Sort <select data-db-sort aria-label="Sort your hand">${[['draw', 'Draw order'], ['name', 'Name'], ['type', 'Type'], ['power', 'Power']].map(([v, label]) => `<option value="${v}"${st.sort === v ? ' selected' : ''}>${label}</option>`).join('')}</select></label><button type="button" data-db-browse="-1" aria-label="Previous card"${me.hand.length ? '' : ' disabled'}>‹</button><button type="button" data-db-browse="1" aria-label="Next card"${me.hand.length ? '' : ' disabled'}>›</button></div><div class="db-hand" data-hscroll><div class="db-hand-fan">${handHTML || '<span class="db-none">No cards in hand</span>'}</div></div></section>`
-    + `<footer class="db-bar">${barHTML(st, x, G, me, myMove, over)}</footer>`;
-  host.querySelector('.db-hand').scrollLeft = handScroll;
-  if (focus) host.querySelector(`[${focus[0]}="${CSS.escape(focus[1])}"]`)?.focus({preventScroll: true});
+  const log = G.ev.map(e => ({e, t: evText(e, you, x.opp.name)})).filter(l => l.t).slice(-1);
+  const lifted = (side, u) => st.focus && st.focus.kind !== 'hand' && (st.focus.side || 'me') === side && st.focus.u === u;
+  const mine = (slot, act) => slotHTML(slot, 'me', act, {pick: !!slot && pickMine(slot.u) || (!!slot && me.promote && x.state === 'yours' && !act),
+    ready: !!slot && act && canAttack && !mode, lifted: !!slot && lifted('me', slot.u)});
+  const theirs = (slot, act) => slotHTML(slot, 'opp', act, {lifted: !!slot && lifted('opp', slot.u)});
+  const cpu = x.solo && x.opp.cpu;
+  const kicker = cpu && cpu.n ? `GAME ${cpu.n} · ${cpu.tier.name.toUpperCase()}` : x.solo ? 'SOLO MATCH' : 'FRIEND MATCH';
+  host.innerHTML = `<header class="db-top">${close}<div class="db-match-title"><small>${esc(kicker)}</small><b>${esc(x.opp.name)}</b></div><span class="db-score" aria-label="Score: you ${me.pts}, opponent ${op.pts}"><b>${me.pts}</b><i>:</i><b>${op.pts}</b><small>First to ${B.WIN_POINTS}</small></span>${ui.iconButton({icon: 'list', label: 'Battle log and options', cls: 'db-more', attrs: 'data-db-more'})}</header>`
+    + `<div class="db-table"><div class="db-opponent-hand" aria-label="${op.hand.length} cards in their hand · ${op.deck.length} in their deck">${Array.from({length: Math.min(op.hand.length, 8)}, () => '<span aria-hidden="true">R</span>').join('')}<small>${op.hand.length} in hand · ${op.deck.length} in deck</small></div>`
+    + `<section class="db-side is-opp" aria-label="${esc(x.opp.name)}’s players"><div class="db-row is-bench">${[0, 1, 2].map(i => theirs(op.bench[i], false)).join('')}</div><div class="db-row is-active">${theirs(op.active, true)}</div></section>`
+    + `<div class="db-mid"><p class="db-status" aria-live="polite">${status}</p>${stadium}<button type="button" class="db-log" data-db-log aria-label="Open battle log">${log.map(l => `<span>${esc(l.t)}</span>`).join('') || '<span>First to three touchdowns wins.</span>'}</button></div>`
+    + `<section class="db-side is-me" aria-label="Your players"><div class="db-row is-active">${mine(mySlots.active, true)}</div><div class="db-row is-bench">${[0, 1, 2].map(i => mine(mySlots.bench[i], false)).join('')}</div></section></div>`
+    + `<section class="db-hand-section" aria-label="Your hand: ${me.hand.length} cards, ${me.deck.length} in your deck"><div class="db-hand"><div class="db-hand-fan" style="--n:${Math.max(1, hand.length)}">${handHTML || `<span class="db-none">${x.state === 'setup' ? 'Every card is in your lineup' : 'No cards in hand'}</span>`}</div></div></section>`
+    + `<footer class="db-bar">${barHTML(st, x, G, me, myMove, over, canAttack)}</footer>`
+    + focusHTML(st, x, mySlots);
+  host.classList.toggle('is-lifting', !!st.focus);
+  if (st.focus) {
+    const f = host.querySelector('.db-focus');
+    (f.querySelector('.db-move:not(:disabled):not(.is-read), .db-act:not(:disabled)') || f.querySelector('[data-db-putback]')).focus({preventScroll: true});
+  }
   ui.hydrate(host);
   // (what happened since you last looked: their turn, line by line)
   if (!st.shown) {
@@ -317,29 +382,24 @@ function draw(st) {
     if (x.result === 'w') { try { ui.confetti(host.getBoundingClientRect()); } catch (_) {} }
   }
 }
-function barHTML(st, x, G, me, myMove, over) {
+function barHTML(st, x, G, me, myMove, over, canAttack) {
   if (over && x.solo) {
-    // (a Solo battle: its coins, the first win's bonus packs, and another go)
-    const p = x.pay || {coins: 0};
+    // (a Solo battle: its coins, the first win's bonus packs, and the next game or another go)
+    const p = x.pay || {coins: 0}, cpu = x.opp.cpu;
     const packs = p.packs ? Object.entries(p.packs).map(([k, n]) => `${n > 1 ? n + ' ' : ''}${D.PACKS[k].name}${n > 1 ? 's' : ''}`).join(', ') : '';
+    const next = cpu.n && x.result === 'w' && cpu.n < SOLO.LADDER && SOLO.unlocked('g' + (cpu.n + 1));
     return `<span class="db-pay">${p.coins ? `+${nf(p.coins)} coins` : 'No coins this time'}${packs ? ` · First win: ${esc(packs)}` : ''}</span>`
-      + ui.button({label: 'Rematch', kind: 'secondary', size: 's', attrs: {'data-db-again': ''}}) + ui.button({label: 'Done', kind: 'primary', size: 's', attrs: 'data-back'});
+      + ui.button({label: x.result === 'w' ? 'Play again' : 'Try again', kind: next ? 'secondary' : 'primary', size: 's', attrs: {'data-db-again': ''}})
+      + (next ? ui.button({label: `Game ${cpu.n + 1}`, kind: 'primary', size: 's', attrs: {'data-db-next': ''}}) : ui.button({label: 'Done', kind: 'secondary', size: 's', attrs: 'data-back'}));
   }
   if (over) {
     const pay = D.BATTLE_PAY[x.result];
     return `<span class="db-pay">+${nf(pay.coins)} coins · ${pay.tr >= 0 ? '+' : ''}${pay.tr} trophies</span>${ui.button({label: 'Back to Rivals', kind: 'primary', size: 's', attrs: 'data-back'})}`;
   }
-  if (x.state === 'setup') return ui.button({label: 'Ready', kind: 'primary', attrs: {'data-db-ready': ''}, disabled: !st.setup.act, cls: 'db-go'});
-  if (!myMove) return `<span class="db-wait">${ui.icon('clock', {size: 15})} ${x.solo ? 'Its move' : 'Their move'}</span>${ui.button({label: 'Resign', kind: 'plain', size: 's', attrs: {'data-db-resign': ''}})}`;
-  // (the Energy Zone: this turn's energy, tap to attach it; the next one shown, as Pocket's)
-  const live = me.en && !me.used.energy;
-  const next = me.next ? `<small>Next ${pipHTML(me.next)}</small>` : '';
-  const en = `<${live ? 'button type="button" data-db-energy' : 'span'} class="db-zone${live ? ' is-live' : ' is-off'}">`
-    + `<span class="db-zone-now">${live ? pipHTML(me.en) : '<i class="db-zone-x"></i>'}</span>`
-    + `<span class="db-zone-t"><b>${live ? `Attach<span class="sr-only"> ${esc(B.ENERGY[me.en])} energy</span>` : me.used.energy ? 'Attached' : 'No energy'}</b>${next}</span></${live ? 'button' : 'span'}>`;
-  const cost = me.active ? B.retreatCost(me.active, me) : 0;
-  const sw = me.active && me.bench.length && !me.used.retreat && !me.promote ? ui.button({label: `Switch${cost ? ` (${cost})` : ''}`, kind: 'secondary', size: 's', attrs: {'data-db-switch': ''}}) : '';
-  return en + sw + ui.button({label: 'End turn', kind: 'secondary', size: 's', attrs: {'data-db-end': ''}, disabled: me.promote});
+  if (x.state === 'setup') return ui.button({label: 'Start', kind: 'primary', attrs: {'data-db-ready': ''}, disabled: !st.setup.act, cls: 'db-go'});
+  if (!myMove) return `<span class="db-wait">${ui.icon('clock', {size: 15})} ${x.solo ? `${esc(x.opp.name)} is playing` : 'Their move'}</span>`;
+  const hint = me.promote ? 'Send in a bench player' : 'Tap any card to see what it can do';
+  return `<span class="db-hint">${esc(hint)}</span>` + ui.button({label: 'End turn', kind: canAttack ? 'secondary' : 'primary', size: 's', attrs: {'data-db-end': ''}, disabled: me.promote});
 }
 
 // ---------------------------------------------------------------------------------------------------- moves
@@ -347,7 +407,7 @@ function send(st, m) {
   if (st.dead || st.scene || !D.mayPlay()) return false;
   const r = src(st).move(st.mid, m);
   if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return false; }
-  st.mode = null; st.handI = null; st.handId = null; st.browseI = null;
+  st.mode = null; st.focus = null;
   if (r.sent && m.a !== 'setup') ui.toast(`Turn sent. ${st.x ? st.x.opp.name : 'They'} will see it.`, {icon: 'check-circle'});
   ui.haptic('selection');
   draw(st);
@@ -360,50 +420,72 @@ function detail(st, id, slot) {
   const sh = ui.openSheet({title: nameOf(id), body: `<div class="pk-zoom is-s">${anyHTML(id, {size: 'm', tag: false, rulesVersion: st.x.G.v})}</div>${hp}${battleHTML(id, st.x.G)}`, cls: 'pk-sheet', detents: ['large'], onClose: () => stopFoil()});
   stopFoil = bindCardFoil(sh.body);
 }
-function handTap(st, i) {
-  const x = st.x, G = x.G, you = x.you, me = G.p[you], id = me.hand[i];
-  if (x.state === 'setup') {
-    if (!B.isBasic(id)) { ui.toast('Only Basic players start the game.', {icon: 'info'}); return; }
-    const S = st.setup;
-    if (S.actI === i) { S.act = null; S.actI = -1; }
-    else if (S.benchI.includes(i)) { const k = S.benchI.indexOf(i); S.benchI.splice(k, 1); S.bench.splice(k, 1); }
-    else if (!S.act) { S.act = id; S.actI = i; }
-    else if (S.bench.length < B.BENCH_MAX) { S.bench.push(id); S.benchI.push(i); }
-    ui.haptic('selection'); draw(st); return;
-  }
-  st.handI = i; st.handId = id; st.mode = null;
+function lift(st, f) {
+  st.focus = f; st.mode = null;
+  ui.haptic('selection');
   draw(st);
-  revealHand(st);
+}
+function putBack(st) {
+  const f = st.focus;
+  st.focus = null; draw(st);
+  const host = st.el.querySelector('[data-db]');
+  const back = f && (f.kind === 'hand' ? host.querySelector(`[data-db-hand="${f.i}"]`) : host.querySelector(`[data-db-slot="${f.u}"][data-side="${f.side || 'me'}"]`));
+  back?.focus({preventScroll: true});
 }
 function playHand(st) {
-  const x = st.x, me = x.G.p[x.you], id = me.hand[st.handI];
-  if (!id || id !== st.handId || x.state !== 'yours') return;
+  const x = st.x, me = x.G.p[x.you], F = st.focus, id = F && me.hand[F.i];
+  if (!id || id !== F.id || x.state !== 'yours') return;
   const action = handAction(x.G, x.you, id);
   if (!action.ok) { ui.toast(action.why, {icon: 'info'}); return; }
   if (action.targeted) {
     if (action.candidates.length === 1) { send(st, {a: action.a, id, on: action.candidates[0].u}); return; }
-    st.mode = {k: action.a, id}; draw(st); return;
+    st.focus = null; st.mode = {k: action.a, id}; draw(st); return;
   }
   send(st, {a: action.a, id});
 }
+// (setup: the lifted card's place in the lineup)
+function lineup(st, how) {
+  const S = st.setup, F = st.focus;
+  if (!F) return;
+  if (F.kind === 'hand') {
+    if (how === 'act') {
+      if (S.act) {
+        if (S.bench.length < B.BENCH_MAX) { S.bench.push(S.act); S.benchI.push(S.actI); }
+      }
+      S.act = F.id; S.actI = F.i;
+    } else if (how === 'bench' && S.bench.length < B.BENCH_MAX) { S.bench.push(F.id); S.benchI.push(F.i); }
+  } else if (F.u === -1) {
+    if (how === 'hand') {
+      S.act = null; S.actI = -1;
+      if (S.bench.length) { S.act = S.bench.shift(); S.actI = S.benchI.shift(); }
+    }
+  } else {
+    const k = -2 - F.u, id = S.bench[k], i = S.benchI[k];
+    S.bench.splice(k, 1); S.benchI.splice(k, 1);
+    if (how === 'promote') {
+      if (S.act) { S.bench.splice(k, 0, S.act); S.benchI.splice(k, 0, S.actI); }
+      S.act = id; S.actI = i;
+    }
+  }
+  st.focus = null; ui.haptic('selection'); draw(st);
+}
 function slotTap(st, u, side) {
   const x = st.x, G = x.G, you = x.you, me = G.p[you];
-  if (side === 'opp') { const sl = B.slots(G.p[1 - you]).find(s => s.u === u); if (sl) detail(st, sl.id, sl); return; }
-  if (x.state === 'setup') return;
-  const sl = B.slots(me).find(s => s.u === u);
-  if (!sl) return;
-  if (x.state === 'yours') {
-    if (me.promote) { send(st, {a: 'promote', u}); return; }
+  if (x.state !== 'setup' && side === 'me' && st.mode) {
     const mode = st.mode;
-    if (mode) {
-      const m = mode.k === 'energy' ? {a: 'energy', on: u} : mode.k === 'retreat' ? {a: 'retreat', to: u} : {a: mode.k, id: mode.id, on: u};
-      const r = B.check(G, you, m);
-      if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
-      send(st, m); return;
-    }
-    if (sl === me.active) { detail(st, sl.id, sl); return; }
+    const m = mode.k === 'retreat' ? {a: 'retreat', to: u} : {a: mode.k, id: mode.id, on: u};
+    const r = B.check(G, you, m);
+    if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
+    send(st, m); return;
   }
-  detail(st, sl.id, sl);
+  if (x.state === 'yours' && side === 'me' && me.promote && me.bench.some(s => s.u === u)) { send(st, {a: 'promote', u}); return; }
+  lift(st, {kind: 'slot', side, u});
+}
+function endTurn(st) {
+  const x = st.x, me = x.G.p[x.you];
+  const canAttack = me.active && B.stats(me.active.id).attacks.some((a, n) => B.check(x.G, x.you, {a: 'attack', n}).ok);
+  if (!canAttack) { send(st, {a: 'end'}); return; }
+  ui.actionSheet({title: 'End your turn without attacking?', cls: 'pk-sheet', actions: [{label: 'End turn', role: 'primary', value: 'y'}]}).then(v => { if (v === 'y') send(st, {a: 'end'}); });
 }
 function more(st) {
   ui.actionSheet({title: 'Battle', cls: 'pk-sheet', actions: [{label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
@@ -420,14 +502,17 @@ function resign(st) {
 }
 function logSheet(st) {
   const x = st.x, lines = [];
-  let turn = -1;
   x.G.ev.forEach(e => {
-    if (e.k === 'turn') { turn = e.n; lines.push(`<li class="db-lt">${e.who === x.you ? 'Your turn' : `${esc(x.opp.name)}’s turn`}</li>`); return; }
+    if (e.k === 'turn') { lines.push(`<li class="db-lt">${e.who === x.you ? 'Your turn' : `${esc(x.opp.name)}’s turn`}</li>`); return; }
     const t = evText(e, x.you, x.opp.name);
     if (t) lines.push(`<li>${esc(t)}</li>`);
   });
-  void turn;
   ui.openSheet({title: 'Battle log', body: `<ol class="db-recap">${lines.reverse().join('')}</ol>`, cls: 'pk-sheet', detents: ['large']});
+}
+function soloAgain(st, id) {
+  const r = SOLO.start(id);
+  if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
+  st.ctx.nav(`/puzzles/dynasty/battle/${r.mid}`);
 }
 
 export default {
@@ -438,7 +523,7 @@ export default {
   render() { return '<div class="db" data-db data-no-swipe></div>'; },
 
   mount(el, ctx) {
-    const st = {el, ctx, mid: String((ctx.params && ctx.params.id) || ''), mode: null, handI: null, handId: null, sort: 'draw', scenes: [], scene: null, hidden: false, setup: {act: null, actI: -1, bench: [], benchI: []}, dead: false, stops: [], evAt: null};
+    const st = {el, ctx, mid: String((ctx.params && ctx.params.id) || ''), mode: null, focus: null, scenes: [], scene: null, hidden: false, setup: {act: null, actI: -1, bench: [], benchI: []}, dead: false, stops: [], evAt: null};
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
     el.addEventListener('click', e => {
@@ -446,64 +531,44 @@ export default {
       let b;
       if (q('[data-db-skip]')) { finishCinema(st); return; }
       if (!st.x || st.scene) return;
-      if ((b = q('[data-db-browse]'))) { browseHand(st, Number(b.dataset.dbBrowse)); return; }
-      if (q('[data-db-cancel]')) { st.mode = null; draw(st); return; }
+      if (q('[data-db-putback]')) { putBack(st); return; }
+      if ((b = q('[data-db-details]'))) { const f = st.focus, sl = f && f.kind === 'slot' ? [...B.slots(st.x.G.p[0]), ...B.slots(st.x.G.p[1])].find(s => s.u === f.u) : null; detail(st, b.dataset.dbDetails, sl); return; }
       if ((b = q('[data-db-attack]'))) { if (!b.disabled) send(st, {a: 'attack', n: Number(b.dataset.dbAttack)}); return; }
       if (q('[data-db-play-hand]')) { playHand(st); return; }
-      if (q('[data-db-deselect]')) { st.handI = null; st.handId = null; st.mode = null; draw(st); return; }
-      if ((b = q('[data-db-details]'))) { detail(st, b.dataset.dbDetails); return; }
-      if ((b = q('[data-db-hand]'))) { handTap(st, Number(b.dataset.dbHand)); return; }
-      if ((b = q('[data-db-slot]'))) { slotTap(st, Number(b.dataset.dbSlot), b.dataset.side); return; }
-      if (q('[data-db-energy]')) {
-        const me = st.x.G.p[st.x.you];
-        if (me.promote) { ui.toast('Pick your new active player first.', {icon: 'info'}); return; }
-        // (one player: straight to him)
-        if (B.slots(me).length === 1) { send(st, {a: 'energy', on: me.active.u}); return; }
-        st.mode = st.mode && st.mode.k === 'energy' ? null : {k: 'energy'}; draw(st); return;
-      }
+      if ((b = q('[data-db-lineup]'))) { lineup(st, b.dataset.dbLineup); return; }
+      if ((b = q('[data-db-promote]'))) { send(st, {a: 'promote', u: Number(b.dataset.dbPromote)}); return; }
+      if ((b = q('[data-db-retreat]'))) { if (!b.disabled) send(st, {a: 'retreat', to: Number(b.dataset.dbRetreat)}); return; }
+      if ((b = q('[data-db-energy]'))) { send(st, {a: 'energy', on: Number(b.dataset.dbEnergy)}); return; }
       if (q('[data-db-switch]')) {
-        const me = st.x.G.p[st.x.you], r = B.check(st.x.G, st.x.you, {a: 'retreat', to: me.bench[0] && me.bench[0].u});
-        if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
-        st.mode = {k: 'retreat'}; draw(st); return;
+        const me = st.x.G.p[st.x.you];
+        if (me.bench.length === 1) { send(st, {a: 'retreat', to: me.bench[0].u}); return; }
+        st.focus = null; st.mode = {k: 'retreat'}; draw(st); return;
       }
-      if (q('[data-db-end]')) {
-        ui.actionSheet({title: 'End your turn without attacking?', cls: 'pk-sheet', actions: [{label: 'End turn', role: 'primary', value: 'y'}]}).then(v => { if (v === 'y') send(st, {a: 'end'}); });
-        return;
-      }
+      if (q('.db-focus') && !q('.db-focus-in')) { putBack(st); return; }
+      if (q('[data-db-cancel]')) { st.mode = null; draw(st); return; }
+      if ((b = q('[data-db-hand]'))) { const i = Number(b.dataset.dbHand); lift(st, {kind: 'hand', i, id: st.x.G.p[st.x.you].hand[i]}); return; }
+      if ((b = q('[data-db-slot]'))) { slotTap(st, Number(b.dataset.dbSlot), b.dataset.side); return; }
+      if (q('[data-db-end]')) { endTurn(st); return; }
       if (q('[data-db-ready]')) {
         const S = st.setup;
-        if (send(st, {a: 'setup', act: S.act, bench: S.bench.slice()})) { st.setup = {act: null, actI: -1, bench: [], benchI: []}; ui.toast('Lineup set', {icon: 'check-circle'}); }
+        if (send(st, {a: 'setup', act: S.act, bench: S.bench.slice()})) st.setup = {act: null, actI: -1, bench: [], benchI: []};
         return;
       }
       if (q('[data-db-resign]')) { resign(st); return; }
-      if (q('[data-db-again]')) {
-        const r = SOLO.start(st.x.opp.cpu.id);
-        if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
-        ctx.nav(`/puzzles/dynasty/battle/${r.mid}`); return;
-      }
+      if (q('[data-db-again]')) { soloAgain(st, st.x.opp.cpu.id); return; }
+      if (q('[data-db-next]')) { soloAgain(st, 'g' + (st.x.opp.cpu.n + 1)); return; }
       if (q('[data-db-more]')) { more(st); return; }
       if (q('[data-db-log]')) logSheet(st);
     });
-    el.addEventListener('focusin', e => {
-      const card = e.target.closest('[data-db-hand]');
-      if (card) st.browseI = Number(card.dataset.dbHand);
-    });
-    el.addEventListener('change', e => {
-      if (!e.target.matches('[data-db-sort]') || st.scene) return;
-      st.sort = e.target.value; draw(st);
-      revealHand(st);
-    });
     el.addEventListener('keydown', e => {
       if (st.scene) { if (e.key === 'Escape') { e.preventDefault(); finishCinema(st); } return; }
-      if (!e.target.closest('[data-db-hand]') || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
-      e.preventDefault();
-      browseHand(st, e.key === 'ArrowLeft' ? -1 : 1, e.key === 'Home' ? 'first' : e.key === 'End' ? 'last' : null);
+      if (st.focus && e.key === 'Escape' && !ui.sheetCount()) { e.preventDefault(); putBack(st); }
     });
     // (their moves come in with the board)
     st.stops.push(ctx.on('daily', type => { if (type === 'lb') draw(st); }));
     st.stops.push(MT.subscribe(() => draw(st)));
     st.stops.push(SOLO.subscribe(() => draw(st)));
-    st.stops.push(data.subscribe(type => { if (type === 'me') { clearCinema(st); st.shown = false; st.evAt = null; draw(st); } }));
+    st.stops.push(data.subscribe(type => { if (type === 'me') { clearCinema(st); st.shown = false; st.evAt = null; st.focus = null; st.setup = {act: null, actI: -1, bench: [], benchI: []}; draw(st); } }));
     D.load().then(() => draw(st), () => draw(st));
     draw(st);
   },

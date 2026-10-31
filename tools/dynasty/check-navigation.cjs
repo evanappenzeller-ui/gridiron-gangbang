@@ -108,7 +108,7 @@ async function run(url) {
       await page.evaluate(async () => {
         const D = await import('/js/core/dynasty.js'), SOLO = await import('/js/core/dynasty-solo.js'), app = await import('/js/app.js');
         D.setDeck(D.autoDeck(D.mine().o));
-        const r = SOLO.start(SOLO.OPPONENTS[0].id);
+        const r = SOLO.start('g1');
         if (!r.ok) throw Error(r.why);
         await app.nav('/puzzles/dynasty/battle/' + r.mid);
       });

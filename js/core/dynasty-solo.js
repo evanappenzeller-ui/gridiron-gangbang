@@ -1,12 +1,16 @@
-// Gridiron Dynasty's Solo battles against the computer (the owner, Oct 29 2026: "Provide a solo mode against the
-// computer"), as Pokémon TCG Pocket's Solo: twelve computer opponents in four levels (Beginner, Intermediate, Advanced,
-// Expert), each with its own deck of two types, stronger players and smarter play the higher the level. The rules are
-// core/dynasty-battle.js's; the battle plays on the same screen as a match between players (views/dynasty-battle.js,
-// /puzzles/dynasty/battle/cpu…), the computer taking its turn a move at a time so you see it.
+// Gridiron Rivals' Solo battles against the computer. Since Oct 30 2026 (the owner: "This game mode should be focused on
+// games against the cpu getting increasingly difficult. The beginning stage should be very easily with very little
+// challenge. And around 15-20 games in there is a noticeable difference, where strategy must be applied to win") they are
+// a ladder of thirty games (g1…g30, LADDER), each unlocked by winning the one before: weak decks that are weak to yours
+// and a computer that slips early, then from game 16 (Pro) decks that counter your deck's main type, evolutions,
+// Trainer cards, switching and knockout-hunting attacks, and from game 22 Legends. The twelve earlier opponents
+// (OPPONENTS) stay readable so a battle begun against one still finishes. The rules are core/dynasty-battle.js's; the
+// battle plays on the same screen as a match between players (views/dynasty-battle.js, /puzzles/dynasty/battle/cpu…),
+// the computer taking its turn a move at a time so you see it.
 // One battle at a time, kept on this phone (localStorage, per profile): {id, opp, seed, decks [yours, its], log [[who,
 // move]], at, z ('' | 'resign'), paid, pay}. The game is the replay of the log from the seed. A finished battle pays once
-// (core/dynasty.js paySolo: coins for a win, the first win over each opponent its bonus packs); Solo battles never touch
-// trophies or the versus record (Rankings are between players).
+// (core/dynasty.js paySolo: coins for a win, the first win over each game its bonus); Solo battles never touch trophies
+// or the versus record (Rankings are between players). Your ladder progress is your save's Solo wins (s.so.g1…).
 import * as D from './dynasty.js';
 import * as B from './dynasty-battle.js';
 import {profileKey} from './realm-active.js';
@@ -31,7 +35,36 @@ export const OPPONENTS = [
   {id: 'hall-of-fame', lv: 'exp', name: 'Hall of Fame', types: ['G', 'B']},
   {id: 'the-dynasty', lv: 'exp', name: 'The Dynasty', types: ['A', 'B']}
 ];
-export const opponent = id => OPPONENTS.find(o => o.id === id) || null;
+// ---------------------------------------------------------------------------------------------------- the ladder
+export const LADDER = 30;
+export const TIERS = [
+  {id: 'peewee', name: 'Pee Wee', from: 1, blurb: 'Warm-up games. Their players are weak to yours.'},
+  {id: 'hs', name: 'High School', from: 6, blurb: 'A little tougher, still forgiving.'},
+  {id: 'college', name: 'College', from: 11, blurb: 'Fuller benches, Trainer cards and better players.'},
+  {id: 'pro', name: 'Pro', from: 16, blurb: 'They counter your main type, upgrade players and switch out. Plan ahead.'},
+  {id: 'allpro', name: 'All-Pro', from: 21, blurb: 'Legends join their lineups. Every energy counts.'},
+  {id: 'hof', name: 'Hall of Fame', from: 26, blurb: 'The best decks the computer can build.'}
+];
+const NAMES = ['Pee Wee Pups', 'Backyard Ballers', 'Flag Football Club', 'Pop Warner Panthers', 'Junior Varsity',
+  'Homecoming Hopefuls', 'Friday Night Lights', 'Small-Town Stallions', 'County Champs', 'State Finalists',
+  'Walk-On Squad', 'Redshirt Rookies', 'Conference Cellar', 'Bowl Hopefuls', 'Rivalry Week',
+  'Practice Squad Pros', 'Preseason Starters', 'Wild Card Hunt', 'Division Leaders', 'Playoff Bound',
+  'Divisional Round', 'Conference Title', 'Super Bowl Favorites', 'Dynasty Builders', 'Pro Bowl Roster',
+  'All-Decade Team', 'Ring of Honor', 'Gold Jackets', 'Canton Immortals', 'The Gridiron Gods'];
+export const tierOf = n => TIERS.slice().reverse().find(t => n >= t.from) || TIERS[0];
+const ladderN = id => { const m = /^g(\d+)$/.exec(String(id || '')); const n = m ? Number(m[1]) : 0; return n >= 1 && n <= LADDER ? n : 0; };
+/** Ladder game n: {id, n, lv (n: what paySolo and nextMove read), name, tier}. */
+export const stage = n => ({id: 'g' + n, n, lv: n, name: NAMES[n - 1], tier: tierOf(n)});
+export const STAGES = Array.from({length: LADDER}, (_, i) => stage(i + 1));
+export const opponent = id => (ladderN(id) ? STAGES[ladderN(id) - 1] : OPPONENTS.find(o => o.id === id) || null);
+/** The ladder game you're on: the first not yet won (LADDER + 1 once all are). */
+export function ladderAt(s = D.mine()) {
+  const so = (s && s.so) || {};
+  for (let n = 1; n <= LADDER; n++) if (!so['g' + n]) return n;
+  return LADDER + 1;
+}
+/** Whether ladder game id may be played now (won before, or the next one). */
+export const unlocked = (id, s = D.mine()) => { const n = ladderN(id); return !!n && (n <= ladderAt(s) || !!(s && s.so && s.so[id])); };
 
 // ---------------------------------------------------------------------------------------------------- its decks
 // The same deck for an opponent on every phone (seeded by its id): its two types' Basic Live players in its level's OVR
@@ -46,9 +79,52 @@ const KIT = {
   exp: {'I-recruit': 2, 'I-water': 1, 'I-cleats': 1, 'C-twomin': 2, 'C-plan': 2, 'C-flag': 1, 'C-hail': 1}
 };
 const DECKS = new Map();
-export function deckFor(id) {
+// A ladder game's deck (the same for the same game and main type on every phone): its players' OVR range climbs with
+// the game; through game 12 its two types are the one yours beats and a neutral one, 13-15 two of those and yours, and
+// from 16 the type that beats yours with your own (from 21 with the one yours beats). Upgrades from 15, Legends from
+// 22, more Trainer cards as it climbs (the computer only plays them from game 9).
+const TYPE_ORDER = ['A', 'G', 'B', 'C'];
+function ladderTypes(n, yours) {
+  const y = TYPE_ORDER.includes(yours) ? yours : 'A';
+  const prey = TYPE_ORDER.find(t => B.WEAK[t] === y), hunter = B.WEAK[y], other = TYPE_ORDER.find(t => ![y, prey, hunter].includes(t));
+  if (n <= 12) return [prey, other];
+  if (n <= 15) { const R = D.rng('ladder-types|' + n); return [prey, other, y].sort(() => R() - .5).slice(0, 2); }
+  return [hunter, n >= 21 ? prey : y];
+}
+const ovrOf = n => (n <= 15 ? [48 + Math.round((n - 1) * 1.2), 56 + Math.round((n - 1) * 1.2)]
+  : n <= 20 ? [70 + (n - 16), 82 + (n - 16)] : [76 + (n - 21), Math.min(99, 88 + (n - 21))]);
+const kitOf = n => (n <= 8 ? {'I-water': 1} : n <= 15 ? KIT.beg : n <= 23 ? KIT.adv : KIT.exp);
+function ladderDeck(n, yours) {
+  const types = ladderTypes(n, yours), [lo, hi] = ovrOf(n), R = D.rng(`ladder|${n}|${types.join('')}`), owned = {...kitOf(n)};
+  if (n >= 16) owned[STADIUM[types[0]]] = 1;
+  // (the range widened, a step at a time, until each type has seven players in it: the low ratings are thin)
+  const basics = D.CARDS.filter(c => c.s === 'L' && B.isBasic(c.id) && c.pos !== 'K' && types.includes(B.POS_TYPE[c.pos]));
+  let pool = [];
+  for (let w = 0; w <= 40; w += 2) {
+    pool = basics.filter(c => c.o >= lo - w && c.o <= hi + w);
+    if (types.every(t => pool.filter(c => B.POS_TYPE[c.pos] === t).length >= 7)) break;
+  }
+  const shuffled = pool.map(c => ({c, k: R()})).sort((a, b) => a.k - b.k).map(x => x.c);
+  const picked = [];
+  for (const t of types) picked.push(...shuffled.filter(c => B.POS_TYPE[c.pos] === t).slice(0, 7));
+  picked.forEach(c => { owned[c.id] = 2; });
+  if (n >= 15) D.CARDS.filter(c => (c.s === 'G' || (n >= 19 && c.s === 'P')) && picked.some(p => p.p === c.p)).forEach(c => { owned[c.id] = 1; });
+  if (n >= 22) {
+    D.CARDS.filter(c => c.s === 'X' && types.includes(B.POS_TYPE[c.pos])).map(c => ({c, k: R()})).sort((a, b) => a.k - b.k)
+      .slice(0, Math.min(5, n - 21)).forEach(x => { owned[x.c.id] = 1; });
+  }
+  return D.autoDeck(owned);
+}
+/** Your deck's main type (the one the ladder's decks are built around). */
+export const mainType = ids => B.ENERGY_TYPE[B.deckTypes(ids || [])[0]] || 'A';
+export function deckFor(id, yours = 'A') {
   const o = opponent(id);
   if (!o || D.status !== 'ready') return [];
+  if (ladderN(id)) {
+    const k = id + '|' + yours;
+    if (!DECKS.has(k)) DECKS.set(k, ladderDeck(ladderN(id), yours));
+    return DECKS.get(k).slice();
+  }
   if (DECKS.has(id)) return DECKS.get(id).slice();
   const R = D.rng('solo|' + id), [lo, hi] = RANGE[o.lv], owned = {...KIT[o.lv]};
   if (o.lv !== 'beg') owned[STADIUM[o.types[0]]] = 1;
@@ -69,52 +145,66 @@ export function deckFor(id) {
 }
 
 // ---------------------------------------------------------------------------------------------------- how it plays
-// One move at a time for side who: set up with its best Basics, then each turn Items (Recruit while the bench has room,
-// Water Bottle on a hurt player), Basics to the bench, evolutions, the energy where an attack needs it, a Coach card that
-// helps now, its Stadium, a switch-out when the active player is about to fall, and the strongest attack it can pay.
-// A Beginner keeps it simple: no Items, Coach cards or switching, and the first attack it can pay.
+// One move at a time for side who, by its skill (skillOf): set up, then each turn Items (Recruit while the bench has room,
+// Water Bottle on a hurt player), Basics to the bench (up to its bench), evolutions, the energy where an attack needs it
+// (rules before v4), a Coach card that helps now, its Stadium, a switch-out when the active player is about to fall, and
+// an attack. A low ladder game keeps it simple and slips (now and then it ends its turn without attacking); the Pro games
+// and up play everything they hold and hunt knockouts.
 const atkOf = id => (B.stats(id) ? B.stats(id).attacks : []);
 const best = id => Math.max(0, ...atkOf(id).map(a => a.dmg));
 const left = s => B.hpOf(s) - s.dmg;
 const needsEnergy = s => { const a = atkOf(s.id); return a.length && !B.canPay(a[a.length - 1].cost, s.en); };
+/** How the computer plays at level lv (a ladder game's number, or an earlier opponent's level). */
+export function skillOf(lv) {
+  if (typeof lv === 'number') {
+    const n = lv;
+    return {n, bench: n <= 3 ? 1 : n <= 7 ? 2 : 3, items: n >= 9, coach: n >= 13, tricks: n >= 16, retreat: n >= 16,
+      attack: n <= 7 ? 'quick' : n <= 15 ? 'best' : 'smart', slip: n <= 12 ? (13 - n) * 0.03 : 0, lineup: n >= 6};
+  }
+  const smart = lv !== 'beg';
+  return {n: 0, bench: B.BENCH_MAX, items: smart, coach: smart, tricks: smart, retreat: smart, attack: smart ? 'smart' : 'first', slip: 0, lineup: true};
+}
+// (the same slip for a turn however often it's asked)
+const roll = (G, k) => { let h = 2166136261; for (const ch of `${G.seed}|${k}|${G.turn}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; return h / 4294967296; };
 export function nextMove(G, who, lv = 'int') {
-  const me = G.p[who], opp = G.p[1 - who], ok = m => B.check(G, who, m).ok, smart = lv !== 'beg';
+  const me = G.p[who], opp = G.p[1 - who], ok = m => B.check(G, who, m).ok, K = skillOf(lv);
   if (G.phase === 'setup') {
-    const b = me.hand.filter(B.isBasic).sort((x, y) => (B.stats(y).hp + best(y)) - (B.stats(x).hp + best(x)));
-    return {a: 'setup', act: b[0], bench: b.slice(1, 1 + B.BENCH_MAX)};
+    const b = me.hand.filter(B.isBasic);
+    if (K.lineup) b.sort((x, y) => (B.stats(y).hp + best(y)) - (B.stats(x).hp + best(x)));
+    return {a: 'setup', act: b[0], bench: b.slice(1, 1 + Math.min(B.BENCH_MAX, K.bench))};
   }
   if (me.promote) {
-    const s = me.bench.slice().sort((x, y) => (y.en.length * 30 + left(y)) - (x.en.length * 30 + left(x)))[0];
+    const s = K.lineup ? me.bench.slice().sort((x, y) => (y.en.length * 30 + left(y)) - (x.en.length * 30 + left(x)))[0] : me.bench[0];
     return {a: 'promote', u: s.u};
   }
   const all = B.slots(me), act = me.active, foe = opp.active;
   const tryAll = list => list.find(ok) || null;
   // Items
   let m;
-  if (smart && me.hand.includes('I-recruit') && me.bench.length < B.BENCH_MAX && me.deck.some(B.isBasic) && (m = tryAll([{a: 'item', id: 'I-recruit'}]))) return m;
+  if (K.items && me.hand.includes('I-recruit') && me.bench.length < K.bench && me.deck.some(B.isBasic) && (m = tryAll([{a: 'item', id: 'I-recruit'}]))) return m;
   const hurt = all.filter(s => s.dmg >= 20).sort((x, y) => (y === act) - (x === act) || y.dmg - x.dmg);
-  if (smart && me.hand.includes('I-water') && hurt.length && (m = tryAll([{a: 'item', id: 'I-water', on: hurt[0].u}]))) return m;
-  // Basics to the bench, then evolutions (the active player first)
-  const basic = me.hand.find(id => B.isBasic(id) && ok({a: 'bench', id}));
+  if (K.items && me.hand.includes('I-water') && hurt.length && (m = tryAll([{a: 'item', id: 'I-water', on: hurt[0].u}]))) return m;
+  // Basics to the bench (as many as it keeps), then evolutions (the active player first)
+  const basic = me.bench.length < K.bench && me.hand.find(id => B.isBasic(id) && ok({a: 'bench', id}));
   if (basic) return {a: 'bench', id: basic};
   for (const id of me.hand.filter(x => B.stats(x) && B.stats(x).stage === 1)) {
     const on = [act, ...me.bench].filter(Boolean).find(s => ok({a: 'evolve', id, on: s.u}));
     if (on) return {a: 'evolve', id, on: on.u};
   }
-  // the energy: where the strongest attack still needs it (the active player first), a Beginner's always on its active
+  // the energy (rules before v4 only): where the strongest attack still needs it (the active player first)
   if (me.en && !me.used.energy) {
     const want = act && needsEnergy(act) ? act : me.bench.find(needsEnergy) || act;
     if (want && ok({a: 'energy', on: want.u})) return {a: 'energy', on: want.u};
   }
   // a Coach card that helps now
-  if (smart && !me.used.coach) {
+  if (K.coach && !me.used.coach) {
     const has = id => me.hand.includes(id);
     const canHit = act && atkOf(act.id).some((a, n) => ok({a: 'attack', n}));
     const cands = [];
     if (has('C-timeout')) { const s = all.filter(x => x.dmg >= 30).sort((x, y) => y.dmg - x.dmg)[0]; if (s) cands.push({a: 'coach', id: 'C-timeout', on: s.u}); }
     if (has('C-twomin') && me.hand.length <= 5 && me.deck.length) cands.push({a: 'coach', id: 'C-twomin'});
     if (has('C-scout') && me.bench.length < B.BENCH_MAX && me.deck.some(B.isBasic)) cands.push({a: 'coach', id: 'C-scout'});
-    if (smart) {
+    if (K.tricks) {
       if (has('C-plan') && canHit) cands.push({a: 'coach', id: 'C-plan'});
       if (has('C-flag') && foe && foe.en.length) cands.push({a: 'coach', id: 'C-flag'});
       if (has('C-hail') && foe) cands.push({a: 'coach', id: 'C-hail'});
@@ -126,15 +216,16 @@ export function nextMove(G, who, lv = 'int') {
     if ((m = tryAll(cands))) return m;
   }
   // its Stadium, when the one in play isn't its own
-  const stad = me.hand.find(id => B.TRAINERS[id] && B.TRAINERS[id].kind === 'stadium');
+  const stad = K.items && me.hand.find(id => B.TRAINERS[id] && B.TRAINERS[id].kind === 'stadium');
   if (stad && (!G.stadium || G.stadium.id !== stad) && ok({a: 'stadium', id: stad})) return {a: 'stadium', id: stad};
   // a switch-out before the active player falls (when it can't knock theirs out first)
-  if (smart && act && me.bench.length && !me.used.retreat && foe && left(act) <= best(foe.id)) {
+  if (K.retreat && act && me.bench.length && !me.used.retreat && foe && left(act) <= best(foe.id)) {
     const kos = atkOf(act.id).some((a, n) => ok({a: 'attack', n}) && (G.v >= 3 ? B.attackPreview(G, who, n).min : a.dmg) >= left(foe));
     const to = me.bench.slice().sort((x, y) => (y.en.length * 30 + left(y)) - (x.en.length * 30 + left(x)))[0];
     if (!kos && to && left(to) > left(act) && ok({a: 'retreat', to: to.u})) return {a: 'retreat', to: to.u};
   }
-  // the strongest attack it can pay (a knockout first)
+  // an attack: the first it can pay (the lowest games, which now and then let the turn go by), the hardest-hitting, or
+  // (smart) a knockout first, else the best value for the energy
   if (act) {
     const opts = atkOf(act.id).map((a, n) => {
       if (G.v < 3) return {n, dmg: a.dmg};
@@ -142,7 +233,9 @@ export function nextMove(G, who, lv = 'int') {
       return {n, dmg: p.min, score: (p.min + p.max) / 2 - p.energySpent * 15};
     }).filter(o => ok({a: 'attack', n: o.n}));
     if (opts.length) {
-      if (!smart) return {a: 'attack', n: opts[0].n};
+      if (K.slip && roll(G, 'slip') < K.slip) return {a: 'end'};
+      if (K.attack === 'first' || K.attack === 'quick') return {a: 'attack', n: opts[0].n};
+      if (K.attack === 'best') return {a: 'attack', n: opts.slice().sort((x, y) => y.dmg - x.dmg)[0].n};
       const ko = foe && opts.find(o => o.dmg >= left(foe));
       return {a: 'attack', n: (ko || opts.sort((x, y) => (y.score ?? y.dmg) - (x.score ?? x.dmg))[0]).n};
     }
@@ -171,7 +264,7 @@ function write() { try { if (REC) localStorage.setItem(KEY(), JSON.stringify(REC
 function game(r) {
   if (CACHE && CACHE.id === r.id && CACHE.n === r.log.length) return CACHE.G;
   // Older solo saves had no version and always used v2. Never reinterpret their recorded moves.
-  const G = B.newGame(r.seed, r.decks, r.v >= 3 ? 3 : 2);
+  const G = B.newGame(r.seed, r.decks, r.v >= 4 ? 4 : r.v >= 3 ? 3 : 2);
   for (const [w, m] of r.log) { if (!B.play(G, w, m).ok) break; }
   CACHE = {id: r.id, n: r.log.length, G};
   return G;
@@ -199,15 +292,17 @@ export function get(mid) {
 }
 /** The battle still being played, or null. */
 export const current = () => { const x = get(); return x && x.state !== 'over' ? x : null; };
-/** A new battle against opponent id with your deck (the one before it is dropped). {ok, why, mid}. */
+/** A new battle against opponent id (a ladder game you've reached) with your deck (the one before it is dropped).
+ *  {ok, why, mid}. */
 export function start(id) {
   const o = opponent(id);
   if (!o || !D.mayPlay() || D.status !== 'ready') return {ok: false, why: 'Solo battles aren’t open here.'};
+  if (ladderN(id) && !unlocked(id)) return {ok: false, why: `Win game ${ladderAt()} first.`};
   const dk = D.deckOf();
   if (!dk.ok) return {ok: false, why: `Your deck isn’t ready: ${dk.why}`};
   rec();
   const mid = 'cpu' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
-  REC = {id: mid, opp: o.id, seed: mid, v: B.RULES_VERSION, decks: [dk.ids.slice(), deckFor(o.id)], log: [], at: Date.now(), z: '', paid: 0, pay: null};
+  REC = {id: mid, opp: o.id, seed: mid, v: B.RULES_VERSION, decks: [dk.ids.slice(), deckFor(o.id, mainType(dk.ids))], log: [], at: Date.now(), z: '', paid: 0, pay: null};
   CACHE = null; clearTimeout(timer); timer = 0;
   // (the computer sets up at once)
   const G = game(REC), m = nextMove(G, 1, o.lv);

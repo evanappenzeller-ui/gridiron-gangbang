@@ -132,19 +132,37 @@ The owner approved the card-game redesign after asking for easier navigation, be
 The visible name is Gridiron Rivals; keep the existing `dynasty` routes, collection IDs, save keys and access boundary.
 Four labeled tabs (Play, Cards, Decks, Packs) replace the five icon-only tabs; Menu is in the header. Keep the title
 screen and pack-opening flow. Collectible cards use clear portraits and names; original scans stay in card details.
-Matches show readable game pieces and inline attacks. New matches explicitly use rules v3: signature attacks spend
-one matching energy and Juke reduces signature damage by 30. Preserve v1/v2 saved matches and unversioned defaults.
+Matches show readable game pieces and inline attacks. Rules v3: signature attacks spend one matching energy and Juke
+reduces signature damage by 30. Preserve v1/v2/v3 saved matches and unversioned defaults.
 Air Raid and Ground Control presets only use owned cards; no collection reset or free-card grant.
 Rarity finishes follow the owner's card references: type-tinted silver Common, gold Rare, violet/cyan Epic,
 illuminated gold Legendary, and prismatic cosmic Mythic. Keep the name/HP header and framed artwork readable.
 `dynasty-rarity.css` and `img/rivals/` own the materials; `dynasty-foil.js` adds reflections in details and reveals.
 Collection previews stay still, with reduced-motion support. Verify `check-card-layout.cjs`.
-Tabletop battles fan the hand and sort its display without mutating saved order or duplicate-card selections.
+Card-table battles (Oct 30 2026, the owner: "The gameplay is far too confusing. I want it to include the cards that are
+in play laid out and the available cards in your hand are spread out at the bottom. Clicking on each card will show the
+attacks and allow the player to choose which one or put the card back down. Energy is automatically added to the cards
+each round"; everyone who has Rivals gets it): `views/dynasty-battle.js` lays both lineups out as cards on the felt and
+fans the whole hand along the foot (sized by screen height so felt, hand and bar fit a phone). Tapping any card lifts
+it (`focusHTML`): your active player's plays (cost, damage, what's still missing), Send in / Switch out, a hand card's
+play, setup's lineup choices (a lineup is suggested), the other side's plays to read; Put back sets it down. Hand
+indexes stay the cards' identity, so duplicates stay apart. New matches (solo and friend) use rules v4
+(`B.RULES_VERSION`): the turn's energy attaches itself as the turn starts (`autoEnergy`: the active player while it
+helps his signature play, else the bench player it brings nearest his; after a knockout, the one sent in). A v1-v3
+match keeps attaching by hand (Give energy on the lifted card).
+Solo is a 30-game ladder against the computer (Oct 30 2026, the owner: "focused on games against the cpu getting
+increasingly difficult. The beginning stage should be very easily ... around 15-20 games in there is a noticeable
+difference, where strategy must be applied to win"): `core/dynasty-solo.js` `STAGES` g1-g30 in six tiers, each won
+game unlocking the next (progress is the save's Solo wins, `s.so.g<n>`). Early decks are low-rated and weak to your
+deck's main type and the computer slips; from game 16 (Pro) decks counter your main type and the computer plays
+Trainers, switches and hunts knockouts (`skillOf`); Legends from 22. A win pays `D.ladderPay(n)` (double the first
+time, packs every fifth game). Keep the twelve earlier opponents readable so an old battle still finishes.
 Resolved play events drive the skippable stadium scenes; animations never submit moves or resolve damage.
 Queue opponent scenes while a details sheet is open; clear presentation on profile changes or leaving the battle.
 The shared card reverse uses a royal blue frame, textured teal/cream swirl, copper football and mirrored wordmarks.
 The case's booklet and disc use restrained navy, ivory and silver artwork (`dynasty-book-v3` / `dynasty-disc-v3`).
-Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`.
+Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`
+(the kit check "Gridiron Rivals Solo ladder…" covers the ladder's decks, moves, unlocking and pay).
 
 ## Live league scores (October 30, 2026)
 

@@ -139,13 +139,17 @@ export async function dynastyChecks(check) {
     s.pp = 40; const traded = D.exchange(want.id, s).ok && s.o[want.id] === 1 && s.pp === 5 && !D.exchange(want.id, s).ok;
     return {pass: kit && zone && items && old && opened && traded, detail: `kit ${kit}, zone ${zone}, items ${items}, v1 without ${old}, pack points ${opened && traded}`};
   });
-  check('Gridiron Dynasty Solo (the owner, Oct 29 2026: "Provide a solo mode against the computer"): twelve computer opponents in four levels, each deck legal; the computer only makes legal moves and plays a battle to its end at every level; a win pays coins, the first over an opponent its packs, once', async () => {
+  check('Gridiron Rivals Solo ladder (the owner, Oct 30 2026: "games against the cpu getting increasingly difficult … around 15-20 games in there is a noticeable difference"): thirty games, each deck legal for every main type, weak to yours early and countering it from game 16; the computer only makes legal moves and finishes battles at every tier; each game unlocks the next; a win pays coins (double the first time, every fifth game packs too), once; the earlier opponents still play', async () => {
     const S = await import('./dynasty-solo.js');
-    const decks = S.OPPONENTS.map(o => ({o, d: S.deckFor(o.id)}));
-    const legal = decks.every(x => B.checkDeck(x.d).ok) && S.LEVELS.every(L => S.OPPONENTS.filter(o => o.lv === L.id).length === 3);
+    const types = ['A', 'G', 'B', 'C'];
+    const legal = S.STAGES.length === 30 && S.STAGES.every(g => types.every(t => B.checkDeck(S.deckFor(g.id, t)).ok)) && S.OPPONENTS.every(o => B.checkDeck(S.deckFor(o.id)).ok);
+    const main = (id, t) => B.deckTypes(S.deckFor(id, t)).map(e => B.ENERGY_TYPE[e]);
+    const shaped = types.every(t => !main('g1', t).includes(B.WEAK[t]) && main('g16', t).includes(B.WEAK[t]));
+    const ovr = id => { const p = S.deckFor(id, 'A').map(D.card).filter(Boolean); return p.reduce((a, c) => a + c.o, 0) / p.length; };
+    const climbs = ovr('g1') < ovr('g10') && ovr('g10') < ovr('g16') && ovr('g16') < ovr('g26');
     const games = [];
-    for (const [a, b] of [['rookie-camp', 'practice-squad'], ['air-raid', 'blitz-package'], ['prime-time', 'the-dynasty'], ['the-dynasty', 'scout-team']]) {
-      const A = S.opponent(a), Bo = S.opponent(b), G = B.newGame('solo-check|' + a + b, [S.deckFor(a), S.deckFor(b)], 2);
+    for (const [a, b] of [['g1', 'g3'], ['g12', 'g16'], ['g22', 'g30'], ['the-dynasty', 'g8']]) {
+      const A = S.opponent(a), Bo = S.opponent(b), G = B.newGame('solo-check|' + a + b, [S.deckFor(a, 'A'), S.deckFor(b, 'B')], 4);
       let bad = null, n = 0;
       while (G.phase !== 'over' && n < 3000 && !bad) {
         const who = B.toMove(G), m = S.nextMove(G, who, who === 0 ? A.lv : Bo.lv);
@@ -153,11 +157,17 @@ export async function dynastyChecks(check) {
       }
       games.push({ok: !bad && G.phase === 'over', t: `${A.name} ${G.p[0].pts}–${G.p[1].pts} ${Bo.name} (${G.over ? G.over.why : 'unfinished'})`});
     }
-    const s = D.fresh('m_solo', 1000), cr = s.cr, pk = s.pk.prem || 0;
-    const w1 = D.paySolo('cpu1', 'prime-time', 'exp', 'w', s), again = D.paySolo('cpu1', 'prime-time', 'exp', 'w', s), w2 = D.paySolo('cpu2', 'prime-time', 'exp', 'w', s), l = D.paySolo('cpu3', 'prime-time', 'exp', 'l', s);
-    const pay = w1 && w1.first && !again && w2 && !w2.first && !w2.packs && l && l.coins === 0 && s.cr === cr + 2 * D.SOLO_PAY.exp.coins && s.pk.prem === pk + 2 && s.so['prime-time'] === 2 && s.tr === 0 && s.rec.w === 0;
-    const kept = JSON.stringify(D.clean(s).so) === JSON.stringify(s.so) && D.clean(s).sl.length === 3;
-    return {pass: legal && games.every(g => g.ok) && pay && kept, detail: `decks ${legal}; ${games.map(g => g.t).join('; ')}; pay ${pay}, kept ${kept}`};
+    const s = D.fresh('m_solo', 1000), cr = s.cr, std = s.pk.std || 0;
+    const lock = S.ladderAt(s) === 1 && S.unlocked('g1', s) && !S.unlocked('g2', s);
+    const w1 = D.paySolo('cpu1', 'g5', 5, 'w', s), again = D.paySolo('cpu1', 'g5', 5, 'w', s), w2 = D.paySolo('cpu2', 'g5', 5, 'w', s), l = D.paySolo('cpu3', 'g5', 5, 'l', s);
+    const pay = w1 && w1.first && w1.coins === 2 * D.ladderPay(5).coins && !again && w2 && !w2.first && !w2.packs && w2.coins === D.ladderPay(5).coins && l && l.coins === 0
+      && s.cr === cr + 3 * D.ladderPay(5).coins && s.pk.std === std + 1 && s.so.g5 === 2 && s.tr === 0 && s.rec.w === 0;
+    s.so.g1 = 1; s.so.g2 = 1;
+    const next = S.ladderAt(s) === 3 && S.unlocked('g3', s) && !S.unlocked('g4', s) && S.unlocked('g5', s);
+    const old = D.paySolo('cpu4', 'prime-time', 'exp', 'w', s);
+    const kept = JSON.stringify(D.clean(s).so) === JSON.stringify(s.so) && D.clean(s).sl.length === 4 && old && old.coins === D.SOLO_PAY.exp.coins;
+    return {pass: legal && shaped && climbs && games.every(g => g.ok) && lock && pay && next && kept,
+      detail: `decks ${legal}, types ${shaped}, OVR ${[1, 10, 16, 26].map(n => Math.round(ovr('g' + n))).join('→')}; ${games.map(g => g.t).join('; ')}; lock ${lock}, pay ${pay}, next ${next}, kept ${kept}`};
   });
   check('Gridiron Dynasty: unlimited packs for Evan and Ryan Stewart (his ask, Oct 29 2026: "Give Ryan Stewart and I unlimited packs to open"): by their ids, any pack opens without buying or holding one, a held one used first (the Starter Pack stays one); anyone else still needs one', async () => {
     const F = await import('./features.js');

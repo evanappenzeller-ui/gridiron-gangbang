@@ -28,98 +28,79 @@ async function main(url) {
       const s = D.mine(), players = D.CARDS.filter(c => c.s === 'L' && c.pos === 'QB').slice(0, 9).map(c => c.id);
       const deck = [...players.flatMap(id => [id, id]), 'I-water', 'I-water'];
       deck.forEach(id => { s.o[id] = 2; }); D.setDeck(deck);
-      const r = SOLO.start('rookie-camp'); if (!r.ok) throw Error(r.why);
-      window.battleTestMid = r.mid;
+      if (SOLO.start('g2').ok) throw Error('game 2 is locked until game 1 is won');
+      const r = SOLO.start('g1'); if (!r.ok) throw Error(r.why);
+      window.battleTestMid = r.mid; window.battleSolo = SOLO;
       await app.nav('/puzzles/dynasty/battle/' + r.mid);
     });
     await page.waitForSelector('.db-card');
-    assert.equal(await page.locator('.db-table').count(), 1, 'both lineups share the tabletop');
-    assert.equal(await page.locator('.db-hand-fan').count(), 1, 'the hand has a fan surface');
-    const originalHand = await page.evaluate(async () => (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid).G.p[0].hand.slice());
-    const handIndexes = () => page.locator('[data-db-hand]').evaluateAll(nodes => nodes.map(n => Number(n.dataset.dbHand)));
-    for (const order of ['name', 'type', 'power', 'draw']) {
-      await page.locator('[data-db-sort]').selectOption(order);
-      assert.deepEqual(await page.evaluate(async () => (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid).G.p[0].hand), originalHand, 'sorting does not reorder the saved hand: ' + order);
-      assert.deepEqual((await handIndexes()).sort((a, b) => a - b), originalHand.map((_, i) => i), 'every card, including duplicates, keeps its original hand index');
-      if (order === 'name') {
-        const names = await page.locator('[data-db-hand] .db-face-name').allTextContents();
-        assert.deepEqual(names, names.slice().sort((a, b) => a.localeCompare(b)), 'Name sort orders visible cards alphabetically');
-      }
-    }
-    assert.deepEqual(await handIndexes(), originalHand.map((_, i) => i), 'Draw order restores the original presentation');
-    const focusedCard = () => page.evaluate(() => Number(document.activeElement?.dataset.dbHand));
-    await page.locator('[data-db-hand="0"]').focus();
-    await page.locator('[data-db-browse="1"]').click();
-    assert.equal(await focusedCard(), 1, 'Next focuses the second card');
-    await page.locator('[data-db-browse="1"]').click();
-    assert.equal(await focusedCard(), 2, 'a second Next continues from the remembered card');
-    await page.keyboard.press('ArrowLeft');
-    assert.equal(await focusedCard(), 1, 'Left arrow browses back one card');
-    await page.keyboard.press('End');
-    assert.equal(await focusedCard(), originalHand.length - 1, 'End reaches the last card');
-    await page.keyboard.press('Home');
-    assert.equal(await focusedCard(), 0, 'Home reaches the first card');
-    assert.equal(await page.locator('[data-db-hand][aria-pressed="true"]').count(), 0, 'browsing does not select or play a setup card');
-    assert.equal(await page.locator('[data-db-ready]').isDisabled(), true, 'browsing alone does not set a starting player');
-    const first = await page.evaluate(async () => {
-      const B = await import('/js/core/dynasty-battle.js'), SOLO = await import('/js/core/dynasty-solo.js');
-      return SOLO.get(window.battleTestMid).G.p[0].hand.findIndex(B.isBasic);
-    });
-    await page.locator(`[data-db-hand="${first}"]`).click();
-    assert.match(await page.locator('.db-status').innerText(), /Bench:/);
-    await page.locator('[data-db-sort]').selectOption('name');
-    assert.equal(await page.locator(`[data-db-hand="${first}"]`).getAttribute('aria-pressed'), 'true', 'setup selection follows the original card through sorting');
+    assert.equal(await page.locator('.db-table').count(), 1, 'both lineups share the table');
+    assert.equal(await page.locator('.db-hand-fan').count(), 1, 'the hand is spread along the foot');
+    const solo = () => page.evaluate(async () => { const x = (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid); return {state: x.state, me: x.G.p[0], v: x.G.v}; });
+    assert.equal((await solo()).v, 4, 'new ladder games use rules v4 (automatic energy)');
+    // Setup: a lineup is suggested; a lifted card offers its place, and Put back changes nothing.
+    assert.equal(await page.locator('.is-me .is-active .db-slot:not(.is-empty)').count(), 1, 'the suggested lineup has a starter');
+    assert.equal(await page.locator('[data-db-ready]').isDisabled(), false, 'Start is ready with the suggestion');
+    const handBefore = await page.locator('[data-db-hand]').count();
+    await page.locator('.is-me .is-active .db-slot').click();
+    await page.waitForSelector('.db-focus');
+    assert.equal(await page.locator('[data-db-lineup="hand"]').count(), 1, 'the lifted starter can go back to the hand');
+    await page.locator('[data-db-putback]').click();
+    assert.equal(await page.locator('.db-focus').count(), 0, 'Put back sets the card down');
+    assert.equal(await page.locator('[data-db-hand]').count(), handBefore, 'putting back changes nothing');
+    await page.locator('.is-me .is-active .db-slot').click();
+    await page.locator('[data-db-lineup="hand"]').click();
+    assert.equal(await page.locator('[data-db-hand]').count(), handBefore + 1, 'Back to hand returns the starter to the hand');
+    await page.locator('[data-db-hand]').first().click();
+    await page.locator('[data-db-lineup="act"]').click();
+    assert.equal(await page.locator('[data-db-hand]').count(), handBefore, 'a lifted hand card can start');
     await page.locator('[data-db-ready]').click();
-    await page.waitForFunction(async () => (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid).state === 'yours', null, {timeout: 25000});
-    await page.waitForSelector('.db-play');
-    assert.equal(await page.locator('.db-play').count(), 2);
-    assert.match(await page.locator('.db-play.is-signature').innerText(), /Spend 1 energy/);
-    assert.ok(await page.locator('.db-card').first().evaluate(n => n.getBoundingClientRect().width) >= 110);
-    const pick = await page.evaluate(async () => {
-      const B = await import('/js/core/dynasty-battle.js'), SOLO = await import('/js/core/dynasty-solo.js'), me = SOLO.get(window.battleTestMid).G.p[0];
-      return {i: me.hand.findIndex(B.isBasic), n: me.bench.length};
-    });
-    assert.ok(pick.i >= 0);
-    await page.locator(`[data-db-hand="${pick.i}"]`).click();
-    assert.equal(await page.locator('.db-selection').count(), 1);
-    const selectedName = await page.locator('.db-selection-copy > b').textContent();
-    await page.locator('[data-db-sort]').selectOption('power');
-    assert.equal(await page.locator('.db-selection-copy > b').textContent(), selectedName, 'sorting preserves the selected card preview');
-    assert.equal(await page.locator(`[data-db-hand="${pick.i}"]`).getAttribute('aria-pressed'), 'true');
-    assert.equal(await page.evaluate(async () => (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid).G.p[0].bench.length), pick.n, 'preview does not play card');
-    await page.locator('[data-db-play-hand]').click();
-    await page.waitForSelector('.db-cinema', {state: 'detached', timeout: 20000});
-    assert.equal(await page.evaluate(async () => (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid).G.p[0].bench.length), pick.n + 1);
-    assert.equal(await page.locator('.db-selection').count(), 0);
-    if (!(await page.locator('[data-db-energy]').count())) {
-      const turn = await page.evaluate(async () => (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid).G.p[0].n);
+    await page.waitForFunction(() => window.battleSolo.get(window.battleTestMid).state === 'yours', null, {timeout: 25000});
+    // Play: energy goes on by itself; the active player shows he can attack.
+    for (let i = 0; i < 4 && !(await page.evaluate(async () => { const B = await import('/js/core/dynasty-battle.js'), x = (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid); return B.check(x.G, 0, {a: 'attack', n: 0}).ok; })); i++) {
+      const turn = (await solo()).me.n;
+      await page.waitForSelector('[data-db-end]:not([disabled])');
+      await page.waitForSelector('.db-cinema', {state: 'detached', timeout: 20000});
       await page.locator('[data-db-end]').click();
-      await page.locator('.as-btn[data-as="0"]').click();
-      await page.waitForFunction(async turn => { const x = (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid); return x.state === 'yours' && x.G.p[0].n > turn; }, turn, {timeout: 25000});
+      if (await page.locator('.as-btn[data-as="0"]').count()) await page.locator('.as-btn[data-as="0"]').click();
+      await page.waitForFunction(turn => { const x = window.battleSolo.get(window.battleTestMid); return x.state === 'yours' && x.G.p[0].n > turn; }, turn, {timeout: 25000});
     }
-    await page.locator('[data-db-energy]').waitFor({state: 'visible', timeout: 15000});
-    await page.locator('[data-db-energy]').click();
-    await page.waitForSelector('.db-slot.is-pick');
-    assert.ok(await page.locator('.db-slot.is-pick').count() >= 2);
-    await page.locator('.is-active.is-me .db-slot.is-pick').click();
-    await page.waitForFunction(() => { const b = document.querySelector('[data-db-attack="0"]'); return b && !b.disabled; }, null, {timeout: 10000});
+    await page.waitForSelector('.db-cinema', {state: 'detached', timeout: 20000});
+    const me = (await solo()).me;
+    assert.ok(me.active.en.length >= 1, 'the turn’s energy went on without a tap');
+    assert.equal(await page.locator('[data-db-energy]').count(), 0, 'no energy button in a v4 match');
+    await page.waitForSelector('.is-me .db-slot.is-ready');
+    // A hand card lifts with its play and goes back down untouched.
+    if (me.hand.length) {
+      await page.locator('[data-db-hand]').first().click();
+      await page.waitForSelector('.db-focus [data-db-play-hand]');
+      await page.locator('[data-db-putback]').click();
+      const after = await solo();
+      assert.deepEqual(after.me.hand, me.hand, 'lifting a hand card does not play it');
+    }
+    // The active player lifts with his plays: the quick play is ready, the signature says what it needs.
+    await page.locator('.is-me .db-slot.is-ready').click();
+    await page.waitForSelector('.db-focus [data-db-attack]');
+    assert.equal(await page.locator('.db-focus [data-db-attack]').count(), 2, 'both plays show on the lifted card');
+    assert.equal(await page.locator('.db-focus [data-db-attack="0"]').isEnabled(), true);
+    assert.match(await page.locator('.db-focus [data-db-attack="1"]').innerText(), /Spend 1 energy|Needs \d more energy/);
     fs.mkdirSync(path.join(root, 'output'), {recursive: true});
-    await page.waitForSelector('.toast', {state: 'detached', timeout: 10000});
+    await page.screenshot({path: path.join(root, 'output/rivals-lifted.png')});
+    await page.locator('[data-db-putback]').click();
     await page.evaluate(() => { document.querySelector('.v-dynasty-battle').scrollTop = 0; });
     await page.screenshot({path: path.join(root, 'output/rivals-battle.png'), fullPage: true});
     for (const width of [320, 390, 768, 1280]) {
       await page.setViewportSize({width, height: width === 320 ? 640 : 844});
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'no horizontal overflow at ' + width);
+      assert.equal(await page.evaluate(() => [...document.querySelectorAll('[data-db-hand]')].every(c => { const r = c.getBoundingClientRect(); return r.left >= -4 && r.right <= innerWidth + 4; })), true, 'every hand card is on screen at ' + width);
       if (width === 320) await page.screenshot({path: path.join(root, 'output/rivals-battle-320.png'), fullPage: true});
       if (width === 1280) await page.screenshot({path: path.join(root, 'output/rivals-battle-desktop.png'), fullPage: true});
-      if (width === 390 || width === 1280) {
-        await page.locator('.db-hand-section').scrollIntoViewIfNeeded();
-        await page.screenshot({path: path.join(root, `output/rivals-hand-${width}.png`)});
-      }
     }
+    await page.setViewportSize({width: 390, height: 844});
     await page.emulateMedia({reducedMotion: 'no-preference'});
-    const quick = page.locator('[data-db-attack="0"]');
-    assert.equal(await quick.isEnabled(), true, 'quick attack is available after attaching energy');
+    await page.locator('.is-me .db-slot.is-ready').click();
+    const quick = page.locator('.db-focus [data-db-attack="0"]');
+    assert.equal(await quick.isEnabled(), true, 'quick attack is available with the automatic energy');
     const ownAttacks = () => page.evaluate(async () => (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid).G.ev.filter(e => e.k === 'attack' && e.who === 0));
     const before = (await ownAttacks()).length;
     await page.evaluate(async () => {
@@ -138,7 +119,7 @@ async function main(url) {
     assert.match(await page.locator('.db-cinema-result').textContent(), event.missed ? /JUKED/ : new RegExp(String(event.dmg) + ' DAMAGE'), 'the animation displays the actual resolved damage');
     assert.ok((await page.locator('.db-cinema').innerText()).includes(event.name), 'the animation names the played attack');
     // Programmatic clicks also exercise the guard independently of browser inert behavior.
-    await page.locator('[data-db-attack="0"]').evaluate(n => n.click());
+    await page.evaluate(() => document.querySelectorAll('[data-db-slot][data-side="me"], [data-db-attack]').forEach(n => n.click()));
     assert.equal((await ownAttacks()).length, before + 1, 'a second action cannot be submitted while the scene is open');
     await page.waitForTimeout(1400);
     await page.screenshot({path: path.join(root, 'output/rivals-cinema.png'), fullPage: true});
@@ -156,7 +137,7 @@ async function main(url) {
       assert.equal(await page.locator('.db-cinema, .db-hand-fan').count(), 0, profile + ' cannot see a battle presentation');
     }
     assert.deepEqual(errors, []);
-    console.log('PASS Rivals tabletop: sorting and selection, setup, explicit play, energy, attack scene and skip, repeat-action guard, responsive widths, profile boundaries.');
+    console.log('PASS Rivals table: ladder lock, suggested lineup, lifting and putting back cards, automatic energy, attacks from the lifted card, scene and skip, repeat-action guard, responsive widths, profile boundaries.');
     await ctx.close();
   } finally { await browser.close(); }
 }

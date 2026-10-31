@@ -119,6 +119,26 @@ function board(B, version = 3, attacker = 'pass', defender = 'anchor') {
   assert.match(B.abilityText('juke', 2), /flip a coin/i);
   assert.match(B.abilityText('juke', 3), /30 less/);
   for (let i = 0; i < 12; i++) simulate(B, 3, `rivals-${i}`);
+  // Version 4: every turn's energy goes on by itself (none is left to attach), and the games still replay exactly.
+  for (let i = 0; i < 12; i++) {
+    const G = simulate(B, 4, `auto-${i}`);
+    assert.equal(G.v, 4);
+    const turns = G.ev.filter(e => e.k === 'turn').length, auto = G.ev.filter(e => e.k === 'energy');
+    assert.ok(auto.length && auto.every(e => e.auto), 'v4 energy is only ever attached automatically');
+    assert.ok(auto.length >= turns - 2 - G.ev.filter(e => e.k === 'ko').length * 2, 'nearly every turn gets its energy');
+  }
+  {
+    // The active player takes it while it helps his signature play; then the bench player it helps most.
+    const G = board(B, 4, 'pass', 'anchor');
+    G.p[0].active.en = []; G.p[0].bench[0].en = [];
+    G.p[0].en = 'P'; G.p[0].used = {};
+    B.autoEnergy(G, 0);
+    assert.deepEqual([G.p[0].active.en.length, G.p[0].en, G.p[0].used.energy], [1, null, true], 'energy goes on the active player');
+    G.p[0].active.en = B.stats('pass').attacks[1].cost.map(e => e === '*' ? 'P' : e); G.p[0].en = 'R'; G.p[0].used = {};
+    B.autoEnergy(G, 0);
+    assert.equal(G.p[0].bench[0].en.length, 1, 'a fully charged active player passes it to the bench');
+    assert.equal(B.check(G, 0, {a: 'energy', on: G.p[0].active.u}).ok, false, 'nothing is left to attach by hand');
+  }
 
   // Production persistence adapters must retain the rules version through cleaning, storage and reload.
   const storage = new Map(); let profile = 'm_evan';
@@ -138,17 +158,20 @@ function board(B, version = 3, attacker = 'pass', defender = 'anchor') {
   assert.equal(S.get('cpu-old').G.v, 2, 'unversioned solo saves stay v2');
   assert.equal(S.start('rookie-camp').ok, true);
   const saved = JSON.parse(storage.get('gg-dys-m_evan'));
-  assert.equal(saved.v, 3, 'new solo records explicitly save v3');
+  assert.equal(saved.v, 4, 'new solo records explicitly save v4');
   profile = 'u_ryan-stewart'; S.get(); profile = 'm_evan';
-  assert.equal(S.get(saved.id).G.v, 3, 'solo reload preserves v3');
+  assert.equal(S.get(saved.id).G.v, 4, 'solo reload preserves v4');
+  storage.set('gg-dys-m_evan', JSON.stringify({...saved, id: 'cpu-v3', v: 3, log: []}));
+  profile = 'u_ryan-stewart'; S.get(); profile = 'm_evan';
+  assert.equal(S.get('cpu-v3').G.v, 3, 'a v3 solo save keeps v3 (energy by hand)');
   const daily = {LB: {raw: [], all: [], ready: false}};
   const data = {subscribe: () => {}, M: {evan: {}, 'ryan-stewart': {}}, name: id => id};
   const M = loadIsolated('js/core/dynasty-match.js', {...shared, daily, data, dynastyKey: () => true, visitWho: () => ({name: 'Opponent'})}, ['cleanSide', 'challenge', 'get']);
-  for (const v of [1, 2, 3]) assert.equal(M.cleanSide({o: 'other', v}).v || 1, v, 'cleanSide preserves supported versions');
+  for (const v of [1, 2, 3, 4]) assert.equal(M.cleanSide({o: 'other', v}).v || 1, v, 'cleanSide preserves supported versions');
   const challenge = M.challenge('u_ryan-stewart');
   assert.equal(challenge.ok, true);
-  assert.equal(JSON.parse(storage.get('gg-dyb-m_evan'))[challenge.mid].v, 3, 'new multiplayer challenge saves v3');
+  assert.equal(JSON.parse(storage.get('gg-dyb-m_evan'))[challenge.mid].v, 4, 'new multiplayer challenge saves v4');
   daily.LB.raw.push({id: 'opponent', dyb: {'u_ryan-stewart': {[challenge.mid]: {o: 'm_evan', k: decks[1], m: [], ch: 0, c: 1, at: 1}}}});
-  assert.equal(M.get(challenge.mid).G.v, 3, 'the accepter inherits the challenger’s version for replay');
-  console.log('PASS Rivals rules: legacy v1/v2 snapshots, v3 energy/Juke, 432 previews, replay, and save-version round trips');
+  assert.equal(M.get(challenge.mid).G.v, 4, 'the accepter inherits the challenger’s version for replay');
+  console.log('PASS Rivals rules: legacy v1/v2 snapshots, v3 energy/Juke, v4 automatic energy, 432 previews, replay, and save-version round trips');
 })().catch(e => { console.error(e); process.exitCode = 1; });
