@@ -1628,7 +1628,7 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `the ball at the ${s.spot} in the red zone; Allen ${P['Josh Allen'].pts}, Cook ${P['James Cook'].pts} PPR; #/live opens the Scores tab`};
   });
 
-  check('Live league scores (everyone\'s, Oct 30 2026): Yahoo\'s starters (BN and IR sit; WAS is ESPN\'s WSH) scored from ESPN\'s box scores, kickers by distance, defenses by sacks, takeaways, touchdowns and points allowed, two-point conversions, each player\'s game state, and projected totals from Yahoo\'s', async () => {
+  check('Live league scores (everyone\'s, Oct 30 2026): Yahoo\'s starters (BN and IR sit; WAS is ESPN\'s WSH) scored from ESPN\'s box scores, kickers by distance, defenses by sacks, takeaways, touchdowns and points allowed, two-point conversions, each player\'s game state, projected totals from Yahoo\'s, and each side\'s chance to win', async () => {
     const [gd, fl] = await Promise.all([import('./gameday.js'), import('./fantasy-live.js')]);
     const bad = [];
     const cat = (name, keys, rows) => ({name, keys, labels: [], athletes: rows.map(([id, nm, st]) => ({athlete: {id, displayName: nm}, stats: st}))});
@@ -1691,10 +1691,18 @@ export async function runChecks() {
     if (pre.proj !== 120.5) bad.push(`before kickoff ${pre.proj} (want Yahoo's 120.5)`);
     if (post.proj !== post.pts) bad.push(`all over ${post.proj} (want the score, ${post.pts})`);
     if (!live || !(live.b.proj > live.b.pts && live.b.proj < live.b.pts + 120.5) || !(live.a.proj > live.a.pts)) bad.push('live projections ' + JSON.stringify(live && [live.a.pts, live.a.proj, live.b.pts, live.b.proj]));
+    // Chance to win (Oct 31 2026): Yahoo's 49% for 42.20 of 127.52 against 0 of 128.85, even at a level projection, the
+    // leader's once nothing's left, rising with a lead as time runs out; none without both projections.
+    const wc = (pa, ja, pb, jb) => fl.winChance({a: {pts: pa, proj: ja}, b: {pts: pb, proj: jb}});
+    const yw = Math.round(wc(42.2, 127.52, 0, 128.85) * 100);
+    if (yw < 48 || yw > 50) bad.push(`Yahoo's 49% read ${yw}%`);
+    if (Math.abs(wc(0, 120, 0, 120) - .5) > 1e-6 || wc(100, 100, 90, 90) !== 1 || wc(80, 80, 95, 95) !== 0) bad.push('level, or nothing left');
+    if (!(wc(0, 130, 0, 120) > .5 && wc(0, 130, 0, 120) < wc(100, 130, 90, 120) && wc(100, 130, 90, 120) < .999)) bad.push('a lead late counts for more');
+    if (wc(0, 120, 0, null) !== null || fl.winChance(null) !== null) bad.push('a chance without projections');
     // The league file's own rosters, when they carry slots: nine starters a team.
     const real = fl.lineups(data.DATA || {}, 2026, null);
     if (real && [...real.values()].some(l => l.length < 8 || l.length > 10)) bad.push('league rosters: ' + [...real].map(([k, l]) => k + ' ' + l.length).join(', '));
-    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `Evan ${m.a.pts} live (Bass ${K.pts}, Bills D ${gd.defPoints(D, 9)}), Ben ${m.b.pts} with ${m.b.left} left, projected ${live.b.proj} of Yahoo's 120.5${real ? `; ${real.size} lineups in the league file` : ''}`};
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `Evan ${m.a.pts} live (Bass ${K.pts}, Bills D ${gd.defPoints(D, 9)}), Ben ${m.b.pts} with ${m.b.left} left, projected ${live.b.proj} of Yahoo's 120.5, Yahoo's 49% read ${yw}%${real ? `; ${real.size} lineups in the league file` : ''}`};
   });
 
   check('Daily Games boards: each place on today\'s board of Daily Puzzles, 17-0 and the Drill shows what it pays in Keepfall\'s Ale ("+5K" on a case, "+5,000" up close; the owner\'s ask, Oct 25 2026), the pay Keepfall pays by', async () => {

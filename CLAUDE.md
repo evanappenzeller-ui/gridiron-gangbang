@@ -139,13 +139,14 @@ Rarity finishes follow the owner's card references: type-tinted silver Common, g
 illuminated gold Legendary, and prismatic cosmic Mythic. Keep the name/HP header and framed artwork readable.
 `dynasty-rarity.css` and `img/rivals/` own the materials; `dynasty-foil.js` adds reflections in details and reveals.
 Collection previews stay still, with reduced-motion support. Verify `check-card-layout.cjs`.
-Team backgrounds (October 30, 2026): every franchise has its own local hometown photograph,
-team-color poster treatment and crop (`views/dynasty-team-scenes.js`, `img/rivals/teams-v1/`).
+Team backgrounds (October 30, 2026): the owner replaced hometown photos with electric sports-poster graphics,
+inspired by his Ravens/Vikings examples. Every franchise uses its own local logo, team colors, nickname, plasma
+texture and angled accents (`views/dynasty-team-scenes.js`, `img/rivals/team-graphics-v2/`).
 Use the card's team, including historical series, in collectible faces, team Stadiums and battle cards.
 Rarity still controls the frame/foil; portraits and readable game panels stay separate. Keep unknown-team and
-failed-portrait fallbacks. Photos load/cache on demand. The Rivals Menu links the source/author/license page;
-regenerate it with `node tools/dynasty/build-team-credits.cjs` after updating photo metadata. Verify
-`node tools/dynasty/check-team-scenes.cjs` with the card-layout and existing Dynasty checks.
+failed-portrait fallbacks. Artwork loads/caches on demand. The Rivals Menu links the artwork credits page;
+logo provenance is in `sources.json` and the generated texture prompt in `tools/dynasty/team-graphics-prompt.txt`.
+Verify `node tools/dynasty/check-team-scenes.cjs` with card-layout and existing Dynasty checks.
 Card-table battles (Oct 30 2026, the owner: "The gameplay is far too confusing. I want it to include the cards that are
 in play laid out and the available cards in your hand are spread out at the bottom. Clicking on each card will show the
 attacks and allow the player to choose which one or put the card back down. Energy is automatically added to the cards
@@ -200,8 +201,12 @@ scores Yahoo's starters (`seasons[].rosters` slots, with `week`; BN/IR sit) from
 Yahoo's final (the sync) replaces it. Each side's projected total sits under its score (Oct 30 2026, the owner: "Add total
 point projections"): Yahoo gives only the team's projection (schedule `pa`/`pb`, not moved by results), so
 `fantasy-live.js` shares it among the starters (position and `data/nfl-players.json` relevance, `gameday.rankOf`) and
-counts points scored plus each share for the time left in his game; before kickoff it is Yahoo's number. The Yahoo sync also runs as each game-day window kicks off so the lineups are the
-locked ones. Verify `node tools/matchup/check-live-browser.cjs` and the kit check "Live league scores…".
+counts points scored plus each share for the time left in his game; before kickoff it is Yahoo's number. Each side's chance to win sits beside its score, green for the favourite and red
+for the other (Oct 31 2026, the owner: "Add a percentage to the win probability for each matchup. Use green and red"):
+`fantasy-live.js` `winChance()`, the projected margin against what's left to score; hidden once a game is over. The Yahoo sync also runs as each game-day window kicks off so the lineups are the
+locked ones. The week's Matchup of the Week leads League's list in its own gold card (Oct 31 2026, the owner: "Be sure to highlight
+the matchup of the week"): the league's vote (`week.leader`, as the Matchup tab), "Leading the vote" until kickoff locks it;
+no card while nobody has voted. Verify `node tools/matchup/check-live-browser.cjs` and the kit check "Live league scores…".
 
 ## Home screen (October 30, 2026)
 

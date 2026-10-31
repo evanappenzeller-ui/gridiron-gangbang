@@ -189,11 +189,21 @@
    records where the scores will be. The sheet: the live score, then both lineups slot by slot. */
 .lg-body .ll-games > .lg-sh:first-child { margin-top: 8px; }
 .lg-body .ll-gms { --stack-ring: var(--surface-1); }
+/* The Matchup of the Week: its own card at the top, ringed in gold with a gold banner (over every skin's .group). */
+.lg-body .ll-motw-w { margin-bottom: 12px; }
+.v-live .lg-body .group.ll-motw {
+  background: linear-gradient(180deg, var(--gold-soft), transparent 72px), var(--surface-1);
+  box-shadow: var(--pixel-shadow), 0 0 28px -12px var(--gold), inset 0 0 0 2px var(--gold);
+}
+.lg-body .ll-motw-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px 2px; }
+.lg-body .ll-motw-t { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--gold); font: 400 10px/16px var(--font-pixel); text-transform: uppercase; white-space: nowrap; }
+.lg-body .ll-motw-t > svg { flex: none; }
+.lg-body .ll-motw-v { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); white-space: nowrap; }
 .lg-body .ll-gm { padding-top: 8px; padding-bottom: 8px; }
 .lg-body .ll-gm:focus-visible { outline-offset: -2px; border-radius: var(--r-group); }
 .lg-body .ll-gm.is-pre .bug-side { color: var(--ink); }
 .lg-body .ll-rec { font: 500 15px/20px var(--font-text); font-variant-numeric: tabular-nums; color: var(--ink-2); }
-.lg-body .ll-left { flex: none; margin-right: 10px; padding: 1px 7px; border-radius: 999px; background: var(--fill); color: var(--ink-3); font: 600 12px/18px var(--font-text); white-space: nowrap; }
+.lg-body .ll-left { flex: none; margin-right: 8px; padding: 1px 7px; border-radius: 999px; background: var(--fill); color: var(--ink-3); font: 600 12px/18px var(--font-text); white-space: nowrap; }
 .lg-body .ll-gm.is-live .bug-side.is-fav, .lg-body .ll-gm.is-live .bug-side.is-fav .ll-pts { color: var(--ink); }
 .lg-body .ll-gm.is-live .bug-side.is-dog { color: var(--ink-2); }
 .lg-body .ll-gm.is-live .bug-side.is-dog .ll-pts { color: var(--ink-3); }
@@ -206,6 +216,13 @@
 .lg-body .ll-proj.is-down, .sh-ll .ll-proj.is-down { color: var(--wrong); }
 .lg-body .ll-proj.is-up > i, .lg-body .ll-proj.is-down > i, .sh-ll .ll-proj.is-up > i, .sh-ll .ll-proj.is-down > i { color: var(--ink-3); }
 .sh-ll .ll-proj { margin-top: 2px; font-size: 13px; line-height: 16px; }
+/* Each side's chance to win, beside its score: green for the favourite, red for the other. */
+.lg-body .ll-wp, .sh-ll .ll-wp { flex: none; min-width: 36px; margin-right: 8px; text-align: right; font: 700 15px/20px var(--font-text); font-variant-numeric: tabular-nums; color: var(--ink-3); white-space: nowrap; }
+.lg-body .ll-wp.is-up, .sh-ll .ll-wp.is-up { color: var(--tint); }
+.lg-body .ll-wp.is-down, .sh-ll .ll-wp.is-down { color: var(--wrong); }
+.sh-ll .ll-wp { margin-right: 12px; font-size: 17px; line-height: 22px; }
+/* The scores' column keeps one width (a projection under 100 is narrower), so the chances line up. */
+.lg-body .ll-gm.is-live .ll-sc, .lg-body .ll-gm.is-pre .ll-sc { min-width: 68px; }
 
 .sh-ll .ll-bug .bug-side { color: var(--ink); }
 .sh-ll .ll-place { color: var(--ink-3); }
