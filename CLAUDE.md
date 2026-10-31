@@ -190,9 +190,12 @@ keeps it on one line) and ends with `appsHTML()`: every other tab as an app icon
 every other screen keeps the bar. The apps wear the bar's theme, no colours of their own (Oct 30 2026, the owner: "Remove the
 colors from the apps and use the navigation bar theme"; this replaced the coloured app squares in the bar too, so the bar is
 plain outline/filled glyphs again, a house for Daily Games). Leaving and coming home the icons fly between the grid and the
-bar (`puzzles.js` `appsToBar`/`barToApps`: stand-ins copy the bar's computed look, the bar waits bare under `html.hm-morph`);
-reduced motion skips it. A new tab needs its entry in `APPS` and its icon in the bar. Verify
-`node tools/puzzles/check-home-browser.cjs`.
+bar. The shell owns this handoff (`core/home-navigation.js`): start after the destination loads, alongside the 240ms page
+slide, then reconcile `html.is-home` and remove stand-ins when the visible route commits. Use only transform/opacity on
+moving surfaces, without backdrop blur; reduced motion and clipped grids skip the flight. Hidden view mount/unmount
+must not change the global bar. Rapid taps replace pending destinations; resize/backgrounding clears the transition.
+A new tab needs its entry in `APPS` and its icon in the bar. Verify `node tools/puzzles/check-home-browser.cjs` and
+`node tools/puzzles/check-home-transition.cjs` (slow loads, rapid taps, cancellation, resize, reduced motion and Back).
 
 ## Deploying
 

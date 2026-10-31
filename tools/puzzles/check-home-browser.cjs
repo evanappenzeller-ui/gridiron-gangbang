@@ -83,14 +83,16 @@ async function run(url) {
 
       // An app's tap: its icons fly into the bar as Pick'em opens.
       await page.click('.hm-app[data-go-tab="pickem"]');
+      // A cold destination is prepared before the shared 240ms page/icon transition begins.
+      if (!reduced) await page.waitForSelector('.hm-morph-layer', {state: 'attached'});
       s = await state(page);
       if (reduced) assert.equal(s.layer, 0, T + ': no stand-ins with reduced motion');
       else {
         assert.equal(s.layer, 1, T + ': the stand-ins fly');
         assert.ok(s.ghosts >= 6, T + ': an icon for every tab');
         assert.equal(s.morph, true, T + ': the bar bare under them');
-        await page.waitForTimeout(140); await shot('1-out-early');
-        await page.waitForTimeout(120); await shot('2-out-mid');
+        await page.waitForTimeout(45); await shot('1-out-early');
+        await page.waitForTimeout(55); await shot('2-out-mid');
       }
       await page.waitForTimeout(900);
       s = await state(page);
@@ -108,7 +110,7 @@ async function run(url) {
       }
       if (!reduced) {
         assert.ok(seen, T + ': the bar rises into the apps');
-        await page.waitForTimeout(150); await shot('4-in-mid');
+        await page.waitForTimeout(90); await shot('4-in-mid');
       }
       await page.waitForTimeout(1000);
       s = await state(page);
