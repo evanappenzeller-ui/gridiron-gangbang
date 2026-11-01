@@ -41,28 +41,8 @@ const sparkles = (n, f) => Array.from({length: n}, (_, i) => `<i class="dy-spk" 
 const RAYS = [-30, -23, -16, -10, -4, 2, 8, 14, 20, 26, 33].map((a, i) => `<i style="--a:${a}deg;--h:${[320, 18, 46, 62, 140, 178, 200, 228, 262, 292, 335][i]};--d:-${(i * .37 % 1).toFixed(2)}s"></i>`).join('');
 const MOTES = sparkles(16, (a, b, i) => `--x:${(8 + a * 84).toFixed(1)}%;--w:${((b - .5) * 70).toFixed(0)}px;--s:${(8 + b * 12).toFixed(0)}px;--d:${(.08 + (i % 8) * .07).toFixed(2)}s;--t:${(.9 + a * .5).toFixed(2)}s`);
 const DRIFT = sparkles(18, (a, b, i) => `--x:${(a * 100).toFixed(1)}%;--y:${(30 + b * 70).toFixed(1)}%;--s:${(7 + (i % 5) * 3)}px;--d:-${(i * .9 % 7).toFixed(1)}s;--t:${(6 + b * 5).toFixed(1)}s`);
-// One reverse for every card: a royal-blue printed frame, a flowing vortex and a warm football emblem.
-// There is deliberately no rarity, player, type or series information on a face-down card.
-// Curves, ellipses and fine printed dots give this local vector artwork depth without extra animation.
-const SWIRL = (() => {
-  const curls = [
-    ['M-12 88C-18 42 23 12 65 27C106 42 118 92 82 117C46 142 6 123 12 86C17 55 52 43 71 61C89 79 70 104 50 94C35 87 38 73 48 68C27 72 23 102 47 113C82 129 110 92 89 58C65 18 10 32 5 68Z', '#93dfdf'],
-    ['M-6 97C-21 55 8 23 45 24C84 25 114 66 99 99C88 122 61 133 39 119C16 105 24 76 47 68C27 71 22 96 42 107C65 120 93 99 91 75C87 37 39 16 11 46C-4 63-1 82 7 95Z', '#eff2d6'],
-    ['M102 39C128 76 109 120 71 128C39 135 9 114 13 84C17 58 44 44 65 53C83 62 85 83 70 93C79 74 64 55 47 60C24 67 22 95 43 106C72 121 105 95 101 70C99 54 92 43 85 38Z', '#2d99c2'],
-    ['M-12 36C18 1 66 13 79 44C90 70 67 97 47 83C31 72 44 59 53 64C39 49 17 67 29 89C44 116 83 96 89 73C101 26 46-7 9 14Z', '#c5eee5'],
-    ['M18 140C-8 111-3 78 21 58C41 41 69 46 77 65C65 52 47 51 34 61C12 78 23 109 49 116C72 122 92 112 110 91L117 123C88 147 42 154 18 140Z', '#1348a5'],
-    ['M-8 60C-9 28 24 10 53 17C78 23 96 45 94 68C88 41 67 25 42 28C17 31 10 56 17 70C7 72 0 69-8 60Z', '#6ec6dc'],
-    ['M88 0C108 31 100 52 83 64C73 44 58 40 41 47C68 27 91 43 94 27C96 17 87 9 77 3Z', '#2464bd']
-  ].map(([d, fill]) => `<path d="${d}" fill="${fill}"/>`).join('');
-  let etched = '';
-  // Offset oval arcs read as flowing print lines, with a few bright cream ribbons among the blues.
-  for (let k = 0; k < 17; k++) {
-    const r = 24 + k * 2.8, angle = -33 + k * 3.8;
-    etched += `<ellipse cx="50" cy="71" rx="${r.toFixed(1)}" ry="${(r * .68).toFixed(1)}" transform="rotate(${angle.toFixed(1)} 50 71)" fill="none" stroke="${k % 4 === 0 ? '#f6f4d7' : k % 2 ? '#123b86' : '#b6eff2'}" stroke-width="${k % 4 === 0 ? '.5' : '.24'}" stroke-dasharray="${(r * 2.1).toFixed(1)} ${(r * 4.2).toFixed(1)}" stroke-dashoffset="${(-k * 11).toFixed(1)}" opacity="${k % 4 === 0 ? '.55' : '.36'}"/>`;
-  }
-  const glints = [[15,49,1.1],[82,38,.75],[89,91,1.15],[20,108,.8]].map(([x,y,r]) => `<path d="M${x-r*2} ${y}l${r*1.6} ${-r*.4}l${r*.4} ${-r*2}l${r*.4} ${r*2}l${r*1.6} ${r*.4}l${-r*1.6} ${r*.4}l${-r*.4} ${r*2}l${-r*.4} ${-r*2}Z" fill="#fff7db"/>`).join('');
-  return `<svg class="dy-back-swirl" viewBox="0 0 100 140" aria-hidden="true" preserveAspectRatio="xMidYMid slice"><rect width="100" height="140" fill="#1259aa"/>${curls}${etched}${glints}</svg>`;
-})();
+// One reverse for every card, the owner's printed back (Nov 1 2026, Evan: "Use the attached for the back of the cards"):
+// img/rivals/card-back-v1.webp, built by tools/dynasty/card_back.py. No rarity, player, type or series shows face down.
 const BALL = (() => {
   let grain = '';
   for (let y = 32; y < 82; y += 6) for (let x = 24; x < 99; x += 6) {
@@ -87,9 +67,7 @@ const BALL = (() => {
     + '<path d="M23 30l1.1 3.3 3.3 1.1-3.3 1.1-1.1 3.3-1.1-3.3-3.3-1.1 3.3-1.1Z" fill="#fff6d5"/>'
     + '</svg>';
 })();
-const BACK_WORD = '<b class="dy-back-word">GRIDIRON<small>RIVALS</small></b>';
-const BACK = `<div class="dy-back-in">${SWIRL}<span class="dy-back-brand">${BACK_WORD}<span class="dy-back-tag">TRADING CARD GAME</span></span>`
-  + `<span class="dy-back-ball">${BALL}</span><span class="dy-back-brand is-flip">${BACK_WORD}<span class="dy-back-tag">TRADING CARD GAME</span></span></div>`;
+const BACK = '<div class="dy-back-in"><img class="dy-back-img" src="img/rivals/card-back-v1.webp" alt="" decoding="async" draggable="false"></div>';
 const END_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5v13l9.5-6.5zM18.5 5.5v13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 // a pack's back, in its colour: the seam down the middle, the crimps, the brand (the carousel's spin shows it)
 const PACK_BACK = '<span class="dy-pack-back" aria-hidden="true"><i class="dy-pb-seam"></i><b>GRIDIRON<small>RIVALS</small></b><em>GR1</em></span>';

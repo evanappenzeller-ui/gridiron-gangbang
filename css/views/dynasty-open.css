@@ -340,55 +340,11 @@ div.pk-open:has(.dy-open-pack.is-torn) .dy-dim { transition: opacity .45s ease-o
 /* (up close: the card itself tilts, and it still scrolls the sheet up and down) */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.dy-holo { transition: none; touch-action: pan-y; transform: perspective(900px) rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg)); }
 
-/* ---------------------------------------------------------------- the uniform Rivals reverse: royal blue print, a layered
-   cream/teal vortex, a copper football, and a reversible wordmark. No extra motion or remote assets. */
-/* One printed reverse across every rarity. The flip wrapper still owns its transform and timing.
-   Padding is relative to the card's width; its children use the back's inline-size container. */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-flip-back {
-  container-type: inline-size; padding: 5.3%; background: #123777;
-  box-shadow: 0 14px 30px #10254566, inset 0 0 0 1px #6684ad, inset 0 0 0 2px #0a2454;
-}
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-in {
-  position: relative; isolation: isolate; height: 100%; overflow: hidden; border-radius: 2.6% / 1.9%;
-  display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 7.1cqw 0;
-  background: #145aaa; box-shadow: 0 0 0 .45cqw #a5b6a8, 0 0 0 .8cqw #071e50, inset 0 0 8cqw #052e6a;
-}
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-in::before {
-  content: ''; position: absolute; inset: .8cqw; z-index: 1; border: .2cqw solid #d5e7d578; border-radius: 1cqw; pointer-events: none;
-  box-shadow: inset 0 0 5cqw #082f6b65;
-}
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-in::after {
-  content: ''; position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: inherit;
-  background: radial-gradient(circle, #d9f2e82b .1cqw, transparent .2cqw),
-    repeating-linear-gradient(115deg, #f0ffe908 0 1px, transparent 1px 4px),
-    linear-gradient(125deg, #fff5d510, transparent 28% 72%, #09265425);
-  background-size: 1.9cqw 1.9cqw, auto, auto;
-  box-shadow: inset 0 0 1.3cqw #001a46;
-}
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-swirl { position: absolute; inset: 0; width: 100%; height: 100%; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-brand { position: relative; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 1.8cqw; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-brand.is-flip { transform: rotate(180deg); }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-word {
-  display: flex; flex-direction: column; align-items: center; font: 950 italic 12.8cqw/.94 var(--font-text);
-  letter-spacing: -.065em; color: #f7d552; -webkit-text-stroke: 1.05cqw #113a7c; paint-order: stroke fill;
-  text-shadow: -.2cqw -.25cqw #fff3c9, .25cqw .4cqw #b17c1c, 0 1.1cqw #072354, 0 0 1.2cqw #082357;
-}
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-word small {
-  font: 900 italic 7.3cqw/1 var(--font-text); letter-spacing: .34em; padding-left: .34em; margin-top: 1.7cqw;
-  color: #fff4d0; -webkit-text-stroke-width: .7cqw; text-shadow: 0 .6cqw #08275b, 0 -.15cqw #fffce9;
-}
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-tag {
-  padding: .65cqw 2cqw; border: 0; font: 750 2.1cqw/1 var(--font-text); letter-spacing: .22em;
-  color: #e2eee0; text-shadow: 0 .2cqw .3cqw #082a67;
-}
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-ball {
-  position: absolute; z-index: 2; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: 65cqw; aspect-ratio: 120 / 112; display: grid; place-items: center; border-radius: 50%;
-  background: radial-gradient(ellipse at 50% 50%, #dff2dd75 0, #c6eddf35 42%, transparent 70%); box-shadow: none;
-}
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-ball > svg {
-  width: 100%; height: auto; filter: drop-shadow(0 1.1cqw .75cqw #08275480);
-}
+/* ---------------------------------------------------------------- the uniform Rivals reverse: the owner's printed back
+   (Nov 1 2026, img/rivals/card-back-v1.webp, tools/dynasty/card_back.py). The flip wrapper still owns its transform and timing. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-flip-back { overflow: hidden; background: #14306f; box-shadow: 0 14px 30px #10254566; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-in { position: absolute; inset: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-img { display: block; width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-select: none; pointer-events: none; }
 
 /* ---------------------------------------------------------------- under the card (below its stamp): which one it is, and
    the hint; on a rare one's ground (gold, purple, blue, navy) each on a dark pill, so they read on any of them */
