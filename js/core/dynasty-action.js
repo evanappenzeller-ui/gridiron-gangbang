@@ -19,7 +19,7 @@ export const ACTION = {
   "xjerryrice": ["xjerryrice-v3", "card:dce40a6e", "", "", "", 2024], // Jerry Rice
   "xlawrencetaylor": ["xlawrencetaylor-v3", "card:4f9bbace", "", "", "", 2025], // Lawrence Taylor
   "xtombrady": ["xtombrady-v4", "Tom_Brady_(2).jpg", "Keith Allison", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2009], // Tom Brady
-  "xbarrysanders": ["xbarrysanders-v3", "card:87e3f8ab", "", "", "", 2025], // Barry Sanders
+  "xbarrysanders": ["xbarrysanders-v4", "card:87e3f8ab", "", "", "", 2025], // Barry Sanders
   "xjimbrown": ["xjimbrown-v3", "card:f4a7b560", "", "", "", 2017], // Jim Brown
   "xpeytonmanning": ["xpeytonmanning-v3", "card:3d1c7df6", "", "", "", 2022], // Peyton Manning
   "xreggiewhite": ["xreggiewhite-v3", "card:db155bd6", "", "", "", 2020], // Reggie White
@@ -44,13 +44,13 @@ export const ACTION = {
   "xdarrellerevis": ["xdarrellerevis-v3", "card:00bb5024", "", "", "", 2024], // Darrelle Revis
   "xdrewbrees": ["xdrewbrees-v3", "New_Orleans_Saints_Quarterback,_Drew_Brees_(23262414434)_(cropped).jpg", "Tammy Anthony Baker from Louisiana", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2013], // Drew Brees
   "xemmittsmith": ["xemmittsmith-v3", "card:96ea8a13", "", "", "", 2025], // Emmitt Smith
-  "xericdickerson": ["xericdickerson-v3", "1985_Police_Raiders-Rams_-_20_Eric_Dickerson_(crop).jpg", "KIIS Radio/Los Angeles Rams/Los Angeles County Sheriff's Department", "Public domain", "", 1984], // Eric Dickerson
-  "xjacklambert": ["xjacklambert-v3", "Jack_Lambert_in_December_1975.JPG", "Malcolm Emmons", "Public domain", "", 1975], // Jack Lambert
+  "xericdickerson": ["xericdickerson-v4", "1985_Police_Raiders-Rams_-_20_Eric_Dickerson_(crop).jpg", "KIIS Radio/Los Angeles Rams/Los Angeles County Sheriff's Department", "Public domain", "", 1984], // Eric Dickerson
+  "xjacklambert": ["xjacklambert-v4", "Jack_Lambert_in_December_1975.JPG", "Malcolm Emmons", "Public domain", "", 1975], // Jack Lambert
   "xjjwatt": ["xjjwatt-v3", "card:2b885e2c", "", "", "", 2024], // J.J. Watt
   "xjohnelway": ["xjohnelway-v3", "card:13e21bf9", "", "", "", 2025], // John Elway
   "xjohnhannah": ["xjohnhannah-v3", "card:698a1909", "", "", "", 2024], // John Hannah
   "xjonathanogden": ["xjonathanogden-v3", "card:122abf8f", "", "", "", 2024], // Jonathan Ogden
-  "xlancealworth": ["xlancealworth-v3", "card:30eda0df", "", "", "", 2020], // Lance Alworth
+  "xlancealworth": ["xlancealworth-v4", "card:30eda0df", "", "", "", 2020], // Lance Alworth
   "xlarryallen": ["xlarryallen-v3", "card:c303b2ca", "", "", "", 2024], // Larry Allen
   "xrogerstaubach": ["xrogerstaubach-v3", "Staubach_cowboys_qb.jpg", "Unknown author Unknown author", "Public domain", "", 1976], // Roger Staubach
   "xtonygonzalez": ["xtonygonzalez-v3", "card:4d84e5a9", "", "", "", 2022], // Tony Gonzalez
@@ -72,11 +72,11 @@ export const ACTION = {
   "xraynitschke": ["xraynitschke-v3", "card:90c319b1", "", "", "", 2002], // Ray Nitschke
   "xrodwoodson": ["xrodwoodson-v3", "card:74383d63", "", "", "", 2024], // Rod Woodson
   "xterrellowens": ["xterrellowens-v3", "card:e0c6dd8a", "", "", "", 2025], // Terrell Owens
-  "xwalterjones": ["xwalterjones-v3", "card:df20b7f7", "", "", "", 2022], // Walter Jones
+  "xwalterjones": ["xwalterjones-v4", "card:df20b7f7", "", "", "", 2022], // Walter Jones
   "xbriandawkins": ["xbriandawkins-v3", "Brian_Dawkins.JPG", "Jeffrey Beall", "CC BY-SA 3.0", "https://creativecommons.org/licenses/by-sa/3.0", 2009], // Brian Dawkins
   "xcriscarter": ["xcriscarter-v3", "card:a307aca8", "", "", "", 2024], // Cris Carter
-  "xdanfouts": ["xdanfouts-v3", "card:3a1ad234", "", "", "", 2024], // Dan Fouts
-  "xfrancoharris": ["xfrancoharris-v3", "card:72f52514", "", "", "", 2018], // Franco Harris
+  "xdanfouts": ["xdanfouts-v4", "card:3a1ad234", "", "", "", 2024], // Dan Fouts
+  "xfrancoharris": ["xfrancoharris-v4", "card:72f52514", "", "", "", 2018], // Franco Harris
   "xhowielong": ["xhowielong-v3", "card:5a7121ca", "", "", "", 2025], // Howie Long
   "xjimkelly": ["xjimkelly-v3", "card:0fd0b22d", "", "", "", 2025], // Jim Kelly
   "xjustintucker": ["xjustintucker-v3", "card:7facf3ee", "", "", "", 2024], // Justin Tucker
@@ -97,11 +97,11 @@ export const ACTION = {
   "xlendawson": ["xlendawson-v3", "Kansas_City_Chiefs_at_Denver_Broncos_1985-12-14_(ticket)_(crop).jpg", "Denver Broncos/Unlimited Printing & Systems, Inc.", "Public domain", "", 1970], // Len Dawson
   "xlennymoore": ["xlennymoore-v3", "card:4e5570dc", "", "", "", 2024], // Lenny Moore
   "xozzienewsome": ["xozzienewsome-v3", "card:b1de77e3", "", "", "", 2025], // Ozzie Newsome
-  "xpaulkrause": ["xpaulkrause-v3", "card:36f47773", "", "", "", 2024], // Paul Krause
+  "xpaulkrause": ["xpaulkrause-v4", "card:36f47773", "", "", "", 2024], // Paul Krause
   "xsamhuff": ["xsamhuff-v3", "card:b4147426", "", "", "", 2007], // Sam Huff
   "xtedhendricks": ["xtedhendricks-v3", "card:a96a3844", "", "", "", 2020], // Ted Hendricks
   "xwarrenmoon": ["xwarrenmoon-v3", "card:a1aa68a4", "", "", "", 2025], // Warren Moon
-  "xartmonk": ["xartmonk-v3", "card:665c0883", "", "", "", 2025], // Art Monk
+  "xartmonk": ["xartmonk-v4", "card:665c0883", "", "", "", 2025], // Art Monk
   "xjohnriggins": ["xjohnriggins-v3", "card:e4cafdfb", "", "", "", 2024], // John Riggins
   "xsteveatwater": ["xsteveatwater-v3", "card:5374a50e", "", "", "", 2024], // Steve Atwater
   "0032726": ["0032726-v3", "card:fdb4b05b", "", "", "", 2024], // Ka'imi Fairbairn
