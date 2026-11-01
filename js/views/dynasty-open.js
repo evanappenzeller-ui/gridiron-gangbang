@@ -42,7 +42,7 @@ const RAYS = [-30, -23, -16, -10, -4, 2, 8, 14, 20, 26, 33].map((a, i) => `<i st
 const MOTES = sparkles(16, (a, b, i) => `--x:${(8 + a * 84).toFixed(1)}%;--w:${((b - .5) * 70).toFixed(0)}px;--s:${(8 + b * 12).toFixed(0)}px;--d:${(.08 + (i % 8) * .07).toFixed(2)}s;--t:${(.9 + a * .5).toFixed(2)}s`);
 const DRIFT = sparkles(18, (a, b, i) => `--x:${(a * 100).toFixed(1)}%;--y:${(30 + b * 70).toFixed(1)}%;--s:${(7 + (i % 5) * 3)}px;--d:-${(i * .9 % 7).toFixed(1)}s;--t:${(6 + b * 5).toFixed(1)}s`);
 // One reverse for every card, the owner's printed back (Nov 1 2026, Evan: "Use the attached for the back of the cards"):
-// img/rivals/card-back-v1.webp, built by tools/dynasty/card_back.py. No rarity, player, type or series shows face down.
+// img/rivals/card-back-v2.webp, built by tools/dynasty/card_back.py. No rarity, player, type or series shows face down.
 const BALL = (() => {
   let grain = '';
   for (let y = 32; y < 82; y += 6) for (let x = 24; x < 99; x += 6) {
@@ -67,7 +67,7 @@ const BALL = (() => {
     + '<path d="M23 30l1.1 3.3 3.3 1.1-3.3 1.1-1.1 3.3-1.1-3.3-3.3-1.1 3.3-1.1Z" fill="#fff6d5"/>'
     + '</svg>';
 })();
-const BACK = '<div class="dy-back-in"><img class="dy-back-img" src="img/rivals/card-back-v1.webp" alt="" decoding="async" draggable="false"></div>';
+const BACK = '<div class="dy-back-in"><img class="dy-back-img" src="img/rivals/card-back-v2.webp" alt="" decoding="async" draggable="false"></div>';
 const END_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5v13l9.5-6.5zM18.5 5.5v13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 // a pack's back, in its colour: the seam down the middle, the crimps, the brand (the carousel's spin shows it)
 const PACK_BACK = '<span class="dy-pack-back" aria-hidden="true"><i class="dy-pb-seam"></i><b>GRIDIRON<small>RIVALS</small></b><em>GR1</em></span>';

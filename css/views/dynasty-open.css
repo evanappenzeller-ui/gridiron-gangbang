@@ -341,7 +341,7 @@ div.pk-open:has(.dy-open-pack.is-torn) .dy-dim { transition: opacity .45s ease-o
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.dy-holo { transition: none; touch-action: pan-y; transform: perspective(900px) rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg)); }
 
 /* ---------------------------------------------------------------- the uniform Rivals reverse: the owner's printed back
-   (Nov 1 2026, img/rivals/card-back-v1.webp, tools/dynasty/card_back.py). The flip wrapper still owns its transform and timing. */
+   (Nov 1 2026, img/rivals/card-back-v2.webp, tools/dynasty/card_back.py). The flip wrapper still owns its transform and timing. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-flip-back { overflow: hidden; background: #14306f; box-shadow: 0 14px 30px #10254566; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-in { position: absolute; inset: 0; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-img { display: block; width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-select: none; pointer-events: none; }
