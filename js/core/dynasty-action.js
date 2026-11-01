@@ -18,17 +18,17 @@ import {REAL} from './dynasty-real.js';
 export const ACTION = {
   "xjerryrice": ["xjerryrice-v3", "card:dce40a6e", "", "", "", 2024], // Jerry Rice
   "xlawrencetaylor": ["xlawrencetaylor-v3", "card:4f9bbace", "", "", "", 2025], // Lawrence Taylor
-  "xtombrady": ["xtombrady-v3", "Tom_Brady_WFT-Buccaneers_NOV2021_(cropped).jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2021], // Tom Brady
+  "xtombrady": ["xtombrady-v4", "Tom_Brady_(2).jpg", "Keith Allison", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2009], // Tom Brady
   "xbarrysanders": ["xbarrysanders-v3", "card:87e3f8ab", "", "", "", 2025], // Barry Sanders
   "xjimbrown": ["xjimbrown-v3", "card:f4a7b560", "", "", "", 2017], // Jim Brown
   "xpeytonmanning": ["xpeytonmanning-v3", "card:3d1c7df6", "", "", "", 2022], // Peyton Manning
   "xreggiewhite": ["xreggiewhite-v3", "card:db155bd6", "", "", "", 2020], // Reggie White
-  "xaarondonald": ["xaarondonald-v3", "Aaron_Donald_2020_(cropped).jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2020], // Aaron Donald
+  "xaarondonald": ["xaarondonald-v4", "Aaron_Donald_2020.jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2020], // Aaron Donald
   "xdeionsanders": ["xdeionsanders-v3", "card:6ae921b6", "", "", "", 2025], // Deion Sanders
   "xjoemontana": ["xjoemontana-v3", "1986_Jeno's_Pizza_-_28_-_Roger_Craig_(Joe_Montana_crop).jpg", "Jeno's", "Public domain", "", 1985], // Joe Montana
-  "xjohnnyunitas": ["xjohnnyunitas-v3", "1958_topps_johnny_unitas.jpg", "Unknown author Unknown author", "Public domain", "", 1958], // Johnny Unitas
+  "xjohnnyunitas": ["xjohnnyunitas-v4", "Unitas-Johnny-1963.jpg", "Unknown author", "Public domain", "", 1963], // Johnny Unitas
   "xrandymoss": ["xrandymoss-v3", "card:15602fe2", "", "", "", 2022], // Randy Moss
-  "xraylewis": ["xraylewis-v3", "Ray-Lewis-2008-Steelers-regseason-game.jpg", "Andy from Pittsburgh, Pennsylvania. Cropped by User:Blueag9 .", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2008], // Ray Lewis
+  "xraylewis": ["xraylewis-v4", "Ray_Lewis_2007.jpg", "Mr.schultz", "CC BY-SA 3.0", "https://creativecommons.org/licenses/by-sa/3.0", 2007], // Ray Lewis
   "xwalterpayton": ["xwalterpayton-v3", "card:f4d8c841", "", "", "", 2024], // Walter Payton
   "xcalvinjohnson": ["xcalvinjohnson-v3", "card:c75efa30", "", "", "", 2025], // Calvin Johnson
   "xdickbutkus": ["xdickbutkus-v3", "card:e54c3f74", "", "", "", 2024], // Dick Butkus
@@ -39,7 +39,7 @@ export const ACTION = {
   "xronnielott": ["xronnielott-v3", "card:30e32c01", "", "", "", 2023], // Ronnie Lott
   "xadamvinatieri": ["xadamvinatieri-v3", "card:209f8fd8", "", "", "", 2024], // Adam Vinatieri
   "xboblilly": ["xboblilly-v3", "card:c11a8570", "", "", "", 2024], // Bob Lilly
-  "xbrettfavre": ["xbrettfavre-v3", "19981213_36_Brett_Favre,_Lambeau_Field_Cropped.jpg", "David Wilson", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 1998], // Brett Favre
+  "xbrettfavre": ["xbrettfavre-v4", "David_Martin82_Brett_Favre4-Edit2.jpg", "Paul Cutler", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2007], // Brett Favre
   "xbrucesmith": ["xbrucesmith-v3", "card:0a7525d1", "", "", "", 2024], // Bruce Smith
   "xdarrellerevis": ["xdarrellerevis-v3", "card:00bb5024", "", "", "", 2024], // Darrelle Revis
   "xdrewbrees": ["xdrewbrees-v3", "New_Orleans_Saints_Quarterback,_Drew_Brees_(23262414434)_(cropped).jpg", "Tammy Anthony Baker from Louisiana", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2013], // Drew Brees
@@ -106,7 +106,7 @@ export const ACTION = {
   "xsteveatwater": ["xsteveatwater-v3", "card:5374a50e", "", "", "", 2024], // Steve Atwater
   "0032726": ["0032726-v3", "card:fdb4b05b", "", "", "", 2024], // Ka'imi Fairbairn
   "0034857": ["0034857-v3", "card:4d5fa48e", "", "", "", 2025], // Josh Allen
-  "0037236": ["0037236-v3", "Aidan_Hutchinson.jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Aidan Hutchinson
+  "0037236": ["0037236-v4", "Commanders_at_Lions_(52379162544).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Aidan Hutchinson
   "0037744": ["0037744-v3", "card:9b217822", "", "", "", 2025], // Trey McBride
   "0038543": ["0038543-v3", "card:bbd87f01", "", "", "", 2025], // Jaxon Smith-Njigba
   "0039139": ["0039139-v3", "card:e2026c5e", "", "", "", 2025], // Jahmyr Gibbs
@@ -129,7 +129,7 @@ export const ACTION = {
   "0039108": ["0039108-v3", "card:e7b77dc0", "", "", "", 2025], // Will Anderson Jr.
   "0031279": ["0031279-v3", "card:16942cf7", "", "", "", 2024], // Jake Matthews
   "0033132": ["0033132-v3", "card:0ad80e50", "", "", "", 2023], // Kevin Byard
-  "0036358": ["0036358-v3", "card:92ce9753", "", "", "", 2025], // CeeDee Lamb
+  "0036358": ["0036358-v4", "Washington_at_Dallas_Photo_110_(51787382465).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2021], // CeeDee Lamb
   "0036564": ["0036564-v3", "card:889a4391", "", "", "", 2024], // Talanoa Hufanga
   "0038542": ["0038542-v3", "2025_Commanders_at_Falcons_11.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Bijan Robinson
   "0039841": ["0039841-v3", "card:af1d70e6", "", "", "", 2025], // Cooper DeJean
@@ -141,7 +141,7 @@ export const ACTION = {
   "0037238": ["0037238-v3", "card:8018af69", "", "", "", 2025], // Drake London
   "0037244": ["0037244-v3", "card:e854fbfe", "", "", "", 2022], // Devin Lloyd
   "0039851": ["0039851-v3", "card:e1190579", "", "", "", 2025], // Drake Maye
-  "0033288": ["0033288-v3", "George_Kittle_DSC08082_(48940368597)_(cropped).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2019], // George Kittle
+  "0033288": ["0033288-v4", "49ers_at_Redskins_2019,_George_Kittle_(48933294286).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2019], // George Kittle
   "0034815": ["0034815-v3", "Fred_Warner_49ers_2018_(cropped).jpg", "U.S. Air Force Airman 1st Class Jonathon D. A. Carnell", "Public domain", "", 2018], // Fred Warner
   "0035248": ["0035248-v3", "card:8591528f", "", "", "", 2024], // Zach Allen
   "0036409": ["0036409-v3", "card:7114bad2", "", "", "", 2025], // Jordyn Brooks
@@ -209,14 +209,14 @@ export const ACTION = {
   "0034675": ["0034675-v3", "card:143c21d6", "", "", "", 2021], // Jessie Bates
   "0034752": ["0034752-v3", "card:3dc1fbf9", "", "", "", 2018], // Orlando Brown
   "0034759": ["0034759-v3", "Kolton_Miller_2025.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Kolton Miller
-  "0034856": ["0034856-v3", "Denzel_Ward_(cropped).jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2018], // Denzel Ward
+  "0034856": ["0034856-v4", "Denzel_Ward_(43775487861).jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2018], // Denzel Ward
   "0035230": ["0035230-v3", "card:e0ed6773", "", "", "", 2024], // Ed Oliver
   "0035261": ["0035261-v3", "card:6069d76c", "", "", "", 2025], // Tony Pollard
   "0035687": ["0035687-v3", "card:5f794291", "", "", "", 2024], // Bobby Okereke
   "0036971": ["0036971-v3", "Trevor_Lawrence_vs_Commanders_2022_(cropped).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Trevor Lawrence
   "0036974": ["0036974-v3", "card:aa81a98a", "", "", "", 2023], // Tyson Campbell
   "0037228": ["0037228-v3", "card:644c7b7d", "", "", "", 2025], // Jaylen Warren
-  "0037250": ["0037250-v3", "Martin_Emerson_(52340507131)_(cropped).jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2022], // Martin Emerson
+  "0037250": ["0037250-v4", "2022_Cleveland_Browns_Training_Camp_(52339586867).jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2022], // Martin Emerson
   "0037838": ["0037838-v3", "card:cdf271ac", "", "", "", 2025], // Isaiah Likely
   "0038563": ["0038563-v3", "Tre_Tucker_(54841331175)_(cropped).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Tre Tucker
   "0039067": ["0039067-v3", "Rashee_Rice_(55090108907)_(cropped).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2026], // Rashee Rice

@@ -205,7 +205,13 @@ comes from. Common cards keep their headshot; no Legend wears a headshot or Wiki
 `dynasty-legends.js` PHOTO is no longer worn), a Legend without an action photo shows his number. Rebuild with
 `tools/dynasty/action_photos.py build` (about 45 s a player on the CPU; `crops` for Commons framing), check the cut-outs
 by eye, and give changed output a new `VERSION` (sw.js keeps pictures across releases). Sharper cut-outs need larger scans
-from the owner's CardSight downloader. The kit checks "Gridiron Rivals: no Legend wears a headshot…" and "Gridiron Rivals:
+from the owner's CardSight downloader. Cleaner cut-outs (Nov 1 2026, Evan: "There are some where the cropped image looks
+weird or has other players in it"): Commons' `(cropped)` files are infobox crops, so prefer the whole original or a deeper
+search of the photographers' game series (All-Pro Reels, Erik Drost); never a Legend's retired lead photo. A redone player gets
+his own version in `REDO` (only he is rebuilt); `ALONE` skips Segment Anything where he is the only figure; `SAM_HINT` (box,
+points on him and on the other, areas to clear) separates an overlapping teammate; `YEAR` fixes a photo's year. Flickr
+(the originals behind many Commons crops) needs `FLICKR_API_KEY` and api.flickr.com, www.flickr.com, live.staticflickr.com
+allowed in the environment. The kit checks "Gridiron Rivals: no Legend wears a headshot…" and "Gridiron Rivals:
 action photos…" cover it.
 
 ## Live league scores (October 30, 2026)

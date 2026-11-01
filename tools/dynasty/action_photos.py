@@ -40,6 +40,30 @@ SAM = 'sam'     # rembg's Segment Anything: keeps only our player where others t
 REAL_IMG = os.path.join(ROOT, 'img', 'dynasty', 'real')
 EDSR = 'https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x4.pb'  # 4x upscaling of the card scans
 VERSION = 'v3'  # in the file names: a changed picture needs a new name (sw.js keeps pictures across releases)
+# Players alone in their photo: BiRefNet's figure is kept whole, without Segment Anything (which can drop an arm or the ball)
+ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas'}  # Denzel Ward, Brett Favre, Johnny Unitas
+# Segment Anything's prompt by hand, where another player overlaps ours (fractions of the crop): a box round him,
+# points on him (1) and on the other (0), and boxes and outlines ('cut') to clear of what it still takes of the other
+SAM_HINT = {
+    '0037236': {'box': (.02, .03, .87, .93), 'points': [(.48, .1, 1), (.45, .3, 1), (.35, .55, 1), (.33, .82, 1), (.8, .2, 1),
+                                                         (.08, .06, 1), (.16, .12, 1), (.25, .175, 1), (.33, .21, 1),
+                                                         (.29, .11, 0), (.2, .35, 0), (.14, .42, 0), (.1, .7, 0), (.06, .9, 0),
+                                                         (.78, .35, 0)],
+                'clear': [(.2, .08, .37, .165)],  # (his teammate's helmet, above his arm)
+                'cut': [[(.2, .08), (.37, .08), (.37, .15), (.3, .168), (.28, .182), (.25, .178), (.22, .168), (.2, .15)],
+                        [(0, .15), (.144, .155), (.222, .203), (.26, .222), (.3, .248), (.322, .255), (.322, .303), (.316, .404), (.306, .444),
+                         (.289, .465), (.25, .556), (.228, .646), (.217, .707), (.2, .808), (.189, .859), (.18, .97), (0, .97)]]},
+    # Aidan Hutchinson (the teammate behind him: below his raised arm and down his left side)
+}
+# The year a Commons photo was taken, where its page gives none or its upload date instead
+YEAR = {'xraylewis': 2007, 'xjohnnyunitas': 1963}
+# Players whose picture was redone since VERSION (a new pick, card or crop): their own version in the file name, so only
+# they are rebuilt and fetched again; build leaves every other player's finished picture as it is
+REDO = {
+    'xraylewis': 'v4', 'xtombrady': 'v4', '0036358': 'v4', '0033288': 'v4', '0034856': 'v4', '0037250': 'v4',
+    'xbrettfavre': 'v4', 'xaarondonald': 'v4', '0037236': 'v4',
+    'xjohnnyunitas': 'v4',
+}
 
 # The trading-card photos (the owner, Oct 31 2026: "Where can we find live action pictures of the players that would be
 # used for trading cards? There should be a clean cutout of the player in game"): a Rare+ player's cut-out comes from his
@@ -73,6 +97,7 @@ COMMONS_FIRST = {
     '0036900', '0031492', '0036442', '0035642', '0036322', '0029592',  # Ja'Marr Chase, Jason Myers, Joe Burrow, Josh Hines-Allen, Justin Jefferson, Kevin Zeitler
     '0034759', '0034796', '0033131', '0037250', '0039067', '0036410',  # Kolton Miller, Lamar Jackson, Maliek Collins, Martin Emerson, Rashee Rice, Tee Higgins
     '0038563', '0036971', '0038996', '0039111',  # Tre Tucker, Trevor Lawrence, Tucker Kraft, Tuli Tuipulotu
+    '0036358',  # CeeDee Lamb (his card's photo had a defender against him)
 }
 # (Commons photos that are a portrait, a posed head-and-shoulders or a stamp, not a game, are left out of PICK: the owner,
 # Oct 31 2026, "Remove any headshot of the legend players")
@@ -86,15 +111,15 @@ SEASON = 2026   # this season (a Live player's first season: SEASON - his years 
 PICK = {
     "xjerryrice": "Jerry_Rice_1985.jpg",  # Jerry Rice, 1985
     "xlawrencetaylor": "Lawrence_Taylor_tackle.jpg",  # Lawrence Taylor, 1984
-    "xtombrady": "Tom_Brady_WFT-Buccaneers_NOV2021_(cropped).jpg",  # Tom Brady, 2021
+    "xtombrady": "Tom_Brady_(2).jpg",  # Tom Brady, a Patriots pass (the Buccaneers crop stopped at his chest)
     "xjimbrown": "Jim_Brown_1959_Topps_cropped_and_recoloured.jpg",  # Jim Brown, 1959
     "xpeytonmanning": "Manning_cropped.jpg",  # Peyton Manning, 2008
     "xreggiewhite": "19981213_28_Reggie_White,_Lambeau_Field_(cropped).jpg",  # Reggie White, 1998
-    "xaarondonald": "Aaron_Donald_2020_(cropped).jpg",  # Aaron Donald, 2020
+    "xaarondonald": "Aaron_Donald_2020.jpg",  # Aaron Donald, 2020, the whole photo (the crop stopped at his chest)
     "xjoemontana": "1986_Jeno's_Pizza_-_28_-_Roger_Craig_(Joe_Montana_crop).jpg",  # Joe Montana, 1985
-    "xjohnnyunitas": "1958_topps_johnny_unitas.jpg",  # Johnny Unitas, 1958
+    "xjohnnyunitas": "Unitas-Johnny-1963.jpg",  # Johnny Unitas, 1963, set to pass (the 1958 Topps card was painted)
     "xrandymoss": "Randy-Moss_8-28-09_Patriots-vs-Redskins.jpg",  # Randy Moss, 2009
-    "xraylewis": "Ray-Lewis-2008-Steelers-regseason-game.jpg",  # Ray Lewis, 2008
+    "xraylewis": "Ray_Lewis_2007.jpg",  # Ray Lewis, 2007 (alone, the whole of him; the 2008 game photo had a Steeler in it)
     "xwalterpayton": "1986_Jeno's_Pizza_-_12_-_Walter_Payton_(Walter_Payton_crop).jpg",  # Walter Payton, 1984
     "xcalvinjohnson": "Calvin_Johnson_(cropped).png",  # Calvin Johnson, 2012
     "xedreed": "Ed_reed_ravens2012.jpg",  # Ed Reed, 2012
@@ -104,7 +129,7 @@ PICK = {
     "xronnielott": "Ronnie_lott_big_portrait.jpg",  # Ronnie Lott, 2013
     "xadamvinatieri": "Rigoberto_Sanchez,_Adam_Vinatieri_(44679700592)_(cropped).jpg",  # Adam Vinatieri, 2018
     "xboblilly": "Bob_lilly_signed.jpg",  # Bob Lilly, 1961
-    "xbrettfavre": "19981213_36_Brett_Favre,_Lambeau_Field_Cropped.jpg",  # Brett Favre, 1998
+    "xbrettfavre": "David_Martin82_Brett_Favre4-Edit2.jpg",  # Brett Favre, a Packers pass (the 1998 photo was on the sideline in a cap)
     "xdarrellerevis": "Darrelle_Revis_2014.jpg",  # Darrelle Revis, 2007
     "xdrewbrees": "New_Orleans_Saints_Quarterback,_Drew_Brees_(23262414434)_(cropped).jpg",  # Drew Brees, 2013
     "xericdickerson": "1985_Police_Raiders-Rams_-_20_Eric_Dickerson_(crop).jpg",  # Eric Dickerson, 1984
@@ -152,7 +177,7 @@ PICK = {
     "0027857": "Trent_Willams_2020_(cropped).jpg",  # Trent Williams, 2020
     "0032726": "Ka'imi_Fairbairn_(45034655335)_(cropped).jpg",  # Ka'imi Fairbairn, 2018
     "0034857": "NFL2021_-_Washington_Football_Team_at._Buffalo_Bills_101_(51529124162).jpg",  # Josh Allen, 2021
-    "0037236": "Aidan_Hutchinson.jpg",  # Aidan Hutchinson, 2022
+    "0037236": "Commanders_at_Lions_(52379162544).jpg",  # Aidan Hutchinson, 2022, celebrating a play (the old photo was on the bench, no helmet)
     "0037841": "2025_Rams_vs_Titans_Quentin_Lake.png",  # Quentin Lake, 2025
     "0029592": "Kevin_Zeitler.JPG",  # Kevin Zeitler, 2015
     "0034973": "Maxx_Crosby_Las_Vegas_Raiders_2021_(cropped_1).jpg",  # Maxx Crosby, 2021
@@ -171,7 +196,7 @@ PICK = {
     "0030561": "Eagles_at_Redskins_2017.jpg",  # Lane Johnson, 2017
     "0031279": "Jake_Matthews_&_Matt_Ryan_vs_WFT_2021_(cropped).jpg",  # Jake Matthews, 2021
     "0033132": "Jeffery_Simmons_&_Kevin_Byard_Oilers_Throwback_Jerseys.png",  # Kevin Byard, 2023
-    "0036358": "CeeDee_Lamb_Cowboys_(cropped).jpg",  # CeeDee Lamb, 2020
+    "0036358": "Washington_at_Dallas_Photo_110_(51787382465).jpg",  # CeeDee Lamb, 2021, alone with the ball (his card had a defender on him)
     "0036564": "Hufanga_2025.png",  # Talanoa Hufanga, 2025
     "0031330": "NFL_2020_-_Playoffs_-_Washington_vs._Buccaneers_209_(50833182757).jpg",  # Morgan Moses, 2021
     "0032071": "Trenton_Brown.JPG",  # Trent Brown, 2015
@@ -185,7 +210,7 @@ PICK = {
     "0032234": "Laken_Tomlinson_with_49ers.jpg",  # Laken Tomlinson, 2017
     "0032391": "Joe_Thuney.JPG",  # Joe Thuney, 2017
     "0032445": "Ted_Karras_(offensive_lineman).JPG",  # Ted Karras, 2016
-    "0033288": "George_Kittle_DSC08082_(48940368597)_(cropped).jpg",  # George Kittle, 2019
+    "0033288": "49ers_at_Redskins_2019,_George_Kittle_(48933294286).jpg",  # George Kittle, 2019, running (the crop was his head and chest, no helmet)
     "0034815": "Fred_Warner_49ers_2018_(cropped).jpg",  # Fred Warner, 2018
     "0035248": "Zach_Allen.png",  # Zach Allen, 2025
     "0036409": "Jordyn_Brooks_(50744647202)_(cropped).jpg",  # Jordyn Brooks, 2020
@@ -247,14 +272,14 @@ PICK = {
     "0034668": "Aaron_Stinnie_2018_08-09.jpg",  # Aaron Stinnie, 2018
     "0034675": "Jessie_Bates_III_(31015688557)_(cropped).jpg",  # Jessie Bates, 2018
     "0034759": "Kolton_Miller_2025.jpg",  # Kolton Miller, 2025
-    "0034856": "Denzel_Ward_(cropped).jpg",  # Denzel Ward, 2018
+    "0034856": "Denzel_Ward_(43775487861).jpg",  # Denzel Ward, 2018 camp, helmet on and the ball in hand
     "0035230": "Ed_Oliver_2021_(cropped).jpg",  # Ed Oliver, 2021
     "0035261": "Tony_Pollard_(cropped).jpg",  # Tony Pollard, 2019
     "0035687": "Bobby_Okereke_(7370935)_(cropped).jpg",  # Bobby Okereke, 2022
     "0036971": "Trevor_Lawrence_vs_Commanders_2022_(cropped).jpg",  # Trevor Lawrence, 2022
     "0036974": "Tyson_Campbell_(cropped).jpg",  # Tyson Campbell, 2026
     "0037228": "Jaylen_Warren_Cropped.jpg",  # Jaylen Warren, 2024
-    "0037250": "Martin_Emerson_(52340507131)_(cropped).jpg",  # Martin Emerson, 2022
+    "0037250": "2022_Cleveland_Browns_Training_Camp_(52339586867).jpg",  # Martin Emerson, 2022 camp, running alone
     "0038563": "Tre_Tucker_(54841331175)_(cropped).jpg",  # Tre Tucker, 2025
     "0039067": "Rashee_Rice_(55090108907)_(cropped).jpg",  # Rashee Rice, 2026
     "0039491": "Jalen_Coker.jpg",  # Jalen Coker, 2026
@@ -276,11 +301,19 @@ PICK = {
 }
 # player key -> (centre x, top, height) as fractions of the photo's width and height
 CROP = {
+    "xjohnnyunitas": (0.5, 0.02, 0.96),  # Johnny Unitas
+    "xaarondonald": (0.47, 0, 1),  # Aaron Donald (Floyd, at the right, left to Segment Anything)
+    "0037236": (0.55, 0.05, 0.95),  # Aidan Hutchinson
+    "xtombrady": (0.55, 0, 1),  # Tom Brady
+    "0036358": (0.75, 0, 1),  # CeeDee Lamb (the teammate at the left left out)
+    "0033288": (0.5, 0.1, 0.9),  # George Kittle
+    "0034856": (0.5, 0.05, 0.95),  # Denzel Ward
+    "0037250": (0.47, 0, 0.95),  # Martin Emerson
     "xlawrencetaylor": (0.55, 0.2, 0.6),  # Lawrence Taylor
     "xpeytonmanning": (0.62, 0, 0.9),  # Peyton Manning
     "xreggiewhite": (0.5, 0, 1),  # Reggie White
     "xgalesayers": (0.5, 0.08, 0.7),  # Gale Sayers
-    "xbrettfavre": (0.5, 0.08, 0.55),  # Brett Favre
+    "xbrettfavre": (0.55, 0.12, 0.88),  # Brett Favre
     "xdarrellerevis": (0.5, 0, 1),  # Darrelle Revis
     "xdarrellgreen": (0.5, 0, 0.7),  # Darrell Green
     "xwarrenmoon": (0.25, 0, 1),  # Warren Moon
@@ -649,7 +682,7 @@ def main_figure(a):
     return lab, main + 1, area, centre
 
 
-def masks(todo):
+def masks(todo, hints=None):
     """Each picture's masks: BiRefNet's portrait model (rembg) for the edge, then Segment Anything prompted with the main
     figure's box and chest, so only he is kept where others touch him. On the CPU, without the memory arena, so one
     process can do them all. todo: [(picture, mask, SAM mask)]."""
@@ -672,6 +705,24 @@ def masks(todo):
         sam = new_session(SAM, sess_opts=opts)
         for n, (c, m, q) in enumerate(need):
             img = Image.open(c).convert('RGB')
+            hint = (hints or {}).get(q)
+            if hint:
+                w, h = img.size
+                b = hint['box']
+                prompt = [{'type': 'rectangle', 'label': 1, 'data': [int(b[0] * w), int(b[1] * h), int(b[2] * w), int(b[3] * h)]}]
+                prompt += [{'type': 'point', 'label': l, 'data': [int(x * w), int(y * h)]} for x, y, l in hint['points']]
+                got = np.array(sam.predict(img, sam_prompt=prompt)[0].convert('L'))
+                for x0, y0, x1, y1 in hint.get('clear', []):
+                    got[int(y0 * h):int(y1 * h), int(x0 * w):int(x1 * w)] = 0
+                if hint.get('cut'):
+                    from PIL import ImageDraw
+                    cut = Image.new('L', img.size, 0)
+                    for poly in hint['cut']:
+                        ImageDraw.Draw(cut).polygon([(x * w, y * h) for x, y in poly], fill=255)
+                    got[np.asarray(cut) > 0] = 0
+                Image.fromarray(got).save(q)
+                print(f'  isolated by hand {n + 1}/{len(need)}', os.path.basename(c), file=sys.stderr)
+                continue
             a = np.asarray(Image.open(m).convert('L').resize(img.size)).astype(np.float32)
             lab, main, _, _ = main_figure(a)
             if lab is None:
@@ -695,7 +746,7 @@ def masks(todo):
             print(f'  isolated {n + 1}/{len(need)}', os.path.basename(c), file=sys.stderr)
 
 
-def cutout(src, mask, out, sam=None, card=None):
+def cutout(src, mask, out, sam=None, card=None, hand=False):
     """The player cut out of his crop: the largest figure near the middle (with what's small and on him, a ball or a
     hand), the rest made clear; trimmed to him and set in the W x H window, standing on its foot and centred (or kept
     against the side the photo cut him at), a little headroom above unless the photo cut his head; a WebP with alpha."""
@@ -724,8 +775,16 @@ def cutout(src, mask, out, sam=None, card=None):
         # a part of him, his head or his jersey: then the largest figure alone)
         keep = ndimage.binary_dilation(np.asarray(Image.open(sam).convert('L').resize(img.size)) > 127,
                                        iterations=max(3, round(min(img.size) * .012)))
+        # (its small holes filled: Segment Anything can speckle a dark mesh jersey, and it only says which figure is his;
+        # inside him the edge stays BiRefNet's, which is clear wherever the field shows between his arm and body. A large
+        # hole stays: another player inside the ring of a raised arm)
+        holes, nh = ndimage.label(ndimage.binary_fill_holes(keep) & ~keep)
+        if nh:
+            size = ndimage.sum(np.ones_like(holes), holes, range(1, nh + 1))
+            keep = keep | np.isin(holes, [i + 1 for i in range(nh) if size[i] < .015 * keep.sum()])
         lab, main, _, _ = main_figure(a)
-        if lab is not None and (keep & (lab == main)).sum() >= .75 * (lab == main).sum():
+        # (a hand-prompted mask is trusted even where it keeps much less of the figure: the rest is the other player)
+        if lab is not None and (hand or (keep & (lab == main)).sum() >= .75 * (lab == main).sum()):
             a = np.where(keep, a, 0)
     a = np.where(a < 32, 0, a)
     lab, n = ndimage.label(a > 110)
@@ -780,11 +839,12 @@ def prepare():
     real, rare = real_cards(), rare_players()
     rows, todo = [], []
     for key in players:
-        stem = f'{slug(key)}-{VERSION}'
+        stem = f'{slug(key)}-{REDO.get(key, VERSION)}'
+        done = os.path.exists(os.path.join(IMG, stem + '.webp'))
         e = card_for(key, real) if key not in COMMONS_FIRST else None
         if e:
             src = os.path.join(CACHE, f'card-{slug(key)}-{e[0]}-x4.png')
-            if not os.path.exists(src):
+            if not os.path.exists(src) and not done:
                 upscale(os.path.join(REAL_IMG, f'{key}-{e[0]}.jpg'), src)
             tag = f'card-{e[0]}'
             row = [stem, 'card:' + e[0], '', '', '', e[1]]
@@ -796,19 +856,19 @@ def prepare():
                 continue
             width = min(1600, i['w'] or 1600)
             raw = os.path.join(CACHE, f'raw-{slug(key)}-{width}.jpg')
-            if not fetch(thumb(i['file'], width), raw):
+            if not done and not fetch(thumb(i['file'], width), raw):
                 continue
             # (the crop and its mask are named for what made them, so a new pick or crop makes them again)
             tag = hashlib.sha1(json.dumps([i['file'], width, CROP.get(key), W, H, S]).encode()).hexdigest()[:10]
             src = os.path.join(CACHE, f'crop-{slug(key)}-{tag}.png')
-            if not os.path.exists(src):
+            if not os.path.exists(src) and not done:
                 crop(raw, src, CROP.get(key))
-            row = [stem, i['file'], plain(i['author'])[:120], i['licence'], i['licenceUrl'], i['year'] or 0]
+            row = [stem, i['file'], plain(i['author'])[:120], i['licence'], i['licenceUrl'], YEAR.get(key) or i['year'] or 0]
         else:
             continue
         mask = os.path.join(CACHE, f'mask-{slug(key)}-{tag}.png')
         band = next((b for k, b in BAND.items() if e and k in e[3]), CARD_KEEP) if e else None
-        todo.append((key, src, mask, os.path.join(CACHE, f'sam-{slug(key)}-{tag}.png'), band))
+        todo.append((key, src, mask, os.path.join(CACHE, f'sam-{slug(key)}-{tag}.png'), band, stem, done))
         rows.append(f"  {json.dumps(key)}: {json.dumps(row, ensure_ascii=False)}, // {players[key][0]}")
     return rows, todo, players
 
@@ -820,7 +880,7 @@ def crops():
     for n in range(0, len(todo), 30):
         sheet = Image.new('RGB', (10 * 150, 3 * 185), 'white')
         d = ImageDraw.Draw(sheet)
-        for i, (key, src, *_) in enumerate(todo[n:n + 30]):
+        for i, (key, src, *_) in enumerate(t for t in todo[n:n + 30] if os.path.exists(t[1])):
             x, y = i % 10 * 150, i // 10 * 185
             sheet.paste(Image.open(src).convert('RGB').resize((140, 154)), (x, y))
             d.text((x, y + 157), f'{key} {players[key][0]}'[:24], fill='black')
@@ -831,10 +891,12 @@ def crops():
 def build():
     os.makedirs(IMG, exist_ok=True)
     rows, todo, players = prepare()
-    masks([(c, m, q) for _, c, m, q, _ in todo])
-    for key, src, mask, sam, card in todo:
-        cutout(src, mask, os.path.join(IMG, f'{slug(key)}-{VERSION}.webp'), sam, card)
-    keep = {f'{slug(k)}-{VERSION}.webp' for k, *_ in todo}
+    # (only what isn't cut out yet: a finished picture is never made again under the same name)
+    masks([(c, m, q) for _, c, m, q, _, _, done in todo if not done], {q: SAM_HINT[k] for k, _, _, q, *_ in todo if k in SAM_HINT})
+    for key, src, mask, sam, card, stem, done in todo:
+        if not done:
+            cutout(src, mask, os.path.join(IMG, stem + '.webp'), None if key in ALONE else sam, card, key in SAM_HINT)
+    keep = {stem + '.webp' for *_, stem, _ in todo}
     for old in os.listdir(IMG):
         if old not in keep:
             os.remove(os.path.join(IMG, old))
@@ -842,7 +904,7 @@ def build():
     a, b = js.index('// <action-photos>'), js.index('// </action-photos>')
     js = js[:a] + '// <action-photos> (written by tools/dynasty/action_photos.py)\nexport const ACTION = {\n' + '\n'.join(rows) + '\n};\n' + js[b:]
     open(JS, 'w', encoding='utf-8').write(js)
-    print(f'{len(rows)} of {len(players)} players (Rare+ and Legends) have an action photo, {sum(1 for t in todo if t[4] is not None)} from their trading cards', file=sys.stderr)
+    print(f'{len(rows)} of {len(players)} players (Rare+ and Legends) have an action photo, {sum(1 for t in todo if t[4] is not None)} from their trading cards, {sum(1 for t in todo if not t[6])} cut out now', file=sys.stderr)
 
 
 def merge():
