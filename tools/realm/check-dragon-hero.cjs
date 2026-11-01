@@ -113,7 +113,7 @@ const fixture = (() => {
     if (th >= 7) assert.equal(h.dragon, F.botDragon(th - 1)); else assert.deepEqual(h, {});
   }
   const d7 = realm(7, 4); d7.hr = {knight: 5}; d7.r = {gold: 9000, grain: 9000};
-  const done = B.defend(d7, T0);
+  const done = B.playRaids(d7, T0);
   assert(done.length >= 1);
   done.forEach(r => {
     const P = F.decodeReplay(r.rp, d7);

@@ -16,7 +16,7 @@ const clone = x => JSON.parse(JSON.stringify(x));
 
 (async () => {
   globalThis.__keepHeroOwner = true;
-  const F = await import(realmUri), {makeBattle, replay, defend, raidsDue} = await import(uri(battleSource));
+  const F = await import(realmUri), {makeBattle, replay, playRaids, raidsDue} = await import(uri(battleSource));
   const at = Date.UTC(2026, 9, 22, 12);
   const state = (th = 8) => { const s = F.fresh(at); s.b[0].l = th; s.r.gold = 1000000; return s; };
   // (a lot with only a Castle, and a Dragon Hatchery of level hatch when given: his defending Dragon Hero's level)
@@ -138,7 +138,7 @@ const clone = x => JSON.parse(JSON.stringify(x));
   const dueState = state(4); dueState.born = at - 72 * F.HOUR; dueState.lr = at - 48 * F.HOUR;
   dueState.hr = {knight: 4}; hatchery(dueState, 2);
   assert(raidsDue(dueState, at).length > 0);
-  const raids = defend(dueState, at);
+  const raids = playRaids(dueState, at);
   assert(raids.length && raids.every(r => r.hr.knight === 4 && r.hr.dragon === 2), 'automatic raids include defense roster snapshots');
   assert.deepEqual(dueState.hr, {knight: 4}, 'defense never consumes heroes');
   assert.equal(F.heroLevel(dueState, 'dragon'), 2);

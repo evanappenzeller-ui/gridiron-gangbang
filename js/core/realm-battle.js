@@ -448,7 +448,13 @@ export function replayBattle(P) {
 export const replayRaid = (rec, s) => replayBattle(replayOf(rec, s));
 
 // ---------------------------------------------------------------------------------------------------- raids on you
-// The computer's realms raid yours (The Keep is the owner's alone, so they're the only ones who can): at most one in
+// None any more (the owner, Nov 1 2026: "Remove cpu raids in Keepfall game mode"): the computer's realms no longer raid
+// anyone's realm, so defend() plays nothing and changes nothing; Keepfall's screen no longer calls it. The raids already
+// on a realm's record (df) stay there with their replays. What follows (raidsDue, raidArmy, raidHeroes, playRaids) is
+// how they came, kept because the example raids use the same armies and the checks make records in the shape of the
+// old ones to prove their replays still play.
+//
+// How they came: the computer's realms raided yours (The Keep is the owner's alone, so they're the only ones who can): at most one in
 // each half of the day (12 hours from midnight), at an hour of it that's the same on every phone; none in your
 // realm's first day or before your Castle is level DEFEND_AT (3: the owner, Oct 22 2026, was 2; the example raids aren't
 // held to it), none during a truce (12 hours after one that took a star), and no
@@ -548,9 +554,12 @@ function recordOf(s, B, at, bot, id, into = s) {
   if (rp) rec.rp = rp;
   return rec;
 }
-/** Plays the raids on s that are due (raidsDue) and takes each off it (core/realm.js takeRaid), each on the record with
- *  its replay (rp: realm.js snapOf; the newest RP_KEEP keep theirs). Mutates s; returns the raids played. */
-export function defend(s, now = Date.now()) {
+/** The computer's raids on s since it last looked: none, ever (the owner, Nov 1 2026). Changes nothing; returns []. */
+export function defend() { return []; }
+/** How the computer's raids were played, before they were removed (Nov 1 2026; for the checks alone, never the game):
+ *  the raids on s that are due (raidsDue), each taken off it (core/realm.js takeRaid) and on the record with its replay
+ *  (rp: realm.js snapOf; the newest RP_KEEP keep theirs). Mutates s; returns the raids played. */
+export function playRaids(s, now = Date.now()) {
   if (keepOf(s) < DEFEND_AT) { s.lr = Math.max(s.lr || 0, now); return []; }
   const out = [];
   raidsDue(s, now).forEach(at => {

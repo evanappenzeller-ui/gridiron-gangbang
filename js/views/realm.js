@@ -7,17 +7,17 @@ import * as features from '../core/features.js';
 // lot fills the screen: your house, Gold and Ale, a way back to the Hub and a village framing control above;
 // a state-aware next step and Attack, Army, Build and Chronicle below. Tap a building for its current and next-level
 // benefits, upgrade cost/time, moving or collection (a mine or brewery with something in
-// it collects at a tap); Build puts what you pick on the lot to drag where it goes. When you come back after the
-// computer's realms have raided you, what they did is the first thing you see. Each sheet's body is built by a pure
+// it collects at a tap); Build puts what you pick on the lot to drag where it goes. (The computer's realms no longer
+// raid yours: the owner removed it, Nov 1 2026.) Each sheet's body is built by a pure
 // function of the realm (cofferHTML, armyHTML, …), so the checks can read every word of it (_screens()). Raids open at
 // Castle level 3 (core/realm.js ATTACK_AT: Attack shows the lock until then, and the next step points at the Castle).
-// The Chronicle lists the raids on your realm, your attacks and the example raids, each with ▶ Watch where its replay
+// The Chronicle lists your attacks, the example raids and the raids on your realm from before then, each with ▶ Watch where its replay
 // was kept (views/realm-replay.js, #/realm/replay/<id>; closing it opens the Chronicle again).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import * as F from '../core/realm.js';
-import {defend, exampleRaidsAsync, ensureExamplesAsync, examplesBusy} from '../core/realm-battle.js';
+import {exampleRaidsAsync, ensureExamplesAsync, examplesBusy} from '../core/realm-battle.js';
 import {heroCards, residentsNote} from './realm-heroes.js';
 import {LORE_VERSION, introHTML, mountIntro} from './realm-lore.js';
 import {CREDIT as DRAGON_CREDIT} from './realm-dragon.js';
@@ -825,13 +825,12 @@ function refresh(st) {
   tags(st);
   if (st.sel != null && !st.place) showSel(st);
 }
-// The board's copy of your realm taken up (the first time it shows, or newer from your other phone), and the raids on
-// it since you last looked played (while Keepfall is on screen).
+// The board's copy of your realm taken up (the first time it shows, or newer from your other phone). (The computer's
+// raids on it since you last looked were played here till the owner removed them, Nov 1 2026.)
 function synced(st) {
   if (st.dead || !F.mayPlay()) return;
-  const took = F.sync();
+  F.sync();
   refresh(st);
-  if (took && st.ctx.visible) defenses(st);
   examplesOnce(st);
 }
 // The example raids (the owner's ask, Oct 22 2026), made once on the realm the board keeps (core/realm-battle.js
@@ -852,23 +851,6 @@ function examplesOnce(st) {
 }
 // (the Chronicle open now: its redraw, for the example raids made meanwhile)
 let LOG_DRAW = null;
-// The computer's raids on your realm since you last looked: played, taken off it, and told.
-function defenses(st) {
-  if (st.dead || !st.ctx.visible || !F.mayPlay() || st.lore) return;
-  const s = F.mine(), done = defend(s);
-  if (!done.length) return false;
-  F.touch();
-  refresh(st);
-  realmSheet({title: 'While you were away', cls: 'sh-rl', detents: ['large'], body: awayHTML(done, F.mine(), Date.now())});
-  return true;
-}
-/** The raids on your realm just played (defend()'s records), and what they mean. */
-function awayHTML(done, s, now) {
-  const lost = done.filter(r => r.st > 0);
-  return done.map(r => `<div class="rl-log"><span>${starsHTML(r.st)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st ? `broke through and took ${curHTML('gold', r.lt[0])} ${curHTML('grain', r.lt[1])}` : 'were driven off'}</span><small>${ago(r.at)} · ${r.pc}% of your realm knocked down · ${r.td > 0 ? '+' : ''}${r.td} glory</small></span></div>`).join('')
-    + `<p class="rl-sh-note">${lost.length ? `A truce holds for ${s.sh > now ? dur(s.sh - now) : 'a while'}: no one raids you while it lasts. Stronger walls and towers, and your treasuries and cellars kept behind them, keep more of your gold and ale.` : 'Your defenses held.'} Your coffers are never touched.</p>`;
-}
-
 // ---------------------------------------------------------------------------------------------------- sheets
 function cofferSheet() {
   realmSheet({title: 'The coffers', cls: 'sh-rl', detents: ['large'], body: cofferHTML(F.mine(), EARNED)});
@@ -948,7 +930,7 @@ function cofferHTML(s, E) {
   // (the day the realm began: its pay counts from then)
   const began = Number(s.born) > 0 ? ` <span>${esc(new Date(Number(s.born)).toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'}).replace(',', ''))}</span>` : '';
   return `<p class="rl-sh-lead">${from}${payCopyHTML()}</p>`
-    + `<div class="rl-sh-big">${curHTML('gold', p.gold)}${curHTML('grain', p.grain)}<small>waiting now, safe from raiders, till your Castle, treasuries and cellars have room</small></div>`
+    + `<div class="rl-sh-big">${curHTML('gold', p.gold)}${curHTML('grain', p.grain)}<small>waiting now till your Castle, treasuries and cellars have room</small></div>`
     + `<h3 class="rl-sh-h">Today</h3><div class="rl-rows">${today}</div>`
     + `<h3 class="rl-sh-h">In store</h3><div class="rl-rows">${F.CUR.map(c => `<div class="rl-row"><span>${F.CUR_NAME[c]}</span><span class="rl-row-v">${nf(s.r[c])} of ${nf(cap[c])}</span></div>`).join('')}</div>`
     + `<h3 class="rl-sh-h">Since your realm began${began}</h3>${ledger}`
@@ -1072,8 +1054,7 @@ function raidHTML(s, now) {
       + `<small>Your Castle is level ${th}. Raise it to march on the computer’s realms${join.length ? `; the ${join.join(' and the ')} join${join.length === 1 ? 's' : ''} you ${joinAt === F.ATTACK_AT ? 'there' : `at Castle level ${joinAt}`}` : ''}`
       + `${hatch.length ? ', and your first dragon once you choose it and build a Dragon Hatchery' : ''}.</small></span></div>`
       + `<div class="rl-acts"><button type="button" class="rl-act is-go" data-rl-tokeep>Go to your Castle</button></div>`
-      + `<h3 class="rl-sh-h">The computer’s realms</h3>${rows(false, 0)}`
-      + `<p class="rl-sh-note">Their raids on you start at Castle level ${F.DEFEND_AT} all the same: walls, towers and heroes keep them out.</p>`;
+      + `<h3 class="rl-sh-h">The computer’s realms</h3>${rows(false, 0)}`;
   }
   const army = F.roomOf(s.ar) || Object.keys(F.heroArmy(s)).length;
   const march = [...F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `${esc(F.TROOPS[t].name)} ×${s.ar[t]}`), ...F.HERO_ORDER.filter(k => F.heroArmy(s)['hero_' + k]).map(k => `${esc(F.HEROES[k].name)} level ${F.heroLevel(s, k)}`)];
@@ -1162,14 +1143,14 @@ function logSheet(st) {
 }
 // (a raid's ▶ Watch, where its replay was kept: its label says which raid, how it went and when)
 const watchHTML = (r, s, what) => canWatch(r, s) ? `<button type="button" class="rl-act rl-log-go" data-rl-watch="${esc(r.id)}" aria-label="Watch ${esc(what)}, ${r.st || 0} star${r.st === 1 ? '' : 's'}, ${r.pc || 0}%${r.ex ? '' : `, ${esc(ago(r.at))}`}">${ui.icon('play-fill')}<span>Watch</span></button>` : '';
-/** The Chronicle: glory, the raids on your realm, your attacks and the example raids, each with ▶ Watch where its
- *  replay was kept. */
+/** The Chronicle: glory, your attacks and the example raids, each with ▶ Watch where its replay was kept; the computer's
+ *  raids on your realm from before they were removed (Nov 1 2026), while any are on the record. */
 function logHTML(s, now) {
   const off = s.rd.slice().sort((a, b) => b.at - a.at).slice(0, 20), def = s.df.slice().sort((a, b) => b.at - a.at);
   const ex = (Array.isArray(s.ex) ? s.ex : []).slice().sort((a, b) => (a.st || 0) - (b.st || 0) || b.at - a.at);
   const won = s.rd.filter(r => r.st > 0).length, held = s.df.filter(r => !r.st).length;
-  return `<div class="rl-sh-big"><span class="rl-amt"><i class="rl-crown"></i>${nf(s.tp)}</span><small>glory · ${won} realm${won === 1 ? '' : 's'} sacked · ${held} raid${held === 1 ? '' : 's'} driven off${s.sh > now ? ` · truce for ${dur(s.sh - now)}` : ''}</small></div>`
-    + `<h3 class="rl-sh-h">Raids on your realm</h3>${def.length ? def.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st ? `took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}` : 'were driven off'}</span><small>${ago(r.at)} · ${r.pc || 0}% · ${r.td > 0 ? '+' : ''}${r.td || 0} glory</small></span>${watchHTML(r, s, `${r.by}’s raid on your realm`)}</div>`).join('') : `<p class="rl-sh-note">${F.keepOf(s) < F.DEFEND_AT ? `No one bothers with a realm this small yet. Once your Castle is level ${F.DEFEND_AT}, the computer’s realms will start raiding you, now and then.` : 'No one has raided you yet.'}</p>`}`
+  return `<div class="rl-sh-big"><span class="rl-amt"><i class="rl-crown"></i>${nf(s.tp)}</span><small>glory · ${won} realm${won === 1 ? '' : 's'} sacked${def.length ? ` · ${held} raid${held === 1 ? '' : 's'} driven off` : ''}</small></div>`
+    + `${def.length ? `<h3 class="rl-sh-h">Raids on your realm</h3>${def.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st ? `took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}` : 'were driven off'}</span><small>${ago(r.at)} · ${r.pc || 0}% · ${r.td > 0 ? '+' : ''}${r.td || 0} glory</small></span>${watchHTML(r, s, `${r.by}’s raid on your realm`)}</div>`).join('')}` : ''}`
     + `<h3 class="rl-sh-h">Your attacks</h3>${off.length ? off.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.nm)}</b> · you took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}</span><small>${ago(r.at)} · ${r.pc || 0}% · +${r.ta || 0} glory</small></span>${watchHTML(r, s, `your attack on ${r.nm}`)}</div>`).join('') : `<p class="rl-sh-note">${F.attackOpen(s) ? 'You haven’t attacked anyone yet.' : `You haven’t attacked anyone yet: raids open at Castle level ${F.ATTACK_AT}.`}</p>`}`
     + `<h3 class="rl-sh-h">${F.dragonExamplesForMe() ? 'Dragon sample raids' : 'Example raids'} <span>on your base as it stands · nothing taken</span></h3>`
     + (ex.length ? ex.map(r => `<div class="rl-log is-ex"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st === 3 ? 'broke through' : r.st === 2 ? 'took two stars' : r.st ? 'took a star' : 'were driven off'}</span><small>Example · ${r.pc || 0}% · nothing taken</small></span>${watchHTML(r, s, `the example raid by ${r.by}`)}</div>`).join('')
@@ -1516,14 +1497,13 @@ const heroesAtHTML = () => {
 const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your treasuries, sack the realms around you. The daily games pay your realm for every day you play from the day it began. It’s yours alone.</p>`
   + `<div class="rl-rows">`
   + `<div class="rl-row"><span>${payCopyHTML()}</span></div>`
-  + `<div class="rl-row"><span><b>Your coffers</b> hold your pay until your Castle, treasuries and cellars have room. Raiders can’t touch them.</span></div>`
+  + `<div class="rl-row"><span><b>Your coffers</b> hold your pay until your Castle, treasuries and cellars have room.</span></div>`
   + `<div class="rl-row"><span><b>Gold mines</b> dig Gold and <b>breweries</b> brew Ale while you’re away: tap them to collect.</span></div>`
   + `<div class="rl-row"><span><b>Your builder</b> raises or upgrades one thing at a time. Raise your <b>Castle</b> to unlock more of everything.</span></div>`
   + `<div class="rl-row"><span><b>Attack</b>: from Castle level ${F.ATTACK_AT}, train an army at the barracks with Ale (footmen, archers, knights and thieves) and sack the computer’s realms for their gold and ale.</span></div>`
   + `<div class="rl-row"><span><b>Heroes</b>: ${heroesAtHTML()}. Send each once per attack, and let them defend automatically. They return after battle.</span></div>`
-  + `<div class="rl-row"><span><b>The Chronicle</b> keeps every raid, yours and theirs: tap Watch to see one of the latest again.</span></div>`
+  + `<div class="rl-row"><span><b>The Chronicle</b> keeps every raid you make: tap Watch to see one of the latest again.</span></div>`
   + `<div class="rl-row"><span><b>Your people</b>: guards patrol the village. A dragon keeper arrives when the Dragon Hatchery unlocks at Castle level ${F.COUNT.hatchery.findIndex(n => n > 0) + 1}.</span></div>`
-  + `<div class="rl-row"><span><b>Defend</b>: once your Castle is level ${F.DEFEND_AT}, those realms raid you too, now and then. Cannons, ballistas, archer towers, trebuchets, pitch cauldrons and walls keep them out.</span></div>`
   + `</div><p class="rl-sh-note">Drag to look around, pinch to zoom. Tap a building for what it does; tap your house’s name to rename it.</p>`
   + dragonCreditHTML();
 // The dragon model's credit (its licence asks for one: views/realm-dragon.js), as Return Man credits its players'.
@@ -1556,11 +1536,6 @@ function loreSheet(st, first = false) {
     if (!rec.explicit || rec.cancelled || !loreActive(st) || location.hash !== route) return;
     st.loreSeen = true;
     ui.lsSet(LORE_SEEN_KEY, LORE_VERSION);
-    const resume = setTimeout(() => {
-      st.effects.delete(resume);
-      if (loreActive(st) && !st.lore) defenses(st);
-    }, 300);
-    st.effects.add(resume);
   };
   rec.sheet = realmSheet({chrome: false, label: 'Keepfall — Lore of Yharmin', cls: 'sh-rl sh-rl-lore sh-rl-intro', detents: ['large'], body: loreHTML(),
     returnFocus: () => st.el.querySelector('[data-rl-lore]'), onClose: closed});
@@ -1578,9 +1553,8 @@ function openingLore(st) {
 
 /** For the checks (core/checks-realm.js): every word Keepfall's screen can show for realm s at now, as HTML, without
  *  opening or changing anything: the screen with its top filled in and the overlays on the lot, every building's card,
- *  the card for placing each kind, and every sheet (done: raids to tell of, as defend() gives them; earned: incomeOf()).
- *  [{where, html}]. */
-export function _screens(s, now, {done = [], earned: E = NO_PAY()} = {}) {
+ *  the card for placing each kind, and every sheet (earned: incomeOf()). [{where, html}]. */
+export function _screens(s, now, {earned: E = NO_PAY()} = {}) {
   const el = document.createElement('div');
   el.innerHTML = shellHTML();
   hud({el}, s);
@@ -1589,7 +1563,7 @@ export function _screens(s, now, {done = [], earned: E = NO_PAY()} = {}) {
   s.b.forEach(b => out.push({where: `${b.t}'s card`, html: cardShell(b.i) + cardHTML(s, b.i, now)}));
   if (s.b.length) out.push({where: 'moving a building', html: movingHTML(s, s.b[s.b.length - 1].i)});
   F.ORDER.forEach(k => out.push({where: `placing a ${k}`, html: placeHTML(s, {t: k, ok: true})}));
-  out.push({where: 'While you were away', html: awayHTML(done, s, now)}, {where: 'The coffers', html: cofferHTML(s, E)},
+  out.push({where: 'The coffers', html: cofferHTML(s, E)},
     {where: 'Your army', html: armyHTML(s, now)}, {where: 'Attack', html: raidHTML(s, now)}, {where: 'The Chronicle', html: logHTML(s, now)},
     {where: 'Build', html: shopHTML(s)}, {where: 'Choose dragon', html: dragonPickerHTML(s)},
     {where: 'Your house', html: houseHTML(s)}, {where: WELCOME_TITLE, html: welcomeHTML()}, {where: 'Keepfall lore', html: loreHTML()});
@@ -1662,7 +1636,7 @@ export default {
       if (st.moving != null) endMove(st); else select(st, null);
     }, {signal: st.events.signal});
     start3d(st);
-    if (ctx.visible) { openingLore(st); setTimeout(() => { if (!st.dead && ctx.visible) defenses(st); }, 900); }
+    if (ctx.visible) openingLore(st);
   },
 
   onShow(ctx) {
@@ -1674,10 +1648,10 @@ export default {
     fullScreen(st, true);
     unpark(st);
     F.sync(); refresh(st); if (st.v) st.v.want();
-    // (back from a replay: the Chronicle again, unless there's news of a raid to tell first)
-    const told = defenses(st), log = LOG_NEXT;
+    // (back from a replay: the Chronicle again)
+    const log = LOG_NEXT;
     LOG_NEXT = false;
-    if (log && !told && !st.lore) logSheet(st);
+    if (log && !st.lore) logSheet(st);
   },
 
   onHide(ctx) { const st = ST.get(ctx); if (st) { cancelLore(st); fullScreen(st, false); if (!st.dead) parkLater(st); } },

@@ -5,8 +5,8 @@
 // for your place on three boards, Gold from Kick It and Return Man; incomeOf), waiting in your coffers until the
 // treasuries and cellars have room. Gold mines dig Gold and breweries brew Ale while you're
 // away. Your builder raises and upgrades one thing at a time (the owner, Oct 2026), on a clock. Ale trains an army at the barracks; the army raids the
-// computer's realms for what they hold. The computer's realms raid you too (core/realm-battle.js defend), a few times
-// a day, which is what your walls and towers are for.
+// computer's realms for what they hold. The computer's realms raided you too, a few times a day, till the owner removed
+// it (Nov 1 2026: "Remove cpu raids in Keepfall game mode"; core/realm-battle.js defend): the raids on your record stay.
 //
 // Names (the owner, Oct 21 2026): the game was the Realm, its second currency Grain, made by farms and held in
 // granaries, its main building the Keep. On screen they're now Keepfall (the game), Ale, breweries, cellars and the
@@ -75,14 +75,14 @@ export const KINDS = {
     th: [1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8],
     rate: [20, 35, 50, 70, 90, 115, 140, 170, 200, 240, 280, 330], hold: 24},
   treasury: {name: 'Treasury', size: 3, pay: 'grain', role: 'store', holds: 'gold',
-    blurb: 'Holds your Gold. More room means bigger upgrades, and more for raiders to take.',
+    blurb: 'Holds your Gold. More room means bigger upgrades.',
     cost: [300, 750, 1500, 3000, 6000, 12000, 25000, 50000, 100000, 180000, 300000],
     time: [10, 600, 1800, 3600, 7200, 14400, 28800, 43200, 64800, 86400, 129600],
     hp: [400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400],
     th: [1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8],
     cap: [3000, 7500, 15000, 30000, 50000, 80000, 120000, 170000, 240000, 330000, 450000]},
   granary: {name: 'Cellar', size: 3, pay: 'gold', role: 'store', holds: 'grain',
-    blurb: 'Holds your Ale. More room means bigger upgrades, and more for raiders to take.',
+    blurb: 'Holds your Ale. More room means bigger upgrades.',
     cost: [300, 750, 1500, 3000, 6000, 12000, 25000, 50000, 100000, 180000, 300000],
     time: [10, 600, 1800, 3600, 7200, 14400, 28800, 43200, 64800, 86400, 129600],
     hp: [400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400],
@@ -622,7 +622,7 @@ export function pickScenery(s, k) {
 // when what's in it started piling up, ms)}], r: {gold, grain} (stored), cl: {gold, grain} (taken from the coffers so
 // far), xo: {gold, grain} (into the coffers besides the games: the starter, raids' overflow), ar: {troop: n} (the army
 // in the war camps), q: [[troop, n]] (training), qs (when the first in line started, ms), tp (glory), rd: [raids
-// made], df: [raids on you], lr (when the computer last raided you: core/realm-battle.js defend), sh (a truce until,
+// made], df: [raids on you, till Nov 1 2026: no more come], lr (when the computer last raided you), sh (a truce until,
 // ms), bt: {realm: day raided}, nb (the next building id), born (ms), sc (the scenery picked: SCENERIES; none: the coast),
 // n (the lot it's laid out on, N; none: N_WAS), pd (the Ale places already paid, frozen: {game: {day: place}},
 // freezePaid), ex (the example raids: realm-battle.js exampleRaids; none when there are none), exv (EX_V once they've been
@@ -1090,7 +1090,8 @@ export function botLoot(bot, base, mine, now = Date.now()) {
 // ---- Castle 4 unlocks (the owner, Oct 22 2026: "Level 4 is where the user unlocks raids and other items such as wizard
 // and knight"); raids moved to Castle 3 (the owner, Oct 28 2026: "Raids should be available at level 3"), the heroes
 // stay at 4: attacking and scouting the computer's realms open at Castle level ATTACK_AT, and then only the realms up
-// to a level above your Castle's (canTarget). The computer raiding you starts at Castle DEFEND_AT (realm-battle.js defend;
+// to a level above your Castle's (canTarget). The computer raiding you started at Castle DEFEND_AT (till Nov 1 2026, when the
+// owner removed it: realm-battle.js defend;
 // the owner, Oct 22 2026: level 3, was 2).
 export const ATTACK_AT = 3, DEFEND_AT = 3;
 const botOf = bot => (typeof bot === 'string' ? BOTS.find(b => b.k === bot) : bot && BOTS.find(b => b.k === bot.k)) || null;

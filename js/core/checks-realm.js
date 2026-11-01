@@ -13,7 +13,7 @@
 import * as F from './realm.js';
 import * as daily from './daily.js';
 import * as data from './data.js';
-import {makeBattle, replay, raidsDue, defend, replayBattle, replayRaid, exampleRaids, ensureExamples, raidArmy, raidHeroes} from './realm-battle.js';
+import {makeBattle, replay, defend, playRaids, replayBattle, replayRaid, exampleRaids, ensureExamples, raidArmy, raidHeroes} from './realm-battle.js';
 
 const T0 = Date.UTC(2026, 9, 21, 12);
 const DAY = 24 * F.HOUR;
@@ -837,32 +837,31 @@ export async function realmChecks(check) {
     return {pass, detail: `${gone}; ${linger}; ${away}; the heroes’ badges: ${badges}`};
   });
 
-  check('Keepfall: the computer’s realms raid his realm (at most one each half day, the last two while he was away; none in its first day, before Castle level 3 (Oct 22 2026, was 2) or during a truce): played the same every time, taken off his stores and glory once, never his coffers', () => {
-    const born = T0 - 3 * DAY;
-    const small = F.fresh(born), none = defend(small, T0), two = F.fresh(born);
-    two.b.find(b => b.t === 'keep').l = 2;
-    const skipped = !none.length && small.lr === T0 && !defend(two, T0).length && two.lr === T0 && !two.df.length && F.DEFEND_AT === 3;
-    const s = F.fresh(born);
-    s.b.find(b => b.t === 'keep').l = 3;
-    s.r = {gold: 4000, grain: 4000};
-    s.tp = 100;
-    const before = JSON.parse(JSON.stringify(s)), due = raidsDue(s, T0), coffers = JSON.stringify(F.pending(s, 5000));
-    const done = defend(s, T0), again = defend(s, T0);
-    const twin = defend(F.clean(before), T0);
-    const same = JSON.stringify(twin) === JSON.stringify(done);
-    const took = done.reduce((a, r) => [a[0] + r.ls[0], a[1] + r.ls[1]], [0, 0]);
-    const stores = s.r.gold === Math.max(0, 4000 - took[0]) && s.r.grain === Math.max(0, 4000 - took[1]);
-    const glory = s.tp === Math.max(0, 100 + done.reduce((a, r) => a + r.td, 0));
-    const truced = done.some(r => r.st > 0) ? s.sh > 0 : true;
-    const ok1 = due.length >= 1 && due.length <= 2 && done.length >= 1 && done.length <= due.length && done.every(r => due.includes(r.at) && r.by && Array.isArray(r.lt))
-      && !again.length && s.lr === due[due.length - 1] && s.df.length === done.length && JSON.stringify(F.pending(s, 5000)) === coffers && same && stores && glory && truced;
-    const young = F.fresh(T0 - 12 * F.HOUR);
-    young.b.find(b => b.t === 'keep').l = 3;
-    const firstDay = raidsDue(young, T0).length === 0;
-    const calm = F.clean(before);
-    calm.sh = T0 + F.HOUR;
-    const inTruce = !defend(calm, T0).length && calm.lr === due[due.length - 1];
-    return {pass: ok1 && skipped && firstDay && inTruce, detail: `Castle 1 and 2: none ${skipped}; due ${due.length}, played ${done.length} (${done.map(r => `${r.by} ${r.st}★ ${r.pc}% took ${r.lt.join('/')}`).join('; ')}), again ${again.length}; the same twice ${same}; stores ${JSON.stringify(s.r)} ok ${stores}; glory ${s.tp} ok ${glory}; truce ${truced}; coffers untouched ${JSON.stringify(F.pending(s, 5000)) === coffers}; first day none ${firstDay}; in a truce none ${inTruce}`};
+  check('Keepfall: no computer raids (the owner, Nov 1 2026: “Remove cpu raids in Keepfall game mode”): the computer’s realms never raid anyone’s realm, at any Castle level, however long away: nothing taken from stores, piles or glory, nothing on the record, no truce; Keepfall’s screen never plays them (no “While you were away”), and the raids already on a realm’s record stay in the Chronicle with their replays', async () => {
+    const view = await import('../views/realm.js');
+    const born = T0 - 10 * DAY;
+    const levels = [1, 2, 3, 4, 5, 6, 7, 8].map(l => {
+      const s = F.fresh(born);
+      s.b.find(b => b.t === 'keep').l = l;
+      s.r = {gold: 9000, grain: 9000}; s.tp = 100; s.lr = born; s.sh = 0;
+      const before = JSON.stringify(s), got = defend(s, T0);
+      return Array.isArray(got) && !got.length && JSON.stringify(s) === before;
+    });
+    const none = levels.every(Boolean);
+    const src = await fetch(new URL('../views/realm.js', import.meta.url)).then(r => r.text()).catch(() => '');
+    const unplayed = !!src && !/\bdefend\(|While you were away/.test(src);
+    const words = (s, w) => { const t = document.createElement('template'); t.innerHTML = ((view._screens(s, T0) || []).find(p => p.where === w) || {}).html || ''; return t.content.textContent.replace(/\s+/g, ' '); };
+    // (a realm with two raids on its record from before: still listed, still counted)
+    const old = F.fresh(born);
+    old.b.find(b => b.t === 'keep').l = 4;
+    old.df = [{id: 'd1', at: T0 - 2 * F.HOUR, by: 'Thornfield Hamlet', th: 1, st: 1, pc: 55, lt: [300, 200], ls: [300, 200], lb: {}, td: -3},
+      {id: 'd2', at: T0 - 3 * F.HOUR, by: 'Briarwatch', th: 2, st: 0, pc: 20, lt: [0, 0], ls: [0, 0], lb: {}, td: 6}];
+    const kept = words(old, 'The Chronicle'), fresh = F.fresh(born); fresh.b.find(b => b.t === 'keep').l = 4;
+    const empty = words(fresh, 'The Chronicle');
+    const history = kept.includes('Raids on your realm') && kept.includes('Thornfield Hamlet') && kept.includes('1 raid driven off')
+      && !empty.includes('Raids on your realm') && !/driven off|truce/i.test(empty);
+    const screens = !(view._screens(fresh, T0) || []).some(p => p.where === 'While you were away');
+    return {pass: none && unplayed && history && screens, detail: `Castle 1–8 untouched ${levels.join('/')}; the screen never plays them ${unplayed}; no “While you were away” ${screens}; old raids kept in the Chronicle, none listed without them ${history}`};
   });
 
   // ---- the batch of Oct 22 2026: competitive pay, Castle 4 unlocks, raid replays and example raids
@@ -881,7 +880,7 @@ export async function realmChecks(check) {
     return {pass: kick && ret && ale && shares && loot, detail: `Kick It ${[0, 4, 5, 10, 25, 40].map(m => `${m}: ${F.kickGold(m)}`).join(', ')}${kickTable.length ? ' (wrong at ' + kickTable.join(',') + ')' : ''} ${kick}; Return Man ${coins.map(c => `${c}: ${F.returnGold(c)}`).join(', ')} ${ret}; Ale ${F.ALE_BY_PLACE.join('/')} ${ale}; shares ${F.STORE_SHARE}/${F.MADE_SHARE}, hold ${F.KINDS.mine.hold}h ${shares}; a raid’s take on 10,000/8,000 stored and 200/200 piled: ${JSON.stringify(L.total)} ${loot}`};
   });
 
-  check('Keepfall: Castle 4 unlocks (the owner, Oct 22 2026), raids from Castle 3 (Oct 28 2026): attacking and scouting the computer’s realms open at Castle level 3 (before then “Raids open at Castle level 3”), and then only realms up to a level above his Castle (the rest “Castle level N”: scouting them is fine); the Knight Hero is recruited from Castle 4 (one recruited before keeps his level) and the Dragon Hero hatches with a Dragon Hatchery there, never for Gold; the computer raids him from Castle 3 (Oct 22 2026, was 2)', () => {
+  check('Keepfall: Castle 4 unlocks (the owner, Oct 22 2026), raids from Castle 3 (Oct 28 2026): attacking and scouting the computer’s realms open at Castle level 3 (before then “Raids open at Castle level 3”), and then only realms up to a level above his Castle (the rest “Castle level N”: scouting them is fine); the Knight Hero is recruited from Castle 4 (one recruited before keeps his level) and the Dragon Hero hatches with a Dragon Hatchery there, never for Gold; the computer never raids him (Nov 1 2026)', () => {
     const at = l => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = l; s.r = {gold: 99999, grain: 99999}; return s; };
     const open = [1, 2, 3, 4, 5, 6, 7, 8].map(l => F.attackOpen(at(l))).join() === 'false,false,true,true,true,true,true,true' && F.ATTACK_AT === 3;
     const reach = l => F.BOTS.filter(b => F.canTarget(at(l), b)).map(b => b.th).join('');
@@ -896,11 +895,11 @@ export async function realmChecks(check) {
       && (owner ? k3.why === 'Needs Castle level 4' && !w3.ok && w3.why.includes('Dragon Hatchery (Castle level 4)') && k4.ok : !k3.ok && !k4.ok && !w3.ok && /Choose your profile/.test(k4.why));
     const had = Object.assign(at(2), {hr: {knight: 2}}), kept = F.clean(JSON.parse(JSON.stringify(had)));
     const stays = !!kept && kept.hr.knight === 2 && F.heroLevel(kept, 'knight') === 2 && (owner ? F.heroLevels(kept).knight === 2 : true);
-    const raided = defend(at(3), T0).length >= 1 && !defend(at(2), T0).length && !defend(at(1), T0).length;
-    return {pass: open && targets && words && realms && heroes && stays && raided, detail: `open from Castle 3 ${open}; in reach at Castle 2/3/4/5/7: ${reach(2) || 'none'}/${reach(3)}/${reach(4)}/${reach(5)}/${reach(7)} ${targets}; why ${JSON.stringify(whys)} ${words}; realmOf refuses ${realms}; heroes at ${F.HEROES.knight.at}/${F.HEROES.dragon.at}, the Knight Hero at Castle 3: ${k3.why}, at 4: ${k4.ok || k4.why}, the Dragon Hero for Gold: ${w3.why} ${heroes}; one recruited at Castle 2 stays ${stays}; raided from Castle 3, not 2 ${raided}`};
+    const raided = [1, 2, 3, 8].every(l => !defend(at(l), T0).length);
+    return {pass: open && targets && words && realms && heroes && stays && raided, detail: `open from Castle 3 ${open}; in reach at Castle 2/3/4/5/7: ${reach(2) || 'none'}/${reach(3)}/${reach(4)}/${reach(5)}/${reach(7)} ${targets}; why ${JSON.stringify(whys)} ${words}; realmOf refuses ${realms}; heroes at ${F.HEROES.knight.at}/${F.HEROES.dragon.at}, the Knight Hero at Castle 3: ${k3.why}, at 4: ${k4.ok || k4.why}, the Dragon Hero for Gold: ${w3.why} ${heroes}; one recruited at Castle 2 stays ${stays}; never raided ${raided}`};
   });
 
-  check('Keepfall: raids on him start at Castle 3 (the owner, Oct 22 2026, was 2; DEFEND_AT): the screens say so (the Chronicle of a smaller realm “Once your Castle is level 3”, Attack’s lock “start at Castle level 3”, the welcome “once your Castle is level 3”), never level 2; the example raids aren’t held to it (a Castle 2 realm still gets its three to watch, on his phone); Attack says how each hero comes (the Knight Hero joins at Castle 4, the Dragon Hero once a Dragon Hatchery is built; at Castle 3, where raids open, train troops)', async () => {
+  check('Keepfall: no screen promises raids on him (none since Nov 1 2026): the Chronicle, Attack’s lock and the welcome never say the computer’s realms will raid him, nor a truce, nor what keeps raiders out; the example raids aren’t held to it (a Castle 2 realm still gets its three to watch, on his phone); Attack says how each hero comes (the Knight Hero joins at Castle 4, the Dragon Hero once a Dragon Hatchery is built; at Castle 3, where raids open, train troops)', async () => {
     const view = await import('../views/realm.js');
     const at = l => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = l; return s; };
     const words = (s, w) => { const t = document.createElement('template'); t.innerHTML = ((view._screens(s, T0) || []).find(p => p.where === w) || {}).html || ''; return t.content.textContent.replace(/\s+/g, ' '); };
@@ -912,27 +911,13 @@ export async function realmChecks(check) {
     const heroWords = atk.includes('the Knight Hero joins you at Castle level 4, and your first dragon once you choose it and build a Dragon Hatchery') && !/Knight Hero and the Dragon Hero join/.test(atk)
       && atk3.includes('Open Army to train troops before attacking. The Knight Hero and your first dragon come at Castle level 4')
       && atk4.includes('recruit the Knight Hero or train troops, or choose a dragon and build its hatchery');
-    const said = F.DEFEND_AT === 3 && log2.includes('Once your Castle is level 3, the computer’s realms will start raiding you') && log3.includes('No one has raided you yet.')
-      && atk.includes('Their raids on you start at Castle level 3 all the same') && hi.includes('once your Castle is level 3, those realms raid you too')
-      && !/(once your Castle is|start at Castle) level 2\b/i.test(log2 + atk + hi);
-    const src = await fetch(new URL('./realm-battle.js', import.meta.url)).then(r => r.text()).catch(() => '');
-    const gate = /if \(keepOf\(s\) < DEFEND_AT\) \{ s\.lr = Math\.max\(s\.lr \|\| 0, now\); return \[\]; \}/.test(src);
+    const all = log2 + log3 + atk + atk3 + atk4 + hi + words(at(3), 'The coffers');
+    const said = all.length > 200 && !/raids? on you\b|raid you too|raided you|start raiding|truce|keep them out|Raiders can|safe from raiders|yours and theirs|Defend:/i.test(all);
+    const gate = !defend(at(5), T0).length;
     // (the examples: on his phone, three on a Castle 2 realm as on any other; nothing on anyone else's)
     const owner = !!F.mayPlay(), two = at(2), ex = exampleRaids(two, T0);
     const examples = owner ? ex.length >= 1 && (two.ex || []).length === ex.length && !two.df.length : !ex.length;
-    return {pass: said && gate && examples && heroWords, detail: `the words ${said}; how the heroes come ${heroWords}; defend’s gate ${gate}; example raids on a Castle 2 realm: ${ex.map(r => `${r.st}★`).join(' ') || 'none'} ${examples}`};
-  });
-
-  check('Keepfall: the computer’s raids come at an hour that moves from day to day, the same on every phone (Oct 22 2026: they’d come at about 05:26 and 17:26 every day), one in each half of the day', () => {
-    const days = Array.from({length: 14}, (_, d) => { const t = new Date(2026, 9, 1 + d).getTime(); return raidsDue({lr: t, born: 0}, t + DAY - 1); });
-    const twice = Array.from({length: 14}, (_, d) => { const t = new Date(2026, 9, 1 + d).getTime(); return raidsDue({lr: t, born: 0}, t + DAY - 1); });
-    const hm = t => { const d = new Date(t); return d.getHours() + d.getMinutes() / 60; };
-    const am = days.map(x => x[0]).filter(Boolean).map(hm), pm = days.map(x => x[1]).filter(Boolean).map(hm);
-    const halves = days.every(x => x.length === 2) && am.every(h => h >= 1 && h <= 11) && pm.every(h => h >= 13 && h <= 23);
-    const spread = new Set(am.map(Math.floor)).size >= 5 && new Set(pm.map(Math.floor)).size >= 5 && Math.max(...am) - Math.min(...am) >= 4 && Math.max(...pm) - Math.min(...pm) >= 4;
-    const same = JSON.stringify(days) === JSON.stringify(twice);
-    const fmt = h => `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round(h % 1 * 60)).padStart(2, '0')}`;
-    return {pass: halves && spread && same, detail: `mornings ${am.map(fmt).join(' ')}; evenings ${pm.map(fmt).join(' ')}; one each half ${halves}; moving ${spread}; the same twice ${same}`};
+    return {pass: said && gate && examples && heroWords, detail: `the words ${said}; how the heroes come ${heroWords}; defend plays nothing ${gate}; example raids on a Castle 2 realm: ${ex.map(r => `${r.st}★`).join(' ') || 'none'} ${examples}`};
   });
 
   // (an attack as views/realm-raid.js plays it: drops at fractions of a tile, the clock run between them, then End)
@@ -989,7 +974,7 @@ export async function realmChecks(check) {
     s.r = {gold: 4000, grain: 4000};
     [['cannon', 1], ['tower', 1], ['wall', 1], ['wall', 1], ['treasury', 2]].forEach(([t, l]) => { const p = F.spotFor(s, t); if (p) s.b.push({i: s.nb++, t, l, x: p.x, y: p.y, u: 0}); });
     const lot = JSON.stringify(s.b.filter(b => b.l >= 1).map(b => [b.i, b.t, b.l, b.x, b.y]));
-    const done = defend(s, T0);
+    const done = playRaids(s, T0);
     const each = done.map(rec => {
       const P = F.decodeReplay(rec.rp, s), R = P && replayBattle(P);
       if (R) R.play(Infinity);
@@ -1107,16 +1092,6 @@ export async function realmChecks(check) {
     const once = first && !second && u.exv === F.EX_V;
     const ok = stars && shape && plays && untouched && sameEach && once && cleared && renewed && ms < 3000;
     return {pass: ok, detail: `${ex.map(r => `${r.by} ${r.st}★ ${r.pc}% (would have taken ${r.lt.join('/')}; ${JSON.stringify((F.decodeReplay(r.rp, s) || {}).army)})`).join(' · ')} in ${ms} ms; 0/1/3 stars ${stars}; in their own list, taking nothing ${shape}; replays the same ${plays}; his realm untouched ${untouched}; the same each time ${sameEach}; made once ${once}; cleared ${cleared}; made again ${renewed}`};
-  });
-
-  check('Keepfall: a half day that already has a raid on him on the record has no other (Oct 22 2026, the day the hour moved: the morning’s raid had come at the old hour, 05:23, and the new hour, 07:58, would have raided him again that morning); the rest of the day as it comes', () => {
-    const at = (h, m) => new Date(2026, 9, 22, h, m).getTime();
-    const s = {born: 0, lr: at(5, 23), df: [{id: 'd1', at: at(5, 23), by: 'Mossgate', th: 3, st: 0, pc: 20, lt: [0, 0], ls: [0, 0], lb: {}, td: 9}]};
-    const due = raidsDue(s, at(23, 54)), plain = raidsDue({born: 0, lr: at(5, 23)}, at(23, 54));
-    const am = due.filter(t => t < at(12, 0)), pm = due.filter(t => t >= at(12, 0));
-    const ok = !am.length && pm.length === 1 && plain.filter(t => t < at(12, 0)).length === 1 && plain.filter(t => t >= at(12, 0)).length === 1;
-    const hm = t => new Date(t).toTimeString().slice(0, 5);
-    return {pass: ok, detail: `after a 05:23 raid on the record: ${due.map(hm).join(', ') || 'none'} (morning ${am.length}, evening ${pm.length}); without it: ${plain.map(hm).join(', ')}`};
   });
 
   check('Keepfall: a raid on him that takes from a mine’s or brewery’s full pile takes it off the pile (a pile left past its day stops growing: what was taken came off nothing till Oct 22 2026)', () => {
@@ -1362,7 +1337,7 @@ export async function realmChecks(check) {
     const led = heroes.every((h, i) => (i + 1 >= 7 ? h.dragon_soul_eater === F.botDragon(i) && h.dragon_soul_eater >= 1 : !Object.keys(h).length));
     // (a raid on a Castle 7 realm: the computer's Dragon Hero went in, no trained dragon)
     const s = withHatch(7, 4); s.r = {gold: 9000, grain: 9000}; s.hr = {knight: 5};
-    const done = defend(s, T0);
+    const done = playRaids(s, T0);
     const recs = done.map(r => ({r, P: F.decodeReplay(r.rp, s)}));
     const raid = owner ? done.length >= 1 && recs.every(({r, P}) => P && P.hr.dragon_soul_eater === raidHeroes(7).dragon_soul_eater && !P.army.dragon && P.drops.some(d => d[1] === 'hero_dragon_soul_eater') && !P.drops.some(d => d[1] === 'dragon') && r.hr.dragon_soul_eater === 4 && P.dh.dragon_soul_eater === 4)
       : done.length >= 1 && recs.every(({P}) => P && !Object.keys(P.hr).length && !P.army.dragon);
@@ -1445,7 +1420,7 @@ export async function realmChecks(check) {
         {id: 'd2', at: T0 - 3 * F.HOUR, by: 'Briarwatch', th: 2, st: 0, pc: 20, lt: [0, 0], ls: [0, 0], lb: {}, td: 6}]});
     const earned = {total: {gold: 5000, grain: 7200}, by: {puzzles: {gold: 3000, grain: 7200}, kick: {gold: 2000, grain: 0}}, today: {puzzles: {gold: 0, grain: 3200}, kick: {gold: 1000, grain: 0}},
       pending: {drill: {n: 9, place: 2, of: 6, grain: 4000}}, last: {puzzles: {n: 8, place: 3, of: 6, grain: 3200}}, days: 3};
-    const pages = view._screens(bare, T0).concat(view._screens(full, T0, {done: full.df, earned}));
+    const pages = view._screens(bare, T0).concat(view._screens(full, T0, {earned}));
     // what it says when something can't be done (the toasts)
     const whys = [bare, full].flatMap(s => [...F.ORDER.map(k => F.canBuild(s, k, T0).why), ...s.b.map(b => F.canUpgrade(s, b.i, T0).why), ...F.TROOP_ORDER.map(t => F.canTrain(s, t).why)]).filter(Boolean);
     // every word a page shows or reads out: its text (a node at a time, so words in neighbouring tags stay apart) and

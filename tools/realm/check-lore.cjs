@@ -92,7 +92,7 @@ const seed=p=>p.evaluate(async()=>{const F=await import('/js/core/realm.js'),s=F
     await p.locator('[data-intro-help]').click();await swipe(0,-140,'.rl-intro-help');assert(await p.locator('.rl-intro-help').evaluate(el=>el.scrollTop>0),'Sideways help touch scrolling');await p.locator('[data-intro-resume]').click();
     await p.setViewportSize({width:320,height:740});await p.keyboard.press('End');
     await p.locator('[data-intro-help]').click();
-    const help=await p.locator('.rl-intro-help').innerText();for(const t of ['Your coffers','Gold mines','Your builder','Attack','Heroes','Your people','Defend','pinch to zoom'])assert(help.includes(t),t);
+    const help=await p.locator('.rl-intro-help').innerText();for(const t of ['Your coffers','Gold mines','Your builder','Attack','Heroes','Your people','pinch to zoom'])assert(help.includes(t),t);assert(!help.includes('Defend:')&&!/raid you too/.test(help),'no computer raids in the help');
     const scroll=await p.locator('.rl-intro-help').evaluate(el=>{el.scrollTop=el.scrollHeight;return {top:el.scrollTop,over:el.scrollWidth-el.clientWidth}});assert(scroll.top>0&&scroll.over<=1);
     await p.locator('[data-intro-resume]').click();assert.equal(await copy(),LORE[1]);
     await p.locator('[data-intro-next]').click();await p.locator('.sh-rl-lore').waitFor({state:'detached'});
@@ -128,9 +128,9 @@ const seed=p=>p.evaluate(async()=>{const F=await import('/js/core/realm.js'),s=F
     await seed(p);await nav(p,'/realm');await lore(p);
     await p.evaluate(async()=>{const F=await import('/js/core/realm.js'),d=await import('/js/core/daily.js'),s=JSON.parse(JSON.stringify(F.mine())),now=Date.now();s.nm='Late synced house';s.at=now+10000;s.born=now-72*F.HOUR;s.lr=now-48*F.HOUR;s.sh=0;Object.assign(d.LB,{uid:'local-lore',nick:'Evan Appenzeller',ready:true,off:false,put:null,raw:[{id:'local-lore',nick:'Evan Appenzeller',fr1:s}]});d.__dev.emit('lb',{why:'local lore check'})});
     await p.waitForFunction(async()=>(await import('/js/core/realm.js')).mine().nm==='Late synced house');await p.waitForTimeout(1200);await lore(p);assert.equal(await p.locator('.sheet').count(),1);
-    const due=await p.evaluate(async()=>{const F=await import('/js/core/realm.js'),B=await import('/js/core/realm-battle.js');return {due:B.raidsDue(F.mine()).length,played:F.mine().df.length}});assert(due.due>0&&due.played===0);
-    await closeLore(p);await p.locator('.sheet-title').filter({hasText:'While you were away'}).waitFor();assert.equal(await marker(p),'3');assert.deepEqual(errors,[]);
-    console.log('PASS: late sync and due raids cannot cover unread lore; defense report resumes after dismissal');
+    const due=await p.evaluate(async()=>{const F=await import('/js/core/realm.js');return {played:F.mine().df.length}});assert.equal(due.played,0);
+    await closeLore(p);await p.waitForTimeout(1200);assert.equal(await p.locator('.sheet-title').filter({hasText:'While you were away'}).count(),0);assert.equal(await p.evaluate(async()=>(await import('/js/core/realm.js')).mine().df.length),0);assert.equal(await marker(p),'3');assert.deepEqual(errors,[]);
+    console.log('PASS: late sync cannot cover unread lore; once it is dismissed the computer raids nothing (no raids since Nov 1 2026)');
    }finally{await c.close()}
   }
   {const {c,p,errors}=await env();
