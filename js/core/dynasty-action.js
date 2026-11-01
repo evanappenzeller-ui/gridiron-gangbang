@@ -33,7 +33,7 @@ export const ACTION = {
   "xcalvinjohnson": ["xcalvinjohnson-v3", "card:c75efa30", "", "", "", 2025], // Calvin Johnson
   "xdickbutkus": ["xdickbutkus-v3", "card:e54c3f74", "", "", "", 2024], // Dick Butkus
   "xedreed": ["xedreed-v3", "Ed_reed_ravens2012.jpg", "Maryland National Guard", "Public domain", "", 2012], // Ed Reed
-  "xgalesayers": ["xgalesayers-v3", "Gale_sayers_playing.jpg", "Unknown", "Public domain", "", 1972], // Gale Sayers
+  "xgalesayers": ["xgalesayers-v4", "Gale_sayers_playing.jpg", "Unknown", "Public domain", "", 1972], // Gale Sayers
   "xladainiantomli": ["xladainiantomli-v3", "card:85239958", "", "", "", 2020], // LaDainian Tomlinson
   "xrobgronkowski": ["xrobgronkowski-v3", "card:9953c1e3", "", "", "", 2024], // Rob Gronkowski
   "xronnielott": ["xronnielott-v3", "card:30e32c01", "", "", "", 2023], // Ronnie Lott

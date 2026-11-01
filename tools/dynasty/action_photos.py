@@ -55,6 +55,13 @@ SAM_HINT = {
                          (.289, .465), (.25, .556), (.228, .646), (.217, .707), (.2, .808), (.189, .859), (.18, .97), (0, .97)]]},
     # Aidan Hutchinson (the teammate behind him: below his raised arm and down his left side)
 }
+# What a picture leaves on the cut-out that is not him, outlined by hand (fractions of the crop, or of the upscaled card):
+# 'cut', polygons to clear (a card's frame or lettering that survived the bands, an autograph, another player); 'band',
+# a card's own (left, top, right, bottom) in place of CARD_KEEP where its photo sits elsewhere
+CLEAR = {}
+# An autograph in ink across a photo (Gale Sayers' signed print): the ink's hue range (OpenCV's 0-179 scale) is painted out
+# before the cut-out (ink_out: the ink's strokes found by hue and saturation, filled from round them, their colour neutral)
+INK = {'xgalesayers': (110, 132)}  # Gale Sayers: a blue signature across his legs
 # The year a Commons photo was taken, where its page gives none or its upload date instead
 YEAR = {'xraylewis': 2007, 'xjohnnyunitas': 1963}
 # Players whose picture was redone since VERSION (a new pick, card or crop): their own version in the file name, so only
@@ -62,7 +69,7 @@ YEAR = {'xraylewis': 2007, 'xjohnnyunitas': 1963}
 REDO = {
     'xraylewis': 'v4', 'xtombrady': 'v4', '0036358': 'v4', '0033288': 'v4', '0034856': 'v4', '0037250': 'v4',
     'xbrettfavre': 'v4', 'xaarondonald': 'v4', '0037236': 'v4',
-    'xjohnnyunitas': 'v4',
+    'xjohnnyunitas': 'v4', 'xgalesayers': 'v4',
 }
 
 # The trading-card photos (the owner, Oct 31 2026: "Where can we find live action pictures of the players that would be
@@ -746,7 +753,45 @@ def masks(todo, hints=None):
             print(f'  isolated {n + 1}/{len(need)}', os.path.basename(c), file=sys.stderr)
 
 
-def cutout(src, mask, out, sam=None, card=None, hand=False):
+def ink_out(img, hues):
+    """The ink of an autograph painted out of a (black-and-white) photo: strokes of that hue and strong saturation, their
+    darkest parts within reach of them, filled in from round them (frequency-selective reconstruction, else Telea), the
+    colour under and about them made neutral."""
+    import numpy as np
+    import cv2
+    from PIL import Image
+    from scipy import ndimage
+    im = np.asarray(img.convert('RGB'))
+    hsv = cv2.cvtColor(im, cv2.COLOR_RGB2HSV)
+    hue, sat, val = (hsv[..., i].astype(int) for i in range(3))
+    dom = im[..., 2].astype(int) - np.maximum(im[..., 0], im[..., 1]).astype(int)
+    sure = (hue >= hues[0]) & (hue <= hues[1]) & (sat > 85) & (dom > 15)
+    if not sure.any():
+        return img
+    hull = cv2.dilate(sure.astype(np.uint8), np.ones((31, 31), np.uint8)) > 0
+    dark = hull & (val < 95) & (sat > 30) & (hue >= hues[0] - 10) & (hue <= hues[1] + 10)
+    lab, n = ndimage.label(sure | dark)
+    size = ndimage.sum(np.ones(lab.shape), lab, range(1, n + 1))
+    keep = np.isin(lab, [i + 1 for i in range(n) if size[i] >= 200]).astype(np.uint8) * 255
+    keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+    ink = cv2.dilate(keep, np.ones((9, 9), np.uint8))
+    lab3 = cv2.cvtColor(im, cv2.COLOR_RGB2LAB)
+    ys, xs = np.nonzero(ink)
+    y0, y1, x0, x1 = max(0, ys.min() - 60), min(im.shape[0], ys.max() + 60), max(0, xs.min() - 60), min(im.shape[1], xs.max() + 60)
+    L = lab3[y0:y1, x0:x1, 0].copy()
+    try:
+        dst = np.zeros_like(L)
+        cv2.xphoto.inpaint(L, (ink[y0:y1, x0:x1] == 0).astype(np.uint8), dst, cv2.xphoto.INPAINT_FSR_FAST)
+    except Exception:
+        dst = cv2.inpaint(L, ink[y0:y1, x0:x1], 7, cv2.INPAINT_TELEA)
+    lab3[y0:y1, x0:x1, 0] = dst
+    wide = cv2.dilate(ink, np.ones((21, 21), np.uint8)) > 0
+    lab3[..., 1][wide] = 128
+    lab3[..., 2][wide] = 128
+    return Image.fromarray(cv2.cvtColor(lab3, cv2.COLOR_LAB2RGB))
+
+
+def cutout(src, mask, out, sam=None, card=None, hand=False, clear=None, ink=None):
     """The player cut out of his crop: the largest figure near the middle (with what's small and on him, a ball or a
     hand), the rest made clear; trimmed to him and set in the W x H window, standing on its foot and centred (or kept
     against the side the photo cut him at), a little headroom above unless the photo cut his head; a WebP with alpha."""
@@ -755,6 +800,8 @@ def cutout(src, mask, out, sam=None, card=None, hand=False):
     from scipy import ndimage
     from PIL import ImageFilter
     img = Image.open(src).convert('RGB')
+    if ink:
+        img = ink_out(img, ink)
     if card:
         img = img.filter(ImageFilter.UnsharpMask(radius=2, percent=70, threshold=2))
     a = np.asarray(Image.open(mask).convert('L').resize(img.size, Image.LANCZOS)).astype(np.float32)
@@ -786,6 +833,14 @@ def cutout(src, mask, out, sam=None, card=None, hand=False):
         # (a hand-prompted mask is trusted even where it keeps much less of the figure: the rest is the other player)
         if lab is not None and (hand or (keep & (lab == main)).sum() >= .75 * (lab == main).sum()):
             a = np.where(keep, a, 0)
+    if clear:
+        # (CLEAR: what the picture leaves on him that is not him, outlined by hand: a card's frame or lettering that
+        # survived the bands, an autograph, another player)
+        from PIL import ImageDraw
+        m = Image.new('L', img.size, 0)
+        for poly in clear:
+            ImageDraw.Draw(m).polygon([(x * img.width, y * img.height) for x, y in poly], fill=255)
+        a = np.where(np.asarray(m) > 0, 0, a)
     a = np.where(a < 32, 0, a)
     lab, n = ndimage.label(a > 110)
     if n:
@@ -868,6 +923,8 @@ def prepare():
             continue
         mask = os.path.join(CACHE, f'mask-{slug(key)}-{tag}.png')
         band = next((b for k, b in BAND.items() if e and k in e[3]), CARD_KEEP) if e else None
+        if e and CLEAR.get(key, {}).get('band'):
+            band = CLEAR[key]['band']
         todo.append((key, src, mask, os.path.join(CACHE, f'sam-{slug(key)}-{tag}.png'), band, stem, done))
         rows.append(f"  {json.dumps(key)}: {json.dumps(row, ensure_ascii=False)}, // {players[key][0]}")
     return rows, todo, players
@@ -895,7 +952,8 @@ def build():
     masks([(c, m, q) for _, c, m, q, _, _, done in todo if not done], {q: SAM_HINT[k] for k, _, _, q, *_ in todo if k in SAM_HINT})
     for key, src, mask, sam, card, stem, done in todo:
         if not done:
-            cutout(src, mask, os.path.join(IMG, stem + '.webp'), None if key in ALONE else sam, card, key in SAM_HINT)
+            cutout(src, mask, os.path.join(IMG, stem + '.webp'), None if key in ALONE else sam, card, key in SAM_HINT,
+                   CLEAR.get(key, {}).get('cut'), INK.get(key))
     keep = {stem + '.webp' for *_, stem, _ in todo}
     for old in os.listdir(IMG):
         if old not in keep:
