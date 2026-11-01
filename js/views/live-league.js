@@ -15,7 +15,8 @@
 // Matchup tab), "Leading the vote" until kickoff locks it. Styles: css/views/live.css (.ll-, .sh-ll). Owner: LIVE.
 //
 //   eyebrow()           -> the title's eyebrow for this screen
-//   html(shown)         -> the screen's markup (hidden unless shown)
+//   html(shown, more)   -> the screen's markup (hidden unless shown); more (views/live.js's top performers) goes under
+//                          the matchups, above the notes
 //   create(ctx, el)     -> {show(), hide(), draw(), stop()}: el is the screen body; show() starts the feed for the
 //                          league's week and draws, hide() stops it.
 import * as ui from '../core/ui.js';
@@ -296,8 +297,8 @@ export function eyebrow() {
   const cur = curWeek();
   return cur ? `League · Week ${cur.week} · Live` : 'League · Live';
 }
-export function html(shown) {
-  return `<div class="lg-body ll" data-ll${shown ? '' : ' hidden'}><section class="ll-games" data-ll-list></section>`
+export function html(shown, more = '') {
+  return `<div class="lg-body ll" data-ll${shown ? '' : ' hidden'}><section class="ll-games" data-ll-list></section>${more}`
     + `<p class="lg-foot">Unofficial live scores: each manager’s Yahoo lineup scored from ESPN’s box scores in the league’s scoring (PPR, kickers by distance, defenses by sacks, takeaways and points allowed), every 30 seconds while games are on. Projections start from Yahoo’s and follow the scores as Yahoo’s app does: points already scored, plus each player’s share of the projection for the time left. Yahoo’s projections and win chances sync hourly, every 15 minutes on game days. Yahoo’s final replaces them once the week syncs.</p></div>`;
 }
 

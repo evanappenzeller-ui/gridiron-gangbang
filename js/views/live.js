@@ -1,16 +1,18 @@
 // Live (its own tab, #/live; Oct 25 2026, everyone's): the NFL week's games as they play, an
 // octobox like RedZone (eight games at once, the ones in the red zone first, each with the score, the clock, who has
 // the ball, the down and distance, the ball on a little field and the last play; a score flashes on its box), the
-// rest of the week's games under it, then the top performers: every player's line with his points in the league's
-// scoring (PPR, core/gameday.js), laid out like ESPN Fantasy's (Oct 27 2026), with chips for search, my players and each
-// position. A tap on a box shows that game's players only. Then the waiver wire: the best players no one in the league
-// has, over this week and the one before.
+// rest of the week's games under it, then the waiver wire: the best players no one in the league has, over this week
+// and the one before. The top performers (every player's line with his points in the league's scoring, PPR,
+// core/gameday.js, laid out like ESPN Fantasy's, Oct 27 2026, with chips for search, my players and each position) sit on
+// League, under the matchups (Nov 1 2026, the owner: "Move the top performers to the league section of the scores
+// tab"); the NFL feed runs on either screen to keep them. A tap on a box opens League with that game's players only.
 // Each player's owner in the league (Yahoo's rosters, or the draft, then the trades, pickups and drops since); "My players" and "You" follow the profile picked.
 // Data: core/gameday.js (ESPN's scoreboard and box scores, every 30 s while a game is on). Styles: css/views/live.css.
 // Under the title, Pick'em's switch (its scoreboard buttons, css/views/pickem.css) toggles NFL and League (Oct 30 2026,
 // the owner: "The live league matchups should go in the scores tab and can be toggled between with the nfl matchups in
 // the same fashion as the pick em screen"): League is this week's league matchups scored live (views/live-league.js).
-// The one shown is remembered on this phone ('gg-live-mode'); only its feed runs.
+// The one shown is remembered on this phone ('gg-live-mode'). ESPN's feed runs on both (the games and waiver wire on
+// NFL, the top performers on League); the league's live scoring only on League.
 // Owner: LIVE.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -279,6 +281,15 @@ function chipsHTML() {
     + `</div>`;
 }
 
+// The top performers' section, on League (views/live-league.js html places it under the matchups).
+function statsHTML() {
+  return `<section class="lg-stats"><div class="sh lg-sh"><h2>Top performers</h2><span class="lg-at">PPR</span></div>`
+    + chipsHTML()
+    + `<div class="lg-search" hidden>${ui.searchField({name: 'lg-q', placeholder: 'Player or manager', label: 'Search players'})}</div>`
+    + `<div data-lg-list></div></section>`
+    + `<p class="lg-foot">PPR: 1 a catch, 0.1 a rushing or receiving yard, 0.04 a passing yard, 6 a TD (4 passing), −1 an interception, −2 a fumble lost. From ESPN's box scores, every 30 seconds while games are on.</p>`;
+}
+
 // ---------------------------------------------------------------------------------------------- NFL · League
 // The switch, Pick'em's scoreboard buttons (views/pickem.js leagueTabsHTML; img/nfl.webp, img/league.webp).
 const MODE_KEY = 'gg-live-mode';
@@ -312,8 +323,9 @@ function setMode(ctx, st, mode, animate) {
   if (sub) sub.textContent = SUBS[mode];
   const put = () => { nflB.hidden = mode !== 'nfl'; lgB.hidden = mode !== 'lg'; };
   if (animate && ctx.visible && !ui.RM) ui.crossfade(el.querySelector('.lg-panes'), put, {duration: 160}); else put();
-  if (mode === 'lg') { stopFeed(st); if (ctx.visible) st.lg.show(); }
-  else { st.lg.hide(); if (ctx.visible) { start(ctx, st); draw(ctx); } }
+  if (mode === 'lg') { if (ctx.visible) st.lg.show(); }
+  else st.lg.hide();
+  if (ctx.visible) { start(ctx, st); if (st.stale) draw(ctx); }
   ctx.refreshChrome();
   const to = el.querySelector(`[data-lg-mode="${mode}"]`);
   if (animate && to && ctx.visible && !ui.RM) ui.animate(to, [{transform: 'scale(.94)'}, {transform: 'none'}], {spring: 'bouncy'});
@@ -325,7 +337,7 @@ const ST = new WeakMap();
 function draw(ctx, parts = 'all') {
   const st = ST.get(ctx);
   if (!st) return;
-  if (!ctx.visible || st.mode !== 'nfl') { st.stale = true; return; }
+  if (!ctx.visible) { st.stale = true; return; }
   st.stale = false;
   const eb = st.el.querySelector('.lt-eyebrow');
   if (eb) eb.textContent = eyebrowOf(st);
@@ -389,14 +401,10 @@ export default {
     return ui.largeTitle({eyebrow: mode === 'lg' ? LL.eyebrow() : 'NFL · Live', title: 'Scores', subtitle: SUBS[mode], trailing: youButtonHTML()})
       + switchHTML(mode) + `<div class="lg-panes">`
       + `<div class="lg-body" data-lg-nfl${mode === 'nfl' ? '' : ' hidden'}><section class="lg-games" data-lg-games>${gamesHTML({D: null})}</section>`
-      + `<section class="lg-stats"><div class="sh lg-sh"><h2>Top performers</h2><span class="lg-at">PPR</span></div>`
-      + chipsHTML()
-      + `<div class="lg-search" hidden>${ui.searchField({name: 'lg-q', placeholder: 'Player or manager', label: 'Search players'})}</div>`
-      + `<div data-lg-list></div>`
-      + `</section><section class="lg-waiver" data-lg-waiver></section>`
+      + `<section class="lg-waiver" data-lg-waiver></section>`
       + `<p class="lg-foot">PPR: 1 a catch, 0.1 a rushing or receiving yard, 0.04 a passing yard, 6 a TD (4 passing), −1 an interception, −2 a fumble lost. From ESPN's box scores, every 30 seconds while games are on.</p>`
       + `<p class="lg-foot">${ownersNote()}</p></div>`
-      + LL.html(mode === 'lg') + `</div>`;
+      + LL.html(mode === 'lg', statsHTML()) + `</div>`;
   },
 
   mount(el, ctx) {
@@ -410,10 +418,15 @@ export default {
       if (sw) { setMode(ctx, st, sw.dataset.lgMode, true); return; }
       const g = t.closest('[data-lg-game]');
       if (g) {
+        // A box on NFL opens League's top performers with that game's players only (a second tap on it shows every game).
         st.game = st.game === g.dataset.lgGame ? null : g.dataset.lgGame;
         st.more = false;
         draw(ctx);
-        if (st.game) st.el.querySelector('.lg-stats').scrollIntoView({block: 'start', behavior: ui.RM ? 'auto' : 'smooth'});
+        if (st.game) {
+          setMode(ctx, st, 'lg', true);
+          const sec = st.el.querySelector('.lg-stats');
+          requestAnimationFrame(() => { if (sec && sec.isConnected) sec.scrollIntoView({block: 'start', behavior: ui.RM ? 'auto' : 'smooth'}); });
+        }
         return;
       }
       if (t.closest('[data-lg-all]')) { st.game = null; draw(ctx); return; }
@@ -444,8 +457,9 @@ export default {
       st.q = e.target.value; st.more = false;
       draw(ctx, 'stats');
     });
-    if (st.mode === 'nfl') { draw(ctx); start(ctx, st); }
-    else if (ctx.visible) st.lg.show();
+    draw(ctx);
+    start(ctx, st);
+    if (st.mode === 'lg' && ctx.visible) st.lg.show();
   },
 
   onShow(ctx) {
@@ -453,7 +467,7 @@ export default {
     if (!st) return;
     // Another tab of the app may have switched it meanwhile.
     if (modeNow() !== st.mode) setMode(ctx, st, modeNow(), false);
-    if (st.mode === 'lg') { st.lg.show(); return; }
+    if (st.mode === 'lg') st.lg.show();
     start(ctx, st);
     if (st.stale) draw(ctx);
   },

@@ -109,6 +109,8 @@
 .lg-body .lg-mc { font: 400 var(--fs-cap)/16px var(--font-text); color: var(--ink-3); }
 
 /* ================================================================ Top performers (like ESPN Fantasy's) */
+/* A box on NFL scrolls League here: clear of the compact title bar. */
+.lg-body .lg-stats { scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 64px); }
 /* Position colours */
 .lg-body .pos-QB { --pc: #FF6B8B; }
 .lg-body .pos-RB { --pc: #4FD1C5; }

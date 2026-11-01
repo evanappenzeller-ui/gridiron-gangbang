@@ -134,6 +134,16 @@ async function run(url) {
       await page.waitForSelector('.v-live .ll-gm.is-live', {timeout: 20000});
       await page.waitForTimeout(600); // (the cross-fade's snapshot goes)
       assert.equal(await page.locator('.v-live [data-lg-nfl]').isHidden(), true, p.tag + ': NFL hides');
+      // The top performers sit on League, under the matchups (Nov 1 2026, the owner: "Move the top performers to the league
+      // section of the scores tab"), fed by ESPN's box scores; NFL keeps the games and the waiver wire.
+      await page.waitForSelector('.v-live [data-ll] .lg-stats .lg-list .lg-p', {timeout: 20000});
+      assert.equal(await page.locator('.v-live [data-lg-nfl] .lg-stats').count(), 0, p.tag + ': no top performers on NFL');
+      assert.ok(await page.evaluate(() => { const g = document.querySelector('.v-live [data-ll] .ll-games'), t = document.querySelector('.v-live [data-ll] .lg-stats');
+        return !!(g && t && (g.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING)); }), p.tag + ': top performers under the matchups');
+      const topN = await page.locator('.v-live [data-ll] .lg-stats .lg-p').count();
+      await page.locator('.v-live [data-ll] [data-lg-pos="QB"]').click();
+      await page.waitForFunction(() => [...document.querySelectorAll('.v-live [data-ll] .lg-stats .lg-p .lg-pos')].every(x => x.textContent === 'QB'), null, {timeout: 5000});
+      await page.locator('.v-live [data-ll] [data-lg-pos="all"]').click();
       // The Matchup of the Week (the league's vote, seeded on the dev stand-in) leads the list in its own gold card.
       assert.equal(await page.locator('.v-live .ll-motw').count(), 0, p.tag + ': no Matchup of the Week before anyone votes');
       await page.evaluate(() => import('/js/core/week.js').then(w => w.__dev.seed(null, 7)));
@@ -218,11 +228,20 @@ async function run(url) {
       await page.waitForSelector('.v-live [data-lg-nfl]:not([hidden]) .lg-tile', {timeout: 20000});
       await page.waitForTimeout(600); // (the cross-fade's snapshot goes)
       assert.equal(await page.locator('.v-live [data-ll]').isHidden(), true, p.tag + ': League hides');
+      // A box on NFL opens League's top performers with that game's players only.
+      await page.locator('.v-live .lg-tile.is-in').first().click();
+      await page.waitForSelector('.v-live [data-ll]:not([hidden]) .lg-stats .lg-scope', {timeout: 10000});
+      assert.equal(await page.locator('.v-live [data-lg-mode="lg"]').getAttribute('aria-selected'), 'true', p.tag + ': a box opens League');
+      assert.ok(await page.locator('.v-live [data-ll] .lg-stats .lg-p').count() > 0, p.tag + ': that game\u2019s players');
+      await page.waitForTimeout(800);
+      await snap(page, p.tag + '-top-game');
+      await page.locator('.v-live [data-lg-all]').click();
+      await page.waitForFunction(() => !document.querySelector('.v-live .lg-scope'), null, {timeout: 5000});
       // Matchup no longer lists this week's games (Oct 30 2026, the owner: "Remove this from the matchups tab").
       await page.goto(url + '/#/matchup');
       await page.waitForSelector('.v-rivals .rv-h2h-t', {state: 'attached', timeout: 20000});
       assert.equal(await page.locator('.v-rivals .rv-games, .v-rivals [data-rv-live], .v-rivals .rv-gm').count(), 0, p.tag + ': Matchup has no week\u2019s games');
-      console.log(`${p.tag}: ${liveN} live games; Evan’s game ${sheet.hero.join(' – ')}${p.tag === 'evan' ? ', then moved with the feed' : ''}`);
+      console.log(`${p.tag}: ${liveN} live games, ${topN} top performers on League; Evan’s game ${sheet.hero.join(' – ')}${p.tag === 'evan' ? ', then moved with the feed' : ''}`);
       if (p.tag === 'evan') {
         const out = await page.evaluate(async () => {
           const {runChecks} = await import('/js/core/checks.js');
