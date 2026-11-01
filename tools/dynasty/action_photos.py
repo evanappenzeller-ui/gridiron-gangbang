@@ -39,7 +39,7 @@ MODEL = 'birefnet-portrait'  # rembg's model for the cut-out's edge (pip install
 SAM = 'sam'     # rembg's Segment Anything: keeps only our player where others touch him
 REAL_IMG = os.path.join(ROOT, 'img', 'dynasty', 'real')
 EDSR = 'https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x4.pb'  # 4x upscaling of the card scans
-VERSION = 'v2'  # in the file names: a changed picture needs a new name (sw.js keeps pictures across releases)
+VERSION = 'v3'  # in the file names: a changed picture needs a new name (sw.js keeps pictures across releases)
 
 # The trading-card photos (the owner, Oct 31 2026: "Where can we find live action pictures of the players that would be
 # used for trading cards? There should be a clean cutout of the player in game"): a Rare+ player's cut-out comes from his
@@ -62,9 +62,17 @@ CARD_SKIP = {
 }
 CARD = {}
 # Players whose Commons photo (PICK) is used ahead of his card's: where the card's cut-out falls short
+# Players whose Commons photo (PICK) is used ahead of his card's (the owner, Nov 1 2026: "Ensure good quality pictures are
+# being used. The card scans might be too fuzzy"): the 160 x 225 scans stay soft even upscaled, so a sharp (800+ px)
+# Commons game photo of him alone in uniform wins, chosen by eye side by side; also where a card's pattern stays on him
 COMMONS_FIRST = {
-    '0034759', '0034856', '0039067', '0040663', '0033131', '0034815',  # Kolton Miller, Denzel Ward, Rashee Rice, Harold
-    # Fannin Jr., Maliek Collins, Fred Warner: their cards' patterns stay on the cut-out
+    'xadrianpeterson', 'xchampbailey', 'xdrewbrees', 'xedreed', 'xericdickerson', 'xmarvinharrison',  # Adrian Peterson, Champ Bailey, Drew Brees, Ed Reed, Eric Dickerson, Marvin Harrison
+    'xtombrady', 'xtroypolamalu', '0023459', '0040122', '0038542', '0034836',  # Tom Brady, Troy Polamalu, Aaron Rodgers, Ashton Jeanty, Bijan Robinson, Braden Smith
+    '0037692', '0033890', '0039918', '0040579', '0032762', '0034768',  # Brandon Aubrey, Budda Baker, Caleb Williams, Carson Schwesinger, Chris Jones, Chukwuma Okorafor
+    '0034351', '0036912', '0034856', '0034815', '0033288', '0040663',  # Dallas Goedert, DeVonta Smith, Denzel Ward, Fred Warner, George Kittle, Harold Fannin Jr.
+    '0036900', '0031492', '0036442', '0035642', '0036322', '0029592',  # Ja'Marr Chase, Jason Myers, Joe Burrow, Josh Hines-Allen, Justin Jefferson, Kevin Zeitler
+    '0034759', '0034796', '0033131', '0037250', '0039067', '0036410',  # Kolton Miller, Lamar Jackson, Maliek Collins, Martin Emerson, Rashee Rice, Tee Higgins
+    '0038563', '0036971', '0038996', '0039111',  # Tre Tucker, Trevor Lawrence, Tucker Kraft, Tuli Tuipulotu
 }
 # (Commons photos that are a portrait, a posed head-and-shoulders or a stamp, not a game, are left out of PICK: the owner,
 # Oct 31 2026, "Remove any headshot of the legend players")

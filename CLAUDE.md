@@ -192,12 +192,15 @@ an action photo of the player with a background color to match the team", then "
 the players that would be used for trading cards? There should be a clean cutout of the player in game. Remove any headshot
 of the legend players. All cards aside from the common 'basic' cards should have an action photo of them in their playing
 days"): every Rare, Epic, Legendary and Mythic card, and every Legend's card, wears the player cut out in game, only him, on
-the card's own team colours and graphic (`js/core/dynasty-action.js` ACTION, `img/dynasty/action/<key>-v2.webp` with
+the card's own team colours and graphic (`js/core/dynasty-action.js` ACTION, `img/dynasty/action/<key>-v3.webp` with
 alpha, head `a:<key>`, class `is-action`). The photo is his own trading card's (the CardSight scans in `img/dynasty/real`:
 newest base card, else his first card that is a game photo; `CARD_SKIP` leaves out painted, portrait and comic inserts,
 `CARD` picks another), upscaled 4x (OpenCV EDSR) and cut out with rembg's BiRefNet portrait model plus Segment Anything so
 teammates and opponents go; else a freely licensed Commons photo of him in uniform (`PICK`/`CROP`, credited with author,
-licence and page, which the licences require; `COMMONS_FIRST` prefers it). Card details name the trading card a photo
+licence and page, which the licences require; `COMMONS_FIRST` prefers it). Quality first (Nov 1 2026, Evan: "Ensure good
+quality pictures are being used. The card scans might be too fuzzy"): the scans are only 160 x 225, so where a sharp (800+
+px) Commons game photo of him alone in an NFL uniform exists it goes in `COMMONS_FIRST` (chosen by eye side by side with
+the card's cut-out); the rest stay on their card's photo until larger CardSight scans arrive. Card details name the trading card a photo
 comes from. Common cards keep their headshot; no Legend wears a headshot or Wikipedia lead photo (those are retired:
 `dynasty-legends.js` PHOTO is no longer worn), a Legend without an action photo shows his number. Rebuild with
 `tools/dynasty/action_photos.py build` (about 45 s a player on the CPU; `crops` for Commons framing), check the cut-outs
