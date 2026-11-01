@@ -9,7 +9,10 @@
 //   node tools/return/player-model.mjs american_football_player.glb models/return-player.glb
 //   node tools/return/mixamo-clip.mjs Fast_Run.fbx run models/return-player.glb .99
 //   node tools/return/mixamo-clip.mjs xbot.glb:idle idle models/return-player.glb
-// (xbot.glb: the X Bot model this one replaced, with its idle: git show 1736347:models/return-player.glb)
+//   node tools/return/runner-anims.mjs "<Endless Runner Animations>/fbx" models/return-player.glb
+// (xbot.glb: the X Bot model this one replaced, with its idle: git show 1736347:models/return-player.glb; the last
+// step, since Nov 1 2026: the idle, the run and the moves from the owner's pack, the run's cycle started where Fast
+// Run's was)
 import * as T from 'three';
 import sharp from 'sharp';
 import {NodeIO} from '@gltf-transform/core';

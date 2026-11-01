@@ -2,25 +2,27 @@ import * as features from '../core/features.js';
 // Return Man's players in real 3D (the owner's ask, Oct 2026: smooth, at the screen's frame rate, not pictures): a
 // rigged, animated football player (models/return-player.glb: "American Football Player" by blakeallen25 on Sketchfab,
 // CC-BY-4.0, https://sketchfab.com/3d-models/american-football-player-10bf41a1c05a4c9cb74676b7dd8cb18e; slimmed by
-// tools/return/player-model.mjs, with Mixamo's Fast Run for his run and the X Bot's idle, retargeted in by
-// tools/return/mixamo-clip.mjs, in place: the ground moves under him; three.js itself in js/vendor/three, MIT) in each
+// tools/return/player-model.mjs; his idle, run, jump, slide, side-steps' lean and a hit's flinch from the owner's
+// "Endless Runner Animations" (Mixamo's, Nov 1 2026), retargeted in by tools/return/runner-anims.mjs, in place: the
+// ground moves under him; three.js itself in js/vendor/three, MIT) in each
 // side's colours (his jersey, pants and helmet repainted, his number on his back and his chest; for the returner the
 // ball), lit, in the 3D world (views/return-3dworld.js: the ground, the roadside, the
 // lane things, built in the same scene): the whole of it rendered on a WebGL canvas off the page through a camera that
 // matches the 2D scene's (views/return-world.js P), each frame, and laid over the sky (views/return.js), with the
 // place's light, its haze as fog, and the sun's shadows.
 // A pose (views/return.js says which: pose specs) is a move's clip, cross-faded from the one before (the idle; the
-// run, at the stride the yards say; the jump, the slide, a side-step, going down: MOVES), with the moment's own pose
-// laid over it bone by bone (aim(): each bone turned to point where the move wants it, in his own frame: +z ahead, +x
-// his left, +y up): the ball tucked, the catch, a stumble's arm; turned (a cut, a spin), leaned and pitched (a fall, a
-// dive) as a whole. Everything's bent with the world (return-3dworld.js bend()).
-// Exports: load(), ready(), render(st, now, who), STRIDE, MOVES.
+// run, at the stride the yards say; the jump, the slide, a side-step, going down: MOVES), the model's layers added
+// over the run (LAYERS: a side-step's lean, a hit's flinch), and the moment's own pose laid over it bone by bone
+// (aim(): each bone turned to point where the move wants it, in his own frame: +z ahead, +x his left, +y up): the ball
+// tucked, the catch, a stumble's arm; turned (a cut, a spin), leaned and pitched (a fall, a dive) as a whole.
+// Everything's bent with the world (return-3dworld.js bend()).
+// Exports: load(), ready(), render(st, now, who), leans(), STRIDE, MOVES.
 import * as W3 from './return-3dworld.js';
 import * as data from '../core/data.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 const MODEL = new URL('../../models/return-player.glb', import.meta.url).href;
-/** Yards a full run cycle (two strides) covers: the clip's legs keep pace with the ground. (Mixamo's Fast Run plants
- *  3.7 a cycle on him, tools/return/mixamo-clip.mjs says; at his 13-19 yards a second that spins the legs near three
+/** Yards a full run cycle (two strides) covers: the clip's legs keep pace with the ground. (The pack's run plants 4.45
+ *  a cycle on him, tools/return/runner-anims.mjs says; at his 13-19 yards a second that spins the legs near three
  *  times a second, too fast to read, so a longer stride: his feet slide a little, out of sight from behind him.) */
 export const STRIDE = 5;
 const SCALE = 1.12; // the model's metres to yards, a little big (a man is about 2 yards with his helmet on)
@@ -248,8 +250,15 @@ function dress(gltf, SK, k) {
   const clip = name => gltf.animations.find(a => a.name === name);
   const run = mixer.clipAction(clip('run')), idle = mixer.clipAction(clip('idle'));
   [run, idle].forEach(a => { a.play(); a.setEffectiveWeight(0); });
+  // the model's layers (a +: each what it does over the run, added onto whatever he's doing)
+  const layer = {};
+  gltf.animations.filter(c => c.name.endsWith('+')).forEach(c => {
+    const a = mixer.clipAction(c, undefined, T.AdditiveAnimationBlendMode);
+    a.play(); a.setEffectiveWeight(0);
+    layer[c.name] = {a, w: 0, u: 0};
+  });
   return {root, wrap, model, B, mixer, run, idle, ball, hipsY: B.Hips.position.y, q: new T.Quaternion(),
-    act: {run, idle}, w: {run: 0, idle: 1}, u: {}, slot: {}, last: 0};
+    act: {run, idle}, w: {run: 0, idle: 1}, u: {}, slot: {}, layer, last: 0};
 }
 /** Gives a player the moves' clips (two takes of each: a move started again while the last is still fading out takes
  *  the other, so neither jumps). */
@@ -413,12 +422,31 @@ function bake(P, gltf) {
     return new T.AnimationClip(name, 1, tracks);
   });
 }
+// The model's layers over his run (tools/return/runner-anims.mjs), each by how far into it he is: a side-step's lean
+// (in place of the keyed side-step, when the model has it: his legs keep the run's stride under it) and a hit's flinch
+// (on his feet, running), each eased off over LAYER_OUT seconds when it's cut short.
+// The pack's leans are deep, so they're laid on at LEAN of their full (the owner's ask, Oct 2026: less lean on lane
+// changes); and with them the view doesn't roll him into the cut as well (leans()).
+const LAYERS = {sideL: 'sideL+', sideR: 'sideR+'}, LAYER_IN = .05, LAYER_OUT = .1, LEAN = .7;
+/** Whether his side-steps lean of themselves (the model has their layers). */
+export const leans = () => !!GL && GL.gltf.animations.some(c => c.name === LAYERS.sideL);
 /** Sets his pose: s = {move ('idle', 'run', or one of MOVES), u (0-1: how far into the move), phase (0-1 round the
- *  run's cycle), t (seconds), carry, catch, stumble (each 0-1: how far into it), turn, roll, pitch (radians), lift
+ *  run's cycle), t (seconds), carry, catch, stumble, hit (each 0-1: how far into it), turn, roll, pitch (radians), lift
  *  (yards), ball (whether the ball's in his arm)}; dt: seconds since the last. */
 function pose(P, s, dt) {
+  // a side-step the model leans: the run, with its layer
+  const lean = P.layer[LAYERS[s.move]];
+  const want = lean ? 'run' : s.move || 'run';
+  const lay = {};
+  if (lean) lay[LAYERS[s.move]] = s.u || 0;
+  if (s.hit > 0 && s.hit < 1 && want === 'run' && P.layer['hit+']) lay['hit+'] = s.hit;
+  for (const k in P.layer) {
+    const L = P.layer[k];
+    if (k in lay) { L.u = lay[k]; L.w = Math.min(1, L.w + dt / LAYER_IN); } else L.w = Math.max(0, L.w - dt / LAYER_OUT);
+    L.a.setEffectiveWeight(L.w * (k === 'hit+' ? 1 : LEAN));
+    L.a.time = Math.max(0, Math.min(1, L.u)) * L.a.getClip().duration;
+  }
   // the move's take: the one it's on, or the other if it's started again while this one still shows
-  const want = s.move || 'run';
   let on = want;
   if (P.act[want + '~']) {
     const u = Math.max(0, Math.min(1, s.u || 0));

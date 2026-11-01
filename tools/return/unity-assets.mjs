@@ -1,8 +1,9 @@
 // Reading the owner's Unity asset packs (D:\Unity\My project\Assets) without Unity: the models (binary FBX 7.x, ASCII
 // FBX 6.1 and 7.x, Blockbench OBJ), their pictures (PNG, and the composite image a PSD keeps) and the Unity materials
 // that join the two (.mat by .meta guid). Read-only: nothing in the Unity project is written.
-// Exports: model(file) -> {meshes: [{name, matrix, pos, polys, uv, mats, cols}], materials, up}; image(file) -> {w, h,
-// data (RGBA bytes)}; unityIndex(dir) -> guid lookup; material(index, name | file) -> {color, tex, scale, offset, glow}.
+// Exports: model(file) -> {meshes: [{name, matrix, pos, polys, uv, mats, cols}], materials, up}; fbx(file) -> its node
+// tree; image(file) -> {w, h, data (RGBA bytes)}; unityIndex(dir) -> guid lookup; material(index, name | file) ->
+// {color, tex, scale, offset, glow}.
 import fs from 'node:fs';
 import path from 'node:path';
 import {inflateSync} from 'node:zlib';
@@ -284,6 +285,11 @@ function objModel(file) {
 
 export function model(file) {
   return /\.obj$/i.test(file) ? objModel(file) : fbxModel(file);
+}
+/** An FBX file's node tree as it is ({ver, kids: [{name, props, kids}]}), for readers of more than its meshes. */
+export function fbx(file) {
+  const buf = fs.readFileSync(file);
+  return buf.toString('latin1', 0, 18) === 'Kaydara FBX Binary' ? fbxBinary(buf) : fbxAscii(buf.toString('latin1'));
 }
 
 // ============================================================================ Pictures

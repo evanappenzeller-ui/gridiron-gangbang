@@ -419,6 +419,8 @@ function chaserAnim(st, now, z) {
 // quick, out of it slower.
 const SIDE_S = .32;
 const leanOf = u => (u < 0 || u >= 1 ? 0 : u < .35 ? smooth(u / .35) : 1 - smooth((u - .35) / .65));
+// A hit he runs on through (stumbled, shook him): the model's flinch (its hit+ layer) over HIT_MS.
+const HIT_MS = 480;
 // A pothole stepped in (core fallsIn: the only thing he falls into, the owner's ask, Oct 2026): he drops into it to
 // his waist (deep yards), is held in it a moment (bent over its far rim, both hands out on it, the ball kept tucked),
 // climbs out over that rim and runs on, a puff of the hole's dust and bits of its rim kicked up. Its timing is core's
@@ -494,11 +496,12 @@ function runner3(st, now) {
   else if (dir) { o.move = dir > 0 ? 'sideR' : 'sideL'; o.u = js; }
   const stum = run.slow > 0 ? run.slow / R.CHASE.slow : 0, he = st.hitAt ? now - st.hitAt : 1e9;
   if (stum) o.stumble = stum;
+  if (he < HIT_MS) o.hit = he / HIT_MS;
   o.pitch = .1 + .3 * R.burstOf(run) + (he < 320 ? .38 * Math.sin(Math.PI * he / 320) : 0); // (leaning into his run, more in a burst; a hit: he lurches forward)
   // a juke: turned and leaned into it, eased in and out; a spin goes all the way round
   const lean = dir * leanOf(js), sp = st.spinAt ? (now - st.spinAt) / SPIN_MS : 1;
   o.turn = .38 * lean + (sp < 1 ? st.spinDir * Math.PI * 2 * smooth(sp) : 0);
-  o.roll = .2 * lean + stum * .16 * Math.sin(run.slow * 22) + .45 * edgeBounce(st, now);
+  o.roll = (D3.leans() ? 0 : .2 * lean) + stum * .16 * Math.sin(run.slow * 22) + .45 * edgeBounce(st, now);
   return o;
 }
 /** The linebacker's 3D pose (z: where he is): running him down; set while the kick's in the air; the dive. */
