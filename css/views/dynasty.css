@@ -399,6 +399,24 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-iconb { position: relative; width: 36px; height: 36px; border: 0; border-radius: 12px; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); cursor: pointer; flex: none; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-iconb.is-on { color: var(--tint); background: var(--tint-soft); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-iconb > i { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--tint); color: #fff; font: 800 10px/16px var(--font-text); font-style: normal; }
+/* the binder's sort row (Best, Rarity, Team, Position) and the heading over each group in the grid */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-sortr { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-sortr > span { flex: none; margin-right: 2px; color: var(--ink-3); font: 700 12px/1 var(--font-text); text-transform: uppercase; letter-spacing: .06em; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-sortr > button { flex: 1 1 0; min-width: 0; min-height: 34px; padding: 0 4px; border: 0; border-radius: 99px; background: var(--surface-2); color: var(--ink-2);
+  font: 700 13px/1 var(--font-text); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-sortr > button[aria-pressed="true"] { background: linear-gradient(180deg, #3FD3E4, #13A9C2); color: #fff; box-shadow: 0 2px 0 #0E8196; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-sortr > button:focus-visible { outline: 3px solid #ae832b; outline-offset: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-grid > .pk-gh { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin: 6px 2px -4px; padding-bottom: 6px; border-bottom: 1px solid var(--surface-3);
+  color: var(--ink); font: 800 16px/1.2 var(--font-text); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-grid > .pk-gh:first-child { margin-top: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-gh > img { width: 26px; height: 26px; object-fit: contain; flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-gh > i { font-style: normal; font-size: 12px; letter-spacing: -.05em; color: #8a94a6; flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-gh > i.is-rare { color: #c79a1e; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-gh > i.is-epic { color: #7c4dd8; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-gh > i.is-legendary { color: #d49a00; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-gh > i.is-mythic { color: #d0399a; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-gh > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-gh > small { margin-left: auto; padding: 3px 8px; border-radius: 99px; background: var(--surface-2); color: var(--ink-3); font: 700 12px/1 var(--font-text); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-binder + .pk-alert, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-binder + [data-dy-grid], :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-binder + .pk-note { margin-top: 12px; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-cols > li { padding: 8px 12px 8px 8px; gap: 8px; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-cols > li.is-ready { background: linear-gradient(90deg, rgba(255,214,60,.18), transparent); }

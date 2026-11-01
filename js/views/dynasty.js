@@ -471,6 +471,20 @@ function pointsSheet(st) {
 // ---------------------------------------------------------------------------------------------------- My Cards
 const POS_ORDER = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'];
 const PAGE = 60;
+// The binder's order (Nov 1 2026, Evan: "Add a section to sort cards by rarity, team, position"): best first, else
+// grouped under a heading per rarity (Mythic down), team (A-Z) or position (QB to K), best first within each; Trainers last.
+const SORTS = [{id: '', label: 'Best'}, {id: 'rar', label: 'Rarity'}, {id: 'team', label: 'Team'}, {id: 'pos', label: 'Position'}];
+const SORT_KEY = 'gg-dy-sort';
+const sortLoad = () => { try { const v = localStorage.getItem(SORT_KEY) || ''; return SORTS.some(x => x.id === v) ? v : ''; } catch (e) { return ''; } };
+const sortSave = v => { try { localStorage.setItem(SORT_KEY, v); } catch (e) { /* (kept for this visit only) */ } };
+const posAt = p => { const i = POS_ORDER.indexOf(p); return i < 0 ? POS_ORDER.length : i; };
+function groupOf(sort, c) {
+  if (!sort) return null;
+  if (!D.card(c.id)) return {k: 'T', label: 'Trainers'};
+  if (sort === 'rar') return {k: c.r, label: D.RARITY_NAME[c.r] || c.r, sym: RAR_SYM[c.r]};
+  if (sort === 'team') { const t = D.teamOf(c.team); return {k: c.team, label: t.name || c.team, team: c.team}; }
+  return {k: c.pos, label: c.pos || 'Other'};
+}
 function cardsHTML(st) {
   const f = st.f, s = D.mine(), own = D.owned(s);
   const filters = (f.ser ? 1 : 0) + (f.pos ? 1 : 0) + (f.rar ? 1 : 0);
@@ -482,7 +496,8 @@ function cardsHTML(st) {
   h += `<div class="pk-binder-r"><span class="pk-count">${TILE.card}<b>${nf(own.have)}</b><small>/ ${nf(own.of)}</small></span>`
     + `<button type="button" class="pk-toggle${f.view === 'all' ? ' is-on' : ''}" data-dy-all aria-pressed="${f.view === 'all'}" aria-label="Show every card in the game"><i></i></button>`
     + `<button type="button" class="pk-iconb${filters ? ' is-on' : ''}" data-dy-filter aria-label="Filter">${ui.icon('sort', {size: 20})}${filters ? `<i>${filters}</i>` : ''}</button></div>`
-    + `<div class="pk-search">${ui.searchField({name: 'dy-q', placeholder: 'Search players, teams or cards', value: f.q})}</div></div>`;
+    + `<div class="pk-search">${ui.searchField({name: 'dy-q', placeholder: 'Search players, teams or cards', value: f.q})}</div>`
+    + `<div class="pk-sortr" role="group" aria-label="Sort cards"><span>Sort</span>${SORTS.map(x => `<button type="button" data-dy-sort="${x.id}" aria-pressed="${(f.sort || '') === x.id}">${x.label}</button>`).join('')}</div></div>`;
   const sp = D.spares(s);
   if (sp.list.length && f.view === 'mine') h += `<button type="button" class="pk-alert is-soft" data-dy-spares>${ui.icon('bolt', {size: 18})}<span>Quick sell ${sp.list.reduce((t, x) => t + x.n, 0)} spare cop${sp.list.reduce((t, x) => t + x.n, 0) === 1 ? 'y' : 'ies'} for ${nf(sp.coins)} coins</span></button>`;
   return h + '<div data-dy-grid></div>';
@@ -508,9 +523,16 @@ function filtered(st) {
   const tr = !f.pos && (!f.ser || f.ser === 'T') ? D.TRAINER_IDS.map(D.trainer).filter(t => (f.view === 'all' || s.o[t.id] > 0) && (!f.rar || t.r === f.rar)
     && (!q || data.norm(`${t.name} ${t.text}`).includes(q))) : [];
   if (f.ser === 'T') return tr;
+  const best = (a, b) => b.o - a.o || D.SERIES_ORDER.indexOf(a.s) - D.SERIES_ORDER.indexOf(b.s) || a.name.localeCompare(b.name);
+  const by = {
+    rar: (a, b) => D.RARITY.indexOf(b.r) - D.RARITY.indexOf(a.r),
+    team: (a, b) => (D.teamOf(a.team).name || a.team || '').localeCompare(D.teamOf(b.team).name || b.team || ''),
+    pos: (a, b) => posAt(a.pos) - posAt(b.pos)
+  }[f.sort];
+  if (by) tr.sort((a, b) => D.RARITY.indexOf(b.r) - D.RARITY.indexOf(a.r) || a.name.localeCompare(b.name));
   return D.CARDS.filter(c => (f.view === 'all' || s.o[c.id] > 0) && (!f.ser || c.s === f.ser) && (!f.pos || c.pos === f.pos) && (!f.rar || c.r === f.rar)
     && (!q || data.norm(`${c.name} ${c.team} ${D.teamOf(c.team).name}`).includes(q)))
-    .sort((a, b) => b.o - a.o || D.SERIES_ORDER.indexOf(a.s) - D.SERIES_ORDER.indexOf(b.s) || a.name.localeCompare(b.name)).concat(tr);
+    .sort(by ? (a, b) => by(a, b) || best(a, b) : best).concat(tr);
 }
 function drawGrid(st, more = false) {
   if (st.dead || st.hidden || st.tab !== 'cards') return;
@@ -520,7 +542,17 @@ function drawGrid(st, more = false) {
   const key = paneKey(st), from = more && st.gridKey === key && host.querySelector('.pk-grid') ? st.shown : 0;
   st.gridKey = key; st.renderedKey = key;
   st.shown = from + PAGE;
-  const cards = list.slice(from, st.shown).map(c => anyHTML(c.id, {size: 's', count: s.o[c.id] || 0, ghost: !(s.o[c.id] > 0), isNew: D.isNew(c.id, s)})).join('');
+  // (a heading opens each group: its name and how many cards it holds in this view)
+  const sort = st.f.sort || '', n = {};
+  if (sort) list.forEach(c => { const k = groupOf(sort, c).k; n[k] = (n[k] || 0) + 1; });
+  const head = i => {
+    if (!sort) return '';
+    const g = groupOf(sort, list[i]);
+    if (i > 0 && groupOf(sort, list[i - 1]).k === g.k) return '';
+    const lead = g.team ? `<img src="${esc(logoUrl(g.team, 64))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : g.sym ? `<i class="is-${esc(g.k)}" aria-hidden="true">${g.sym}</i>` : '';
+    return `<h3 class="pk-gh">${lead}<span>${esc(g.label)}</span><small>${nf(n[g.k])}</small></h3>`;
+  };
+  const cards = list.slice(from, st.shown).map((c, j) => head(from + j) + anyHTML(c.id, {size: 's', count: s.o[c.id] || 0, ghost: !(s.o[c.id] > 0), isNew: D.isNew(c.id, s)})).join('');
   const next = list.length > st.shown ? `<button type="button" class="pk-more" data-dy-more>Show more (${nf(list.length - st.shown)})</button>` : '';
   if (from) {
     host.querySelector('.pk-grid').insertAdjacentHTML('beforeend', cards);
@@ -998,7 +1030,7 @@ export default {
   render() { return shellHTML(); },
 
   mount(el, ctx) {
-    const st = {el, ctx, tab: 'battle', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: ''}, shown: PAGE, dead: false, starting: false, stops: [], panes: new Map(), revision: 0, refreshFrame: 0, hidden: false};
+    const st = {el, ctx, tab: 'battle', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: '', sort: sortLoad()}, shown: PAGE, dead: false, starting: false, stops: [], panes: new Map(), revision: 0, refreshFrame: 0, hidden: false};
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
     ctx.setBackTitle('Rivals');
@@ -1022,6 +1054,7 @@ export default {
       if ((b = q('[data-dy-cv]'))) { st.f.view = b.dataset.dyCv; refresh(st); return; }
       if (q('[data-dy-all]')) { st.f.view = st.f.view === 'all' ? 'mine' : 'all'; ui.haptic('selection'); refresh(st); return; }
       if (q('[data-dy-filter]')) { filterSheet(st); return; }
+      if ((b = q('[data-dy-sort]'))) { if (st.f.sort !== b.dataset.dySort) { st.f.sort = b.dataset.dySort; sortSave(st.f.sort); ui.haptic('selection'); refresh(st); } return; }
       // (the packs: a swipe that just ended never opens the front one nor brings one behind forward)
       if (q('[data-dy-car]') && performance.now() - (st.swiped || -1e4) < 450) return;
       if ((b = q('[data-dy-to]'))) { packTo(st, packKinds(D.mine()).indexOf(b.dataset.dyTo), 1); return; }
