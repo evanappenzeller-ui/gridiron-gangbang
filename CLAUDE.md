@@ -139,6 +139,10 @@ Rarity finishes follow the owner's card references: type-tinted silver Common, g
 illuminated gold Legendary, and prismatic cosmic Mythic. Keep the name/HP header and framed artwork readable.
 `dynasty-rarity.css` and `img/rivals/` own the materials; `dynasty-foil.js` adds reflections in details and reveals.
 Collection previews stay still, with reduced-motion support. Verify `check-card-layout.cjs`.
+Mythic foil (Nov 1 2026, Evan, with a holographic foil picture: "Use the attached for a background picture for the special
+cards, the highest rarity only"): Mythic cards alone wear `img/rivals/mythic-holo-v1.webp` behind the player in place of the
+tinted plasma (team mark, nickname and streaks stay on top) and as the card face behind the frame (`dynasty-rarity.css`).
+Battle pieces keep their light faces.
 Team backgrounds (October 30, 2026): the owner replaced hometown photos with electric sports-poster graphics,
 inspired by his Ravens/Vikings examples. Every franchise uses its own local logo, team colors, nickname, plasma
 texture and angled accents (`views/dynasty-team-scenes.js`, `img/rivals/team-graphics-v2/`).

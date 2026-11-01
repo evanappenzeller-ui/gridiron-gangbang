@@ -140,15 +140,15 @@
   margin: 1.5cqw .3cqw .8cqw; padding: 2.2cqw 1.5cqw; border-radius: 1cqw;
   background: #fff4d9; box-shadow: inset 0 0 0 .35cqw #aa7d34, 0 .4cqw .5cqw #8f651d30;
 }
-/* Mythic: cosmic artwork continues behind the frame; all rules sit on opaque pearl panels. */
+/* Mythic: the owner's holographic foil (Nov 1 2026) fills the card behind the frame; all rules sit on opaque pearl panels. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic {
   --card-edge: #675bb0; --card-inner: #c9fff5; --card-shadow: #5442b755; --card-line: #d7d3ff80;
   --card-paper: #252047; --card-panel: #eeeaff; --card-ink: #25213c; --card-muted: #514b6a;
-  --card-scene: url('../../img/rivals/field-mythic.svg');
+  --card-scene: url('../../img/rivals/mythic-holo-v1.webp');
   --card-foil: linear-gradient(120deg, #73d4ff, #d99ce5 13%, #ffc0b0 26%, #ffe7a1 39%, #9af5dd 52%, #a6bdff 65%, #e0a3ef 78%, #a1f1ff 91%);
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-face {
-  background: var(--card-scene) 50% 44% / auto 110% no-repeat, #252047;
+  background: url('../../img/rivals/mythic-holo-v1.webp') center / 100% 100% no-repeat, #252047;
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-head {
   padding: 1.8cqw 1cqw 1.5cqw; margin: 0 -.8cqw; border-radius: 1.5cqw; background: #f0ecff;
@@ -267,6 +267,12 @@ div.pk-open .pk-card.pk-rivals-card {
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-art:has([data-team-scene]) {
   background: var(--tp);
 }
+/* A Mythic player stands on the owner's holographic foil instead of the tinted plasma (Nov 1 2026);
+   the team mark, nickname and accent streaks stay on top. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-scenery[data-team-scene] {
+  background: url('../../img/rivals/mythic-holo-v1.webp') var(--team-focus, center) / cover no-repeat #252047;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-scenery[data-team-scene]::before { content: none; }
 /* The player is the focal point (the owner, Oct 31 2026): a large centred headshot, the team mark a corner badge.
    Headshots sit a little smaller (the owner, Oct 31 2026: "slightly smaller on the basic cards"); action photos keep 100%. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-art:has([data-team-scene]) .pk-c-ph {
@@ -298,7 +304,7 @@ div.pk-open .pk-card.pk-rivals-card {
   text-align: left; text-shadow: 0 .4cqw 1cqw #000, 0 0 2cqw #000; pointer-events: none;
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic:has([data-team-scene]) .pk-c-face {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--tp) 70%, #090719), #141027 60%, color-mix(in srgb, var(--ts) 35%, #141027));
+  background: url('../../img/rivals/mythic-holo-v1.webp') center / 100% 100% no-repeat, #252047;
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer .pk-t-art:has([data-team-scene]) {
   background: var(--tp); isolation: isolate;
