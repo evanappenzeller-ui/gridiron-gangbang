@@ -172,7 +172,7 @@ export function creditHTML(c) {
   if (!r) return '';
   if (r.card) return `<p class="pk-credit">Photo: from his ${esc(realName(r.card))} card</p>`;
   const lic = r.licenceUrl ? `<a href="${esc(r.licenceUrl)}" target="_blank" rel="noopener">${esc(r.licence)}</a>` : esc(r.licence);
-  return `<p class="pk-credit">Photo: ${esc(r.author)} · ${lic} · <a href="${esc(r.page)}" target="_blank" rel="noopener">Wikimedia Commons</a></p>`;
+  return `<p class="pk-credit">Photo: ${esc(r.author)} · ${lic} · <a href="${esc(r.page)}" target="_blank" rel="noopener">${esc(r.site || 'Wikimedia Commons')}</a></p>`;
 }
 /** A card up close: the card, its battle side, its back, and what you can do with it. */
 function cardSheet(st, id) {

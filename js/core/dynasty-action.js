@@ -256,5 +256,9 @@ export function actionCredit(p) {
     const card = (REAL[p] || []).find(e => e[0] === r[1].slice(5));
     return card ? {card} : null;
   }
-  return {author: r[2], licence: r[3], licenceUrl: r[4], page: `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(r[1])}`, year: r[5] || 0};
+  if (r[1].startsWith('flickr:')) {
+    // (a Flickr photo, 'flickr:<owner>/<photo id>': its page on Flickr)
+    return {author: r[2], licence: r[3], licenceUrl: r[4], page: `https://www.flickr.com/photos/${r[1].slice(7)}`, site: 'Flickr', year: r[5] || 0};
+  }
+  return {author: r[2], licence: r[3], licenceUrl: r[4], page: `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(r[1])}`, site: 'Wikimedia Commons', year: r[5] || 0};
 }

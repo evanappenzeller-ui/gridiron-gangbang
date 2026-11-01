@@ -114,7 +114,8 @@ CARD_KEEP = (.04, .05, .96, .84)
 BAND = {'Canton Kings': (.04, .05, .96, .76)}  # (a set whose lettering sits higher: its own bands)
 SEASON = 2026   # this season (a Live player's first season: SEASON - his years in the league)
 
-# player key -> the Commons file chosen by eye (its name as the file page has it, without "File:")
+# player key -> the Commons file chosen by eye (its name as the file page has it, without "File:"), or 'flickr:<photo id>'
+# for a photo from action_sweep.py's Flickr sheets
 PICK = {
     "xjerryrice": "Jerry_Rice_1985.jpg",  # Jerry Rice, 1985
     "xlawrencetaylor": "Lawrence_Taylor_tackle.jpg",  # Lawrence Taylor, 1984
@@ -903,6 +904,22 @@ def prepare():
                 upscale(os.path.join(REAL_IMG, f'{key}-{e[0]}.jpg'), src)
             tag = f'card-{e[0]}'
             row = [stem, 'card:' + e[0], '', '', '', e[1]]
+        elif key in PICK and PICK[key].startswith('flickr:'):
+            # (a Flickr photo, chosen from action_sweep.py's sheets: its owner, licence, year and page from Flickr's API)
+            from action_sweep import flickr_info
+            pid = PICK[key][7:]
+            i = flickr_info(pid)
+            if not i.get('licence') or not i.get('url'):
+                print('no licence or picture from Flickr:', key, pid, file=sys.stderr)
+                continue
+            raw = os.path.join(CACHE, f'raw-{slug(key)}-flickr-{pid}.jpg')
+            if not done and not fetch(i['url'], raw):
+                continue
+            tag = hashlib.sha1(json.dumps([pid, i['url'], CROP.get(key), W, H, S]).encode()).hexdigest()[:10]
+            src = os.path.join(CACHE, f'crop-{slug(key)}-{tag}.png')
+            if not os.path.exists(src) and not done:
+                crop(raw, src, CROP.get(key))
+            row = [stem, f'flickr:{i["owner"]}/{pid}', plain(i['author'])[:120], i['licence'], i['licenceUrl'], YEAR.get(key) or i['year'] or 0]
         elif key in PICK:
             f = PICK[key]
             i = file_info(f.replace(' ', '_'))

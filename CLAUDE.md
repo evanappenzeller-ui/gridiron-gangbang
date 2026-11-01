@@ -209,9 +209,16 @@ from the owner's CardSight downloader. Cleaner cut-outs (Nov 1 2026, Evan: "Ther
 weird or has other players in it"): Commons' `(cropped)` files are infobox crops, so prefer the whole original or a deeper
 search of the photographers' game series (All-Pro Reels, Erik Drost); never a Legend's retired lead photo. A redone player gets
 his own version in `REDO` (only he is rebuilt); `ALONE` skips Segment Anything where he is the only figure; `SAM_HINT` (box,
-points on him and on the other, areas to clear) separates an overlapping teammate; `YEAR` fixes a photo's year. Flickr
-(the originals behind many Commons crops) needs `FLICKR_API_KEY` and api.flickr.com, www.flickr.com, live.staticflickr.com
-allowed in the environment. The kit checks "Gridiron Rivals: no Legend wears a headshot…" and "Gridiron Rivals:
+points on him and on the other, areas to clear) separates an overlapping teammate; `YEAR` fixes a photo's year; `CLEAR`
+outlines what a card scan leaves on a cut-out (frame, lettering, another player) and a card's own band; `INK` paints an
+autograph out by its ink's hue (Gale Sayers). `tools/dynasty/action_sweep.py` is the deeper search: `plan`/`names`/`sheets`
+go through the game and camp categories of each player's teams' seasons (All-Pro Reels shoots every Washington game, Erik
+Drost the Browns), the named photos first, then every game's thumbnails on numbered sheets to scan by jersey number; `view`
+draws the tenths grid CROP and SAM_HINT fractions are read off; `flickr` lists each player's freely licensed Flickr photos
+(`FLICKR_API_KEY` in the environment; `PICK` takes `flickr:<photo id>`, credited with the owner, licence and photo page).
+Run the sweep on the owner's PC: a cloud session's shared address gets "retry in 10 minutes" from Commons' picture host
+(upload.wikimedia.org) after a few dozen thumbnails, and Flickr's hosts are outside its network policy. Never run two
+Commons fetchers at once there. The kit checks "Gridiron Rivals: no Legend wears a headshot…" and "Gridiron Rivals:
 action photos…" cover it.
 
 ## Live league scores (October 30, 2026)
