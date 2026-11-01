@@ -172,10 +172,8 @@ time, packs every fifth game). Keep the twelve earlier opponents readable so an 
 Resolved play events drive the skippable stadium scenes; animations never submit moves or resolve damage.
 Queue opponent scenes while a details sheet is open; clear presentation on profile changes or leaving the battle.
 The shared card reverse is the owner's printed back (Nov 1 2026, Evan: "Use the attached for the back of the cards"):
-navy frame, blue/teal shards, a larger GRIDIRON RIVALS wordmark at the head and a larger football below it, no mirrored
-bottom text (Nov 1 2026, Evan: "Remove the bottom text and make the top text and football larger"). `img/rivals/card-back-v2.webp`
-is built from `tools/dynasty/src/card-back-source.png` by `tools/dynasty/card_back.py` (sizes and placement at its head; a
-changed back gets a new `VERSION`).
+navy frame, blue/teal shards, the football, mirrored GRIDIRON RIVALS wordmarks (`img/rivals/card-back-v1.webp`, built from
+`tools/dynasty/src/card-back-source.png` by `tools/dynasty/card_back.py`; a changed back gets a new version).
 The case's booklet matches the pastel start screen, floating cards and yellow/blue logo (`dynasty-book-v4`);
 the disc matches the cover (Oct 31 2026, Evan: "Change the disc to match the design of the front"): the cover's
 holographic foil rim and gold bevel, its royal-blue rayed face, its gold logo and glowing football, Trading Card Game
