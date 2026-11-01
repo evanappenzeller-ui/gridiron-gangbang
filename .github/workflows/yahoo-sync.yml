@@ -3,10 +3,11 @@
 name: Yahoo sync
 
 on:
-  # A change to the sync itself runs it straight away (GitHub's schedule can start hours late).
+  # Every deploy to main runs it straight away, as does a change to the sync itself: GitHub's schedule can start
+  # hours late or skip runs (Nov 1 2026: six to eight hours apart, so a trade that morning missed the lineups).
+  # The sync's own commits are pushed with the workflow's token, which never starts another run.
   push:
     branches: [main]
-    paths: [tools/yahoo/sync.py, .github/workflows/yahoo-sync.yml]
   schedule:
     # Every hour, all week: Yahoo's projections move with injury news and lineup changes (Oct 31 2026, the owner:
     # "The predictions in the app don't match the yahoo app. Update this more often"). GitHub often starts scheduled

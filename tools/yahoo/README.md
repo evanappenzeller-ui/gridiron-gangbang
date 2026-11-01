@@ -1,7 +1,8 @@
 # Yahoo sync
 
 `.github/workflows/yahoo-sync.yml` runs `sync.py` every hour, and every 15 minutes through the game-day windows
-(Thursday night, Sunday, Sunday night, Monday night), so the lineups the app scores live are the ones that locked and
+(Thursday night, Sunday, Sunday night, Monday night), and on every push to `main` (GitHub often starts scheduled
+runs late or skips them), so the lineups the app scores live are the ones that locked and
 Yahoo's projections and win chances stay close to Yahoo's app. It copies the league's final scores, next
 games, team names and Yahoo's projections for the current week into `data/league.json`, along with every
 team's roster, each rostered player's projection for the week (Sleeper's free projections: Yahoo's API projects only
