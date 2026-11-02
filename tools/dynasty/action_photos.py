@@ -41,7 +41,7 @@ REAL_IMG = os.path.join(ROOT, 'img', 'dynasty', 'real')
 EDSR = 'https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x4.pb'  # 4x upscaling of the card scans
 VERSION = 'v3'  # in the file names: a changed picture needs a new name (sw.js keeps pictures across releases)
 # Players alone in their photo: BiRefNet's figure is kept whole, without Segment Anything (which can drop an arm or the ball)
-ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas'}  # Denzel Ward, Brett Favre, Johnny Unitas
+ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
 # Segment Anything's prompt by hand, where another player overlaps ours (fractions of the crop): a box round him,
 # points on him (1) and on the other (0), and boxes and outlines ('cut') to clear of what it still takes of the other
 SAM_HINT = {
@@ -82,6 +82,7 @@ REDO = {
     'xjohnnyunitas': 'v4', 'xgalesayers': 'v4',
     'xartmonk': 'v4', 'xbarrysanders': 'v4', 'xdanfouts': 'v4', 'xericdickerson': 'v4', 'xfrancoharris': 'v4', 'xjacklambert': 'v4', 'xlancealworth': 'v4', 'xpaulkrause': 'v4', 'xwalterjones': 'v4',  # Legends: card remnants cleared by hand
     '0034857': 'v4', '0033106': 'v4', '0034973': 'v4',  # Josh Allen, Jared Goff, Maxx Crosby: Commons originals over their card scans
+    '0036997': 'v4', '0033886': 'v4', '0034790': 'v5',  # Javonte Williams, T.J. Watt, Derwin James: the same
 }
 
 # The trading-card photos (the owner, Oct 31 2026: "Where can we find live action pictures of the players that would be
@@ -118,6 +119,7 @@ COMMONS_FIRST = {
     '0038563', '0036971', '0038996', '0039111',  # Tre Tucker, Trevor Lawrence, Tucker Kraft, Tuli Tuipulotu
     '0036358',  # CeeDee Lamb (his card's photo had a defender against him)
     '0034857', '0033106', '0034973',  # Josh Allen, Jared Goff, Maxx Crosby (sharp originals from action_sweep.py's named photos)
+    '0036997', '0033886', '0034790',  # Javonte Williams, T.J. Watt, Derwin James (the same)
 }
 # (Commons photos that are a portrait, a posed head-and-shoulders or a stamp, not a game, are left out of PICK: the owner,
 # Oct 31 2026, "Remove any headshot of the legend players")
@@ -203,7 +205,7 @@ PICK = {
     "0029592": "Kevin_Zeitler.JPG",  # Kevin Zeitler, 2015
     "0034973": "Maxx_Crosby_WFT-Raiders_DEC2021.jpg",  # Maxx Crosby, 2021, kneeling on the field
     "0030097": "David_Quessenberry_2021_09-19.jpg",  # David Quessenberry, 2021
-    "0033886": "TJWatt2025.jpg",  # T.J. Watt, 2025
+    "0033886": "TJ_Watt.jpg",  # T.J. Watt, 2019, at Cleveland
     "0035643": "2026_Tennessee_Titans_New_Jersey_Photo_Shoot_-_Jeffery_Simmons_(cropped).png",  # Jeffery Simmons, 2026
     "0035699": "Steelers_vs_Bucs_10.18.2026_2_(cropped).jpg",  # Jamel Dean, 2026
     "0039075": "Nacua_731_(cropped_2).jpg",  # Puka Nacua, 2023
@@ -266,7 +268,7 @@ PICK = {
     "0036388": "Xavier_McKinney_WFT-NYG_JAN2022_(cropped).jpg",  # Xavier McKinney, 2022
     "0036554": "Nico_Collins_2019.jpg",  # Nico Collins, 2019
     "0036986": "Nahshon_Wright.jpg",  # Nahshon Wright, 2025
-    "0036997": "Javonte_Williams_2021_(51650645333)_(cropped).jpg",  # Javonte Williams, 2021
+    "0036997": "Javonte_WIlliams_2025.jpg",  # Javonte Williams, 2025, a carry for Dallas
     "0038038": "Kyle_Hamilton_Ravens_Training_Camp_AUG2023_(cropped).jpg",  # Kyle Hamilton, 2023
     "0039018": "Jack_Campbell_Iowa_(cropped).jpg",  # Jack Campbell, 2022
     "0040128": "Tyler_Warren_pro_bowl.png",  # Tyler Warren, 2026
@@ -320,6 +322,7 @@ PICK = {
     "0023459": "AaronRodgersSteelers_(cropped).jpg",  # Aaron Rodgers, 2025
     "0033873": "Patrick_Mahomes_on_the_run_(51616124184).jpg",  # Patrick Mahomes, 2021
     "xjoethomas": "Joe_Thomas_Cleveland_Browns.jpg",  # Joe Thomas, 2011, at camp in his #73
+    "0034790": "Derwin_James_-_2025_Commanders_at_Chargers.jpg",  # Derwin James, 2025, running out
 }
 # player key -> (centre x, top, height) as fractions of the photo's width and height
 CROP = {
@@ -364,6 +367,9 @@ CROP = {
     "0033873": (0.37, 0.18, 0.8),  # Patrick Mahomes
     "0034973": (0.47, 0.25, 0.72),  # Maxx Crosby (the kicker at the right left out)
     "xjoethomas": (0.48, 0.03, 0.97),  # Joe Thomas
+    "0036997": (0.55, 0.06, 0.95),  # Javonte Williams
+    "0033886": (0.5, 0.02, 0.58),  # T.J. Watt
+    "0034790": (0.38, 0.08, 0.92),  # Derwin James
 }
 
 POS = {'QB': ['quarterback'], 'RB': ['running back'], 'WR': ['wide receiver'], 'TE': ['tight end'], 'K': ['placekicker', 'kicker'],

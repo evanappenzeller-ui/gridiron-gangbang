@@ -114,7 +114,7 @@ export const ACTION = {
   "0039343": ["0039343-v3", "card:9207fa61", "", "", "", 2024], // Kamari Lassiter
   "0029592": ["0029592-v3", "Kevin_Zeitler.JPG", "Jeffrey Beall", "CC BY 3.0", "https://creativecommons.org/licenses/by/3.0", 2015], // Kevin Zeitler
   "0034973": ["0034973-v4", "Maxx_Crosby_WFT-Raiders_DEC2021.jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2021], // Maxx Crosby
-  "0033886": ["0033886-v3", "card:9a3a79ff", "", "", "", 2025], // T.J. Watt
+  "0033886": ["0033886-v4", "TJ_Watt.jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2019], // T.J. Watt
   "0035643": ["0035643-v3", "card:ab489ef6", "", "", "", 2025], // Jeffery Simmons
   "0035699": ["0035699-v3", "card:8a07c251", "", "", "", 2019], // Jamel Dean
   "0038560": ["0038560-v3", "card:9ec9e416", "", "", "", 2023], // Jordan Battle
@@ -175,7 +175,7 @@ export const ACTION = {
   "0036388": ["0036388-v3", "card:8f1ef04d", "", "", "", 2025], // Xavier McKinney
   "0036554": ["0036554-v3", "card:a77c3b07", "", "", "", 2025], // Nico Collins
   "0036986": ["0036986-v3", "card:43715dbb", "", "", "", 2021], // Nahshon Wright
-  "0036997": ["0036997-v3", "card:ebe3a750", "", "", "", 2025], // Javonte Williams
+  "0036997": ["0036997-v4", "Javonte_WIlliams_2025.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Javonte Williams
   "0038038": ["0038038-v3", "card:ef680e7b", "", "", "", 2025], // Kyle Hamilton
   "0039018": ["0039018-v3", "card:55ff57af", "", "", "", 2024], // Jack Campbell
   "0040128": ["0040128-v3", "card:ec900f0b", "", "", "", 2025], // Tyler Warren
@@ -230,7 +230,7 @@ export const ACTION = {
   "0032762": ["0032762-v3", "Chris_Jones_(defensive_tackle,_born_1994).JPG", "Jeffrey Beall", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0", 2017], // Chris Jones
   "0033890": ["0033890-v3", "Budda_Baker.JPG", "Jeffrey Beall", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0", 2017], // Budda Baker
   "0034768": ["0034768-v3", "Chukwuma_Okorafor_(50695534763)_(cropped).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2020], // Chukwuma Okorafor
-  "0034790": ["0034790-v3", "card:5892f223", "", "", "", 2019], // Derwin James
+  "0034790": ["0034790-v5", "Derwin_James_-_2025_Commanders_at_Chargers.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Derwin James
   "0034836": ["0034836-v3", "Braden_Smith_at_Lambeau_Field.jpg", "Jhansen23", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0", 2024], // Braden Smith
   "0035676": ["0035676-v3", "card:919d0a36", "", "", "", 2025], // A.J. Brown
   "0036322": ["0036322-v3", "Jefferson_2022.jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Justin Jefferson
