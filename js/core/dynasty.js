@@ -9,9 +9,11 @@
 // real games, The Show's Topps Now), Awards (2025's leaders) and Legends. The rarities (the owner, Oct 29 2026: "The
 // rarities should be common, rare, epic, legendary, and mythic"), on the scale of the real trading cards (Oct 29 2026:
 // "the common cards should use the images we have now with the player headshots. use the new cards for the rare and
-// above. create a new player ranking scale using this"): a card with a real trading card (core/dynasty-real.js) is Rare
-// or better by its OVR, Mythic 95+, Legendary 91-94, Epic 87-90, Rare under 87; every other card is Common, his
-// headshot on it (rarityOf, SCALE). And the battles' Coach and Stadium cards (core/dynasty-battle.js
+// above. create a new player ranking scale using this"). One card a player (Nov 2 2026, the owner: "There should be no
+// two cards for the same player. A player needs to fall into one of the following categories: common (79 overall or
+// less. Use the current card design), epic (80-89), legendary (90-95), mythic (96+)"): each player keeps his best card
+// (highest OVR; his other cards are aliases of it: ALIAS, and a save's copies fold onto it: fold()), its rarity by OVR
+// alone (rarityOf, SCALE). Rare is retired. And the battles' Coach and Stadium cards (core/dynasty-battle.js
 // TRAINERS: Pokémon's Trainer and Stadium cards).
 //
 // Coins: the Daily Games pay them (earnedOf: every game day you play from the day your Dynasty began, read from your
@@ -53,12 +55,13 @@ export const SERIES = {
   X: {name: 'Legends', short: 'LEGEND', blurb: 'The all-time greats.'}
 };
 export const SERIES_ORDER = ['X', 'P', 'A', 'G', 'R', 'L'];
-export const RARITY = ['common', 'rare', 'epic', 'legendary', 'mythic'];
+export const RARITY = ['common', 'epic', 'legendary', 'mythic'];
 export const RARITY_NAME = {common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary', mythic: 'Mythic'};
-/** The lowest OVR of each rarity above Rare, for a card with a real trading card (Rare is the rest of them). */
-export const SCALE = Object.freeze({mythic: 95, legendary: 91, epic: 87});
-/** A card's rarity: by its OVR when it has a real trading card (real), else Common. */
-export const rarityOf = (ovr, real) => (!real ? 'common' : ovr >= SCALE.mythic ? 'mythic' : ovr >= SCALE.legendary ? 'legendary' : ovr >= SCALE.epic ? 'epic' : 'rare');
+/** The lowest OVR of each rarity above Common (the owner, Nov 2 2026: Common 79 or less, Epic 80-89, Legendary 90-95,
+ *  Mythic 96+). */
+export const SCALE = Object.freeze({mythic: 96, legendary: 90, epic: 80});
+/** A card's rarity, by its OVR alone. */
+export const rarityOf = ovr => (ovr >= SCALE.mythic ? 'mythic' : ovr >= SCALE.legendary ? 'legendary' : ovr >= SCALE.epic ? 'epic' : 'common');
 export const POS_NAME = {QB: 'Quarterback', RB: 'Running back', WR: 'Wide receiver', TE: 'Tight end', OL: 'Offensive line', DL: 'Defensive line',
   LB: 'Linebacker', CB: 'Cornerback', S: 'Safety', K: 'Kicker'};
 export const ATTR_NAME = {ARM: 'Arm', ACC: 'Accuracy', IQ: 'Decisions', RUN: 'Rushing', BRK: 'Breakaway', REC: 'Receiving', TD: 'Scoring',
@@ -66,8 +69,10 @@ export const ATTR_NAME = {ARM: 'Arm', ACC: 'Accuracy', IQ: 'Decisions', RUN: 'Ru
   COV: 'Coverage', PBK: 'Pass block', RBK: 'Run block', DUR: 'Durability'};
 
 export let DATA = null;     // data/dynasty.json as loaded
-export let CARDS = [];      // every card: {id, s, p, o, a, ln, t, tm, w, r, name, pos, team, num, head, college, exp, real}
-export const BY_ID = new Map();
+export let CARDS = [];      // every card, one a player: {id, s, p, o, a, ln, t, tm, w, r, name, pos, team, num, head, college, exp, real}
+export const BY_ID = new Map(); // (every card ever made, the retired ones too, so an old battle still replays)
+/** A retired card's id -> the card its player keeps (his best). */
+export const ALIAS = new Map();
 export let TEAMS = {};      // abbr -> {abbr, name, pri, sec, conf, div, espn}
 let loading = null;
 export let status = 'idle'; // 'idle' | 'loading' | 'ready' | 'error'
@@ -87,26 +92,34 @@ export function setData(d) {
   DATA = d;
   TEAMS = {};
   Object.entries(d.teams || {}).forEach(([k, v]) => { TEAMS[k] = {abbr: k, name: v[0], pri: v[1], sec: v[2], conf: v[3], div: v[4], espn: v[5]}; });
-  BY_ID.clear();
-  CARDS = (d.cards || []).map(c => {
+  BY_ID.clear(); ALIAS.clear();
+  const every = (d.cards || []).map(c => {
     const pl = d.players[c[2]] || ['?', '', 'QB', 0, '', 0, '', 0];
     const card = {id: c[0], s: c[1], p: c[2], o: c[3], a: c[4] || [], ln: c[5] || [], t: c[6] || '', tm: c[7] || pl[1], w: c[8] || 0,
       name: pl[0], team: c[7] || pl[1], pos: pl[2], num: pl[3], head: pl[4] || '', exp: pl[5], college: pl[6], draft: pl[7], real: null};
     BY_ID.set(card.id, card);
     return card;
   });
-  // (his real trading card on each of his cards, the next on each in the order the series run; then the rarity by it)
+  // (his real trading card on each of his cards, the next on each in the order the series run; then the rarity by OVR)
   const mine = new Map();
-  CARDS.forEach(c => { if (REAL[c.p]) { if (!mine.has(c.p)) mine.set(c.p, []); mine.get(c.p).push(c); } });
+  every.forEach(c => { if (REAL[c.p]) { if (!mine.has(c.p)) mine.set(c.p, []); mine.get(c.p).push(c); } });
   mine.forEach((list, p) => {
     list.sort((a, b) => SERIES_ORDER.indexOf(a.s) - SERIES_ORDER.indexOf(b.s) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     list.forEach((c, i) => { c.real = REAL[p][i % REAL[p].length]; });
   });
-  CARDS.forEach(c => { c.r = rarityOf(c.o, !!c.real); });
-  // (a Rare or better card wears its player's action photo, cut out on its team's colours; a Common keeps its headshot; a
+  every.forEach(c => { c.r = rarityOf(c.o); });
+  // (one card a player, Nov 2 2026: his best, the highest OVR, a tie to the series that comes first; the rest alias it)
+  const best = new Map();
+  every.forEach(c => {
+    const b = best.get(c.p);
+    if (!b || c.o > b.o || (c.o === b.o && SERIES_ORDER.indexOf(c.s) < SERIES_ORDER.indexOf(b.s))) best.set(c.p, c);
+  });
+  CARDS = every.filter(c => best.get(c.p) === c);
+  every.forEach(c => { if (best.get(c.p) !== c) ALIAS.set(c.id, best.get(c.p).id); });
+  // (an Epic or better card wears its player's action photo, cut out on its team's colours; a Common keeps its headshot; a
   // Legend never wears a headshot or portrait, only his action photo, else his number: the owner, Oct 31 2026,
   // core/dynasty-action.js)
-  CARDS.forEach(c => { if (ACTION[c.p] && (c.r !== 'common' || c.s === 'X')) c.head = 'a:' + c.p; });
+  every.forEach(c => { if (ACTION[c.p] && (c.r !== 'common' || c.s === 'X')) c.head = 'a:' + c.p; });
   POOLS.clear();
   B.setCards(card);
   COLLECTIONS = buildCollections();
@@ -163,12 +176,12 @@ const pickW = (items, weight, R = luck) => {
 // Each pack: its price, and its slots: each slot a draw of a rarity by its odds (the store shows them), then a card of
 // that rarity from the slot's pool (series, and for a Team Pack the team chosen).
 export const PACKS = {
-  std: {name: 'Standard Pack', price: 1000, blurb: 'Four Live Series cards and a Trainer card.', color: '#2F6FDE',
-    slots: [{n: 4, pool: 'live', odds: {common: 34, rare: 38, epic: 18, legendary: 8, mythic: 2}}, {n: 1, pool: 'trainer', odds: {epic: 70, legendary: 30}}]},
-  team: {name: 'Team Pack', price: 1500, blurb: 'Four Live Series cards from the team you pick, and a Trainer card.', color: '#1E9E6A', team: true,
-    slots: [{n: 4, pool: 'live', odds: {common: 25, rare: 40, epic: 22, legendary: 10, mythic: 3}}, {n: 1, pool: 'trainer', odds: {epic: 70, legendary: 30}}]},
+  std: {name: 'Standard Pack', price: 1000, blurb: 'Four player cards and a Trainer card.', color: '#2F6FDE',
+    slots: [{n: 4, pool: 'live', odds: {common: 62, epic: 26, legendary: 10, mythic: 2}}, {n: 1, pool: 'trainer', odds: {epic: 70, legendary: 30}}]},
+  team: {name: 'Team Pack', price: 1500, blurb: 'Four player cards from the team you pick, and a Trainer card.', color: '#1E9E6A', team: true,
+    slots: [{n: 4, pool: 'live', odds: {common: 52, epic: 33, legendary: 12, mythic: 3}}, {n: 1, pool: 'trainer', odds: {epic: 70, legendary: 30}}]},
   prem: {name: 'Premium Pack', price: 3000, blurb: 'Five cards: a Trainer card, and the last one Legendary or better. Rookies and specials inside.', color: '#8B3FD9',
-    slots: [{n: 3, pool: 'all', odds: {common: 10, rare: 35, epic: 30, legendary: 18, mythic: 7}}, {n: 1, pool: 'trainer', odds: {epic: 50, legendary: 50}},
+    slots: [{n: 3, pool: 'all', odds: {common: 25, epic: 45, legendary: 22, mythic: 8}}, {n: 1, pool: 'trainer', odds: {epic: 50, legendary: 50}},
       {n: 1, pool: 'all', odds: {legendary: 75, mythic: 25}}]},
   gday: {name: 'Gameday Pack', price: 4000, blurb: 'A Gameday card from a real game, and two Legendary-or-better cards.', color: '#E0702A',
     slots: [{n: 1, pool: 'gameday', odds: {mythic: 100}}, {n: 2, pool: 'live', odds: {legendary: 80, mythic: 20}}]},
@@ -176,9 +189,9 @@ export const PACKS = {
     slots: [{n: 1, pool: 'elite', odds: {mythic: 100}}, {n: 2, pool: 'live', odds: {mythic: 100}}]},
   // (the owner, Oct 29 2026: "Players will get a starter pack when they open the game with 15 common players 4 rare
   // players and one epic or better player": given once (fresh, and kit3 for a Dynasty begun before it), never sold,
-  // twenty different players)
-  start: {name: 'Starter Pack', price: 0, starter: true, unique: true, blurb: '15 Common players, 4 Rare and one Epic or better.', color: '#D6453D',
-    slots: [{n: 15, pool: 'live', odds: {common: 100}}, {n: 4, pool: 'live', odds: {rare: 100}}, {n: 1, pool: 'live', odds: {epic: 75, legendary: 20, mythic: 5}}]}
+  // twenty different players; with Rare retired, Nov 2 2026, the four are Epic)
+  start: {name: 'Starter Pack', price: 0, starter: true, unique: true, blurb: '15 Common players, 4 Epic and one Epic or better.', color: '#D6453D',
+    slots: [{n: 15, pool: 'live', odds: {common: 100}}, {n: 4, pool: 'live', odds: {epic: 100}}, {n: 1, pool: 'live', odds: {epic: 75, legendary: 20, mythic: 5}}]}
 };
 export const PACK_ORDER = ['std', 'team', 'prem', 'gday', 'leg'];
 // What each pool holds, and inside 'all' and 'elite' how often each series comes up (out of 100)
@@ -189,7 +202,8 @@ function poolOf(pool, team, rarity) {
   const k = `${pool}|${team || ''}|${rarity}`;
   if (POOLS.has(k)) return POOLS.get(k);
   let list = [];
-  if (pool === 'live') list = CARDS.filter(c => c.s === 'L' && c.r === rarity && (!team || c.team === team));
+  // ('live': every active player, one card each since Nov 2 2026, his best of any series)
+  if (pool === 'live') list = CARDS.filter(c => c.s !== 'X' && c.r === rarity && (!team || c.team === team));
   else if (pool === 'gameday') list = CARDS.filter(c => c.s === 'G');
   else if (pool === 'series') list = CARDS.filter(c => c.s === team && c.r === rarity);
   POOLS.set(k, list);
@@ -220,7 +234,9 @@ export function drawCard(slot, {team = null, R = luck} = {}) {
     // (a special series with no card of that rarity: a Live one of it)
     if (!list.length) list = poolOf('live', null, rar);
   }
-  if (!list.length) list = poolOf('live', team, 'common').length ? poolOf('live', team, 'common') : CARDS.filter(c => c.s === 'L');
+  // (none of that rarity, a team's Mythic say: the next rarity down that has one)
+  for (let i = RARITY.indexOf(rar) - 1; !list.length && i >= 0; i--) list = poolOf('live', team, RARITY[i]);
+  if (!list.length) list = CARDS.filter(c => c.s !== 'X');
   return list[Math.floor(R() * list.length)];
 }
 /** A pack's cards (their ids), drawn. */
@@ -245,7 +261,7 @@ export const packOdds = kind => (PACKS[kind] ? PACKS[kind].slots.map(sl => {
 }) : []);
 
 // ---------------------------------------------------------------------------------------------------- quick sell
-const SELL = {common: 10, rare: 40, epic: 150, legendary: 500, mythic: 1500};
+const SELL = {common: 10, rare: 40, epic: 150, legendary: 500, mythic: 1500}; // (rare: a Trainer card has none, kept for old words)
 const SELL_SPECIAL = {R: 1.5, G: 2, A: 2.5, P: 2.5, X: 4};
 /** What a card quick-sells for, in coins (c: a player card or a Coach or Stadium card). */
 export const sellValue = c => (c ? Math.round((SELL[c.r] || 0) * (c.s === 'L' || !c.s ? 1 : SELL_SPECIAL[c.s] || 1)) : 0);
@@ -264,7 +280,7 @@ export function markOf(c) {
   if (!c.s) { const n = c.r === 'legendary' ? 3 : 2; return {mark: '◆'.repeat(n), kind: 'd', n, full: false}; }
   if (c.r === 'common') return {mark: '◆', kind: 'd', n: 1, full: false};
   if (c.s === 'X') return {mark: '♛', kind: 'c', n: 1, full: true};
-  if (c.s === 'P' || c.s === 'G' || c.s === 'A') return {mark: '★★', kind: 's', n: 2, full: true};
+  // (one card a player, Nov 2 2026: the mark is the rarity's, whatever the series, so a reveal rises with the rarity)
   if (c.r === 'mythic') return {mark: '★', kind: 's', n: 1, full: true};
   const n = {rare: 2, epic: 3, legendary: 4}[c.r] || 2;
   return {mark: '◆'.repeat(n), kind: 'd', n, full: true};
@@ -398,7 +414,7 @@ const withBonus = col => {
 const HEAD_N = 10;
 function buildCollections() {
   const out = [], byTeam = {};
-  CARDS.filter(c => c.s === 'L').forEach(c => (byTeam[c.team] = byTeam[c.team] || []).push(c));
+  CARDS.filter(c => c.s !== 'X').forEach(c => (byTeam[c.team] = byTeam[c.team] || []).push(c));
   const legends = CARDS.filter(c => c.s === 'X');
   const divs = {};
   Object.values(TEAMS).forEach(t => {
@@ -486,7 +502,36 @@ export function clean(s) {
   // (the battles paid: the latest 200)
   Object.entries(obj(s.bt)).slice(-200).forEach(([k, v]) => { if (['w', 'l', 'd'].includes(v)) out.bt[k] = v; });
   Object.entries(obj(s.so)).slice(0, 80).forEach(([k, v]) => { if (n(v) > 0) out.so[k] = Math.min(9999, n(v)); });
+  fold(out);
   return out;
+}
+/** One card a player (Nov 2 2026): a save's retired cards (ALIAS) become copies of the card their player keeps, in the
+ *  collection, the deck (rebuilt when that leaves it illegal), the new marks and the latest pulls. Repeatable: a save
+ *  already folded is left as it is. Needs the cards loaded (nothing to fold before). True if it changed anything. */
+export function fold(s) {
+  if (!s || !ALIAS.size) return false;
+  const to = id => ALIAS.get(id) || id;
+  let changed = false;
+  Object.keys(s.o).forEach(id => {
+    const k = ALIAS.get(id);
+    if (!k) return;
+    s.o[k] = Math.min(99, (s.o[k] || 0) + s.o[id]); delete s.o[id]; changed = true;
+  });
+  if (s.dk.some(id => ALIAS.has(id))) {
+    s.dk = s.dk.map(to); changed = true;
+    if (!B.checkDeck(s.dk, s.o).ok) s.dk = autoDeck(s.o);
+  }
+  if (s.nw.some(id => ALIAS.has(id))) { s.nw = [...new Set(s.nw.map(to))]; changed = true; }
+  if (s.lp.some(id => ALIAS.has(id))) { s.lp = s.lp.map(to); changed = true; }
+  return changed;
+}
+/** Whether a stored save still holds a retired card (so its original is kept before folding: keepOriginal). */
+const holdsRetired = raw => !!(raw && typeof raw === 'object' && ALIAS.size
+  && (Object.keys(raw.o || {}).some(id => ALIAS.has(id)) || (Array.isArray(raw.dk) && raw.dk.some(id => ALIAS.has(id)))));
+/** The save as it was before one card a player, kept once on this phone (gg-dy1-<key>-premerge). */
+function keepOriginal(raw) {
+  if (!PROFILE || !holdsRetired(raw)) return;
+  try { const k = LOCAL(PROFILE) + '-premerge'; if (!localStorage.getItem(k)) localStorage.setItem(k, JSON.stringify(raw)); } catch (_) {}
 }
 
 // ---------------------------------------------------------------------------------------------------- coins from the games
@@ -583,13 +628,15 @@ function selectProfile() {
   if (key !== PROFILE) { clearTimeout(saveT); MINE = null; dirty = false; PROFILE = key; }
   return key;
 }
-function readLocal() { try { return clean(JSON.parse(localStorage.getItem(LOCAL(PROFILE)) || 'null')); } catch (_) { return null; } }
+function readLocal() { try { const raw = JSON.parse(localStorage.getItem(LOCAL(PROFILE)) || 'null'); keepOriginal(raw); return clean(raw); } catch (_) { return null; } }
 function writeLocal(s) { if (PROFILE) { try { localStorage.setItem(LOCAL(PROFILE), JSON.stringify(s)); } catch (_) {} } }
 function currentRemote() {
   let best = null;
   for (const p of allDocs()) {
     if (PROFILE.startsWith('g_') && p.id !== daily.LB.uid) continue; // (a guest's only from this phone's own doc)
-    const s = clean(p && p[FIELD] && p[FIELD][PROFILE]);
+    const raw = p && p[FIELD] && p[FIELD][PROFILE];
+    if (raw && raw.rs === SEASON_MARK) keepOriginal(raw);
+    const s = clean(raw);
     if (s && (!best || s.at > best.at)) best = s;
   }
   return best;
@@ -622,6 +669,8 @@ export function mine() {
     if (!MINE.kit3) { addPacks(MINE, {start: 1}); MINE.kit3 = 1; dirty = true; }
     // (and the collections' bonus packs, Nov 2 2026: once, for each set claimed before them)
     if (!MINE.kit4) { topUp(MINE); MINE.kit4 = 1; dirty = true; }
+    // (one card a player, Nov 2 2026: a save read before the cards loaded is folded now)
+    if (fold(MINE)) dirty = true;
     writeLocal(MINE);
     if (dirty) later();
   }

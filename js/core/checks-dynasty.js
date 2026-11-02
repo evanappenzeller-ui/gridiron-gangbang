@@ -31,21 +31,32 @@ export async function dynastyChecks(check) {
     return {pass: who.join() === 'true,false,true,false,false' && lists.join() === 'true,false' && keys.join() === 'true,true,false,false,false' && routed && D.mayPlay() === mine && shown,
       detail: `Evan, Mason, Ryan S, Ryan D, a guest: ${who.join(', ')}`};
   });
-  check('Gridiron Dynasty: the cards: real players in six series, every position, rarity on the real cards’ scale (the owner, Oct 29 2026: "use the new cards for the rare and above. create a new player ranking scale using this"): a card with a real trading card Mythic 95+, Legendary 91+, Epic 87+, else Rare; every other card Common; every Live rarity has cards to draw', () => {
+  check('Gridiron Dynasty: the cards: real players in six series, every position, one card a player (the owner, Nov 2 2026: "There should be no two cards for the same player ... common (79 overall or less ...), epic (80-89), legendary (90-95), mythic (96+)"): his best card, the rest aliases of it; rarity by OVR alone; every rarity of active players has cards to draw', () => {
     const series = new Set(D.CARDS.map(c => c.s)), pos = new Set(D.CARDS.filter(c => c.s === 'L').map(c => c.pos));
-    const rar = D.CARDS.every(c => c.r === D.rarityOf(c.o, !!c.real) && (c.r === 'common') === !c.real && c.o >= 40 && c.o <= 99);
-    const live = D.RARITY.map(r => D.CARDS.filter(c => c.s === 'L' && c.r === r).length), drawable = live.every(n => n > 0);
+    const rar = D.CARDS.every(c => c.r === D.rarityOf(c.o) && c.o >= 40 && c.o <= 99);
+    const one = new Set(D.CARDS.map(c => c.p)).size === D.CARDS.length && D.ALIAS.size > 0
+      && [...D.ALIAS].every(([old, to]) => D.card(old) && D.card(to) && D.card(old).p === D.card(to).p && D.card(old).o <= D.card(to).o && D.CARDS.includes(D.card(to)) && !D.CARDS.includes(D.card(old)));
+    const live = D.RARITY.map(r => D.CARDS.filter(c => c.s !== 'X' && c.r === r).length), drawable = live.every(n => n > 0);
     const ids = new Set(D.CARDS.map(c => c.id)).size === D.CARDS.length;
     const ok = ['L', 'R', 'P', 'G', 'A', 'X'].every(s => series.has(s)) && ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'].every(p => pos.has(p));
     const tr = D.TRAINER_IDS.length >= 10 && D.TRAINER_IDS.every(id => D.trainer(id).name && ['epic', 'legendary'].includes(D.trainer(id).r));
-    const names = D.RARITY.join() === 'common,rare,epic,legendary,mythic' && [99, 86, 87, 91, 95].map((o, i) => D.rarityOf(o, i > 0)).join() === D.RARITY.join();
-    return {pass: ok && rar && ids && tr && names && drawable,
-      detail: `${D.CARDS.length} cards, ${pos.size} positions, ${D.TRAINER_IDS.length} Coach and Stadium cards; Live ${D.RARITY.map((r, i) => `${r} ${live[i]}`).join(', ')}`};
+    const names = D.RARITY.join() === 'common,epic,legendary,mythic' && [79, 80, 89, 90, 95, 96].map(o => D.rarityOf(o)).join() === 'common,epic,epic,legendary,legendary,mythic';
+    return {pass: ok && rar && one && ids && tr && names && drawable,
+      detail: `${D.CARDS.length} cards (${D.ALIAS.size} retired into them), ${pos.size} positions, ${D.TRAINER_IDS.length} Coach and Stadium cards; active players ${D.RARITY.map((r, i) => `${r} ${live[i]}`).join(', ')}`};
+  });
+  check('Gridiron Rivals: one card a player keeps every save whole: a retired card’s copies fold onto his kept card (in the collection, the deck, the new marks and the latest pulls), the deck stays legal, folding twice changes nothing, and an old battle’s cards still resolve', () => {
+    const [old, to] = [...D.ALIAS][0], f = D.fresh('m_fold', 1000);
+    D.CARDS.filter(c => c.s === 'L' && c.p !== D.card(to).p).slice(0, 16).forEach(c => { f.o[c.id] = 2; });
+    f.o[old] = 2; f.o[to] = 1; f.nw = [old]; f.lp = [old, to]; f.dk = [old, old, ...D.autoDeck(f.o).filter(id => id !== old && id !== to)].slice(0, B.DECK_SIZE);
+    const c = D.clean(f), again = JSON.stringify(c), changed = D.fold(c);
+    const pass = !(old in c.o) && c.o[to] === 3 && c.nw.join() === to && c.lp.join() === [to, to].join() && !c.dk.includes(old)
+      && B.checkDeck(c.dk, c.o).ok && !changed && JSON.stringify(c) === again && !!D.card(old) && !!B.stats(old);
+    return {pass, detail: `${D.card(old).name}: ${old} → ${to}, ${c.o[to]} copies`};
   });
   check('Gridiron Dynasty: every pack’s odds add up to 100% and a pack draws its count of real cards (a Team Pack only that team’s, a Gameday Pack a Gameday card)', () => {
     const sums = D.PACK_ORDER.every(k => D.packOdds(k).every(g => Math.abs(g.odds.reduce((t, o) => t + o.pct, 0) - 100) < 0.6));
     const counts = D.PACK_ORDER.every(k => { const n = D.PACKS[k].slots.reduce((t, s) => t + s.n, 0); const ids = D.drawPack(k, {team: 'BUF', R: D.rng('pack|' + k)}); return ids.length === n && ids.every(D.isCard); });
-    const team = D.drawPack('team', {team: 'KC', R: D.rng('t')}).every(id => D.trainer(id) || (D.card(id).team === 'KC' && D.card(id).s === 'L'));
+    const team = D.drawPack('team', {team: 'KC', R: D.rng('t')}).every(id => D.trainer(id) || (D.card(id).team === 'KC' && D.card(id).s !== 'X'));
     const trainerSlot = D.drawPack('std', {R: D.rng('s')}).filter(id => D.trainer(id)).length === 1;
     const gd = D.card(D.drawPack('gday', {R: D.rng('g')})[0]).s === 'G';
     const prem = D.drawPack('prem', {R: D.rng('p')}).slice(-1).every(id => ['legendary', 'mythic'].includes(D.card(id).r));
@@ -70,20 +81,20 @@ export async function dynastyChecks(check) {
     return {pass: kit && packs && !c.pk.bogus && c.pk.std === 2 && c.pk.start === 1 && c.dk.length === B.DECK_SIZE && !('X' in c.o) && c.bt.x === 'w' && !c.bt.y && refused,
       detail: `kit ${kit}, packs ${packs}`};
   });
-  check('Gridiron Dynasty: the Starter Pack (the owner, Oct 29 2026: "15 common players 4 rare players and one epic or better player") gives twenty different Live players, 15 Common, 4 Rare and one Epic or better, and opening it makes a legal 20-card deck', () => {
+  check('Gridiron Dynasty: the Starter Pack (the owner, Oct 29 2026: "15 common players 4 rare players and one epic or better player"; Rare retired Nov 2 2026) gives twenty different active players, 15 Common, 4 Epic and one Epic or better, and opening it makes a legal 20-card deck', () => {
     const P = D.PACKS.start, ids = D.drawPack('start', {R: D.rng('starter-check')}), cs = ids.map(D.card);
     const by = r => cs.filter(c => c && c.r === r).length;
-    const shape = ids.length === 20 && cs.every(c => c && c.s === 'L') && new Set(cs.map(c => c.p)).size === 20
-      && by('common') === 15 && by('rare') === 4 && ['epic', 'legendary', 'mythic'].includes(cs[19].r);
+    const shape = ids.length === 20 && cs.every(c => c && c.s !== 'X') && new Set(cs.map(c => c.p)).size === 20
+      && by('common') === 15 && cs.slice(15, 19).every(c => c.r === 'epic') && ['epic', 'legendary', 'mythic'].includes(cs[19].r);
     const odds = D.packOdds('start').every(g => Math.abs(g.odds.reduce((t, o) => t + o.pct, 0) - 100) < 0.6);
     const s = D.fresh('m_start', 1000), r = D.open('start', {}, s), deck = B.checkDeck(s.dk, s.o);
     const opened = r.ok && r.cards.length === 20 && !s.pk.start && deck.ok && s.dk.some(id => D.trainer(id)) && !D.open('start', {}, s).ok;
-    return {pass: P.price === 0 && P.starter && shape && odds && opened, detail: `${by('common')} Common, ${by('rare')} Rare, last ${cs[19] && cs[19].r}; deck ${deck.ok ? 'legal' : deck.why}`};
+    return {pass: P.price === 0 && P.starter && shape && odds && opened, detail: `${by('common')} Common, ${cs.slice(15, 19).filter(c => c.r === 'epic').length} Epic, last ${cs[19] && cs[19].r}; deck ${deck.ok ? 'legal' : deck.why}`};
   });
-  check('Gridiron Dynasty battles: a deck is 20 cards, at most 2 of any player (a Live and a Gameday card of him count together) or card, with a Basic player; the best deck built from a collection is legal', () => {
+  check('Gridiron Dynasty battles: a deck is 20 cards, at most 2 of any player (an old Live and Gameday card of him count together) or card, with a Basic player; the best deck built from a collection is legal', () => {
     const f = started('m_deck'), ok = B.checkDeck(f.dk).ok;
     const short = !B.checkDeck(f.dk.slice(1)).ok;
-    const g = D.CARDS.find(c => c.s === 'G'), l = D.CARDS.find(c => c.s === 'L' && c.p === g.p);
+    const [gid] = [...D.ALIAS].find(([o]) => D.card(o).s === 'L') || [], l = D.card(gid), g = l && D.card(D.ALIAS.get(gid));
     const three = !B.checkDeck([l.id, l.id, g.id, ...f.dk.slice(3)]).ok;
     const noBasic = !B.checkDeck(Array(20).fill(0).map((_, i) => D.TRAINER_IDS[i % D.TRAINER_IDS.length])).ok;
     const owned = Object.fromEntries(D.CARDS.filter((c, i) => i % 5 === 0).map(c => [c.id, 2]).concat(D.TRAINER_IDS.map(id => [id, 2])));
@@ -94,12 +105,13 @@ export async function dynastyChecks(check) {
     const all = D.CARDS.every(c => { const s = B.stats(c.id); return s && s.hp >= 40 && s.attacks.length === 2 && s.attacks.every(a => a.dmg > 0 && a.cost.length); });
     const weak = B.WEAK.A === 'C' && B.WEAK.G === 'B' && B.WEAK.B === 'A' && B.WEAK.C === 'G';
     const ex = D.CARDS.filter(c => c.s === 'X' || c.s === 'P').every(c => B.stats(c.id).ex) && D.CARDS.filter(c => c.s === 'L').every(c => !B.stats(c.id).ex);
-    const evo = D.CARDS.filter(c => c.s === 'G' || c.s === 'P').every(c => B.stats(c.id).stage === 1);
+    // (one card a player, rules v5: every card a Basic; a Gameday or Prime card was an upgrade in a v1-v4 battle)
+    const evo = D.CARDS.filter(c => c.s === 'G' || c.s === 'P').every(c => B.stageOf(c.id, 4) === 1 && B.stageOf(c.id) === 0) && D.CARDS.every(c => B.isBasic(c.id));
     return {pass: all && weak && ex && evo, detail: `${D.CARDS.length} battle cards`};
   });
   check('Gridiron Dynasty battles: a game played out from both decks and moves is the same game when replayed (every phone sees the same), and it ends with a winner by three touchdowns', () => {
     const d0 = started('m_a').dk, d1 = started('m_b').dk, seed = 'bcheck1';
-    const G = B.newGame(seed, [d0, d1]), log = [[], []], cur = [[], []];
+    const G = B.newGame(seed, [d0, d1], B.RULES_VERSION), log = [[], []], cur = [[], []];
     for (let guard = 0; G.phase !== 'over' && guard < 3000; guard++) {
       const who = B.toMove(G), me = G.p[who];
       let m;
@@ -112,7 +124,7 @@ export async function dynastyChecks(check) {
       if (m.a === 'setup') log[who].push(m);
       else { cur[who].push(m); if (G.phase === 'over' || G.cur !== who) { log[who].push(cur[who]); cur[who] = []; } }
     }
-    const R = B.replay(seed, [d0, d1], log);
+    const R = B.replay(seed, [d0, d1], log, B.RULES_VERSION);
     const same = !R.bad && R.G.phase === 'over' && JSON.stringify(R.G.p.map(p => p.pts)) === JSON.stringify(G.p.map(p => p.pts)) && R.G.over.win === G.over.win;
     return {pass: G.phase === 'over' && same && (G.over.why === 'points' || G.over.why === 'empty'), detail: `${G.turn} turns, ${G.p[0].pts}–${G.p[1].pts}, ${G.over.why}`};
   });
@@ -227,27 +239,27 @@ export async function dynastyChecks(check) {
   check('Gridiron Dynasty: each rarity’s reveal on the deal grows with it (the owner, Oct 29 2026: "The more rare the player, the more exciting the animation"): ◆ dealt face up, ◆◆ flips, ◆◆◆ a ring, sparks and its stamp, ◆◆◆◆ rays, a flash and confetti, ★ and ★★ the drum and the sweep, ♛ the crown and the most of everything', async () => {
     const O = await import('../views/dynasty-open.js');
     const pick = f => D.CARDS.find(f);
-    const cards = [pick(c => c.r === 'common' && c.s === 'L'), pick(c => c.r === 'rare' && c.s === 'L'), pick(c => c.r === 'epic' && c.s === 'L'), pick(c => c.r === 'legendary' && c.s === 'L'),
-      pick(c => c.r === 'mythic' && c.s === 'L'), pick(c => c.s === 'P'), pick(c => c.s === 'X')];
+    // (one card a player, Nov 2 2026: a player card's mark is its rarity's, ♛ a Legend's; ◆◆ and ★★ are no player card's now)
+    const cards = [pick(c => c.r === 'common' && c.s === 'L'), pick(c => c.r === 'epic' && c.s === 'L'), pick(c => c.r === 'legendary' && c.s === 'L'),
+      pick(c => c.r === 'mythic' && c.s !== 'X'), pick(c => c.s === 'X')];
     const R = cards.map(O.revealOf);
-    const tiers = R.map(r => r.tier).join() === '0,1,2,3,4,5,6';
+    const tiers = R.map(r => r.tier).join() === '0,2,3,4,6' && D.CARDS.every(c => [0, 2, 3, 4, 6].includes(O.revealOf(c).tier));
     const up = k => R.every((r, i) => !i || r[k] >= R[i - 1][k]);
     // (and each tier a clear step past the last in at least one of them: never two the same)
     const step = R.every((r, i) => !i || ['hold', 'total', 'sparks', 'confetti'].some(k => r[k] > R[i - 1][k]));
-    const more = up('hold') && up('flip') && up('sparks') && up('confetti') && up('total') && step && R.every((r, i) => !i || r.haptics.length >= R[i - 1].haptics.length) && R[6].total > R[0].total * 4
-      && R[5].sparks > R[4].sparks && R[5].confetti > R[4].confetti && R[5].total > R[4].total;
-    const labels = R.map(r => r.label).join() === ',,Epic,Legendary,Mythic,Prime,Legend';
+    const more = up('hold') && up('flip') && up('sparks') && up('confetti') && up('total') && step && R.every((r, i) => !i || r.haptics.length >= R[i - 1].haptics.length) && R[4].total > R[0].total * 4;
+    const labels = R.map(r => r.label).join() === ',Epic,Legendary,Mythic,Legend';
     // (a Trainer card by its rarity: an Epic one tier 2, a Legendary one tier 3, stamped so; the rarest dealt last)
     const tr = D.TRAINER_IDS.map(D.trainer), te = tr.find(t => t.r === 'epic'), tl = tr.find(t => t.r === 'legendary');
     const trainers = !!te && !!tl && O.revealOf(te).tier === 2 && O.revealOf(te).label === 'Epic' && O.revealOf(tl).tier === 3 && O.revealOf(tl).label === 'Legendary';
-    const dealt = O.dealOrder([cards[6], cards[0], tl, cards[5], cards[2], te, cards[4]]).map(O.revealOf).map(r => r.tier);
+    const dealt = O.dealOrder([cards[4], cards[0], tl, cards[3], cards[1], te, cards[2]]).map(O.revealOf).map(r => r.tier);
     const order = dealt.every((t, i) => !i || t >= dealt[i - 1]) && dealt[0] === 0 && dealt[6] === 6;
-    const html = O.dealHTML(cards[6], R[6], '<div class="pk-card"></div>', true);
+    const html = O.dealHTML(cards[4], R[4], '<div class="pk-card"></div>', true);
     const crown = /class="pk-deal-c t-6 is-flip is-shake"/.test(html) && /pk-fx-crown/.test(html) && /pk-fx-rays/.test(html) && /pk-fx-flash/.test(html) && /pk-fx-sweep/.test(html)
       && (html.match(/class="pk-spk"/g) || []).length === 22 && /pk-deal-tag">Legend</.test(html) && /pk-flip-back/.test(html) && /NEW/.test(html);
     const plain = O.dealHTML(cards[0], R[0], '<div class="pk-card"></div>', false);
     const common = /class="pk-deal-c t-0 is-face"/.test(plain) && !/pk-spk|pk-fx-|pk-deal-tag|NEW/.test(plain);
-    const epic = O.dealHTML(cards[2], R[2], '', false);
+    const epic = O.dealHTML(cards[1], R[1], '', false);
     const mid = /t-2 is-flip"/.test(epic) && /pk-fx-ring/.test(epic) && !/pk-fx-rays|pk-fx-flash|pk-fx-sweep|pk-fx-crown/.test(epic) && /pk-deal-tag">Epic</.test(epic);
     return {pass: tiers && more && labels && trainers && order && crown && common && mid,
       detail: `tiers ${R.map(r => r.tier).join(' < ')}; ${R.map(r => `${r.name} ${r.total}ms`).join(', ')}`};
@@ -285,17 +297,17 @@ export async function dynastyChecks(check) {
       const h = V.cardHTML(c);
       const el = document.createElement('div'); el.innerHTML = h;
       const portrait = c.head && !/^https?:/.test(c.head);
-      return !!c.real && R.REAL[c.p].includes(c.real) && c.r !== 'common' && D.markOf(c).full && /class="pk-card [^"]*is-full r-/.test(h)
+      return !!c.real && R.REAL[c.p].includes(c.real) && D.markOf(c).full === (c.r !== 'common') && /class="pk-card [^"]*is-full r-/.test(h) === (c.r !== 'common')
         && el.querySelector('.pk-c-name')?.textContent === c.name && el.querySelector('.pk-c-ovr b')?.textContent === String(c.o)
         && el.querySelector('.pk-c-rar')?.textContent === c.r && !el.querySelector('.pk-c-ph.is-real')
         && (portrait ? el.querySelector('.pk-c-ph')?.getAttribute('src') === V.headUrl(c.head) : !!el.querySelector('.pk-c-num'))
         && V.realHTML(c).includes(R.realUrl(c.p, c.real));
     });
-    const commons = D.CARDS.filter(c => c.r === 'common'), framed = commons.length > 0 && commons.every(c => !c.real && !D.markOf(c).full && D.markOf(c).mark === '◆')
+    const commons = D.CARDS.filter(c => c.r === 'common'), framed = commons.length > 0 && commons.every(c => c.s === 'X' || (!D.markOf(c).full && D.markOf(c).mark === '◆'))
       && commons.filter(c => c.head).slice(0, 50).every(c => { const h = V.cardHTML(c); return !/is-real|is-full/.test(h) && h.includes(V.isPhoto(c.head) ? 'class="pk-c-ph is-photo" src=' : V.isAction(c.head) ? 'class="pk-c-ph is-action" src=' : 'class="pk-c-ph" src='); });
     // (the foil: the rarity's class on the card, which css/views/dynasty.css animates from Epic up)
-    const foil = ['common', 'rare', 'epic', 'legendary', 'mythic'].every(r => { const c = D.CARDS.find(x => x.r === r); return c && V.cardHTML(c).includes(` r-${r} `); });
-    const allen = D.CARDS.filter(c => c.p === '0034857').map(c => c.real), apart = allen.length >= 3 && new Set(allen).size === allen.length;
+    const foil = D.RARITY.every(r => { const c = D.CARDS.find(x => x.r === r); return c && V.cardHTML(c).includes(` r-${r} `); });
+    const allen = [...D.BY_ID.values()].filter(c => c.p === '0034857').map(c => c.real), apart = allen.length >= 3 && new Set(allen).size === allen.length;
     const up = V.realHTML(D.card('Xtombrady')), close = (up.match(/<figure/g) || []).length === R.REAL.xtombrady.length && (up.match(/On this card/g) || []).length === 1;
     const lb = D.CARDS.filter(c => c.name === 'Justin Jefferson' && c.pos === 'LB'), namesake = lb.length > 0 && lb.every(c => !c.real && c.r === 'common' && !V.realHTML(c));
     const urls = keys.flatMap(p => R.REAL[p].map(r => R.realUrl(p, r)));
@@ -320,8 +332,8 @@ export async function dynastyChecks(check) {
   check('Gridiron Rivals: action photos (the owner, Oct 31 2026: "There should be a clean cutout of the player in game ... All cards aside from the common \u201cbasic\u201d cards should have an action photo of them in their playing days"): every Rare, Epic, Legendary or Mythic card of a player with one, and every Legend card, wears it cut out over its team\u2019s colours; up close it names the trading card the photo is from, or credits the Commons photo (author, licence, page); every Common card but a Legend\u2019s keeps its headshot; every photo loads', async () => {
     const [V, A, R, data] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-action.js'), import('./dynasty-real.js'), import('./data.js')]);
     const keys = Object.keys(A.ACTION);
-    const known = keys.length >= 150 && keys.every(p => D.DATA.players[p] && A.ACTION[p].length === 6 && A.actionCredit(p)
-      && D.CARDS.some(c => c.p === p && (c.r !== 'common' || c.s === 'X')));
+    // (one card a player, Nov 2 2026: a player under 80 is Common, so he keeps his headshot though he has a photo)
+    const known = keys.length >= 150 && keys.every(p => D.DATA.players[p] && A.ACTION[p].length === 6 && A.actionCredit(p) && D.CARDS.some(c => c.p === p));
     const wears = c => A.ACTION[c.p] && (c.r !== 'common' || c.s === 'X');
     const rare = D.CARDS.filter(c => c.r !== 'common'), wearing = D.CARDS.filter(wears), common = D.CARDS.filter(c => c.r === 'common' && c.s !== 'X');
     const shows = wearing.length > 0 && wearing.every(c => {

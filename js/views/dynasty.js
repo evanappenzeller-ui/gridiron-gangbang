@@ -32,7 +32,7 @@ export const headUrl = (h, w = 300) => {
   if (/^https?:\/\//.test(s)) return s;
   // (a Legend's photo, from Wikimedia Commons: core/dynasty-legends.js)
   if (s.startsWith('w:')) return legendUrl(s.slice(2));
-  // (a Rare or better card's action photo, cut out, from Wikimedia Commons: core/dynasty-action.js)
+  // (an Epic or better card's action photo, cut out, from Wikimedia Commons: core/dynasty-action.js)
   if (s.startsWith('a:')) return actionUrl(s.slice(2));
   if (s.startsWith('n:')) return `https://static.www.nfl.com/image/upload/f_auto,q_auto,w_${w}/league/${encodeURIComponent(s.slice(2))}`;
   return `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${s.replace(/[^0-9]/g, '')}.png&w=${w}&h=${Math.round(w * 436 / 600)}`;
@@ -59,10 +59,10 @@ export const pipHTML = e => `<i class="pk-e" style="--ec:${ENERGY_COLOR[e] || '#
 const typeHTML = t => pipHTML(B.TYPES[t] ? B.TYPES[t].e : '*');
 
 // ---------------------------------------------------------------------------------------------------- a card
-/** Whether a head is a photo (a Legend's: a rectangle filling the window), not a cut-out (a headshot, or a Rare or
+/** Whether a head is a photo (a Legend's: a rectangle filling the window), not a cut-out (a headshot, or a Epic or
  *  better card's action photo). */
 export const isPhoto = h => /^w:/.test(String(h || ''));
-/** Whether a head is a Rare or better card's action photo (a cut-out of him in uniform). */
+/** Whether a head is an Epic or better card's action photo (a cut-out of him in uniform). */
 export const isAction = h => /^a:/.test(String(h || ''));
 /** A player card, laid out as a Pokémon card. o: {size: 's'|'m'|'l', count (copies held), ghost (not held), isNew, tag
  *  (a button: data-dy-card), cls}. */
@@ -73,14 +73,14 @@ export function cardHTML(c, o = {}) {
   // Some legacy head values are complete card scans; use a jersey number instead of framing those twice.
   const head = c.head && !/^https?:/.test(c.head) ? headUrl(c.head, o.size === 'l' ? 520 : 300) : '';
   const photo = head ? `<img class="pk-c-ph${isPhoto(c.head) ? ' is-photo' : isAction(c.head) ? ' is-action' : ''}" src="${esc(head)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
-  const rarity = String(c.r || 'common');
-  const label = `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${st.stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
+  const rarity = String(c.r || 'common'), stage = B.stageOf(c.id, o.rulesVersion || B.RULES_VERSION);
+  const label = `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const atk = st.attacks.map((a, n) => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}</em></span>`
     + (n === 1 ? `<span class="pk-c-fx">${esc([B.fxText(a), B.signatureText({v: o.rulesVersion || B.RULES_VERSION}, n)].filter(Boolean).join(' '))}</span>` : '')).join('');
   const ability = st.ability ? `<span class="pk-c-ab"><i>Ability</i><b>${esc(B.ABILITY[st.ability].name)}</b></span>` : '';
   const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
   const inner = `<span class="pk-c-face" aria-hidden="true">`
-    + `<span class="pk-c-head"><span class="pk-c-stage">${st.stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${typeHTML(st.type)}</span></span>`
+    + `<span class="pk-c-head"><span class="pk-c-stage">${stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${typeHTML(st.type)}</span></span>`
     + `<span class="pk-c-art">${teamSceneHTML(c.team)}<span class="pk-c-num">${esc(String(c.num || c.pos))}</span>${photo}<span class="pk-c-art-team">${esc(c.team)}</span></span>`
     + `<span class="pk-c-strip">${esc(c.pos)} · ${esc(T.name)} · ${esc(S.short)}</span>`
     + `<span class="pk-c-body${st.ability ? ' has-ability' : ''}">${ability}${atk}</span>`
@@ -135,7 +135,7 @@ export function battleHTML(id, game = {v: B.RULES_VERSION}) {
   const ab = st.ability ? `<div class="pk-ab"><b>Ability · ${esc(B.ABILITY[st.ability].name)}</b><span>${esc(B.abilityText(st.ability, game.v))}</span></div>` : '';
   const atk = st.attacks.map((a, n) => `<li><span class="pk-cost">${a.cost.map(pipHTML).join('')}</span><span class="pk-an"><b>${esc(a.name)}</b>`
     + `${B.fxText(a) ? `<small>${esc(B.fxText(a))}</small>` : ''}${a.note ? `<small>${esc(a.note)}</small>` : ''}${a.flat ? '<small>Ignores weakness.</small>' : ''}${B.signatureText(game, n) ? `<small class="pk-signature-note">${esc(B.signatureText(game, n))}</small>` : ''}</span><em>${a.dmg}</em></li>`).join('');
-  const stage = st.stage ? `Stage 1: evolves from ${esc(c.name)}’s Basic card` : 'Basic';
+  const stage = B.stageOf(id, game.v) ? `Stage 1: evolves from ${esc(c.name)}’s Basic card` : 'Basic';
   return `<div class="pk-info"><div class="pk-info-h">${typeHTML(st.type)}<span>${esc(T.name)} · ${stage}${st.ex ? ' · ex: worth 2 points' : ''}</span><b>${st.hp} HP</b></div>`
     + ab + `<ul class="pk-atk">${atk}</ul>`
     + `<p class="pk-foot">Weakness ${st.weak ? `${typeHTML(st.weak)} +${B.WEAK_BONUS}` : 'none'} · Retreat ${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : 'free'}</p></div>`;
@@ -313,10 +313,10 @@ function packsHTML(st) {
 const RAR_SYM = {common: '◆', rare: '◆◆', epic: '◆◆◆', legendary: '◆◆◆◆', mythic: '★'};
 function oddsSheet(kind) {
   const P = D.PACKS[kind];
-  const pool = {live: 'Live Series', trainer: 'a Trainer card (Supporter, Item or Stadium)', all: 'Live Series, Rookie, Gameday, Prime and Awards', gameday: 'a Gameday card (this week’s three times as likely)', elite: 'Legend 25%, Prime 30%, Award 20%, Gameday 25%, all 90+'};
+  const pool = {live: 'any active player (one card each, his best)', trainer: 'a Trainer card (Supporter, Item or Stadium)', all: 'any active player, more often a Rookie, Gameday, Prime or Award card', gameday: 'a Gameday card (this week’s three times as likely)', elite: 'Legend 25%, Prime 30%, Award 20%, Gameday 25%, all 90+'};
   const body = D.packOdds(kind).map(g => `<section class="pk-odds"><h3>${g.n === 1 ? '1 card' : `${g.n} cards`}: ${esc(pool[g.pool] || g.pool)}</h3>`
     + `<ul>${g.odds.map(o => `<li><span class="pk-sym">${g.pool === 'trainer' ? (o.r === 'legendary' ? '◆◆◆' : '◆◆') : g.pool === 'elite' || g.pool === 'gameday' ? '★★ ♛' : RAR_SYM[o.r]}</span>${esc(g.pool === 'trainer' ? (o.r === 'legendary' ? 'Legendary' : 'Epic') : D.RARITY_NAME[o.r])}<b>${o.pct}%</b></li>`).join('')}</ul></section>`).join('')
-    + `<p class="pk-note">◆ Common: his headshot · A real trading card makes it Rare or better, by OVR: ◆◆ Rare (under ${D.SCALE.epic}) · ◆◆◆ Epic (${D.SCALE.epic}–${D.SCALE.legendary - 1}) · ◆◆◆◆ Legendary (${D.SCALE.legendary}–${D.SCALE.mythic - 1}) · ★ Mythic (${D.SCALE.mythic}+) · ★★ Prime, Gameday and Award cards · ♛ Legends. Every pack also gives 5 pack points.</p>`;
+    + `<p class="pk-note">One card a player, its rarity by his OVR: ◆ Common (under ${D.SCALE.epic}, his headshot) · ◆◆◆ Epic (${D.SCALE.epic}–${D.SCALE.legendary - 1}) · ◆◆◆◆ Legendary (${D.SCALE.legendary}–${D.SCALE.mythic - 1}) · ★ Mythic (${D.SCALE.mythic}+) · ★★ Prime, Gameday and Award cards · ♛ Legends. Every pack also gives 5 pack points.</p>`;
   ui.openSheet({title: 'Offering Rates', body: `<p class="pk-note">${esc(P.name)}</p>` + body, cls: 'pk-sheet', detents: ['fit']});
 }
 /** The packs on the home, in Pocket's order: the Starter Pack first while it waits, then the rest. */

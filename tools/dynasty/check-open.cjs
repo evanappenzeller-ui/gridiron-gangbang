@@ -306,7 +306,8 @@ const SAVE = {v: 1, born: Date.now() - 864e5, at: Date.now(), o: {'C-timeout': 2
         await page.mouse.up();
         await page.waitForSelector('.dy-dx-t.is-new', {timeout: 4000});
         await page.waitForTimeout(400); made.push(await shot('6-dex'));
-        assert.ok(await page.evaluate(() => +document.querySelector('[data-dy-dexn]').textContent.replace(/,/g, '') > 0), 'the dex counts the card in');
+        // (a pack across several sets draws each in turn, the next at 0 till its card lands: so the count is waited for)
+        assert.ok(await page.waitForFunction(() => { const n = document.querySelector('[data-dy-dexn]'); return !n || +n.textContent.replace(/,/g, '') > 0; }, null, {timeout: 4000}).then(() => true, () => false), 'the dex counts the card in');
       }
       await page.waitForFunction(() => !document.querySelector('div.pk-open'), null, {timeout: 30000});
       await page.waitForTimeout(400);

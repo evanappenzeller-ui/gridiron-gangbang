@@ -4,7 +4,8 @@
 // each tier brings, the card face up at the reveal's end, frames at its key moments (--shots), then a second pass where
 // a tap finishes each reveal and the next moves on, and a third with reduced motion (each card simply face up).
 // Local only: the app is served from this folder with Firebase disabled, so nothing reaches the live board.
-// Then a tap after a Rare's flip moves on at once (no dead tap).
+// Then a tap after an Epic's flip moves on at once (no dead tap). One card a player (Nov 2 2026): the mark, so the reveal,
+// is the rarity's (◆ Common, ◆◆◆ Epic, ◆◆◆◆ Legendary, ★ Mythic) and ♛ a Legend's; Rare and the ★★ series stamp are retired.
 // Usage: node tools/dynasty/check-reveal.cjs [--shots=<dir>]
 const fs = require('node:fs');
 const path = require('node:path');
@@ -39,13 +40,13 @@ async function openAll(page) {
     const D = await import('/js/core/dynasty.js'), V = await import('/js/views/dynasty.js'), O = await import('/js/views/dynasty-open.js');
     await D.load();
     const pick = f => D.CARDS.find(f);
-    const cards = [pick(c => c.r === 'common' && c.s === 'L'), pick(c => c.r === 'rare' && c.s === 'L'), pick(c => c.r === 'epic' && c.s === 'L'), pick(c => c.r === 'legendary' && c.s === 'L'),
-      pick(c => c.r === 'mythic' && c.s === 'L'), pick(c => c.s === 'P'), pick(c => c.s === 'X')];
+    const cards = [pick(c => c.r === 'common' && c.s === 'L'), pick(c => c.r === 'epic' && c.s === 'L'), pick(c => c.r === 'legendary' && c.s === 'L'),
+      pick(c => c.r === 'mythic' && c.s !== 'X'), pick(c => c.s === 'X')];
     window.__closed = false;
     // (every burst of confetti noted as its canvas lands, over the overlay or not: the frames take longer than it falls)
     window.__bursts = 0;
     new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('confetti-canvas') && parseInt(getComputedStyle(n).zIndex, 10) > 200) window.__bursts++; }))).observe(document.body, {childList: true});
-    O.openScene({kind: 'leg', cards: cards.map(c => c.id), dup: {[cards[1].id]: true}, cardHTML: V.anyHTML, onClose: () => { window.__closed = true; }});
+    O.openScene({kind: 'leg', cards: cards.map(c => c.id), dup: {[cards[0].id]: true}, cardHTML: V.anyHTML, onClose: () => { window.__closed = true; }});
     return O.dealOrder(cards).map(c => ({id: c.id, name: c.name, ...O.revealOf(c)}));
   });
 }
@@ -100,7 +101,7 @@ async function timedPass(page, order) {
     assert.equal(s0.frontShown, R.tier === 0, T + ': the front hidden till its turn');
     assert.equal(s0.backUp, R.tier >= 1, T + ': the back up till its turn');
     if (R.tier >= 1 && R.hold >= 400) { await page.waitForTimeout(R.hold - 200 - (Date.now() - t0)); const sh = await dealState(page); assert.equal(sh.frontShown, false, T + ': the front still hidden through the hold'); }
-    assert.equal(s0.isNew, R.tier !== 1, T + ': NEW on every card but the copy held');
+    assert.equal(s0.isNew, R.tier !== 0, T + ': NEW on every card but the copy held');
     assert.equal(s0.n, `${i + 1} of ${order.length}`, T + ': the count line keeps the rarity a surprise');
     assert.equal(s0.lit, R.tier >= 3, T + ': the ground lit from Legendary');
     if (R.tier >= 3) assert.equal(s0.tint, String(R.tier), T + ': the ground’s colour');
@@ -159,13 +160,13 @@ async function skipPass(page, order) {
   await done(page);
   await page.waitForFunction(() => window.__closed, null, {timeout: 5000});
 }
-/** After a Rare's flip (0.7 s) a tap must move on, not finish a reveal that's over (the dead tap). */
+/** After an Epic's flip a tap must move on, not finish a reveal that's over (the dead tap). */
 async function deadTapPass(page, order) {
-  const i = order.findIndex(r => r.tier === 1);
+  const i = order.findIndex(r => r.tier === 2);
   for (let k = 0; k < i; k++) { await page.waitForTimeout(60); await tapDeal(page); await page.waitForTimeout(80); }
-  await page.waitForTimeout(order[i].hold + order[i].flip + 250);
+  await page.waitForTimeout(order[i].total + 250);
   await tapDeal(page); await page.waitForTimeout(80);
-  assert.match((await dealState(page)).cls, new RegExp(`\\bt-${order[i + 1].tier}\\b`), 'a tap after a Rare’s flip moves on');
+  assert.match((await dealState(page)).cls, new RegExp(`\\bt-${order[i + 1].tier}\\b`), 'a tap after an Epic’s flip moves on');
   await page.locator('[data-dy-skip]').click();
   await page.locator('.pk-results:not([hidden])').waitFor({timeout: 5000});
   await done(page);
@@ -208,7 +209,7 @@ async function run(url) {
       await page.evaluate(async () => { const app = await import('/js/app.js'); await app.nav('/puzzles/dynasty'); });
       await page.locator('.pk').waitFor({timeout: 15000});
       const order = await openAll(page);
-      assert.deepEqual(order.map(r => r.tier).slice().sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6], 'one card of every tier');
+      assert.deepEqual(order.map(r => r.tier).slice().sort((a, b) => a - b), [0, 2, 3, 4, 6], 'one card of every tier a player card can have');
       await rip(page);
       if (pass === 'timed') await timedPass(page, order);
       else if (pass === 'skip') await skipPass(page, order);

@@ -141,8 +141,8 @@ screen and pack-opening flow. Collectible cards use clear portraits and names; o
 Matches show readable game pieces and inline attacks. Rules v3: signature attacks spend one matching energy and Juke
 reduces signature damage by 30. Preserve v1/v2/v3 saved matches and unversioned defaults.
 Air Raid and Ground Control presets only use owned cards; no collection reset or free-card grant.
-Rarity finishes follow the owner's card references: type-tinted silver Common, gold Rare, violet/cyan Epic,
-illuminated gold Legendary, and prismatic cosmic Mythic. Keep the name/HP header and framed artwork readable.
+Rarity finishes follow the owner's card references: type-tinted silver Common, violet/cyan Epic,
+illuminated gold Legendary, and prismatic cosmic Mythic (Rare retired Nov 2 2026). Keep the name/HP header and framed artwork readable.
 `dynasty-rarity.css` and `img/rivals/` own the materials; `dynasty-foil.js` adds reflections in details and reveals.
 Collection previews stay still, with reduced-motion support. Verify `check-card-layout.cjs`.
 Mythic foil (Nov 1 2026, Evan, with a holographic foil picture: "Use the attached for a background picture for the special
@@ -154,6 +154,16 @@ rivals"): Epic cards wear `img/rivals/epic-purple-v1.webp` the same way, behind 
 as the card face behind the frame, rules on opaque lilac panels (`dynasty-rarity.css`).
 Legendary gold (Nov 2 2026, Evan, with a gold-leaf picture: "Use the gold for legendary"): Legendary cards wear
 `img/rivals/legendary-gold-v1.webp` the same way, name and rules on ivory panels.
+One card a player (Nov 2 2026, Evan: "There should be no two cards for the same player. A player needs to fall into one of the
+following categories: common (79 overall or less. Use the current card design), epic (80-89), legendary (90-95), mythic (96+)";
+he chose each player's best card): `core/dynasty.js` `setData` keeps each player's highest-OVR card in `CARDS`, the rest go in
+`ALIAS` (old id -> kept id) but stay in `BY_ID` so old battles replay; `rarityOf(ovr)` alone sets the rarity (`SCALE`), Rare is
+retired, and the mark (so the reveal) is the rarity's (◆ / ◆◆◆ / ◆◆◆◆ / ★, ♛ Legends). `fold()` (run by `clean()` and `mine()`,
+repeatable) turns a save's retired copies into copies of the kept card (collection, deck, new marks, latest pulls; the deck is
+rebuilt only if that makes it illegal); this phone keeps the save as it was once in `gg-dy1-<key>-premerge`. Packs' 'live' pool is
+every active player (any series but Legends). Battles: rules v5 (`B.RULES_VERSION`) make every player card a Basic (`stageOf`,
+`basicIn(id, v)`; nothing evolves); v1-v4 matches keep their Gameday/Prime upgrades. The kit check "Gridiron Rivals: one card a
+player keeps every save whole…" covers the fold.
 Team backgrounds (October 30, 2026): the owner replaced hometown photos with electric sports-poster graphics,
 inspired by his Ravens/Vikings examples. Every franchise uses its own local logo, team colors, nickname, plasma
 texture and angled accents (`views/dynasty-team-scenes.js`, `img/rivals/team-graphics-v2/`).

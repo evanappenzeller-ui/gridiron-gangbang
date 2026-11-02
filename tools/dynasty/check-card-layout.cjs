@@ -72,7 +72,7 @@ async function run(url) {
     const samples = await page.evaluate(async () => {
       const D = await import('/js/core/dynasty.js'), B = await import('/js/core/dynasty-battle.js'), {cardHTML} = await import('/js/views/dynasty.js');
       await D.load();
-      const cards = [...D.RARITY.map(r => D.CARDS.find(c => c.r === r && c.s === 'L')),
+      const cards = [...D.RARITY.map(r => D.CARDS.find(c => c.r === r && c.s !== 'X')),
         D.CARDS.find(c => B.stats(c.id).ability), D.CARDS.find(c => c.name === 'Tyler Warren' && c.s === 'L'),
         [...D.CARDS].sort((a, b) => b.name.length - a.name.length)[0], D.CARDS.find(c => c.name === 'Joe Montana'),
         D.CARDS.find(c => c.name === 'Jerry Rice'), D.card('P0033886')];
@@ -83,13 +83,13 @@ async function run(url) {
     await page.evaluate(() => document.fonts.ready);
     checkGeometry(await geometry(page, '.pk-card'));
     if (shots) await page.locator('main').screenshot({path: path.join(shots, 'tyler-warren.png')});
-    const finishes = await page.locator('figure:nth-child(-n+5) .pk-card').evaluateAll(cards => cards.map(card => ({
+    const finishes = await page.locator('figure:nth-child(-n+4) .pk-card').evaluateAll(cards => cards.map(card => ({
       rarity: card.querySelector('.pk-c-rar').textContent,
       scene: getComputedStyle(card).getPropertyValue('--card-scene'),
       foil: !!card.querySelector('.pk-c-foil'),
       motion: card.getAnimations({subtree: true}).some(a => a.playState === 'running')
     })));
-    assert.equal(new Set(finishes.map(c => c.scene)).size, 5, 'Every rarity keeps its own fallback scenery');
+    assert.equal(new Set(finishes.map(c => c.scene)).size, 4, 'Every rarity keeps its own fallback scenery');
     for (const c of finishes) {
       assert.equal(c.foil, c.rarity !== 'common', c.rarity + ': foil starts at Rare');
       assert.equal(c.motion, false, c.rarity + ': reduced motion stays still');
@@ -110,7 +110,7 @@ async function run(url) {
     await page.waitForFunction(() => !document.querySelector('.is-foil-active'));
     await page.evaluate(() => window.__stopFoil());
     assert.equal(await rare.evaluate(card => card.style.getPropertyValue('--shine-x')), '', 'Interaction cleanup removes reflection coordinates');
-    console.log('PASS: five rarity finishes, pointer reflection, reduced motion and cleanup');
+    console.log('PASS: four rarity finishes, pointer reflection, reduced motion and cleanup');
     console.log('PASS: large and small cards — ' + samples.join(', '));
     await context.close();
 

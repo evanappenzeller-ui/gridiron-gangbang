@@ -98,7 +98,7 @@ function ladderDeck(n, yours) {
   const types = ladderTypes(n, yours), [lo, hi] = ovrOf(n), R = D.rng(`ladder|${n}|${types.join('')}`), owned = {...kitOf(n)};
   if (n >= 16) owned[STADIUM[types[0]]] = 1;
   // (the range widened, a step at a time, until each type has seven players in it: the low ratings are thin)
-  const basics = D.CARDS.filter(c => c.s === 'L' && B.isBasic(c.id) && c.pos !== 'K' && types.includes(B.POS_TYPE[c.pos]));
+  const basics = D.CARDS.filter(c => c.s !== 'X' && B.isBasic(c.id) && c.pos !== 'K' && types.includes(B.POS_TYPE[c.pos]));
   let pool = [];
   for (let w = 0; w <= 40; w += 2) {
     pool = basics.filter(c => c.o >= lo - w && c.o <= hi + w);
@@ -128,7 +128,7 @@ export function deckFor(id, yours = 'A') {
   if (DECKS.has(id)) return DECKS.get(id).slice();
   const R = D.rng('solo|' + id), [lo, hi] = RANGE[o.lv], owned = {...KIT[o.lv]};
   if (o.lv !== 'beg') owned[STADIUM[o.types[0]]] = 1;
-  const pool = D.CARDS.filter(c => c.s === 'L' && B.isBasic(c.id) && o.types.includes(B.POS_TYPE[c.pos]) && c.o >= lo && c.o <= hi);
+  const pool = D.CARDS.filter(c => c.s !== 'X' && B.isBasic(c.id) && o.types.includes(B.POS_TYPE[c.pos]) && c.o >= lo && c.o <= hi);
   const shuffled = pool.map(c => ({c, k: R()})).sort((a, b) => a.k - b.k).map(x => x.c);
   const picked = [];
   for (const t of o.types) picked.push(...shuffled.filter(c => B.POS_TYPE[c.pos] === t).slice(0, 7));
@@ -167,9 +167,9 @@ export function skillOf(lv) {
 // (the same slip for a turn however often it's asked)
 const roll = (G, k) => { let h = 2166136261; for (const ch of `${G.seed}|${k}|${G.turn}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; return h / 4294967296; };
 export function nextMove(G, who, lv = 'int') {
-  const me = G.p[who], opp = G.p[1 - who], ok = m => B.check(G, who, m).ok, K = skillOf(lv);
+  const me = G.p[who], opp = G.p[1 - who], ok = m => B.check(G, who, m).ok, K = skillOf(lv), basic = id => B.basicIn(id, G.v);
   if (G.phase === 'setup') {
-    const b = me.hand.filter(B.isBasic);
+    const b = me.hand.filter(basic);
     if (K.lineup) b.sort((x, y) => (B.stats(y).hp + best(y)) - (B.stats(x).hp + best(x)));
     return {a: 'setup', act: b[0], bench: b.slice(1, 1 + Math.min(B.BENCH_MAX, K.bench))};
   }
@@ -181,13 +181,13 @@ export function nextMove(G, who, lv = 'int') {
   const tryAll = list => list.find(ok) || null;
   // Items
   let m;
-  if (K.items && me.hand.includes('I-recruit') && me.bench.length < K.bench && me.deck.some(B.isBasic) && (m = tryAll([{a: 'item', id: 'I-recruit'}]))) return m;
+  if (K.items && me.hand.includes('I-recruit') && me.bench.length < K.bench && me.deck.some(basic) && (m = tryAll([{a: 'item', id: 'I-recruit'}]))) return m;
   const hurt = all.filter(s => s.dmg >= 20).sort((x, y) => (y === act) - (x === act) || y.dmg - x.dmg);
   if (K.items && me.hand.includes('I-water') && hurt.length && (m = tryAll([{a: 'item', id: 'I-water', on: hurt[0].u}]))) return m;
   // Basics to the bench (as many as it keeps), then evolutions (the active player first)
-  const basic = me.bench.length < K.bench && me.hand.find(id => B.isBasic(id) && ok({a: 'bench', id}));
-  if (basic) return {a: 'bench', id: basic};
-  for (const id of me.hand.filter(x => B.stats(x) && B.stats(x).stage === 1)) {
+  const toBench = me.bench.length < K.bench && me.hand.find(id => basic(id) && ok({a: 'bench', id}));
+  if (toBench) return {a: 'bench', id: toBench};
+  for (const id of me.hand.filter(x => B.stats(x) && B.stageOf(x, G.v) === 1)) {
     const on = [act, ...me.bench].filter(Boolean).find(s => ok({a: 'evolve', id, on: s.u}));
     if (on) return {a: 'evolve', id, on: on.u};
   }
@@ -203,7 +203,7 @@ export function nextMove(G, who, lv = 'int') {
     const cands = [];
     if (has('C-timeout')) { const s = all.filter(x => x.dmg >= 30).sort((x, y) => y.dmg - x.dmg)[0]; if (s) cands.push({a: 'coach', id: 'C-timeout', on: s.u}); }
     if (has('C-twomin') && me.hand.length <= 5 && me.deck.length) cands.push({a: 'coach', id: 'C-twomin'});
-    if (has('C-scout') && me.bench.length < B.BENCH_MAX && me.deck.some(B.isBasic)) cands.push({a: 'coach', id: 'C-scout'});
+    if (has('C-scout') && me.bench.length < B.BENCH_MAX && me.deck.some(basic)) cands.push({a: 'coach', id: 'C-scout'});
     if (K.tricks) {
       if (has('C-plan') && canHit) cands.push({a: 'coach', id: 'C-plan'});
       if (has('C-flag') && foe && foe.en.length) cands.push({a: 'coach', id: 'C-flag'});
@@ -264,7 +264,7 @@ function write() { try { if (REC) localStorage.setItem(KEY(), JSON.stringify(REC
 function game(r) {
   if (CACHE && CACHE.id === r.id && CACHE.n === r.log.length) return CACHE.G;
   // Older solo saves had no version and always used v2. Never reinterpret their recorded moves.
-  const G = B.newGame(r.seed, r.decks, r.v >= 4 ? 4 : r.v >= 3 ? 3 : 2);
+  const G = B.newGame(r.seed, r.decks, r.v >= 5 ? 5 : r.v >= 4 ? 4 : r.v >= 3 ? 3 : 2);
   for (const [w, m] of r.log) { if (!B.play(G, w, m).ok) break; }
   CACHE = {id: r.id, n: r.log.length, G};
   return G;

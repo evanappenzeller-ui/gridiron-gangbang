@@ -19,6 +19,8 @@
 // - Version 4 (Oct 30 2026, the owner: "Energy is automatically added to the cards each round"): the turn's energy goes
 //   on by itself as the turn starts (autoEnergy: the active player while it helps his plays, else the bench player it
 //   brings nearest his signature play); after a knockout, onto the player sent in. Nothing else changes from v3.
+// - Version 5 (Nov 2 2026, the owner: "There should be no two cards for the same player"): one card a player, so every
+//   player card is a Basic and nothing evolves (stageOf). A v1-v4 match keeps its Gameday and Prime upgrades.
 // - Knock out the other side's active player for a touchdown (a Legend or Prime: two). Three wins it, as does knocking
 //   out their last player. 50 turns between you and it's whoever's ahead.
 // - Types (football's own logic): Air (QB, WR, TE) beats Blitz, Ground (RB, OL) beats Coverage, Blitz (DL, LB) beats
@@ -41,7 +43,7 @@ export const POS_TYPE = {QB: 'A', WR: 'A', TE: 'A', RB: 'G', OL: 'G', DL: 'B', L
 export const WEAK = {A: 'C', G: 'B', B: 'A', C: 'G'};
 export const WEAK_BONUS = 20;
 export const DECK_SIZE = 20, HAND_START = 5, BENCH_MAX = 3, WIN_POINTS = 3, MAX_COPIES = 2, TURN_CAP = 50;
-export const RULES_VERSION = 4;
+export const RULES_VERSION = 5;
 
 // ---------------------------------------------------------------------------------------------------- Coach and Stadium cards
 // (C-: Coach cards, one a turn, Pokémon's Supporters; I-: Items, any number a turn; S-: Stadiums, in play for both sides
@@ -165,11 +167,16 @@ export function fxText(a) {
     default: return '';
   }
 }
-export const isBasic = id => { const s = stats(id); return !!s && s.stage === 0; };
+/** A card's stage under rules version v: from v5 every player card is a Basic (one card a player); before, a Gameday or
+ *  Prime card is an upgrade (1). */
+export const stageOf = (id, v = RULES_VERSION) => { const s = stats(id); return !s ? 0 : v >= 5 ? 0 : s.stage; };
+export const basicIn = (id, v) => !!stats(id) && stageOf(id, v) === 0;
+/** A Basic player under the current rules (one argument, so it can go straight into filter()). */
+export const isBasic = id => basicIn(id, RULES_VERSION);
 
 // ---------------------------------------------------------------------------------------------------- decks
 /** Whether a deck is legal: {ok, why, types (its energy types)}. */
-export function checkDeck(ids, owned = null) {
+export function checkDeck(ids, owned = null, v = RULES_VERSION) {
   if (!Array.isArray(ids)) return {ok: false, why: 'No deck.', types: []};
   if (ids.length !== DECK_SIZE) return {ok: false, why: `A deck is ${DECK_SIZE} cards (this one has ${ids.length}).`, types: deckTypes(ids)};
   const per = {}, have = {};
@@ -182,7 +189,7 @@ export function checkDeck(ids, owned = null) {
     have[id] = (have[id] || 0) + 1;
     if (owned && have[id] > (owned[id] || 0)) return {ok: false, why: 'It uses cards you don’t have.', types: deckTypes(ids)};
   }
-  if (!ids.some(isBasic)) return {ok: false, why: 'It needs at least one Basic player.', types: deckTypes(ids)};
+  if (!ids.some(id => basicIn(id, v))) return {ok: false, why: 'It needs at least one Basic player.', types: deckTypes(ids)};
   return {ok: true, why: '', types: deckTypes(ids)};
 }
 /** A deck's energy types: its players' (kickers' aside), the most played first, at most 3. */
@@ -220,13 +227,14 @@ function shuffle(G, a) { for (let i = a.length - 1; i > 0; i--) { const j = Math
 //  came into play)}
 /** A new game: seed (the match id), decks [[ids], [ids]]. */
 export function newGame(seed, decks, v = 1) {
-  const G = {seed: String(seed), v: v >= 4 ? 4 : v >= 3 ? 3 : v >= 2 ? 2 : 1, rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
+  const G = {seed: String(seed), v: v >= 5 ? 5 : v >= 4 ? 4 : v >= 3 ? 3 : v >= 2 ? 2 : 1, rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
   G.first = coin(G) ? 0 : 1; G.cur = G.first;
   for (let i = 0; i < 2; i++) {
     const deck = shuffle(G, (decks[i] || []).slice());
     // (the opening hand always holds a Basic: the first in the deck swapped in)
-    if (!deck.slice(0, HAND_START).some(isBasic)) {
-      const j = deck.findIndex(isBasic);
+    const basic = id => basicIn(id, G.v);
+    if (!deck.slice(0, HAND_START).some(basic)) {
+      const j = deck.findIndex(basic);
       if (j >= 0) [deck[HAND_START - 1], deck[j]] = [deck[j], deck[HAND_START - 1]];
     }
     G.p.push({deck, hand: deck.splice(0, HAND_START), disc: [], active: null, bench: [], pts: 0, types: deckTypes(decks[i]), en: null, next: null, n: 0, set: false,
@@ -345,7 +353,7 @@ export function check(G, who, m) {
     if (G.phase !== 'setup' || me.set) return no('Already set up.');
     const want = [m.act, ...(m.bench || [])], hand = me.hand.slice();
     if (!m.act || (m.bench || []).length > BENCH_MAX) return no('Pick an active player and up to 3 on the bench.');
-    for (const id of want) { const i = hand.indexOf(id); if (i < 0 || !isBasic(id)) return no('Only Basic players from your hand.'); hand.splice(i, 1); }
+    for (const id of want) { const i = hand.indexOf(id); if (i < 0 || !basicIn(id, G.v)) return no('Only Basic players from your hand.'); hand.splice(i, 1); }
     return {ok: true};
   }
   if (G.phase !== 'play') return no('Both sides set up first.');
@@ -353,10 +361,10 @@ export function check(G, who, m) {
   if (me.promote && m.a !== 'promote') return no('Pick your new active player first.');
   switch (m.a) {
     case 'promote': return me.promote && me.bench.some(s => s.u === m.u) ? {ok: true} : no('Pick one of your bench players.');
-    case 'bench': return me.hand.includes(m.id) && isBasic(m.id) && me.bench.length < BENCH_MAX ? {ok: true} : no(me.bench.length >= BENCH_MAX ? 'Your bench is full.' : 'Only Basic players go on the bench.');
+    case 'bench': return me.hand.includes(m.id) && basicIn(m.id, G.v) && me.bench.length < BENCH_MAX ? {ok: true} : no(me.bench.length >= BENCH_MAX ? 'Your bench is full.' : 'Only Basic players go on the bench.');
     case 'evolve': {
       const st = stats(m.id), s = findSlot(me, m.on);
-      if (!me.hand.includes(m.id) || !st || st.stage !== 1 || !s) return no('That can’t evolve.');
+      if (!me.hand.includes(m.id) || !st || stageOf(m.id, G.v) !== 1 || !s) return no('That can’t evolve.');
       if (stats(s.id).stage !== 0 || stats(s.id).from !== st.from) return no(`Only onto ${CARD(m.id) ? CARD(m.id).name : 'the same player'}’s Basic card.`);
       if (me.n <= 1 || s.at === G.turn) return no('Not on your first turn or the turn he came out.');
       return {ok: true};
@@ -433,7 +441,7 @@ function doMove(G, who, m) {
       if (m.id === 'C-timeout') { const s = findSlot(me, m.on); o.heal = Math.min(40, s.dmg); s.dmg -= o.heal; o.u = s.u; }
       else if (m.id === 'C-audible') { const i = me.bench.findIndex(s => s.u === m.on); const out = me.active; me.active = me.bench[i]; me.bench[i] = out; out.stun = false; out.inj = false; o.u = me.active.u; }
       else if (m.id === 'C-twomin') { o.n = 0; for (let k = 0; k < 2 && me.deck.length; k++) { me.hand.push(me.deck.shift()); o.n++; } }
-      else if (m.id === 'C-scout') { const b = me.deck.filter(isBasic); if (b.length) { const id = b[Math.floor(rand(G) * b.length)]; me.deck.splice(me.deck.indexOf(id), 1); me.hand.push(id); o.got = id; } }
+      else if (m.id === 'C-scout') { const b = me.deck.filter(id => basicIn(id, G.v)); if (b.length) { const id = b[Math.floor(rand(G) * b.length)]; me.deck.splice(me.deck.indexOf(id), 1); me.hand.push(id); o.got = id; } }
       else if (m.id === 'C-flag') { if (opp.active.en.length) { o.e = opp.active.en.pop(); } }
       else if (m.id === 'C-hail') {
         const flips = [coin(G), coin(G), coin(G)], dmg = flips.filter(Boolean).length * 30;
@@ -450,7 +458,7 @@ function doMove(G, who, m) {
     case 'item': {
       takeFromHand(me, m.id); me.disc.push(m.id);
       const o = {id: m.id};
-      if (m.id === 'I-recruit') { const b = me.deck.filter(isBasic); if (b.length) { const id = b[Math.floor(rand(G) * b.length)]; me.deck.splice(me.deck.indexOf(id), 1); me.hand.push(id); o.got = id; } }
+      if (m.id === 'I-recruit') { const b = me.deck.filter(id => basicIn(id, G.v)); if (b.length) { const id = b[Math.floor(rand(G) * b.length)]; me.deck.splice(me.deck.indexOf(id), 1); me.hand.push(id); o.got = id; } }
       else if (m.id === 'I-water') { const s = findSlot(me, m.on); o.heal = Math.min(20, s.dmg); s.dmg -= o.heal; o.u = s.u; }
       else if (m.id === 'I-cleats') me.cleats = 1;
       say(G, who, 'item', o); return;

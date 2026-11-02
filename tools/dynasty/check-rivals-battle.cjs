@@ -48,7 +48,7 @@ async function main(url) {
     assert.equal(await page.locator('.db-table').count(), 1, 'both lineups share the table');
     assert.equal(await page.locator('.db-hand-fan').count(), 1, 'the hand is spread along the foot');
     const solo = () => page.evaluate(async () => { const x = (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid); return {state: x.state, me: x.G.p[0], v: x.G.v}; });
-    assert.equal((await solo()).v, 4, 'new ladder games use rules v4 (automatic energy)');
+    assert.equal((await solo()).v, 5, 'new ladder games use rules v5 (automatic energy, one card a player)');
     // Setup: a lineup is suggested; a lifted card offers its place, and Put back changes nothing.
     assert.equal(await page.locator('.is-me .is-active .db-slot:not(.is-empty)').count(), 1, 'the suggested lineup has a starter');
     assert.equal(await page.locator('[data-db-ready]').isDisabled(), false, 'Start is ready with the suggestion');

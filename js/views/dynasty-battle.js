@@ -143,6 +143,8 @@ function nextCinema(st) {
 // ---------------------------------------------------------------------------------------------------- pieces
 // One card face for the felt, the hand and the lifted card: type pip, name and HP across the top, the portrait, then
 // (in play) the HP meter and the attached energy, or (in hand) what kind of card it is.
+// (the rules version of the battle on screen: from v5 nothing is an upgrade)
+let RV = B.RULES_VERSION;
 function faceHTML(id, slot = null) {
   const c = D.card(id), t = D.trainer(id), stats = c && B.stats(id);
   const team = c && D.teamOf(c.team), type = stats && B.TYPES[stats.type];
@@ -153,7 +155,7 @@ function faceHTML(id, slot = null) {
     : `<span class="db-face-art is-tactic"${t.team ? ` data-team-scene="${esc(t.team)}" style="--team:${esc(D.teamOf(t.team).pri)};--team-secondary:${esc(D.teamOf(t.team).sec)}${teamSceneStyle(t.team)}"` : ''}>${ui.icon(t.kind === 'stadium' ? 'star' : t.kind === 'coach' ? 'football' : 'bolt', {size: 30})}</span>`;
   const foot = !c ? `<span class="db-face-role">${esc({coach: 'Coach · one a turn', item: 'Item', stadium: 'Stadium'}[t.kind])}</span>`
     : slot ? `<span class="db-face-meter"><i style="width:${Math.round(hp / stats.hp * 100)}%"></i></span><span class="db-face-en">${slot.en.length ? slot.en.map(pipHTML).join('') : '<small>No energy</small>'}</span>`
-    : `<span class="db-face-role">${esc(c.pos)} · ${esc(team.abbr || c.team)}${stats.stage ? ' · Upgrade' : ''}</span>`;
+    : `<span class="db-face-role">${esc(c.pos)} · ${esc(team.abbr || c.team)}${B.stageOf(id, RV) ? ' · Upgrade' : ''}</span>`;
   return `<span class="db-face r-${esc(rarity)}${c ? '' : ' is-tactic'}" style="--type:${type ? type.color : '#C59A48'}">`
     + `<span class="db-face-top">${pip}<b class="db-face-name">${esc(c ? short(id) : nameOf(id))}</b>${stats ? `<span class="db-face-hp">${hp}<small>HP</small></span>` : ''}</span>`
     + art + `<span class="db-face-foot">${foot}</span>`
@@ -171,7 +173,7 @@ function slotHTML(slot, side, act, {pick = false, ready = false, lifted = false}
 /** What a hand card does when played now: {a, candidates, targeted, ok, why, label}. */
 function handAction(G, who, id) {
   const t = D.trainer(id), stats = B.stats(id), me = G.p[who];
-  const a = t ? t.kind : stats && stats.stage ? 'evolve' : 'bench';
+  const a = t ? t.kind : stats && B.stageOf(id, G.v) ? 'evolve' : 'bench';
   const targeted = a === 'evolve' || !!(t && t.target);
   const candidates = targeted ? B.slots(me).filter(s => B.check(G, who, {a, id, on: s.u}).ok) : [];
   const result = targeted ? candidates.length ? {ok: true} : B.check(G, who, {a, id, on: (B.slots(me)[0] || {}).u}) : B.check(G, who, {a, id});
@@ -222,9 +224,9 @@ function focusHTML(st, x, mySlots) {
   if (F.kind === 'hand') {
     id = me.hand[F.i];
     const t = D.trainer(id), stats = B.stats(id);
-    sub = t ? t.text : `${B.TYPES[stats.type].name} · ${stats.stage ? `Upgrades ${short(id)}’s Basic card` : 'Basic player'} · ${stats.hp} HP`;
+    sub = t ? t.text : `${B.TYPES[stats.type].name} · ${B.stageOf(id, G.v) ? `Upgrades ${short(id)}’s Basic card` : 'Basic player'} · ${stats.hp} HP`;
     if (setup) {
-      if (!B.isBasic(id)) why = 'Only Basic players start the game.';
+      if (!B.basicIn(id, G.v)) why = 'Only Basic players start the game.';
       else moves = btn(st.setup.act ? 'Make him the starter' : 'Start with him', 'data-db-lineup="act"')
         + (st.setup.act && st.setup.bench.length < B.BENCH_MAX ? btn('Put on bench', 'data-db-lineup="bench"', 'soft') : '');
     } else {
@@ -303,7 +305,7 @@ function draw(st) {
     host.innerHTML = `<header class="db-top">${close}</header><div class="db-msg">${ui.empty({icon: 'versus', title: 'Battle', body: why})}</div>`;
     return;
   }
-  st.x = x;
+  st.x = x; RV = x.G.v;
   const G = x.G, you = x.you, me = G.p[you], op = G.p[1 - you], over = x.state === 'over';
   const myMove = x.state === 'yours' || x.state === 'setup';
   if (x.state === 'setup' && !st.setup.init) suggestLineup(st, me.hand);
