@@ -136,17 +136,22 @@
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic .pk-c-foot { border-top: 0; margin-left: -.5cqw; margin-right: -.5cqw; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic .pk-c-meta { padding: 1cqw .5cqw .4cqw; margin: 0 -.5cqw; border-radius: .5cqw; background: #f3efff; }
-/* Legendary: engraved gold, floodlights, and an ivory panel for the rules. */
+/* Legendary: engraved gold on the owner's gold-leaf picture (Nov 2 2026) behind the frame and the player;
+   the name and rules sit on ivory panels. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary {
   --card-edge: #805818; --card-inner: #fff3b5; --card-shadow: #85580c45; --card-line: #a67b3570;
   --card-paper: #e3bb5a; --card-panel: #fff0c8; --card-ink: #39250d; --card-muted: #60451f;
-  --card-scene: url('../../img/rivals/field-legendary.svg');
+  --card-scene: url('../../img/rivals/legendary-gold-v1.webp');
   --card-foil: repeating-linear-gradient(120deg, #62420b 0%, #edc555 10%, #fff0a4 16%, #be8f29 25%, #fff3ba 34%, #8b631c 44%);
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary .pk-c-face {
-  background: repeating-conic-gradient(from 30deg at 75% 35%, #ffe7a133 0 6deg, transparent 6deg 13deg),
-    linear-gradient(125deg, #f3dc8a, #bc8b31 43%, #f9e7ad 72%, #d5ac51);
+  background: url('../../img/rivals/legendary-gold-v1.webp') center / 100% 100% no-repeat, #d5ac51;
 }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary .pk-c-head {
+  padding: 1.8cqw 1cqw 1.5cqw; margin: 0 -.8cqw; border-radius: 1.5cqw; background: #fff4d9;
+  box-shadow: inset 0 0 0 .3cqw #fffaea, 0 .5cqw 1cqw #4d350e50;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary .pk-c-meta { padding: 1cqw .5cqw .4cqw; margin: 0 -.5cqw; border-radius: .5cqw; background: #fff4d9; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary .pk-c-art {
   border-color: #fff0b1; box-shadow: 0 0 0 .6cqw #72521c, 0 0 0 1.2cqw #ffe5a0, 0 1cqw 2cqw #4d350e70;
 }
@@ -287,6 +292,11 @@ div.pk-open .pk-card.pk-rivals-card {
   background: url('../../img/rivals/mythic-holo-v1.webp') var(--team-focus, center) / cover no-repeat #252047;
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-scenery[data-team-scene]::before { content: none; }
+/* A Legendary player stands on the owner's gold leaf the same way (Nov 2 2026). */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary .pk-c-scenery[data-team-scene] {
+  background: url('../../img/rivals/legendary-gold-v1.webp') var(--team-focus, center) / cover no-repeat #d5ac51;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary .pk-c-scenery[data-team-scene]::before { content: none; }
 /* An Epic player stands on the owner's purple brushwork the same way (Nov 2 2026). */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic .pk-c-scenery[data-team-scene] {
   background: url('../../img/rivals/epic-purple-v1.webp') var(--team-focus, center) / cover no-repeat #4b1d8f;
@@ -321,6 +331,9 @@ div.pk-open .pk-card.pk-rivals-card {
   position: absolute; z-index: 3; top: 2.4cqw; left: 2.4cqw; max-width: 64%;
   font: italic 900 4.5cqw/1.2 var(--font-text); letter-spacing: .07em; color: #fff;
   text-align: left; text-shadow: 0 .4cqw 1cqw #000, 0 0 2cqw #000; pointer-events: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary:has([data-team-scene]) .pk-c-face {
+  background: url('../../img/rivals/legendary-gold-v1.webp') center / 100% 100% no-repeat, #d5ac51;
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic:has([data-team-scene]) .pk-c-face {
   background: url('../../img/rivals/epic-purple-v1.webp') center / 100% 100% no-repeat, #4b1d8f;

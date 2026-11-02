@@ -152,6 +152,8 @@ Battle pieces keep their light faces.
 Epic purple (Nov 2 2026, Evan, with a purple brushwork picture: "Use the purple background for cards with an epic rarity in
 rivals"): Epic cards wear `img/rivals/epic-purple-v1.webp` the same way, behind the player in place of the tinted plasma and
 as the card face behind the frame, rules on opaque lilac panels (`dynasty-rarity.css`).
+Legendary gold (Nov 2 2026, Evan, with a gold-leaf picture: "Use the gold for legendary"): Legendary cards wear
+`img/rivals/legendary-gold-v1.webp` the same way, name and rules on ivory panels.
 Team backgrounds (October 30, 2026): the owner replaced hometown photos with electric sports-poster graphics,
 inspired by his Ravens/Vikings examples. Every franchise uses its own local logo, team colors, nickname, plasma
 texture and angled accents (`views/dynasty-team-scenes.js`, `img/rivals/team-graphics-v2/`).
