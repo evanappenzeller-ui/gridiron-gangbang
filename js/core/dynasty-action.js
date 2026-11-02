@@ -132,10 +132,10 @@ export const ACTION = {
   "0033132": ["0033132-v3", "card:0ad80e50", "", "", "", 2023], // Kevin Byard
   "0036358": ["0036358-v4", "Washington_at_Dallas_Photo_110_(51787382465).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2021], // CeeDee Lamb
   "0036564": ["0036564-v3", "card:889a4391", "", "", "", 2024], // Talanoa Hufanga
-  "0038542": ["0038542-v3", "2025_Commanders_at_Falcons_11.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Bijan Robinson
+  "0038542": ["0038542-v4", "Bijan_Robinson_2025.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Bijan Robinson
   "0039841": ["0039841-v3", "card:af1d70e6", "", "", "", 2025], // Cooper DeJean
   "0032071": ["0032071-v3", "card:7fc98f76", "", "", "", 2020], // Trent Brown
-  "0034351": ["0034351-v3", "Dallas_Goedert_(52510560186)_(cropped).jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Dallas Goedert
+  "0034351": ["0034351-v4", "Dallas_Goedert.jpg", "AlexanderJonesi", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2019], // Dallas Goedert
   "0034974": ["0034974-v3", "card:6e82f20b", "", "", "", 2025], // Julian Love
   "0036223": ["0036223-v3", "card:2c36ebe3", "", "", "", 2025], // Jonathan Taylor
   "0036900": ["0036900-v3", "Commanders_vs._Bengals_-_54752531474.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Ja'Marr Chase
@@ -164,7 +164,7 @@ export const ACTION = {
   "0037840": ["0037840-v3", "card:a24b3e85", "", "", "", 2025], // Kyren Williams
   "0039065": ["0039065-v3", "card:0f8f2eed", "", "", "", 2025], // Sam LaPorta
   "0039111": ["0039111-v3", "Tuli_Tuipulotu.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Tuli Tuipulotu
-  "0039337": ["0039337-v3", "card:04df23b6", "", "", "", 2025], // Malik Nabers
+  "0039337": ["0039337-v4", "Commanders_vs._Giants_2025_20.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Malik Nabers
   "0040124": ["0040124-v3", "card:d8dee6c4", "", "", "", 2025], // Tetairoa McMillan
   "0040148": ["0040148-v3", "card:a8affd2c", "", "", "", 2025], // Xavier Watts
   "0041509": ["0041509-v3", "card:363a9aef", "", "", "", 2026], // Arvell Reese
@@ -185,7 +185,7 @@ export const ACTION = {
   "0035358": ["0035358-v3", "card:474c3657", "", "", "", 2025], // Chase McLaughlin
   "0035647": ["0035647-v3", "card:a692a885", "", "", "", 2025], // Montez Sweat
   "0036418": ["0036418-v3", "card:37d7a6ae", "", "", "", 2025], // Zack Baun
-  "0036442": ["0036442-v3", "Commanders_vs._Bengals_-_54751463192.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Joe Burrow
+  "0036442": ["0036442-v4", "Joe_Burrow_Bengals.jpg", "AlexanderJonesi", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2020], // Joe Burrow
   "0036912": ["0036912-v3", "Devonta_Smith_2022_(cropped).jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // DeVonta Smith
   "0037240": ["0037240-v3", "card:0d38f2da", "", "", "", 2025], // Jameson Williams
   "0038996": ["0038996-v3", "2025_Commanders_at_Packers_77.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Tucker Kraft
@@ -214,7 +214,7 @@ export const ACTION = {
   "0035230": ["0035230-v3", "card:e0ed6773", "", "", "", 2024], // Ed Oliver
   "0035261": ["0035261-v3", "card:6069d76c", "", "", "", 2025], // Tony Pollard
   "0035687": ["0035687-v3", "card:5f794291", "", "", "", 2024], // Bobby Okereke
-  "0036971": ["0036971-v3", "Trevor_Lawrence_vs_Commanders_2022_(cropped).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Trevor Lawrence
+  "0036971": ["0036971-v4", "Trevor_Lawrence_Commanders_vs_Jaguars_SEP2022.jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Trevor Lawrence
   "0036974": ["0036974-v3", "card:aa81a98a", "", "", "", 2023], // Tyson Campbell
   "0037228": ["0037228-v3", "card:644c7b7d", "", "", "", 2025], // Jaylen Warren
   "0037250": ["0037250-v4", "2022_Cleveland_Browns_Training_Camp_(52339586867).jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2022], // Martin Emerson
@@ -238,7 +238,7 @@ export const ACTION = {
   "0036624": ["0036624-v3", "card:5ce83c72", "", "", "", 2021], // Alim McNeill
   "0039172": ["0039172-v3", "card:26614a6e", "", "", "", 2025], // Jake Bates
   "0039918": ["0039918-v3", "Commanders_vs._Bears_(54857809842).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Caleb Williams
-  "0040663": ["0040663-v3", "Harold_Fannin_Jr._2026_Cleveland_Browns_training_camp_(cropped).jpg", "Erik Drost", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0", 2026], // Harold Fannin Jr.
+  "0040663": ["0040663-v4", "Harold_Fannin_Jr._3.jpg", "Erik Drost", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0", 2026], // Harold Fannin Jr.
   "0033873": ["0033873-v3", "card:6e94ee7f", "", "", "", 2020], // Patrick Mahomes
   "0034796": ["0034796-v3", "Lamar_Jackson_passing_2020_(cropped).jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2020], // Lamar Jackson
   "0039163": ["0039163-v3", "card:4d2beeca", "", "", "", 2024], // C.J. Stroud

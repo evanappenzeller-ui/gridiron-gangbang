@@ -41,7 +41,7 @@ REAL_IMG = os.path.join(ROOT, 'img', 'dynasty', 'real')
 EDSR = 'https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x4.pb'  # 4x upscaling of the card scans
 VERSION = 'v3'  # in the file names: a changed picture needs a new name (sw.js keeps pictures across releases)
 # Players alone in their photo: BiRefNet's figure is kept whole, without Segment Anything (which can drop an arm or the ball)
-ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
+ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790', '0036442', '0038542'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
 # Segment Anything's prompt by hand, where another player overlaps ours (fractions of the crop): a box round him,
 # points on him (1) and on the other (0), and boxes and outlines ('cut') to clear of what it still takes of the other
 SAM_HINT = {
@@ -83,6 +83,12 @@ REDO = {
     'xartmonk': 'v4', 'xbarrysanders': 'v4', 'xdanfouts': 'v4', 'xericdickerson': 'v4', 'xfrancoharris': 'v4', 'xjacklambert': 'v4', 'xlancealworth': 'v4', 'xpaulkrause': 'v4', 'xwalterjones': 'v4',  # Legends: card remnants cleared by hand
     '0034857': 'v4', '0033106': 'v4', '0034973': 'v4',  # Josh Allen, Jared Goff, Maxx Crosby: Commons originals over their card scans
     '0036997': 'v4', '0033886': 'v4', '0034790': 'v5',  # Javonte Williams, T.J. Watt, Derwin James: the same
+    '0039337': 'v4',  # Malik Nabers: a Commons photo from action_sweep.py's named photos
+    '0036442': 'v4',  # Joe Burrow: a Commons photo from action_sweep.py's named photos
+    '0036971': 'v4',  # Trevor Lawrence: a Commons photo from action_sweep.py's named photos
+    '0040663': 'v4',  # Harold Fannin Jr.: a Commons photo from action_sweep.py's named photos
+    '0034351': 'v4',  # Dallas Goedert: a Commons photo from action_sweep.py's named photos
+    '0038542': 'v4',  # Bijan Robinson: a Commons photo from action_sweep.py's named photos
 }
 
 # The trading-card photos (the owner, Oct 31 2026: "Where can we find live action pictures of the players that would be
@@ -120,6 +126,7 @@ COMMONS_FIRST = {
     '0036358',  # CeeDee Lamb (his card's photo had a defender against him)
     '0034857', '0033106', '0034973',  # Josh Allen, Jared Goff, Maxx Crosby (sharp originals from action_sweep.py's named photos)
     '0036997', '0033886', '0034790',  # Javonte Williams, T.J. Watt, Derwin James (the same)
+    '0039337',  # Malik Nabers (action_sweep.py's named photos)
 }
 # (Commons photos that are a portrait, a posed head-and-shoulders or a stamp, not a game, are left out of PICK: the owner,
 # Oct 31 2026, "Remove any headshot of the legend players")
@@ -223,7 +230,7 @@ PICK = {
     "0036564": "Hufanga_2025.png",  # Talanoa Hufanga, 2025
     "0031330": "NFL_2020_-_Playoffs_-_Washington_vs._Buccaneers_209_(50833182757).jpg",  # Morgan Moses, 2021
     "0032071": "Trenton_Brown.JPG",  # Trent Brown, 2015
-    "0034351": "Dallas_Goedert_(52510560186)_(cropped).jpg",  # Dallas Goedert, 2022
+    "0034351": "Dallas_Goedert.jpg",  # Dallas Goedert, 2019, running in at Washington
     "0034974": "Julian_Love_(cropped).jpg",  # Julian Love, 2019
     "0036223": "Jonathan_Taylor_Colts_OCT2022_(cropped).jpg",  # Jonathan Taylor, 2022
     "0036900": "Commanders_vs._Bengals_-_54752531474.jpg",  # Ja'Marr Chase, 2025
@@ -251,9 +258,9 @@ PICK = {
     "0036410": "Commanders_vs._Bengals_-_54752649825.jpg",  # Tee Higgins, 2025
     "0036914": "Gregory_Rousseau_(51528386792)_(cropped).jpg",  # Greg Rousseau, 2021
     "0039111": "Tuli_Tuipulotu.jpg",  # Tuli Tuipulotu, 2025
-    "0039337": "Malik_Nabers_Giants_week_1_2025.jpg",  # Malik Nabers, 2025
+    "0039337": "Commanders_vs._Giants_2025_20.jpg",  # Malik Nabers, 2025, airborne at Washington
     # (Oct 31 2026: the Rare and better cards' players without one yet; a college game where no NFL photo was free)
-    "0038542": "2025_Commanders_at_Falcons_11.jpg",  # Bijan Robinson, 2025
+    "0038542": "Bijan_Robinson_2025.jpg",  # Bijan Robinson, 2025, off the snap (ALONE: Segment Anything carved his chest)
     "0036994": "Ernest_Jones_South_Carolina.jpg",  # Ernest Jones, 2019
     "0037192": "George_Karlaftis.jpg",  # George Karlaftis, 2022
     "0037239": "IX8A4137_(45339431234)_(cropped).jpg",  # Chris Olave, 2018
@@ -276,7 +283,7 @@ PICK = {
     "0034158": "Brian_O'Neill_2020.png",  # Brian O'Neill, 2020
     "0035358": "Chase_McLaughlin_(51402814375)_(cropped).jpg",  # Chase McLaughlin, 2021
     "0036418": "ZackBaunUW2018_(cropped).jpg",  # Zack Baun, 2018
-    "0036442": "Commanders_vs._Bengals_-_54751463192.jpg",  # Joe Burrow, 2025
+    "0036442": "Joe_Burrow_Bengals.jpg",  # Joe Burrow, 2020, alone in the pocket
     "0036912": "Devonta_Smith_2022_(cropped).jpg",  # DeVonta Smith, 2022
     "0037240": "Jameson_Williams.png",  # Jameson Williams, 2021
     "0038996": "2025_Commanders_at_Packers_77.jpg",  # Tucker Kraft, 2025
@@ -299,7 +306,7 @@ PICK = {
     "0035230": "Ed_Oliver_2021_(cropped).jpg",  # Ed Oliver, 2021
     "0035261": "Tony_Pollard_(cropped).jpg",  # Tony Pollard, 2019
     "0035687": "Bobby_Okereke_(7370935)_(cropped).jpg",  # Bobby Okereke, 2022
-    "0036971": "Trevor_Lawrence_vs_Commanders_2022_(cropped).jpg",  # Trevor Lawrence, 2022
+    "0036971": "Trevor_Lawrence_Commanders_vs_Jaguars_SEP2022.jpg",  # Trevor Lawrence, 2022, rolling out at Washington
     "0036974": "Tyson_Campbell_(cropped).jpg",  # Tyson Campbell, 2026
     "0037228": "Jaylen_Warren_Cropped.jpg",  # Jaylen Warren, 2024
     "0037250": "2022_Cleveland_Browns_Training_Camp_(52339586867).jpg",  # Martin Emerson, 2022 camp, running alone
@@ -316,7 +323,7 @@ PICK = {
     "0036322": "Jefferson_2022.jpg",  # Justin Jefferson, 2022
     "0039172": "Jake_Bates_(53752265654)_(cropped).jpg",  # Jake Bates, 2024
     "0039918": "Commanders_vs._Bears_(54857809842).jpg",  # Caleb Williams, 2025
-    "0040663": "Harold_Fannin_Jr._2026_Cleveland_Browns_training_camp_(cropped).jpg",  # Harold Fannin Jr., 2026
+    "0040663": "Harold_Fannin_Jr._3.jpg",  # Harold Fannin Jr., 2026, at Browns camp
     "0034796": "Lamar_Jackson_passing_2020_(cropped).jpg",  # Lamar Jackson, 2020
     "0039163": "CJ_Stroud_in_2026.jpg",  # C.J. Stroud, 2026
     "0023459": "AaronRodgersSteelers_(cropped).jpg",  # Aaron Rodgers, 2025
@@ -354,12 +361,12 @@ CROP = {
     "0037191": (0.72, 0.06, 0.55),  # Trent McDuffie
     "0038124": (0.48, 0.15, 0.6),  # Christian Watson
     "0035642": (0.15, 0.12, 0.55),  # Josh Hines-Allen
-    "0039337": (0.45, 0.04, 0.5),  # Malik Nabers
+    "0039337": (0.37, 0.1, 0.9),  # Malik Nabers
     "0037834": (0.55, 0, 0.55),  # Brock Purdy
-    "0038542": (0.33, 0.02, 0.62),  # Bijan Robinson
+    "0038542": (0.5, 0, 1),  # Bijan Robinson
     "0037840": (0.36, 0.36, 0.4),  # Kyren Williams
     "0033106": (0.5, 0, 1),  # Jared Goff
-    "0036442": (0.6, 0.1, 0.6),  # Joe Burrow
+    "0036442": (0.5, 0.02, 0.98),  # Joe Burrow
     "0037228": (0.47, 0.12, 0.82),  # Jaylen Warren
     "0039918": (0.25, 0.08, 0.92),  # Caleb Williams
     "0039163": (0.45, 0.2, 0.55),  # C.J. Stroud
@@ -370,6 +377,9 @@ CROP = {
     "0036997": (0.55, 0.06, 0.95),  # Javonte Williams
     "0033886": (0.5, 0.02, 0.58),  # T.J. Watt
     "0034790": (0.38, 0.08, 0.92),  # Derwin James
+    "0036971": (0.5, 0.05, 0.92),  # Trevor Lawrence
+    "0040663": (0.5, 0.12, 0.85),  # Harold Fannin Jr.
+    "0034351": (0.11, 0.05, 0.75),  # Dallas Goedert
 }
 
 POS = {'QB': ['quarterback'], 'RB': ['running back'], 'WR': ['wide receiver'], 'TE': ['tight end'], 'K': ['placekicker', 'kicker'],
