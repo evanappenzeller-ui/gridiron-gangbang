@@ -303,8 +303,8 @@ export async function dynastyChecks(check) {
     const n = P.designsOf('gday').length, wrap = /data-art="([^"]+)"/.exec(P.packHTML('gday', {design: n + 1}))[1] === P.designsOf('gday')[1].id;
     return {pass: ok && rises && own && wrap, detail: `${why}average elements by tier ${[1, 2, 3, 4, 5].map(t => Math.round(mean(t))).join(' < ')}; ids ${own ? 'its own' : 'shared'}; wrap ${wrap}`};
   });
-  check('Gridiron Rivals: collectible cards share a clear portrait, name, OVR and rarity layout; original trading-card scans remain in detail with the selected edition marked; collection identity, rarity and namesake matching are preserved', async () => {
-    const [V, R] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-real.js')]);
+  check('Gridiron Rivals: collectible cards share a clear portrait, name, OVR and rarity layout; a card up close shows the player\u2019s page, not his real cards (the owner, Nov 2 2026: "Remove the real cards section"); collection identity, rarity and namesake matching are preserved', async () => {
+    const [V, R, S] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-real.js'), import('../views/dynasty-stats.js')]);
     const keys = Object.keys(R.REAL), cards = D.CARDS.filter(c => R.REAL[c.p]);
     const known = keys.length >= 16 && keys.every(p => D.DATA.players[p] && D.CARDS.some(c => c.p === p) && R.REAL[p].length
       && R.REAL[p].every(r => /^[0-9a-f]{8}$/.test(r[0]) && r[1] >= 1990 && r[2] && r[4]));
@@ -316,19 +316,46 @@ export async function dynastyChecks(check) {
         && el.querySelector('.pk-c-name')?.textContent === c.name && el.querySelector('.pk-c-ovr b')?.textContent === String(c.o)
         && el.querySelector('.pk-c-rar')?.textContent === c.r && !el.querySelector('.pk-c-ph.is-real')
         && (portrait ? el.querySelector('.pk-c-ph')?.getAttribute('src') === V.headUrl(c.head) : !!el.querySelector('.pk-c-num'))
-        && V.realHTML(c).includes(R.realUrl(c.p, c.real));
+        && !S.pageHTML(c).includes(R.realUrl(c.p, c.real));
     });
     const commons = D.CARDS.filter(c => c.r === 'common'), framed = commons.length > 0 && commons.every(c => c.s === 'X' || (!D.markOf(c).full && D.markOf(c).mark === '◆'))
       && commons.filter(c => c.head).slice(0, 50).every(c => { const h = V.cardHTML(c); return !/is-real|is-full/.test(h) && h.includes(V.isPhoto(c.head) ? 'class="pk-c-ph is-photo" src=' : V.isAction(c.head) ? 'class="pk-c-ph is-action" src=' : 'class="pk-c-ph" src='); });
     // (the foil: the rarity's class on the card, which css/views/dynasty.css animates from Epic up)
     const foil = D.RARITY.every(r => { const c = D.CARDS.find(x => x.r === r); return c && V.cardHTML(c).includes(` r-${r} `); });
     const allen = [...D.BY_ID.values()].filter(c => c.p === '0034857').map(c => c.real), apart = allen.length >= 3 && new Set(allen).size === allen.length;
-    const up = V.realHTML(D.card('Xtombrady')), close = (up.match(/<figure/g) || []).length === R.REAL.xtombrady.length && (up.match(/On this card/g) || []).length === 1;
-    const lb = D.CARDS.filter(c => c.name === 'Justin Jefferson' && c.pos === 'LB'), namesake = lb.length > 0 && lb.every(c => !c.real && c.r === 'common' && !V.realHTML(c));
+    const up = S.pageHTML(D.card('Xtombrady')), close = !/real cards|On this card|<figure/.test(up) && typeof V.realHTML === 'undefined';
+    const lb = D.CARDS.filter(c => c.name === 'Justin Jefferson' && c.pos === 'LB'), namesake = lb.length > 0 && lb.every(c => !c.real && c.r === 'common');
     const urls = keys.flatMap(p => R.REAL[p].map(r => R.realUrl(p, r)));
     const got = await Promise.all(urls.map(u => fetch(u, {method: 'HEAD', cache: 'no-store'}).then(r => r.ok).catch(() => false)));
     return {pass: known && shows && framed && foil && apart && close && namesake && got.every(Boolean),
       detail: `${urls.length} pictures for ${keys.length} players on ${cards.length} cards, ${commons.length} Common; Josh Allen’s ${allen.map(R.realName).join(', ')}; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
+  });
+  check('Gridiron Rivals: a card up close is the player\u2019s page, after MLB The Show\u2019s (the owner, Nov 2 2026: "Expand on the players stats. Take inspiration from the attached mlb the show stats page"): position, number and name in his team\u2019s colours, his bio, the card\u2019s attributes as bars on 0-99, his ranks at his position, this season\u2019s and last season\u2019s tables and his last games', async () => {
+    const S = await import('../views/dynasty-stats.js');
+    const d = await S.loadStats();
+    const live = D.CARDS.filter(c => c.s !== 'X'), bad = [];
+    live.forEach(c => {
+      const p = d.p[c.p], cols = d.cols[d.group[c.pos]];
+      if (!p || !cols) { bad.push(c.name + ' none'); return; }
+      if (![p[1], p[2]].every(r => r === 0 || r.length === cols.length)) bad.push(c.name + ' table');
+      if (p[3].some(g => g.length !== cols.length + 2)) bad.push(c.name + ' log');
+    });
+    const withBio = live.filter(c => d.p[c.p] && d.p[c.p][0][0] > 0).length;
+    const puka = D.CARDS.find(c => c.p === '0039075');
+    const el = document.createElement('div');
+    el.innerHTML = S.pageHTML(puka);
+    const bars = [...el.querySelectorAll('.pk-ps-col')].map(x => +x.querySelector('em').textContent);
+    const page = el.querySelector('.pk-ps-num')?.textContent === String(puka.num) && el.querySelector('.pk-ps-name b')?.textContent === 'Nacua'
+      && bars.join() === puka.a.join() && /Height/.test(el.textContent) && el.querySelectorAll('.pk-ps-ranks li').length > 0
+      && el.querySelectorAll('[data-seg="dy-ps"] button').length === 3;
+    el.innerHTML = S.pageHTML(puka, 'stats');
+    const table = el.querySelectorAll('.pk-ps-t tbody tr').length === 2 && el.querySelector('.pk-ps-t thead').textContent.includes('YDS');
+    el.innerHTML = S.pageHTML(puka, 'games');
+    const games = el.querySelectorAll('.pk-ps-t tbody tr').length >= 1 && /Wk \d+ (vs|@) /.test(el.textContent);
+    el.innerHTML = S.pageHTML(D.card('Xtombrady'), 'stats');
+    const legend = el.querySelectorAll('[data-seg="dy-ps"] button').length === 2 && /2000\u201322/.test(el.textContent);
+    return {pass: !bad.length && withBio > live.length * 0.95 && page && table && games && legend,
+      detail: `${live.length} players, ${withBio} with a bio; ${bad.slice(0, 5).join(', ') || 'no faults'}; page ${page}, table ${table}, games ${games}, legend ${legend}`};
   });
   check('Gridiron Rivals: no Legend wears a headshot (the owner, Oct 31 2026: "Remove any headshot of the legend players"): every Legend card wears his action photo, cut out, or else shows his number; no card wears a lead photo or portrait; a Common Live card keeps its cut-out headshot', async () => {
     const [V, A] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-action.js')]);

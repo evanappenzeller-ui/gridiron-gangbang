@@ -2,7 +2,7 @@
 // Play, Cards, Decks and Packs. Play opens first with a resume/solo action and the active deck.
 // The header menu holds settings/rules; the title screen and pack-opening flow remain available.
 // cardHTML/trainerHTML render collectible faces; the battle view renders compact game pieces.
-// Real printed trading cards stay in the card detail gallery. Match rules are versioned so old
+// Card details show the player's page (views/dynasty-stats.js). Match rules are versioned so old
 // turns replay unchanged while new matches use signature energy costs and predictable Juke.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -16,7 +16,8 @@ import {packHTML, designsOf} from './dynasty-packs.js';
 import {openScene} from './dynasty-open.js';
 import {bindCardFoil} from './dynasty-foil.js';
 import {teamSceneStyle, teamSceneHTML} from './dynasty-team-scenes.js';
-import {realCards, realUrl, realName} from '../core/dynasty-real.js';
+import {realName} from '../core/dynasty-real.js';
+import {pageHTML, bindPage} from './dynasty-stats.js';
 import {legendUrl, legendCredit} from '../core/dynasty-legends.js';
 import {actionUrl, actionCredit} from '../core/dynasty-action.js';
 
@@ -69,7 +70,7 @@ export const isAction = h => /^a:/.test(String(h || ''));
 export function cardHTML(c, o = {}) {
   if (!c) return '';
   const st = B.stats(c.id), T = D.teamOf(c.team), m = D.markOf(c), S = D.SERIES[c.s];
-  // Portraits give every series one clear visual language. Original printed trading cards remain in realHTML.
+  // Portraits give every series one clear visual language. 
   // Some legacy head values are complete card scans; use a jersey number instead of framing those twice.
   const head = c.head && !/^https?:/.test(c.head) ? headUrl(c.head, o.size === 'l' ? 520 : 300) : '';
   const photo = head ? `<img class="pk-c-ph${isPhoto(c.head) ? ' is-photo' : isAction(c.head) ? ' is-action' : ''}" src="${esc(head)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
@@ -140,31 +141,6 @@ export function battleHTML(id, game = {v: B.RULES_VERSION}) {
     + ab + `<ul class="pk-atk">${atk}</ul>`
     + `<p class="pk-foot">Weakness ${st.weak ? `${typeHTML(st.weak)} +${B.WEAK_BONUS}` : 'none'} · Retreat ${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : 'free'}</p></div>`;
 }
-/** A card's back: its attributes and its real stat lines. */
-function backHTML(c) {
-  const keys = D.attrKeys(c.pos), T = D.teamOf(c.team);
-  const bars = keys.map((k, i) => {
-    const v = c.a[i] || 0;
-    return `<li><span>${esc(D.ATTR_NAME[k] || k)}</span><i class="pk-bar"><b style="width:${v}%"></b></i><em>${v}</em></li>`;
-  }).join('');
-  const lines = [];
-  if (c.s === 'X') lines.push(['Career', c.ln[0]], ['First Topps card', c.ln[1]]);
-  else if (c.s === 'G') lines.push([c.t, c.ln[0]]);
-  else if (c.s === 'A') lines.push([c.t, c.ln[0]], ['2025 season', c.ln[1]]);
-  else { if (c.ln[0]) lines.push([`${D.DATA.season} so far`, c.ln[0]]); if (c.ln[1]) lines.push([`${D.DATA.season - 1} season`, c.ln[1]]); }
-  const facts = [D.POS_NAME[c.pos], c.s === 'X' ? `Legend of the ${T.name}` : T.name, c.college ? c.college : '', c.exp ? `${c.exp} yr${c.exp === 1 ? '' : 's'} pro` : c.s === 'X' ? '' : 'Rookie']
-    .filter(Boolean).join(' · ');
-  return `<div class="pk-info"><p class="pk-info-k">${esc(D.SERIES[c.s].name)} · OVR ${c.o}</p><p>${esc(facts)}</p><ul class="pk-attrs">${bars}</ul>`
-    + (lines.length ? `<dl class="pk-lines">${lines.filter(l => l[1]).map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl>` : '') + '</div>';
-}
-/** A player's real trading cards, the one on this card marked (core/dynasty-real.js), for his card up close. */
-export function realHTML(c) {
-  const list = realCards(c.p), on = c.real;
-  if (!list.length) return '';
-  return `<section class="pk-real"><h3 class="pk-h">${esc(c.name)}’s real cards</h3><div class="pk-real-row" data-hscroll>${list.map(r => `<figure class="pk-real-c${r === on ? ' is-on' : ''}">`
-    + `<img src="${esc(realUrl(c.p, r))}" alt="${esc(`${c.name}, ${realName(r)}`)}" width="160" height="225" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">`
-    + `<figcaption>${esc(realName(r))}${r === on ? '<b>On this card</b>' : ''}</figcaption></figure>`).join('')}</div></section>`;
-}
 /** A photo's credit (author, licence, its Wikimedia Commons page), for his card up close: the playing-days photo the card
  *  wears, else a Legend's photo. */
 export function creditHTML(c) {
@@ -188,10 +164,11 @@ function cardSheet(st, id) {
   if (!n && D.ppCost(c)) acts.push(ui.button({label: `Get it for ${nf(D.ppCost(c))} pack points`, kind: s.pp >= D.ppCost(c) ? 'primary' : 'secondary', block: true, attrs: {'data-dy-pp': id}, disabled: s.pp < D.ppCost(c)}));
   const body = `<div class="pk-zoom">${anyHTML(id, {size: 'l', tag: false, ghost: !n, noCount: true})}</div>`
     + `<p class="pk-own">${n ? `${n} in your collection${inDeck ? ` · ${inDeck} in your deck` : ''}` : 'Not in your collection yet'}</p>`
-    + (acts.length ? `<div class="pk-acts">${acts.join('')}</div>` : '') + battleHTML(id) + (D.card(id) ? backHTML(c) + realHTML(c) + creditHTML(c) : '');
+    + (acts.length ? `<div class="pk-acts">${acts.join('')}</div>` : '') + (D.card(id) ? pageHTML(c) : '') + battleHTML(id) + (D.card(id) ? creditHTML(c) : '');
   let stopFoil = () => {};
   const sh = ui.openSheet({title: 'Card details', body, cls: 'pk-sheet', detents: ['large'], onClose: () => stopFoil()});
   stopFoil = bindCardFoil(sh.body);
+  if (D.card(id)) bindPage(sh.body, c);
   sh.body.addEventListener('click', e => {
     if (e.target.closest('[data-dy-sell]')) {
       const r = D.sell(id, 1);

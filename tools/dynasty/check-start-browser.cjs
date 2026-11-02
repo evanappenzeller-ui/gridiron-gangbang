@@ -180,6 +180,29 @@ async function playerFlow(page, p, {reduced}) {
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-collection`);
   await page.locator('.sheet.pk-sheet [aria-label="Close"], .sheet.pk-sheet .sheet-close').first().click().catch(() => page.keyboard.press('Escape'));
   await page.waitForFunction(() => !document.querySelector('.sheet.pk-sheet'), null, {timeout: 5000});
+  // a player's card up close: his page (header, bio, tabs), no real cards (the owner, Nov 2 2026; the Starter Pack opened
+  // for some players to own)
+  await page.evaluate(async () => { const D = await import('/js/core/dynasty.js'); if (D.mine().pk.start) D.open('start', {free: true}); });
+  await page.locator('.v-dynasty [data-dy-cv="mine"]').click();
+  await page.waitForSelector('.v-dynasty [data-dy-card]');
+  const pid = await page.evaluate(async () => {
+    const D = await import('/js/core/dynasty.js');
+    const b = [...document.querySelectorAll('.v-dynasty [data-dy-card]')].find(x => D.card(x.dataset.dyCard) && x.getClientRects().length);
+    if (b) b.scrollIntoView({block: 'center'});
+    return b ? b.dataset.dyCard : null;
+  });
+  assert.ok(pid, T + ': a player card in the binder');
+  await page.locator(`.v-dynasty [data-dy-card="${pid}"]`).first().click();
+  await page.waitForSelector('.sheet.pk-sheet .pk-ps .pk-ps-bio');
+  await page.waitForFunction(() => document.querySelector('.sheet.pk-sheet .pk-ps-bio dt:nth-child(1)') && /Height|Era/.test(document.querySelector('.sheet.pk-sheet .pk-ps-bio').textContent), null, {timeout: 8000});
+  assert.equal(await page.locator('.sheet.pk-sheet .pk-real, .sheet.pk-sheet .pk-real-c').count(), 0, T + ': no real cards section');
+  assert.ok(await page.locator('.sheet.pk-sheet .pk-ps-col').count() >= 3, T + ': the attribute bars');
+  await page.locator('.sheet.pk-sheet [data-seg="dy-ps"] button[data-value="stats"]').click();
+  await page.waitForSelector('.sheet.pk-sheet [data-dy-pane] :is(.pk-ps-t, .pk-lines, .pk-ps-none)');
+  await snap(page, `${p.tag}${reduced ? '-rm' : ''}-player`);
+  await page.locator('.sheet.pk-sheet [aria-label="Close"], .sheet.pk-sheet .sheet-close').first().click().catch(() => page.keyboard.press('Escape'));
+  await page.waitForFunction(() => !document.querySelector('.sheet.pk-sheet'), null, {timeout: 5000});
+  await page.locator('.v-dynasty [data-dy-cv="cols"]').click();
   // the Menu
   await page.locator('.pk-hdr [data-dy-menu]').click();
   await page.waitForSelector('.pk-menu');

@@ -545,17 +545,65 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-lines { margin: 12px 0 0; display: grid; gap: 2px 0; font-size: var(--fs-cap); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-lines dt { color: var(--ink-3); font-weight: 700; margin-top: 6px; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-lines dd { margin: 0; color: var(--ink-2); }
-/* his real trading cards up close (views/dynasty.js realHTML): a row to scroll, the one on this card ringed */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-real { margin: 16px 0 4px; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-credit { margin: 12px 0 4px; font: 500 11px/1.4 var(--font-text); color: var(--ink-3); overflow-wrap: anywhere; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-credit a { color: inherit; text-decoration: underline; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-real-row { display: flex; gap: 12px; overflow-x: auto; margin: 0 -16px; padding: 4px 16px 10px; scrollbar-width: none; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-real-row::-webkit-scrollbar { display: none; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-real-c { flex: none; width: 80px; margin: 0; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-real-c img { display: block; width: 100%; height: auto; aspect-ratio: 160 / 225; border-radius: 5px; background: #fff; box-shadow: var(--pk-shadow); }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-real-c.is-on img { box-shadow: 0 0 0 2.5px var(--tint), var(--pk-shadow); }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-real-c figcaption { margin-top: 6px; font: 600 11px/1.3 var(--font-text); color: var(--ink-2); }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-real-c figcaption b { display: block; color: var(--tint); font-weight: 800; }
+/* a player's page up close (views/dynasty-stats.js), after MLB The Show's: a header in his team's colours, a bio grid,
+   tabs of tall attribute bars and stat tables */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps { margin: 0 0 12px; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: var(--pk-shadow); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-head { position: relative; display: flex; align-items: center; gap: 10px; padding: 14px 14px 12px; color: #fff; overflow: hidden;
+  background: linear-gradient(115deg, color-mix(in srgb, var(--tp) 70%, #000) 0%, var(--tp) 62%, transparent 62.2%),
+    linear-gradient(115deg, transparent 63%, var(--ts) 63.2%, var(--ts) 68%, transparent 68.2%),
+    color-mix(in srgb, var(--tp) 55%, #0b1220); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-pos { font: 900 22px/1 var(--font-text); letter-spacing: -.01em; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-num { display: grid; place-items: center; min-width: 40px; height: 40px; padding: 0 6px; border-radius: 4px; background: var(--ts); color: var(--tsi, #fff);
+  font: 900 24px/1 var(--font-text); font-variant-numeric: tabular-nums; box-shadow: 0 1px 0 rgba(0,0,0,.25); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-name { display: flex; flex-direction: column; min-width: 0; text-transform: uppercase; line-height: 1.05; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-name small { font: 600 13px var(--font-text); opacity: .9; letter-spacing: .02em; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-name b { font: 900 20px var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: .01em; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-ovr { margin-left: auto; display: flex; flex-direction: column; align-items: center; padding: 4px 8px; border-radius: 8px; background: rgba(255,255,255,.94); color: var(--ink); line-height: 1; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-ovr b { font: 900 22px var(--font-text); font-variant-numeric: tabular-nums; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-ovr small { font: 800 9px var(--font-text); letter-spacing: .08em; color: var(--ink-3); margin-top: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-sub { margin: 0; padding: 7px 14px; font: 600 12px/1.35 var(--font-text); color: var(--ink-2); background: color-mix(in srgb, var(--tp) 7%, #f6f7f9); border-bottom: 1px solid rgba(20,40,60,.06); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-bio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 10px; margin: 0; padding: 12px 14px 4px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-bio > div { min-width: 0; padding-left: 8px; border-left: 3px solid var(--tp); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-bio dt { font: 700 10px/1.2 var(--font-text); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-bio dd { margin: 2px 0 0; font: 800 15px/1.2 var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-tabs { margin: 12px 14px 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-pane { padding: 12px 14px 14px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-chart { position: relative; display: flex; justify-content: space-around; align-items: stretch; gap: 6px; height: 196px; padding: 0 0 0 22px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-grid { position: absolute; inset: 22px 0 34px 0; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-grid b { position: relative; display: block; height: 0; font: 600 10px/0 var(--font-text); color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-grid b::after { content: ''; position: absolute; left: 22px; right: 0; top: 0; border-top: 1px dashed rgba(20,40,60,.12); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-col { position: relative; flex: 1 1 0; max-width: 64px; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-col em { height: 22px; display: flex; align-items: flex-end; padding-bottom: 3px; font: 900 16px/1 var(--font-text); font-style: normal; color: var(--ink); font-variant-numeric: tabular-nums; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-bar { position: relative; flex: 1; width: 26px; display: flex; align-items: flex-end; border-radius: 4px 4px 0 0; background: rgba(20,40,60,.06); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-bar b { display: block; width: 100%; border-radius: 4px 4px 0 0; background: var(--c1);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0) 40%), repeating-linear-gradient(135deg, rgba(255,255,255,.12) 0 4px, transparent 4px 8px), linear-gradient(180deg, var(--c1), var(--c2)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-col small { height: 34px; display: flex; align-items: flex-start; justify-content: center; padding-top: 5px; text-align: center; font: 700 10px/1.15 var(--font-text); letter-spacing: .03em; text-transform: uppercase; color: var(--ink-2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .t-gold { --c1: #E2B022; --c2: #A87A0A; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .t-green { --c1: #2EAA4A; --c2: #17722E; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .t-blue { --c1: #2F7FE0; --c2: #1A4FA8; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .t-amber { --c1: #F08A24; --c2: #B85A0C; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .t-red { --c1: #E0463C; --c2: #A3241C; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-h { margin: 14px 0 8px; font: 800 12px var(--font-text); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-ranks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-ranks li { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto; align-items: center; gap: 8px; font: 600 12px var(--font-text); color: var(--ink-2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-rbar { height: 8px; border-radius: 4px; background: rgba(20,40,60,.08); overflow: hidden; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-rbar b { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--c2), var(--c1)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-ranks em { min-width: 64px; text-align: right; font: 900 14px var(--font-text); font-style: normal; color: var(--ink); font-variant-numeric: tabular-nums; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-ranks em small { font: 600 11px var(--font-text); color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-tw { overflow-x: auto; margin: 0 -14px; padding: 0 14px 2px; scrollbar-width: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-tw::-webkit-scrollbar { display: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-t { border-collapse: collapse; min-width: 100%; font: 600 13px var(--font-text); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-t thead th { padding: 6px 7px; font: 800 10px var(--font-text); letter-spacing: .05em; color: #fff; background: color-mix(in srgb, var(--tp) 80%, #0b1220); text-align: right; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-t thead th:first-child { text-align: left; border-radius: 8px 0 0 8px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-t thead th:last-child { border-radius: 0 8px 8px 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-t td { padding: 9px 7px; text-align: right; border-bottom: 1px solid rgba(20,40,60,.07); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-t tbody th { position: sticky; left: -14px; padding: 9px 7px; text-align: left; font: 800 12px var(--font-text); color: var(--ink); background: #fff; border-bottom: 1px solid rgba(20,40,60,.07); box-shadow: 6px 0 6px -6px rgba(20,40,60,.18); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-t tbody tr:nth-child(even) :is(td, th) { background: #f6f8fa; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps :is(.pk-ps-src, .pk-ps-none) { margin: 10px 0 0; font: 500 11px/1.4 var(--font-text); color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps-none { font-size: 13px; margin: 4px 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ps .pk-lines { margin-top: 10px; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-teamb { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 12px; background: #fff; box-shadow: var(--pk-shadow), inset 4px 0 0 var(--tp);
   color: var(--ink); font: 700 13px/1.2 var(--font-text); text-align: left; cursor: pointer; }

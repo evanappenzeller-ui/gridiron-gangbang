@@ -222,6 +222,14 @@ std, team, prem. Standard (1,000 coins, the daily free pack) 5 cards; Team (1,20
 (id `prem`, 5,000) every card Epic or better, also from Solo ladder milestones and collection rewards. Gameday and Legends
 are `retired`: never sold or opened, and `clean()`/`addPacks` turn one held into Epic Packs (`RETIRED`). `drawPack` never repeats
 a card or a player in one pack. The kit check "three packs on sale…" covers it.
+Player pages (Nov 2 2026, Evan, with MLB The Show's player screens: "Remove the real cards section. Expand on the players
+stats. Take inspiration from the attached mlb the show stats page"): a card up close shows no real cards; under it
+`views/dynasty-stats.js` `pageHTML` draws the player's page: position, number badge and name in his team's colours, a bio grid
+(rarity, series, experience, height, weight, age, college, draft), and tabs: Attributes (the card's ratings as tall bars on
+0/50/99, coloured by tier, and his ranks at his position this season), Stats (this season and last, the position's full
+table) and Games (his last five). Bio and tables come from `data/dynasty-stats-v1.json`, built by `tools/dynasty/stats.py` from
+nflverse (rebuild it alone as the weeks go by; it never touches `data/dynasty.json`'s ratings). The kit check "a card up close
+is the player's page…" covers it.
 Card details retain standard 63:88 proportions; printed attacks and stats use compact spacing and smaller damage
 numbers while keeping rarity frames, team scenery, portrait credits and small-card behavior intact.
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`
