@@ -115,13 +115,27 @@
   --card-scene: url('../../img/rivals/field-rare.svg');
   --card-foil: linear-gradient(118deg, #7b5720, #e1c769 12%, #fff7c7 25%, #af8032 40%, #ffeeb2 58%, #bb9135 76%, #fff9ce 92%);
 }
-/* Epic: cold platinum, violet/cyan interference foil and twilight field art. */
+/* Epic: cold platinum, violet/cyan interference foil, on the owner's purple brushwork (Nov 2 2026)
+   behind the frame and the player; the rules sit on opaque lilac panels. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic {
   --card-edge: #71639e; --card-inner: #e5f9ff; --card-shadow: #573c8c40;
-  --card-paper: #e1ddf1; --card-panel: #f3efff; --card-line: #74609a70;
-  --card-scene: url('../../img/rivals/field-epic.svg');
+  --card-paper: #4b1d8f; --card-panel: #f3efff; --card-line: #74609a70;
+  --card-scene: url('../../img/rivals/epic-purple-v1.webp');
   --card-foil: linear-gradient(118deg, #4e387f, #cceaff 14%, #a799e5 29%, #81eadb 43%, #fff0f7 58%, #7e76ca 73%, #bff4ff 88%, #65458e);
 }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic .pk-c-face {
+  background: url('../../img/rivals/epic-purple-v1.webp') center / 100% 100% no-repeat, #4b1d8f;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic .pk-c-head {
+  padding: 1.8cqw 1cqw 1.5cqw; margin: 0 -.8cqw; border-radius: 1.5cqw; background: #f3efff;
+  box-shadow: inset 0 0 0 .3cqw #fff, 0 .5cqw 1cqw #1a063850;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic .pk-c-body {
+  margin: 1.4cqw -.5cqw .8cqw; padding: 2.2cqw 2cqw; border-radius: 1.4cqw; background: #f3efff;
+  box-shadow: inset 0 0 0 .35cqw #fff, 0 0 0 .3cqw #7a5aae;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic .pk-c-foot { border-top: 0; margin-left: -.5cqw; margin-right: -.5cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic .pk-c-meta { padding: 1cqw .5cqw .4cqw; margin: 0 -.5cqw; border-radius: .5cqw; background: #f3efff; }
 /* Legendary: engraved gold, floodlights, and an ivory panel for the rules. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary {
   --card-edge: #805818; --card-inner: #fff3b5; --card-shadow: #85580c45; --card-line: #a67b3570;
@@ -273,6 +287,11 @@ div.pk-open .pk-card.pk-rivals-card {
   background: url('../../img/rivals/mythic-holo-v1.webp') var(--team-focus, center) / cover no-repeat #252047;
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-scenery[data-team-scene]::before { content: none; }
+/* An Epic player stands on the owner's purple brushwork the same way (Nov 2 2026). */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic .pk-c-scenery[data-team-scene] {
+  background: url('../../img/rivals/epic-purple-v1.webp') var(--team-focus, center) / cover no-repeat #4b1d8f;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic .pk-c-scenery[data-team-scene]::before { content: none; }
 /* The player is the focal point (the owner, Oct 31 2026): a large centred headshot, the team mark a corner badge.
    Headshots sit a little smaller (the owner, Oct 31 2026: "slightly smaller on the basic cards"); action photos keep 100%. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-art:has([data-team-scene]) .pk-c-ph {
@@ -302,6 +321,9 @@ div.pk-open .pk-card.pk-rivals-card {
   position: absolute; z-index: 3; top: 2.4cqw; left: 2.4cqw; max-width: 64%;
   font: italic 900 4.5cqw/1.2 var(--font-text); letter-spacing: .07em; color: #fff;
   text-align: left; text-shadow: 0 .4cqw 1cqw #000, 0 0 2cqw #000; pointer-events: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic:has([data-team-scene]) .pk-c-face {
+  background: url('../../img/rivals/epic-purple-v1.webp') center / 100% 100% no-repeat, #4b1d8f;
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic:has([data-team-scene]) .pk-c-face {
   background: url('../../img/rivals/mythic-holo-v1.webp') center / 100% 100% no-repeat, #252047;

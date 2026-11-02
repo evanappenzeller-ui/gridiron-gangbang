@@ -149,6 +149,9 @@ Mythic foil (Nov 1 2026, Evan, with a holographic foil picture: "Use the attache
 cards, the highest rarity only"): Mythic cards alone wear `img/rivals/mythic-holo-v1.webp` behind the player in place of the
 tinted plasma (team mark, nickname and streaks stay on top) and as the card face behind the frame (`dynasty-rarity.css`).
 Battle pieces keep their light faces.
+Epic purple (Nov 2 2026, Evan, with a purple brushwork picture: "Use the purple background for cards with an epic rarity in
+rivals"): Epic cards wear `img/rivals/epic-purple-v1.webp` the same way, behind the player in place of the tinted plasma and
+as the card face behind the frame, rules on opaque lilac panels (`dynasty-rarity.css`).
 Team backgrounds (October 30, 2026): the owner replaced hometown photos with electric sports-poster graphics,
 inspired by his Ravens/Vikings examples. Every franchise uses its own local logo, team colors, nickname, plasma
 texture and angled accents (`views/dynasty-team-scenes.js`, `img/rivals/team-graphics-v2/`).
