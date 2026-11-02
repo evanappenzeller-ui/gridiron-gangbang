@@ -81,6 +81,7 @@ REDO = {
     'xbrettfavre': 'v4', 'xaarondonald': 'v4', '0037236': 'v4',
     'xjohnnyunitas': 'v4', 'xgalesayers': 'v4',
     'xartmonk': 'v4', 'xbarrysanders': 'v4', 'xdanfouts': 'v4', 'xericdickerson': 'v4', 'xfrancoharris': 'v4', 'xjacklambert': 'v4', 'xlancealworth': 'v4', 'xpaulkrause': 'v4', 'xwalterjones': 'v4',  # Legends: card remnants cleared by hand
+    '0034857': 'v4', '0033106': 'v4', '0034973': 'v4',  # Josh Allen, Jared Goff, Maxx Crosby: Commons originals over their card scans
 }
 
 # The trading-card photos (the owner, Oct 31 2026: "Where can we find live action pictures of the players that would be
@@ -116,6 +117,7 @@ COMMONS_FIRST = {
     '0034759', '0034796', '0033131', '0037250', '0039067', '0036410',  # Kolton Miller, Lamar Jackson, Maliek Collins, Martin Emerson, Rashee Rice, Tee Higgins
     '0038563', '0036971', '0038996', '0039111',  # Tre Tucker, Trevor Lawrence, Tucker Kraft, Tuli Tuipulotu
     '0036358',  # CeeDee Lamb (his card's photo had a defender against him)
+    '0034857', '0033106', '0034973',  # Josh Allen, Jared Goff, Maxx Crosby (sharp originals from action_sweep.py's named photos)
 }
 # (Commons photos that are a portrait, a posed head-and-shoulders or a stamp, not a game, are left out of PICK: the owner,
 # Oct 31 2026, "Remove any headshot of the legend players")
@@ -195,11 +197,11 @@ PICK = {
     "xjohnriggins": "JohnRiggins1983TrainingCamp.jpg",  # John Riggins, 2008
     "0027857": "Trent_Willams_2020_(cropped).jpg",  # Trent Williams, 2020
     "0032726": "Ka'imi_Fairbairn_(45034655335)_(cropped).jpg",  # Ka'imi Fairbairn, 2018
-    "0034857": "NFL2021_-_Washington_Football_Team_at._Buffalo_Bills_101_(51529124162).jpg",  # Josh Allen, 2021
+    "0034857": "Josh_Allen_(30419600128).jpg",  # Josh Allen, 2018, a pass at Cleveland
     "0037236": "Commanders_at_Lions_(52379162544).jpg",  # Aidan Hutchinson, 2022, celebrating a play (the old photo was on the bench, no helmet)
     "0037841": "2025_Rams_vs_Titans_Quentin_Lake.png",  # Quentin Lake, 2025
     "0029592": "Kevin_Zeitler.JPG",  # Kevin Zeitler, 2015
-    "0034973": "Maxx_Crosby_Las_Vegas_Raiders_2021_(cropped_1).jpg",  # Maxx Crosby, 2021
+    "0034973": "Maxx_Crosby_WFT-Raiders_DEC2021.jpg",  # Maxx Crosby, 2021, kneeling on the field
     "0030097": "David_Quessenberry_2021_09-19.jpg",  # David Quessenberry, 2021
     "0033886": "TJWatt2025.jpg",  # T.J. Watt, 2025
     "0035643": "2026_Tennessee_Titans_New_Jersey_Photo_Shoot_-_Jeffery_Simmons_(cropped).png",  # Jeffery Simmons, 2026
@@ -258,7 +260,7 @@ PICK = {
     "0037840": "NFL_Playoff_Wildcard_Game_-_Kyren_Williams_Running_Back_Rams_(54266524948).jpg",  # Kyren Williams, 2025
     "0039065": "SamLaPorta.jpg",  # Sam LaPorta, 2021
     "0031492": "Jason_Myers_-_51720303739_(cropped).jpg",  # Jason Myers, 2021
-    "0033106": "Jared_Goff_&_D'Andre_Swift_Commanders_vs_Lions_SEP2022_(cropped).jpg",  # Jared Goff, 2022
+    "0033106": "Jared_Goff_2022.jpg",  # Jared Goff, 2022, alone on the field
     "0033831": "Andrew_Wylie-1st_&_Goal-Chiefs_at_Buccaneers_(52402413344)_(cropped).jpg",  # Andrew Wylie, 2022
     "0035272": "Andrew_Van_Ginkel_Dolphins-Falcons_OCT2021.png",  # Andrew Van Ginkel, 2021
     "0036388": "Xavier_McKinney_WFT-NYG_JAN2022_(cropped).jpg",  # Xavier McKinney, 2022
@@ -317,6 +319,7 @@ PICK = {
     "0039163": "CJ_Stroud_in_2026.jpg",  # C.J. Stroud, 2026
     "0023459": "AaronRodgersSteelers_(cropped).jpg",  # Aaron Rodgers, 2025
     "0033873": "Patrick_Mahomes_on_the_run_(51616124184).jpg",  # Patrick Mahomes, 2021
+    "xjoethomas": "Joe_Thomas_Cleveland_Browns.jpg",  # Joe Thomas, 2011, at camp in his #73
 }
 # player key -> (centre x, top, height) as fractions of the photo's width and height
 CROP = {
@@ -336,7 +339,7 @@ CROP = {
     "xdarrellerevis": (0.5, 0, 1),  # Darrelle Revis
     "xdarrellgreen": (0.5, 0, 0.7),  # Darrell Green
     "xwarrenmoon": (0.25, 0, 1),  # Warren Moon
-    "0034857": (0.55, 0.12, 0.5),  # Josh Allen
+    "0034857": (0.5, 0.02, 0.98),  # Josh Allen
     "0037841": (0.5, 0, 0.55),  # Quentin Lake
     "0030561": (0.6, 0.08, 0.75),  # Lane Johnson
     "0031279": (0.17, 0.02, 0.8),  # Jake Matthews
@@ -352,13 +355,15 @@ CROP = {
     "0037834": (0.55, 0, 0.55),  # Brock Purdy
     "0038542": (0.33, 0.02, 0.62),  # Bijan Robinson
     "0037840": (0.36, 0.36, 0.4),  # Kyren Williams
-    "0033106": (0.53, 0.03, 0.62),  # Jared Goff
+    "0033106": (0.5, 0, 1),  # Jared Goff
     "0036442": (0.6, 0.1, 0.6),  # Joe Burrow
     "0037228": (0.47, 0.12, 0.82),  # Jaylen Warren
     "0039918": (0.25, 0.08, 0.92),  # Caleb Williams
     "0039163": (0.45, 0.2, 0.55),  # C.J. Stroud
     "0023459": (0.6, 0.03, 0.6),  # Aaron Rodgers
     "0033873": (0.37, 0.18, 0.8),  # Patrick Mahomes
+    "0034973": (0.47, 0.25, 0.72),  # Maxx Crosby (the kicker at the right left out)
+    "xjoethomas": (0.48, 0.03, 0.97),  # Joe Thomas
 }
 
 POS = {'QB': ['quarterback'], 'RB': ['running back'], 'WR': ['wide receiver'], 'TE': ['tight end'], 'K': ['placekicker', 'kicker'],

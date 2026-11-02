@@ -65,6 +65,7 @@ export const ACTION = {
   "xginomarchetti": ["xginomarchetti-v3", "Gino_Marchetti_1961.jpg", "Jay Publishing", "Public domain", "", 1961], // Gino Marchetti
   "xjackham": ["xjackham-v3", "JackHamPIT.png", "Unknown author Unknown author", "Public domain", "", 1982], // Jack Ham
   "xjoenamath": ["xjoenamath-v3", "1986_Jeno's_Pizza_-_37_-_Joe_Namath_(Joe_Namath_crop).jpg", "Jeno's", "Public domain", "", 1969], // Joe Namath
+  "xjoethomas": ["xjoethomas-v3", "Joe_Thomas_Cleveland_Browns.jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2011], // Joe Thomas
   "xjuniorseau": ["xjuniorseau-v3", "card:b24dc757", "", "", "", 2000], // Junior Seau
   "xmarshallfaulk": ["xmarshallfaulk-v3", "card:a198ec8a", "", "", "", 2025], // Marshall Faulk
   "xmarvinharrison": ["xmarvinharrison-v3", "Marvin_Harrison_in_2007_Training_Camp_2.jpg", "The original uploader was Djmunden at English Wikipedia .", "CC BY-SA 2.5", "https://creativecommons.org/licenses/by-sa/2.5", 2008], // Marvin Harrison
@@ -105,14 +106,14 @@ export const ACTION = {
   "xjohnriggins": ["xjohnriggins-v3", "card:e4cafdfb", "", "", "", 2024], // John Riggins
   "xsteveatwater": ["xsteveatwater-v3", "card:5374a50e", "", "", "", 2024], // Steve Atwater
   "0032726": ["0032726-v3", "card:fdb4b05b", "", "", "", 2024], // Ka'imi Fairbairn
-  "0034857": ["0034857-v3", "card:4d5fa48e", "", "", "", 2025], // Josh Allen
+  "0034857": ["0034857-v4", "Josh_Allen_(30419600128).jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2018], // Josh Allen
   "0037236": ["0037236-v4", "Commanders_at_Lions_(52379162544).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Aidan Hutchinson
   "0037744": ["0037744-v3", "card:9b217822", "", "", "", 2025], // Trey McBride
   "0038543": ["0038543-v3", "card:bbd87f01", "", "", "", 2025], // Jaxon Smith-Njigba
   "0039139": ["0039139-v3", "card:e2026c5e", "", "", "", 2025], // Jahmyr Gibbs
   "0039343": ["0039343-v3", "card:9207fa61", "", "", "", 2024], // Kamari Lassiter
   "0029592": ["0029592-v3", "Kevin_Zeitler.JPG", "Jeffrey Beall", "CC BY 3.0", "https://creativecommons.org/licenses/by/3.0", 2015], // Kevin Zeitler
-  "0034973": ["0034973-v3", "card:3fcfb46e", "", "", "", 2025], // Maxx Crosby
+  "0034973": ["0034973-v4", "Maxx_Crosby_WFT-Raiders_DEC2021.jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2021], // Maxx Crosby
   "0033886": ["0033886-v3", "card:9a3a79ff", "", "", "", 2025], // T.J. Watt
   "0035643": ["0035643-v3", "card:ab489ef6", "", "", "", 2025], // Jeffery Simmons
   "0035699": ["0035699-v3", "card:8a07c251", "", "", "", 2019], // Jamel Dean
@@ -168,7 +169,7 @@ export const ACTION = {
   "0040148": ["0040148-v3", "card:a8affd2c", "", "", "", 2025], // Xavier Watts
   "0041509": ["0041509-v3", "card:363a9aef", "", "", "", 2026], // Arvell Reese
   "0031492": ["0031492-v3", "Jason_Myers_-_51720303739_(cropped).jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2021], // Jason Myers
-  "0033106": ["0033106-v3", "card:f2ba69cb", "", "", "", 2025], // Jared Goff
+  "0033106": ["0033106-v4", "Jared_Goff_2022.jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Jared Goff
   "0033831": ["0033831-v3", "card:db6e7b1d", "", "", "", 2023], // Andrew Wylie
   "0035272": ["0035272-v3", "card:2aa4bc7a", "", "", "", 2025], // Andrew Van Ginkel
   "0036388": ["0036388-v3", "card:8f1ef04d", "", "", "", 2025], // Xavier McKinney
