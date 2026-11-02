@@ -164,6 +164,10 @@ rebuilt only if that makes it illegal); this phone keeps the save as it was once
 every active player (any series but Legends). Battles: rules v5 (`B.RULES_VERSION`) make every player card a Basic (`stageOf`,
 `basicIn(id, v)`; nothing evolves); v1-v4 matches keep their Gameday/Prime upgrades. The kit check "Gridiron Rivals: one card a
 player keeps every save whole…" covers the fold.
+Frames by rarity (Nov 2 2026, Evan: "the common player cards should be bland with no effects, and the legendary should be glowing
+with gradients and sparkles"): `dynasty-rarity.css` (end): Common flat matte; Epic a violet glow and three sparkles; Legendary a gold
+halo, a conic gold ring and six sparkles; Mythic a rainbow ring (`--ring-a`), a prismatic halo and eight sparkles. They move only
+up close or on the reveal, never in the binder or with reduced motion.
 Team backgrounds (October 30, 2026): the owner replaced hometown photos with electric sports-poster graphics,
 inspired by his Ravens/Vikings examples. Every franchise uses its own local logo, team colors, nickname, plasma
 texture and angled accents (`views/dynasty-team-scenes.js`, `img/rivals/team-graphics-v2/`).

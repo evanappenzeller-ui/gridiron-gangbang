@@ -348,3 +348,100 @@ div.pk-open .pk-card.pk-rivals-card {
   position: relative; z-index: 2;
 }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer .pk-t-logo { z-index: 3; }
+
+/* Frame effects by rarity (the owner, Nov 2 2026: "the common player cards should be bland with no effects, and the
+   legendary should be glowing with gradients and sparkles"). Each rarity adds to the last: Common a flat matte frame;
+   Epic a violet glow and a few sparkles; Legendary a gold halo, a shimmering gold ring and more sparkles; Mythic a
+   turning rainbow ring, a prismatic halo and the most sparkles. Still in the binder; they move only up close or on
+   the reveal, never with reduced motion. */
+@property --ring-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card {
+  --sparkle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 0C10.8 7 13 9.2 20 10C13 10.8 10.8 13 10 20C9.2 13 7 10.8 0 10C7 9.2 9.2 7 10 0Z' fill='%23fff'/%3E%3C/svg%3E");
+}
+/* Common: flat, plain grey, no bevel, sheen or glow. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-common {
+  --card-edge: #b4bcbd; box-shadow: 0 2px 4px #223a3424, 0 0 0 1px #142c3418;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-common .pk-c-face {
+  box-shadow: inset 0 0 0 2.6cqw var(--card-edge), inset 0 0 0 3.3cqw #eef2ee;
+}
+/* The sparkles sit on the frame: two layers that twinkle out of step. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:is(.r-epic, .r-legendary, .r-mythic)::before,
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:is(.r-legendary, .r-mythic)::after {
+  content: ''; position: absolute; inset: -1.5cqw; z-index: 7; pointer-events: none; background-repeat: no-repeat;
+  filter: drop-shadow(0 0 .8cqw var(--spark, #fff)) drop-shadow(0 0 1.6cqw var(--spark, #fff));
+}
+/* Epic: a soft violet and cyan glow, three small sparkles. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic {
+  --spark: #b9a4ff;
+  box-shadow: 0 3px 8px var(--card-shadow), 0 0 0 1px #6c55b860, 0 0 2.2cqw #9b7dff70, 0 0 5cqw #6fe3ff30;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic::before {
+  background-image: var(--sparkle), var(--sparkle), var(--sparkle);
+  background-size: 6cqw 6cqw, 4cqw 4cqw, 4.5cqw 4.5cqw;
+  background-position: 3% 2%, 97% 55%, 30% 99%; opacity: .85;
+}
+/* Legendary: a warm gold halo, a gold ring that shimmers round, six sparkles. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary {
+  --spark: #ffd45a;
+  box-shadow: 0 3px 10px var(--card-shadow), 0 0 0 1px #a8761c, 0 0 2.5cqw #ffcf4fb0, 0 0 7cqw #ffb3005c;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary .pk-c-foil {
+  background: conic-gradient(from var(--ring-a), #7a530f, #ffe58a 8%, #fff8d6 12%, #c48d25 22%, #8c6114 34%, #ffe27a 46%, #fffbe3 50%,
+    #b98322 60%, #7a530f 72%, #f7d26b 84%, #fff6cf 88%, #a87418 96%, #7a530f);
+  opacity: 1;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary::before {
+  background-image: var(--sparkle), var(--sparkle), var(--sparkle);
+  background-size: 8cqw 8cqw, 5cqw 5cqw, 6cqw 6cqw;
+  background-position: 2% 1.5%, 98% 38%, 40% 99.5%;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary::after {
+  background-image: var(--sparkle), var(--sparkle), var(--sparkle);
+  background-size: 5cqw 5cqw, 7cqw 7cqw, 4.5cqw 4.5cqw;
+  background-position: 70% 0.5%, 98.5% 98.5%, 1% 70%; opacity: .9;
+}
+/* Mythic: a rainbow ring turning, a prismatic halo, eight sparkles. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic {
+  --spark: #e9d4ff;
+  box-shadow: 0 3px 10px var(--card-shadow), 0 0 0 1px #8d7bdc, 0 0 2.5cqw #c79bffb0, -1.5cqw -1cqw 6cqw #6fe8ff60,
+    1.5cqw 1cqw 6cqw #ff8fd860, 0 0 10cqw #ffe28a30;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-foil {
+  background: conic-gradient(from var(--ring-a), #ff7fd0, #ffb37f, #ffe88a, #9df5a8, #7fe6ff, #8fa2ff, #d08cff, #ff7fd0);
+  opacity: 1;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic::before {
+  background-image: var(--sparkle), var(--sparkle), var(--sparkle), var(--sparkle);
+  background-size: 9cqw 9cqw, 5cqw 5cqw, 6.5cqw 6.5cqw, 4.5cqw 4.5cqw;
+  background-position: 2% 1.5%, 60% 0.5%, 98.5% 45%, 25% 99.5%;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic::after {
+  background-image: var(--sparkle), var(--sparkle), var(--sparkle), var(--sparkle);
+  background-size: 5cqw 5cqw, 8cqw 8cqw, 4.5cqw 4.5cqw, 6cqw 6cqw;
+  background-position: 97.5% 1%, 98.5% 98.5%, 1% 62%, 72% 99.5%; opacity: .95;
+}
+@keyframes rivals-twinkle { 0%, 100% { opacity: .25; transform: scale(.96); } 50% { opacity: 1; transform: scale(1); } }
+@keyframes rivals-ring { to { --ring-a: 360deg; } }
+@keyframes rivals-halo { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.12) saturate(1.15); } }
+@media (prefers-reduced-motion: no-preference) {
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom .pk-card.pk-rivals-card:is(.r-epic, .r-legendary, .r-mythic)::before,
+  div.pk-open .dy-dc.is-top:not(.is-hid) .pk-card.pk-rivals-card:is(.r-epic, .r-legendary, .r-mythic)::before { animation: rivals-twinkle 2.4s ease-in-out infinite; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom .pk-card.pk-rivals-card:is(.r-legendary, .r-mythic)::after,
+  div.pk-open .dy-dc.is-top:not(.is-hid) .pk-card.pk-rivals-card:is(.r-legendary, .r-mythic)::after { animation: rivals-twinkle 2.4s ease-in-out -1.2s infinite; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom .pk-card.pk-rivals-card.r-legendary .pk-c-foil,
+  div.pk-open .dy-dc.is-top:not(.is-hid) .pk-card.pk-rivals-card.r-legendary .pk-c-foil { animation: rivals-ring 6s linear infinite; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom .pk-card.pk-rivals-card.r-mythic .pk-c-foil,
+  div.pk-open .dy-dc.is-top:not(.is-hid) .pk-card.pk-rivals-card.r-mythic .pk-c-foil { animation: rivals-ring 4s linear infinite; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom .pk-card.pk-rivals-card.r-mythic,
+  div.pk-open .dy-dc.is-top:not(.is-hid) .pk-card.pk-rivals-card.r-mythic { animation: rivals-halo 3s ease-in-out infinite; }
+}
+/* The binder stays still, and so does anything with reduced motion. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-grid .pk-card.pk-rivals-card,
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-grid .pk-card.pk-rivals-card::before,
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-grid .pk-card.pk-rivals-card::after { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card,
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card::before,
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card::after { animation: none !important; }
+}
