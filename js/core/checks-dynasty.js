@@ -53,14 +53,29 @@ export async function dynastyChecks(check) {
       && B.checkDeck(c.dk, c.o).ok && !changed && JSON.stringify(c) === again && !!D.card(old) && !!B.stats(old);
     return {pass, detail: `${D.card(old).name}: ${old} → ${to}, ${c.o[to]} copies`};
   });
-  check('Gridiron Dynasty: every pack’s odds add up to 100% and a pack draws its count of real cards (a Team Pack only that team’s, a Gameday Pack a Gameday card)', () => {
+  check('Gridiron Dynasty: three packs on sale (the owner, Nov 2 2026: "There should only be 3 available packs"): Standard (the free one a day), Team (fewer cards, all the team picked), Epic (every card Epic or better, earned in Solo and rewards, or bought); the Gameday and Legends Packs retired, never sold or opened, one held becoming Epic Packs; no pack holds the same card or player twice', () => {
+    const three = D.PACK_ORDER.join() === 'std,team,prem' && D.DAILY_PACK === 'std' && D.PACKS.prem.name === 'Epic Pack';
+    const size = k => D.PACKS[k].slots.reduce((t, x) => t + x.n, 0), fewer = size('team') < size('std');
+    const s = D.fresh('m_ret', 1000); s.cr = 1e6; s.pk = {gday: 2, leg: 1, std: 1};
+    const c = D.clean(s), held = c.pk.prem === 4 && !c.pk.gday && !c.pk.leg && c.pk.std === 1;
+    const shut = !D.buy('leg', c).ok && !D.buy('gday', c).ok && !D.open('leg', {free: true}, c).ok;
+    const rewards = D.COLLECTIONS.every(col => Object.keys(col.reward.packs || {}).every(k => D.PACK_ORDER.includes(k)))
+      && [5, 10, 15, 20, 25, 30].every(n => Object.keys(D.ladderPay(n).first || {}).every(k => D.PACK_ORDER.includes(k)))
+      && Object.values(D.SOLO_PAY).every(p => Object.keys(p.first).every(k => D.PACK_ORDER.includes(k)))
+      && [5, 10, 15, 20, 25, 30].filter(n => (D.ladderPay(n).first || {}).prem).length >= 3;
+    const epic = Array.from({length: 40}, (_, i) => D.drawPack('prem', {R: D.rng('e' + i)})).every(ids => ids.every(id => ['epic', 'legendary', 'mythic'].includes(D.anyCard(id).r)));
+    const key = id => (D.card(id) && D.card(id).p) || id;
+    let dupes = 0;
+    ['std', 'team', 'prem', 'start'].forEach(k => ['KC', 'BUF', 'JAX', 'ARI'].forEach(t => { for (let i = 0; i < 60; i++) { const ids = D.drawPack(k, {team: t, R: D.rng(`u|${k}|${t}|${i}`)}); if (new Set(ids).size !== ids.length || new Set(ids.map(key)).size !== ids.length) dupes++; } }));
+    return {pass: three && fewer && held && shut && rewards && epic && !dupes, detail: `packs ${D.PACK_ORDER.join(', ')}; Team ${size('team')} cards, Standard ${size('std')}; held ${JSON.stringify(c.pk)}; retired shut ${shut}; rewards ${rewards}; Epic ${epic}; packs with a repeat ${dupes}`};
+  });
+  check('Gridiron Dynasty: every pack’s odds add up to 100% and a pack draws its count of real cards (a Team Pack only that team’s)', () => {
     const sums = D.PACK_ORDER.every(k => D.packOdds(k).every(g => Math.abs(g.odds.reduce((t, o) => t + o.pct, 0) - 100) < 0.6));
     const counts = D.PACK_ORDER.every(k => { const n = D.PACKS[k].slots.reduce((t, s) => t + s.n, 0); const ids = D.drawPack(k, {team: 'BUF', R: D.rng('pack|' + k)}); return ids.length === n && ids.every(D.isCard); });
-    const team = D.drawPack('team', {team: 'KC', R: D.rng('t')}).every(id => D.trainer(id) || (D.card(id).team === 'KC' && D.card(id).s !== 'X'));
+    const team = D.drawPack('team', {team: 'KC', R: D.rng('t')}).every(id => D.card(id) && D.card(id).team === 'KC' && D.card(id).s !== 'X');
     const trainerSlot = D.drawPack('std', {R: D.rng('s')}).filter(id => D.trainer(id)).length === 1;
-    const gd = D.card(D.drawPack('gday', {R: D.rng('g')})[0]).s === 'G';
     const prem = D.drawPack('prem', {R: D.rng('p')}).slice(-1).every(id => ['legendary', 'mythic'].includes(D.card(id).r));
-    return {pass: sums && counts && team && gd && prem && trainerSlot, detail: 'odds, counts, team, gameday, the Premium Pack’s last card, a Coach or Stadium card a Standard Pack'};
+    return {pass: sums && counts && team && prem && trainerSlot, detail: 'odds, counts, team, the Epic Pack’s last card, a Coach or Stadium card a Standard Pack'};
   });
   check('Gridiron Dynasty: the Daily Games pay coins once a game a day (the first finished result across phones), only from the day the Dynasty began', () => {
     const mods = {'17-0': {todayNumber: t => dn(t), entryOf: (p, n) => (p.s17 && p.s17[n]) || null}};
@@ -186,9 +201,9 @@ export async function dynastyChecks(check) {
     const keys = ['m_evan', 'u_ryan-stewart', 'm_mason', 'u_ryan-dow', 'g_72_79'].map(F.packsUnlimited);
     const s = D.fresh('m_inf', 1000), o = Object.values(s.o).reduce((t, n) => t + n, 0);
     const held = D.open('std', {free: true}, s).ok && s.pk.std === 1;
-    const none = D.open('leg', {free: true}, s).ok && D.open('leg', {free: true}, s).ok && !s.pk.leg && s.sp === 0;
-    const got = Object.values(s.o).reduce((t, n) => t + n, 0) - o === 5 + 3 + 3;
-    const others = !D.open('leg', {free: false}, s).ok;
+    const none = D.open('prem', {free: true}, s).ok && D.open('prem', {free: true}, s).ok && !s.pk.prem && s.sp === 0;
+    const got = Object.values(s.o).reduce((t, n) => t + n, 0) - o === 5 + 5 + 5;
+    const others = !D.open('prem', {free: false}, s).ok;
     const starter = D.open('start', {free: true}, s).ok && !D.open('start', {free: true}, s).ok;
     return {pass: keys.join() === 'true,true,false,false,false' && held && none && got && others && starter, detail: `Evan, Ryan S, Mason, Ryan D, a guest: ${keys.join(', ')}`};
   });
@@ -266,7 +281,7 @@ export async function dynastyChecks(check) {
   });
   check('Gridiron Dynasty: every pack comes in several art designs, more detailed the rarer the pack (the owner, Oct 29 2026: "Add more art designs to the packs. The more rare the pack, the more detailed the art design should be"): at least three each, the average and the plainest design of each tier above the tier below, each within its budget, no SVG filters below Gameday, ids a pack’s own (two on a page share none), a stored design past the end wrapped', async () => {
     const P = await import('../views/dynasty-packs.js');
-    const BUDGET = {1: 30, 2: 55, 3: 90, 4: 150, 5: 240}, kinds = ['start', ...D.PACK_ORDER], by = {};
+    const BUDGET = {1: 30, 2: 55, 3: 90, 4: 150, 5: 240}, kinds = Object.keys(D.PACKS), by = {};
     let ok = true, why = '';
     const svgOf = html => { const host = document.createElement('div'); host.innerHTML = html; return host.querySelector('.pk-pack-art svg'); };
     for (const k of kinds) {

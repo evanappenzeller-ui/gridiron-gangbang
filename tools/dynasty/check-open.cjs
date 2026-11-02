@@ -3,13 +3,13 @@
 // contact sheets, then goes through the cards (a touch swipe, a mouse swipe, then taps; a tap mid-reveal finishes it) to
 // the results and Done, checking each step moves one card on and that closing leaves nothing running. --gallery instead
 // draws every pack design big, side by side.
-//   node tools/dynasty/check-open.cjs [--kind std|team|prem|gday|leg|start] [--out DIR] [--dpr 2] [--reduced] [--size 390x844]
+//   node tools/dynasty/check-open.cjs [--kind std|team|prem|start] [--out DIR] [--dpr 2] [--reduced] [--size 390x844]
 //     [--mix d1,t3,d4,s1,s2,c1] (opens those marks straight through openScene: d diamonds, s stars, c crown, t a Trainer's ◆s)
 //     [--hold] (holds ⏩ on the second card: through the rest to the results) [--sheet] (a card's sheet up close, tilted)
 //     [--keys] (by keyboard: Enter rips it, Enter and the arrows go on, Skip, then Escape closes; focus goes back)
 //     [--stills] (stills along the opening and the reveals too: a still stalls the page about a second, so they and the
 //     video lose true time; without it the opening and reveals are only filmed, and the log says which sheet has what)
-//   node tools/dynasty/check-open.cjs --gallery [--only leg,gday] [--tile 116] [--out DIR] [--dpr 2]
+//   node tools/dynasty/check-open.cjs --gallery [--only prem,team] [--tile 116] [--out DIR] [--dpr 2]
 // --kind start opens a drawn Starter Pack (20 cards) straight through openScene too. Prints where it put things. Fails on
 // any uncaught page error.
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), {execFileSync} = require('node:child_process');
@@ -18,7 +18,7 @@ const root = path.resolve(__dirname, '../..');
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i < 0 ? d : (process.argv[i + 1] && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : true); };
 const ONLY = String(arg('only', '')).split(',').filter(Boolean), TILE = +arg('tile', 116);
 const KEYS = !!arg('keys', false), STILLS = !!arg('stills', false), MIX = String(arg('mix', '')), HOLD = !!arg('hold', false), SHEET = !!arg('sheet', false), SIZE = String(arg('size', '390x844')).split('x').map(Number);
-const KIND = arg('kind', 'leg'), OUT = path.resolve(arg('out', path.join(root, '../dynasty-qa'))), DPR = +arg('dpr', 2), REDUCED = !!arg('reduced', false), GALLERY = !!arg('gallery', false);
+const KIND = arg('kind', 'prem'), OUT = path.resolve(arg('out', path.join(root, '../dynasty-qa'))), DPR = +arg('dpr', 2), REDUCED = !!arg('reduced', false), GALLERY = !!arg('gallery', false);
 fs.mkdirSync(OUT, {recursive: true});
 let pw;
 try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.env.USERPROFILE || '', '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright')); }

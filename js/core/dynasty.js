@@ -175,17 +175,24 @@ const pickW = (items, weight, R = luck) => {
 // ---------------------------------------------------------------------------------------------------- packs
 // Each pack: its price, and its slots: each slot a draw of a rarity by its odds (the store shows them), then a card of
 // that rarity from the slot's pool (series, and for a Team Pack the team chosen).
+// Three packs on sale (the owner, Nov 2 2026: "There should only be 3 available packs. The standard daily packs that can
+// be purchased for coins and one free pack a day. A team pack that allows a specific team but is less items. And an epic
+// pack that can be earned through solo games, rewards, and a premium coin cost. A pack should never have the same item
+// twice"): the Standard Pack (also the free one a day), the Team Pack (three cards of the team you pick) and the Epic Pack
+// (internal id prem: every card Epic or better; Solo wins, collection rewards, or coins). The Gameday and Legends Packs
+// are retired: kept only so a pack already held turns into Epic Packs (clean(): RETIRED), never sold or opened. No pack
+// holds the same card, or the same player, twice (drawPack).
 export const PACKS = {
   std: {name: 'Standard Pack', price: 1000, blurb: 'Four player cards and a Trainer card.', color: '#2F6FDE',
     slots: [{n: 4, pool: 'live', odds: {common: 62, epic: 26, legendary: 10, mythic: 2}}, {n: 1, pool: 'trainer', odds: {epic: 70, legendary: 30}}]},
-  team: {name: 'Team Pack', price: 1500, blurb: 'Four player cards from the team you pick, and a Trainer card.', color: '#1E9E6A', team: true,
-    slots: [{n: 4, pool: 'live', odds: {common: 52, epic: 33, legendary: 12, mythic: 3}}, {n: 1, pool: 'trainer', odds: {epic: 70, legendary: 30}}]},
-  prem: {name: 'Premium Pack', price: 3000, blurb: 'Five cards: a Trainer card, and the last one Legendary or better. Rookies and specials inside.', color: '#8B3FD9',
-    slots: [{n: 3, pool: 'all', odds: {common: 25, epic: 45, legendary: 22, mythic: 8}}, {n: 1, pool: 'trainer', odds: {epic: 50, legendary: 50}},
+  team: {name: 'Team Pack', price: 1200, blurb: 'Three player cards, all from the team you pick.', color: '#1E9E6A', team: true,
+    slots: [{n: 3, pool: 'live', odds: {common: 52, epic: 33, legendary: 12, mythic: 3}}]},
+  prem: {name: 'Epic Pack', price: 5000, blurb: 'Five cards, every one Epic or better, the last Legendary or better. Rookies and specials inside. Earned in Solo and from rewards, or bought.', color: '#8B3FD9',
+    slots: [{n: 3, pool: 'all', odds: {epic: 65, legendary: 27, mythic: 8}}, {n: 1, pool: 'trainer', odds: {epic: 50, legendary: 50}},
       {n: 1, pool: 'all', odds: {legendary: 75, mythic: 25}}]},
-  gday: {name: 'Gameday Pack', price: 4000, blurb: 'A Gameday card from a real game, and two Legendary-or-better cards.', color: '#E0702A',
+  gday: {name: 'Gameday Pack', retired: true, price: 4000, blurb: 'A Gameday card from a real game, and two Legendary-or-better cards.', color: '#E0702A',
     slots: [{n: 1, pool: 'gameday', odds: {mythic: 100}}, {n: 2, pool: 'live', odds: {legendary: 80, mythic: 20}}]},
-  leg: {name: 'Legends Pack', price: 12000, blurb: 'A 90+ special card (Legend, Prime, Award or Gameday) and two Mythics.', color: '#C9A227',
+  leg: {name: 'Legends Pack', retired: true, price: 12000, blurb: 'A 90+ special card (Legend, Prime, Award or Gameday) and two Mythics.', color: '#C9A227',
     slots: [{n: 1, pool: 'elite', odds: {mythic: 100}}, {n: 2, pool: 'live', odds: {mythic: 100}}]},
   // (the owner, Oct 29 2026: "Players will get a starter pack when they open the game with 15 common players 4 rare
   // players and one epic or better player": given once (fresh, and kit3 for a Dynasty begun before it), never sold,
@@ -193,7 +200,9 @@ export const PACKS = {
   start: {name: 'Starter Pack', price: 0, starter: true, unique: true, blurb: '15 Common players, 4 Epic and one Epic or better.', color: '#D6453D',
     slots: [{n: 15, pool: 'live', odds: {common: 100}}, {n: 4, pool: 'live', odds: {epic: 100}}, {n: 1, pool: 'live', odds: {epic: 75, legendary: 20, mythic: 5}}]}
 };
-export const PACK_ORDER = ['std', 'team', 'prem', 'gday', 'leg'];
+export const PACK_ORDER = ['std', 'team', 'prem'];
+/** A retired pack still held: the Epic Packs it becomes (clean()). */
+export const RETIRED = {gday: 1, leg: 2};
 // What each pool holds, and inside 'all' and 'elite' how often each series comes up (out of 100)
 const POOLS = new Map();
 const ALL_MIX = {L: 86, R: 8, G: 3, P: 1.5, A: 1.5};
@@ -210,18 +219,22 @@ function poolOf(pool, team, rarity) {
   return list;
 }
 /** One card for a slot of a pack: R the randomness (luck by default). {id, ...} (a Coach or Stadium card: trainer()'s). */
-export function drawCard(slot, {team = null, R = luck} = {}) {
+export function drawCard(slot, {team = null, R = luck, avoid = null} = {}) {
+  // (avoid: the cards and players a pack holds already: none of them comes again; their key is keyOf's)
+  const ok = c => !avoid || !avoid.has(keyOf(c));
   const rar = pickW(Object.keys(slot.odds), r => slot.odds[r], R);
   if (slot.pool === 'trainer') {
-    const ids = TRAINER_IDS.filter(id => B.TRAINERS[id].r === rar);
-    return trainer((ids.length ? ids : TRAINER_IDS)[Math.floor(R() * (ids.length || TRAINER_IDS.length))]);
+    let ids = TRAINER_IDS.filter(id => B.TRAINERS[id].r === rar && ok(trainer(id)));
+    if (!ids.length) ids = TRAINER_IDS.filter(id => ok(trainer(id)));
+    if (!ids.length) ids = TRAINER_IDS;
+    return trainer(ids[Math.floor(R() * ids.length)]);
   }
   let list = [];
   if (slot.pool === 'live') list = poolOf('live', team, rar);
   else if (slot.pool === 'gameday') {
     // (the latest week's cards three times as likely as an older week's)
-    const all = poolOf('gameday', null, ''), lw = lastWeek();
-    return pickW(all, c => (c.w === lw ? 3 : 1), R);
+    const all = poolOf('gameday', null, '').filter(ok), lw = lastWeek();
+    if (all.length) return pickW(all, c => (c.w === lw ? 3 : 1), R);
   } else if (slot.pool === 'elite') {
     // (a 90+ card with its real trading card where the series has one)
     const s = pickW(Object.keys(ELITE_MIX), x => ELITE_MIX[x], R);
@@ -234,22 +247,31 @@ export function drawCard(slot, {team = null, R = luck} = {}) {
     // (a special series with no card of that rarity: a Live one of it)
     if (!list.length) list = poolOf('live', null, rar);
   }
-  // (none of that rarity, a team's Mythic say: the next rarity down that has one)
-  for (let i = RARITY.indexOf(rar) - 1; !list.length && i >= 0; i--) list = poolOf('live', team, RARITY[i]);
+  list = list.filter(ok);
+  // (none left of that rarity, a team's Mythic say: the next rarity down that has one, then the slot's other rarities,
+  // rarest first, then any active player not in the pack yet)
+  for (let i = RARITY.indexOf(rar) - 1; !list.length && i >= 0; i--) list = poolOf('live', team, RARITY[i]).filter(ok);
+  if (!list.length) {
+    const rs = Object.keys(slot.odds).sort((a, b) => RARITY.indexOf(b) - RARITY.indexOf(a));
+    for (const r of rs) { list = poolOf('live', slot.pool === 'live' ? team : null, r).filter(ok); if (list.length) break; }
+  }
+  if (!list.length) list = CARDS.filter(c => c.s !== 'X' && (!team || c.team === team) && ok(c));
+  if (!list.length) list = CARDS.filter(c => c.s !== 'X' && ok(c));
   if (!list.length) list = CARDS.filter(c => c.s !== 'X');
   return list[Math.floor(R() * list.length)];
 }
+/** What makes two cards in a pack the same: the player (any of his cards), else the card. */
+const keyOf = c => c.p || c.id;
 /** A pack's cards (their ids), drawn. */
 export function drawPack(kind, {team = null, R = luck} = {}) {
   const P = PACKS[kind];
   if (!P) return [];
   const out = [], seen = new Set();
+  // (every pack: no card, and no player, twice)
   P.slots.forEach(sl => {
     for (let i = 0; i < sl.n; i++) {
-      let c = drawCard(sl, {team, R});
-      // (a pack of different players: drawn again, a few times, when he's in it already)
-      for (let k = 0; P.unique && k < 12 && seen.has(c.p || c.id); k++) c = drawCard(sl, {team, R});
-      seen.add(c.p || c.id); out.push(c.id);
+      const c = drawCard(sl, {team, R, avoid: seen});
+      seen.add(keyOf(c)); out.push(c.id);
     }
   });
   return out;
@@ -405,7 +427,7 @@ export function setDeck(ids, s = mine()) { s.dk = ids.slice(0, B.DECK_SIZE); tou
 // collection's bonus (BONUS by kind, or its series') joins its reward; a set claimed before it gets the bonus once (kit4).
 export let COLLECTIONS = [];
 const BONUS = {team: {std: 2}, div: {prem: 2}, league: {prem: 5}, week: {std: 1},
-  P: {prem: 2}, A: {prem: 2}, R: {std: 3}, X: {leg: 1}, coach: {prem: 1}, stadium: {std: 2}};
+  P: {prem: 2}, A: {prem: 2}, R: {std: 3}, X: {prem: 2}, coach: {prem: 1}, stadium: {std: 2}};
 const withBonus = col => {
   const b = BONUS[col.series] || BONUS[col.kind] || {}, packs = {...(col.reward.packs || {})};
   Object.entries(b).forEach(([k, n]) => { packs[k] = (packs[k] || 0) + n; });
@@ -427,28 +449,28 @@ function buildCollections() {
     const teams = divs[d];
     const leg = legends.filter(c => teams.includes(c.team)).sort((a, b) => b.o - a.o)[0];
     out.push({id: 'div-' + d.replace(' ', '-').toLowerCase(), kind: 'div', name: d, teams, sub: teams.map(t => 'team-' + t), of: teams.length,
-      reward: leg ? {coins: 5000, card: leg.id} : {coins: 5000, packs: {leg: 1}}});
+      reward: leg ? {coins: 5000, card: leg.id} : {coins: 5000, packs: {prem: 2}}});
   });
   out.push({id: 'league', kind: 'league', name: 'The Whole League', sub: out.filter(c => c.kind === 'div').map(c => c.id), of: 8,
-    reward: {coins: 50000, packs: {leg: 5}}});
+    reward: {coins: 50000, packs: {prem: 10}}});
   const series = (s, name, n, reward) => {
     const need = CARDS.filter(c => c.s === s).map(c => c.id);
     out.push({id: 'series-' + s, kind: 'series', series: s, name, need, of: Math.min(n || need.length, need.length), reward});
   };
-  series('P', 'Prime Time', 0, {packs: {leg: 2}});
-  series('A', 'Award Winners', 0, {packs: {leg: 2}});
+  series('P', 'Prime Time', 0, {packs: {prem: 3}});
+  series('A', 'Award Winners', 0, {packs: {prem: 3}});
   series('R', 'Rookie Class', 20, {coins: 5000, packs: {prem: 3}});
-  series('X', 'Hall of Legends', 10, {coins: 25000, packs: {leg: 3}});
+  series('X', 'Hall of Legends', 10, {coins: 25000, packs: {prem: 5}});
   const tset = (id, name, kind, reward) => {
     const need = TRAINER_IDS.filter(t => B.TRAINERS[t].kind === kind);
     out.push({id, kind: 'series', series: kind, name, need, of: need.length, reward});
   };
   tset('series-coach', 'The Coaching Staff', 'coach', {coins: 5000, packs: {prem: 2}});
-  tset('series-stadium', 'Road Trip', 'stadium', {coins: 5000, packs: {gday: 1}});
+  tset('series-stadium', 'Road Trip', 'stadium', {coins: 5000, packs: {prem: 1}});
   const weeks = [...new Set(CARDS.filter(c => c.s === 'G').map(c => c.w))].sort((a, b) => b - a);
   weeks.forEach(w => {
     const need = CARDS.filter(c => c.s === 'G' && c.w === w).map(c => c.id);
-    out.push({id: 'week-' + w, kind: 'week', week: w, name: `Week ${w} Gameday`, need, of: Math.min(4, need.length), reward: {coins: 2000, packs: {gday: 1}}});
+    out.push({id: 'week-' + w, kind: 'week', week: w, name: `Week ${w} Gameday`, need, of: Math.min(4, need.length), reward: {coins: 2000, packs: {prem: 1}}});
   });
   return out.map(withBonus);
 }
@@ -495,7 +517,9 @@ export function clean(s) {
     tr: n(s.tr), bt: {}, so: {}, sl: Array.isArray(s.sl) ? s.sl.filter(x => typeof x === 'string').slice(0, 20) : [],
     nm: typeof s.nm === 'string' ? s.nm.slice(0, 24) : '', lp: Array.isArray(s.lp) ? s.lp.filter(x => typeof x === 'string').slice(0, 24) : [], nw: []};
   Object.entries(obj(s.o)).forEach(([k, v]) => { if (n(v) > 0) out.o[k] = Math.min(99, n(v)); });
-  Object.entries(obj(s.pk)).forEach(([k, v]) => { if (PACKS[k] && n(v) > 0) out.pk[k] = Math.min(999, n(v)); });
+  Object.entries(obj(s.pk)).forEach(([k, v]) => { if (PACKS[k] && !PACKS[k].retired && n(v) > 0) out.pk[k] = Math.min(999, (out.pk[k] || 0) + n(v)); });
+  // (a retired Gameday or Legends Pack still held: Epic Packs in its place, Nov 2 2026)
+  Object.entries(obj(s.pk)).forEach(([k, v]) => { if (RETIRED[k] && n(v) > 0) out.pk.prem = Math.min(999, (out.pk.prem || 0) + n(v) * RETIRED[k]); });
   Object.entries(obj(s.cl)).forEach(([k, v]) => { if (v) out.cl[k] = n(v) || 1; });
   if (Array.isArray(s.dk)) out.dk = s.dk.filter(id => typeof id === 'string').slice(0, B.DECK_SIZE);
   if (Array.isArray(s.nw)) out.nw = [...new Set(s.nw.filter(k => typeof k === 'string' && out.o[k] > 0))].slice(0, 60);
@@ -723,7 +747,7 @@ export const balance = (s = mine()) => Math.max(0, STARTER_COINS + earned(s).tot
 const spend = (s, n) => { if (balance(s) < n) return false; s.sp += n; return true; };
 const credit = (s, n) => { s.cr += Math.max(0, Math.round(n)); };
 const addCard = (s, id) => { s.o[id] = (s.o[id] || 0) + 1; };
-const addPacks = (s, packs) => Object.entries(packs || {}).forEach(([k, n]) => { if (PACKS[k]) s.pk[k] = (s.pk[k] || 0) + n; });
+const addPacks = (s, packs) => Object.entries(packs || {}).forEach(([k, n]) => { if (RETIRED[k]) { n *= RETIRED[k]; k = 'prem'; } if (PACKS[k]) s.pk[k] = (s.pk[k] || 0) + n; });
 
 /** Whether this Dynasty opens packs without end (Evan's and Ryan Stewart's: core/features.js packsUnlimited, Oct 29 2026). */
 export const unlimited = (key = PROFILE) => packsUnlimited(key);
@@ -737,14 +761,14 @@ export function claimDaily(s = mine(), t = new Date()) {
 /** Buys a pack (kept to open). {ok, why}. */
 export function buy(kind, s = mine()) {
   const P = PACKS[kind];
-  if (!P || P.starter) return {ok: false, why: 'No such pack.'};
+  if (!P || P.starter || P.retired) return {ok: false, why: 'No such pack.'};
   if (!spend(s, P.price)) return {ok: false, why: `You need ${data.nf(P.price - balance(s))} more coins.`};
   addPacks(s, {[kind]: 1}); touch(); return {ok: true};
 }
 /** Opens one of your packs: its cards go in your collection. {ok, cards: [ids], dup: {id: true}} (team: a Team Pack's;
  *  free: unlimited packs, one held is used first, then none is needed). */
 export function open(kind, {team = null, free = unlimited()} = {}, s = mine()) {
-  if (!PACKS[kind]) return {ok: false, why: 'No such pack.'};
+  if (!PACKS[kind] || PACKS[kind].retired) return {ok: false, why: 'No such pack.'};
   free = free && !PACKS[kind].unique; // (the Starter Pack stays one)
   if (!free && !(s.pk[kind] > 0)) return {ok: false, why: 'You have none of those to open.'};
   if (PACKS[kind].team && !TEAMS[team]) return {ok: false, why: 'Pick a team first.'};
@@ -842,7 +866,7 @@ export function payBattle(mid, res, s = mine()) {
 export const SOLO_PAY = {beg: {coins: 150, first: {std: 1}}, int: {coins: 250, first: {std: 2}}, adv: {coins: 400, first: {prem: 1}}, exp: {coins: 600, first: {prem: 2}}};
 // (the Solo ladder, core/dynasty-solo.js: game n's win pays 100 + 10n coins; the first win over it twice that, and every
 // fifth game's first win packs too)
-const LADDER_PACKS = {5: {std: 1}, 10: {std: 2}, 15: {prem: 1}, 20: {prem: 1, std: 1}, 25: {prem: 2}, 30: {leg: 1}};
+const LADDER_PACKS = {5: {std: 1}, 10: {std: 2}, 15: {prem: 1}, 20: {prem: 1, std: 1}, 25: {prem: 2}, 30: {prem: 3}};
 export const ladderPay = n => ({coins: 100 + 10 * n, first: LADDER_PACKS[n] || null});
 /** Pays Solo battle gid (opponent opp at level lv: a ladder game's number, or an earlier opponent's level) its result:
  *  once. {coins, packs, first} or null when already paid. */

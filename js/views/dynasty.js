@@ -272,11 +272,11 @@ function packsHTML(st) {
   const slots = P.slots.reduce((t, x) => t + x.n, 0);
   const inf = D.unlimited();
   const open = inf ? 'Open' : free ? 'Open free pack' : have ? `Open${have > 1 ? ` (${have})` : ''}` : `Open · ${nf(P.price)}`;
-  const note = kind === 'start' ? '1 Epic or better guaranteed' : kind === 'prem' ? '1 Legendary or better guaranteed' : kind === 'gday' ? '1 Gameday card guaranteed' : kind === 'leg' ? '1 card 90+ guaranteed' : '1 Trainer card in every pack';
+  const note = kind === 'start' ? '1 Epic or better guaranteed' : kind === 'prem' ? 'Every card Epic or better' : kind === 'team' ? 'Every card from your team' : '1 Trainer card in every pack';
   // (Pocket's clock pill over the showcase: when this pack is yours; and its tags beside the pack: what it is, its
   // count, its guarantee, what it costs you)
   const clock = kind === 'start' ? 'Open it once' : kind === 'std' ? (free ? 'Free pack until 11:59 p.m.' : inf ? 'Open as many as you like' : `Next free pack in ${ui.untilText(untilMidnight())}`)
-    : kind === 'gday' ? `Week ${D.lastWeek()}’s Gameday cards` : kind === 'team' ? 'Any team you pick' : kind === 'prem' ? 'Legendary or better inside' : 'Legends and Prime stars';
+    : kind === 'team' ? 'Any team you pick' : 'Won in Solo and rewards, or bought';
   const cost = inf ? 'Unlimited' : free ? 'Free today' : have ? `${have} to open` : `${nf(P.price)} coins`;
   let h = `<div class="pk-packs" style="--pc:${P.color}">`;
   if (wait) h += `<button type="button" class="pk-alert" data-dy-tab="battle">${ui.icon('versus', {size: 20})}<span>${wait === 1 ? 'A battle is' : `${wait} battles are`} waiting on you</span>${ui.icon('chevron-right', {size: 16})}</button>`;
@@ -316,7 +316,7 @@ function oddsSheet(kind) {
   const pool = {live: 'any active player (one card each, his best)', trainer: 'a Trainer card (Supporter, Item or Stadium)', all: 'any active player, more often a Rookie, Gameday, Prime or Award card', gameday: 'a Gameday card (this week’s three times as likely)', elite: 'Legend 25%, Prime 30%, Award 20%, Gameday 25%, all 90+'};
   const body = D.packOdds(kind).map(g => `<section class="pk-odds"><h3>${g.n === 1 ? '1 card' : `${g.n} cards`}: ${esc(pool[g.pool] || g.pool)}</h3>`
     + `<ul>${g.odds.map(o => `<li><span class="pk-sym">${g.pool === 'trainer' ? (o.r === 'legendary' ? '◆◆◆' : '◆◆') : g.pool === 'elite' || g.pool === 'gameday' ? '★★ ♛' : RAR_SYM[o.r]}</span>${esc(g.pool === 'trainer' ? (o.r === 'legendary' ? 'Legendary' : 'Epic') : D.RARITY_NAME[o.r])}<b>${o.pct}%</b></li>`).join('')}</ul></section>`).join('')
-    + `<p class="pk-note">One card a player, its rarity by his OVR: ◆ Common (under ${D.SCALE.epic}, his headshot) · ◆◆◆ Epic (${D.SCALE.epic}–${D.SCALE.legendary - 1}) · ◆◆◆◆ Legendary (${D.SCALE.legendary}–${D.SCALE.mythic - 1}) · ★ Mythic (${D.SCALE.mythic}+) · ★★ Prime, Gameday and Award cards · ♛ Legends. Every pack also gives 5 pack points.</p>`;
+    + `<p class="pk-note">One card a player, its rarity by his OVR: ◆ Common (under ${D.SCALE.epic}, his headshot) · ◆◆◆ Epic (${D.SCALE.epic}–${D.SCALE.legendary - 1}) · ◆◆◆◆ Legendary (${D.SCALE.legendary}–${D.SCALE.mythic - 1}) · ★ Mythic (${D.SCALE.mythic}+) · ★★ Prime, Gameday and Award cards · ♛ Legends. No pack holds the same card or player twice. Every pack also gives 5 pack points.</p>`;
   ui.openSheet({title: 'Offering Rates', body: `<p class="pk-note">${esc(P.name)}</p>` + body, cls: 'pk-sheet', detents: ['fit']});
 }
 /** The packs on the home, in Pocket's order: the Starter Pack first while it waits, then the rest. */
@@ -447,7 +447,7 @@ function earnSheet() {
   const rows = Object.keys(D.PAY).map(g => `<li><span><b>${esc(D.GAME_NAME[g])}</b><small>${esc(D.PAY_WORDS[g])}</small></span><em>${E.today[g] ? '+' + nf(E.today[g]) : '–'}</em></li>`).join('');
   const body = `<p class="pk-note">Coins open packs. The Daily Games pay them: each game’s first finished result of the day, from the day your Rivals began. You’ve earned ${nf(E.total)} from ${E.days} game${E.days === 1 ? '' : 's'}.</p>`
     + `<ul class="pk-list">${rows}</ul>`
-    + `<p class="pk-note">You also get a free Standard Pack every day, ${nf(D.BATTLE_PAY.w.coins)} coins for a battle won (${nf(D.BATTLE_PAY.l.coins)} for a loss), coins for quick-selling cards, and collection rewards. Every pack opened gives ${D.PP_PER_PACK} pack points, to trade for a card you don’t have.</p>`;
+    + `<p class="pk-note">You also get a free Standard Pack every day, Epic Packs for Solo milestones and collection rewards, ${nf(D.BATTLE_PAY.w.coins)} coins for a battle won (${nf(D.BATTLE_PAY.l.coins)} for a loss), coins for quick-selling cards, and collection rewards. Every pack opened gives ${D.PP_PER_PACK} pack points, to trade for a card you don’t have.</p>`;
   ui.openSheet({title: 'Coins', body, cls: 'pk-sheet', detents: ['large']});
 }
 function pointsSheet(st) {

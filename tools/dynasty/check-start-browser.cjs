@@ -141,16 +141,17 @@ async function playerFlow(page, p, {reduced}) {
   assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.className), 'pk-bigpack', T + ': the front pack keeps the focus');
   const b2 = await page.locator('.pk-car-bk[data-bk="2"]').boundingBox(); // (its right edge shows past the pack in front)
   await page.mouse.click(b2.x + b2.width * .9, b2.y + b2.height * .5); await settle();
-  assert.equal(await front(), 'Gameday', T + ': a tap on the second pack behind brings it to the front');
+  assert.equal(await front(), 'Starter', T + ': a tap on the second pack behind brings it to the front');
   await page.locator('.pk-bigpack').focus(); await page.keyboard.press('ArrowLeft'); await settle();
-  assert.equal(await front(), 'Premium', T + ': ← steps back a pack');
-  assert.deepEqual(await page.locator('.pk-car-bk').evaluateAll(l => l.map(b => b.dataset.dyTo)), ['gday', 'leg'], T + ': the Gameday and Legends Packs peek out behind it');
+  assert.equal(await front(), 'Epic', T + ': ← steps back a pack, round to the last');
+  assert.deepEqual(await page.locator('.pk-car-bk').evaluateAll(l => l.map(b => b.dataset.dyTo)), ['start', 'std'], T + ': the stack wraps round to the Starter Pack');
   await page.locator('.pk-actions .pk-pill[data-dy-packs]').click();
   await page.waitForSelector('.pk-pickb.is-on');
-  assert.match(await page.locator('.pk-pickb.is-on').textContent(), /Premium Pack/, T + ': the pack list marks the one in front');
-  await page.locator('.pk-pickb[data-dy-pick="leg"]').click(); await settle();
-  assert.equal(await front(), 'Legends', T + ': the pack list brings a pack to the front');
-  assert.deepEqual(await page.locator('.pk-car-bk').evaluateAll(l => l.map(b => b.dataset.dyTo)), ['start', 'std'], T + ': the stack wraps round to the Starter Pack');
+  assert.match(await page.locator('.pk-pickb.is-on').textContent(), /Epic Pack/, T + ': the pack list marks the one in front');
+  assert.deepEqual(await page.locator('.pk-pickb').evaluateAll(l => l.map(b => b.dataset.dyPick)), ['start', 'std', 'team', 'prem'], T + ': three packs on sale (and the Starter Pack while it waits)');
+  await page.locator('.pk-pickb[data-dy-pick="team"]').click(); await settle();
+  assert.equal(await front(), 'Team', T + ': the pack list brings a pack to the front');
+  assert.deepEqual(await page.locator('.pk-car-bk').evaluateAll(l => l.map(b => b.dataset.dyTo)), ['prem', 'start'], T + ': the Epic and Starter Packs behind it');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-stack`);
   // Play: routes to solo, friend challenges, deck editing, rules and collections.
   await page.locator('.pk-tab[data-dy-tab="battle"]').click();

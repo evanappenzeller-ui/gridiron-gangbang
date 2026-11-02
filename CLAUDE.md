@@ -215,6 +215,13 @@ with a number in the corner showing how many total"): `views/dynasty.js` `stackH
 (one layer for two copies, two for more) and a ×N badge at the top-left (`dynasty-rivals-hub.css` `.pk-stack`, which keeps
 content-visibility so the binder stays fast). Collections pay more packs (same day: "Completing collections rewards the user
 with more packs"): `core/dynasty.js` `BONUS` joins every set's reward; a set claimed earlier got its bonus once (`kit4`, `topUp`).
+Three packs on sale (Nov 2 2026, Evan: "There should only be 3 available packs. The standard daily packs that can be purchased
+for coins and one free pack a day. A team pack that allows a specific team but is less items. And an epic pack that can be
+earned through solo games, rewards, and a premium coin cost. A pack should never have the same item twice"): `PACK_ORDER` is
+std, team, prem. Standard (1,000 coins, the daily free pack) 5 cards; Team (1,200) 3 cards of the team picked; the Epic Pack
+(id `prem`, 5,000) every card Epic or better, also from Solo ladder milestones and collection rewards. Gameday and Legends
+are `retired`: never sold or opened, and `clean()`/`addPacks` turn one held into Epic Packs (`RETIRED`). `drawPack` never repeats
+a card or a player in one pack. The kit check "three packs on sale…" covers it.
 Card details retain standard 63:88 proportions; printed attacks and stats use compact spacing and smaller damage
 numbers while keeping rarity frames, team scenery, portrait credits and small-card behavior intact.
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`
