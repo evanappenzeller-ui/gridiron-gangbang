@@ -64,7 +64,7 @@ async function playerFlow(page, p, {reduced}) {
   await page.waitForSelector('.pk-start.is-ready', {timeout: 20000});
   await page.waitForTimeout(reduced ? 200 : 900);
   assert.equal(await page.locator('[data-dy-start-say]').textContent(), 'Tap to Start', T + ': Tap to Start once the cards are in');
-  assert.equal(await page.locator('.pk-start-card').count(), 14, T + ': fourteen cards drift on the title screen');
+  assert.equal(await page.locator('.pk-start-card, .pk-start .pk-card').count(), 0, T + ': no cards on the title screen');
   assert.match(await page.locator('.pk-start-ver').textContent(), /Ver\. 3\.0\.\d+Support ID: [A-Z0-9]{8}/, T + ': the version and a support id');
   assert.equal(await page.locator('.pk-start .gg-exit').count(), 1, T + ': the red X on the title screen');
   assert.equal(await page.locator('.pk-start-logo').textContent(), 'GridironTrading Card GameRivals', T + ': the logo');
@@ -212,7 +212,7 @@ async function playerFlow(page, p, {reduced}) {
   await page.waitForSelector('.pk-start.is-ready', {timeout: 5000});
   await page.waitForTimeout(reduced ? 100 : 500);
   assert.equal(await page.locator('.sheet.pk-sheet').count(), 0, T + ': the Menu closed');
-  assert.equal(await page.locator('.pk-start-card').count(), 14, T + ': the title screen is back with its cards');
+  assert.equal(await page.locator('.pk-start-card, .pk-start .pk-card').count(), 0, T + ': the title screen is back, still without cards');
   // Enter starts too
   await page.locator('.pk-start').focus();
   await page.keyboard.press('Enter');

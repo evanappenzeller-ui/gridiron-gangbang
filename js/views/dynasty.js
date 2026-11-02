@@ -791,57 +791,31 @@ function teamPicker(done) {
 
 // ---------------------------------------------------------------------------------------------------- the start screen
 // Pocket's title screen on entering (the owner, Oct 29 2026: "Create a start screen when entering the dynasty", with
-// his screenshot of it): cards drifting over a pastel wash, the logo, Tap to Start, the version and your support id at
+// his screenshot of it): a pastel wash (no cards since Nov 2 2026, the owner: "Remove the cards from the start screen"), the logo, Tap to Start, the version and your support id at
 // the top left (the red X above them still leaves), the menu at the top right, the credits at the foot. It covers the
 // shell till you tap it (or press Enter); back from a battle it doesn't come again (onShow), and the Menu brings it back.
-// The cards drift in once they've loaded; till then it says so, and a load that failed is tried again by a tap.
+// Tap to Start shows once the cards have loaded; till then it says so, and a load that failed is tried again by a tap.
 const APP_VER = '3.0'; // Gridiron Hub v3.0 (CLAUDE.md), then the Dynasty's save version
 /** Your support id, as Pocket shows one: a short code from your profile's key, the same every time, never the key itself. */
 export const supportId = (key = profileKey()) => (D.hash('support|' + (key || 'guest')).toString(36).toUpperCase() + '00000000').slice(0, 8);
-// Where the cards drift: left and top (% of the screen), their turn, their size (of a card's width) and depth (0 far,
-// blurred and pale, to 2 near), each with its own tempo so they don't move as one.
-const START_SPOTS = [
-  {x: 4, y: 7, r: -9, s: .7, z: 1}, {x: 56, y: 3, r: 8, s: .56, z: 0}, {x: 72, y: 13, r: 6, s: .94, z: 2}, {x: 8, y: 24, r: -6, s: 1, z: 2},
-  {x: 42, y: 20, r: 3, s: .5, z: 0}, {x: 70, y: 37, r: -4, s: .62, z: 1}, {x: -5, y: 50, r: -12, s: .6, z: 0}, {x: 60, y: 54, r: 7, s: 1, z: 2},
-  {x: 10, y: 60, r: 5, s: .9, z: 2}, {x: 86, y: 58, r: -7, s: .55, z: 0}, {x: 40, y: 66, r: -3, s: .7, z: 1}, {x: 70, y: 74, r: 9, s: .8, z: 1},
-  {x: -3, y: 84, r: 6, s: .62, z: 0}, {x: 78, y: 91, r: -8, s: .55, z: 0}
-];
-/** The cards on the title screen: the best Legends, Prime and Award stars, this season's best and Gameday cards, each
- *  of a different team where it can be, in a fixed order (the Legends nearest). */
-export function startCards(n = START_SPOTS.length) {
-  const by = (f, k) => D.CARDS.filter(f).sort((a, b) => b.o - a.o || a.name.localeCompare(b.name)).slice(0, k);
-  const pool = [...by(c => c.s === 'X', 5), ...by(c => c.s === 'P', 3), ...by(c => c.s === 'A', 2), ...by(c => c.s === 'L', 6), ...by(c => c.s === 'G', 3)];
-  const out = [], teams = new Set();
-  pool.forEach(c => { if (out.length < n && !teams.has(c.team)) { out.push(c); teams.add(c.team); } });
-  pool.forEach(c => { if (out.length < n && !out.includes(c)) out.push(c); });
-  return out;
-}
-function startCardsHTML() {
-  const cards = startCards();
-  const order = START_SPOTS.map((p, i) => ({p, i})).sort((a, b) => b.p.z - a.p.z || a.i - b.i);
-  return order.map(({p, i}, k) => (cards[k] ? `<span class="pk-start-card z-${p.z}" style="--x:${p.x}%;--y:${p.y}%;--r:${p.r}deg;--s:${p.s};--t:${(5.2 + (i % 5) * .9).toFixed(1)}s;--d:${(-((i * 1.37) % 6)).toFixed(2)}s">`
-    + `${cardHTML(cards[k], {size: 's', tag: false, noCount: true})}</span>` : '')).join('');
-}
 const startSay = () => (D.status === 'ready' ? 'Tap to Start' : D.status === 'error' ? 'The cards didn’t load. Tap to try again' : 'Loading the cards…');
 export function startHTML() {
   return `<div class="pk-start${D.status === 'ready' ? ' is-ready' : ''}" data-dy-start role="button" tabindex="0" aria-label="Tap to start Gridiron Rivals">`
-    + `<div class="pk-start-cards" data-dy-start-cards aria-hidden="true">${D.status === 'ready' ? startCardsHTML() : ''}</div>`
     + `<div class="pk-start-top">${ui.exitButton('data-dy-exit', 'Exit Gridiron Rivals')}<span class="pk-start-ver"><span>Ver. ${APP_VER}.${D.VERSION}</span><span>Support ID: ${supportId()}</span></span>`
     + `<button type="button" class="pk-start-menu" data-dy-menu aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>`
     + `<div class="pk-start-logo" role="img" aria-label="Gridiron Rivals: Trading Card Game"><span class="pk-logo-top">Gridiron</span><span class="pk-logo-plate">Trading Card Game</span><span class="pk-logo-sub">Rivals</span></div>`
     + `<p class="pk-start-tap" data-dy-start-say aria-live="polite">${startSay()}</p>`
     + `<p class="pk-start-credits">© Gridiron Gangbang · Gridiron Hub<br>Player photos: ESPN · NFL · Football Card Gallery · CardSight</p></div>`;
 }
-/** Keeps the title screen in step: its cards once they've loaded, its line, the shell inert beneath it. */
+/** Keeps the title screen in step: its line, the shell inert beneath it. */
 function drawStart(st) {
   const sc = st.el.querySelector('[data-dy-start]');
   st.el.querySelector('.pk').classList.toggle('is-start', !!sc);
   ['.pk-hdr', '[data-dy-pane]', '.pk-nav'].forEach(q => { const el = st.el.querySelector(q); if (el) { if (sc) el.setAttribute('inert', ''); else el.removeAttribute('inert'); } });
   if (!sc) return;
-  const say = sc.querySelector('[data-dy-start-say]'), cards = sc.querySelector('[data-dy-start-cards]');
+  const say = sc.querySelector('[data-dy-start-say]');
   if (say && say.textContent !== startSay()) say.textContent = startSay();
   sc.classList.toggle('is-ready', D.status === 'ready');
-  if (D.status === 'ready' && cards && !cards.firstChild) cards.innerHTML = startCardsHTML();
 }
 /** Tap to Start: the title screen lifts and the Packs are there. Before the cards are in, a tap only nudges (or tries
  *  the load again after it failed). */
