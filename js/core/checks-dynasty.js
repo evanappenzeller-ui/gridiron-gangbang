@@ -190,6 +190,14 @@ export async function dynastyChecks(check) {
     const r1 = D.claim(col.id, s), r2 = D.claim(col.id, s);
     return {pass: !before && p.done && r1.ok && !r2.ok && s.cr === was + col.reward.coins && s.pk.prem >= 1, detail: col.name};
   });
+  check('Gridiron Dynasty: every collection pays packs, and a set claimed before the bonus gets it once', () => {
+    const noPacks = D.COLLECTIONS.filter(c => !Object.values(c.reward.packs || {}).some(n => n > 0) || !Object.keys(c.bonus || {}).length);
+    const team = D.COLLECTIONS.find(c => c.kind === 'team'), s = D.fresh('m_check');
+    s.cl[team.id] = 1; s.pk = {};
+    const got = D.topUp(s);
+    return {pass: !noPacks.length && team.reward.packs.std === 2 && team.reward.packs.prem === 1 && s.pk.std === 2 && got.std === 2 && D.fresh('x').kit4 === 1,
+      detail: noPacks.map(c => c.id).join(', ') || team.name};
+  });
   check('Gridiron Dynasty: the board, who you can challenge and the other side of a battle follow the scoreboards’ rule (everyone, read from daily.LB.raw)', async () => {
     const [src, msrc] = await Promise.all(['./dynasty.js', './dynasty-match.js'].map(f => fetch(new URL(f, import.meta.url)).then(r => r.text())));
     const raw = src.includes('export function others(docs = daily.LB.raw || []') && msrc.includes('for (const p of daily.LB.raw || [])');

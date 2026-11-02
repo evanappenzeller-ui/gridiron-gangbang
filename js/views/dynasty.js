@@ -534,6 +534,14 @@ function filtered(st) {
     && (!q || data.norm(`${c.name} ${c.team} ${D.teamOf(c.team).name}`).includes(q)))
     .sort(by ? (a, b) => by(a, b) || best(a, b) : best).concat(tr);
 }
+/** A card in the binder. Copies stack (Nov 2 2026, the owner: "If a user has more than one player card, should stack in
+ *  the cards screen with a number in the corner showing how many total"): one card on top, the copies' edges behind it
+ *  (two at most) and the total in a badge at the top-left corner. */
+function stackHTML(id, n, isNew) {
+  const one = anyHTML(id, {size: 's', count: n, noCount: n > 1, ghost: !(n > 0), isNew});
+  if (n < 2) return one;
+  return `<div class="pk-stack is-${n > 2 ? 3 : 2}">${'<i class="pk-stack-l" aria-hidden="true"></i>'.repeat(n > 2 ? 2 : 1)}${one}<b class="pk-stack-n" aria-hidden="true">${nf(n)}</b></div>`;
+}
 function drawGrid(st, more = false) {
   if (st.dead || st.hidden || st.tab !== 'cards') return;
   const host = st.el.querySelector('[data-dy-grid]');
@@ -552,7 +560,7 @@ function drawGrid(st, more = false) {
     const lead = g.team ? `<img src="${esc(logoUrl(g.team, 64))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : g.sym ? `<i class="is-${esc(g.k)}" aria-hidden="true">${g.sym}</i>` : '';
     return `<h3 class="pk-gh">${lead}<span>${esc(g.label)}</span><small>${nf(n[g.k])}</small></h3>`;
   };
-  const cards = list.slice(from, st.shown).map((c, j) => head(from + j) + anyHTML(c.id, {size: 's', count: s.o[c.id] || 0, ghost: !(s.o[c.id] > 0), isNew: D.isNew(c.id, s)})).join('');
+  const cards = list.slice(from, st.shown).map((c, j) => head(from + j) + stackHTML(c.id, s.o[c.id] || 0, D.isNew(c.id, s))).join('');
   const next = list.length > st.shown ? `<button type="button" class="pk-more" data-dy-more>Show more (${nf(list.length - st.shown)})</button>` : '';
   if (from) {
     host.querySelector('.pk-grid').insertAdjacentHTML('beforeend', cards);
@@ -572,7 +580,7 @@ function colsHTML(st) {
     return `<li class="${p.done && !p.claimed ? 'is-ready' : ''}"><button type="button" class="pk-col-b" data-dy-col="${col.id}">${lead}<span class="pk-col-t"><b>${esc(col.name)}</b><small>${esc(D.rewardText(col.reward))}</small>`
       + `<i class="pk-bar"><b style="width:${Math.round(p.have / Math.max(1, p.of) * 100)}%"></b></i></span></button>${btn}</li>`;
   };
-  return `<p class="pk-note">Collect a set to earn its reward: a team’s ten best Live cards, a division’s four teams, the whole league, and the special series.</p>`
+  return `<p class="pk-note">Collect a set to earn packs (and coins): a team’s ten best Live cards, a division’s four teams, the whole league, and the special series.</p>`
     + groups.map(([t, f]) => `<section class="pk-sec"><h2 class="pk-h">${esc(t)}</h2><ul class="pk-list pk-cols">${D.COLLECTIONS.filter(f).map(row).join('')}</ul></section>`).join('');
 }
 function colSheet(st, id) {

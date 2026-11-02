@@ -385,7 +385,16 @@ export function setDeck(ids, s = mine()) { s.dk = ids.slice(0, B.DECK_SIZE); tou
 // ---------------------------------------------------------------------------------------------------- collections
 // After The Show's: a team's Headliners (its ten best Live cards), a division (its four teams' Headliners), the whole
 // league, and the special series. Each pays once, claimed (cl).
+// More packs for every set (Nov 2 2026, the owner: "Completing collections rewards the user with more packs"): each
+// collection's bonus (BONUS by kind, or its series') joins its reward; a set claimed before it gets the bonus once (kit4).
 export let COLLECTIONS = [];
+const BONUS = {team: {std: 2}, div: {prem: 2}, league: {prem: 5}, week: {std: 1},
+  P: {prem: 2}, A: {prem: 2}, R: {std: 3}, X: {leg: 1}, coach: {prem: 1}, stadium: {std: 2}};
+const withBonus = col => {
+  const b = BONUS[col.series] || BONUS[col.kind] || {}, packs = {...(col.reward.packs || {})};
+  Object.entries(b).forEach(([k, n]) => { packs[k] = (packs[k] || 0) + n; });
+  return {...col, bonus: b, reward: {...col.reward, packs}};
+};
 const HEAD_N = 10;
 function buildCollections() {
   const out = [], byTeam = {};
@@ -425,7 +434,7 @@ function buildCollections() {
     const need = CARDS.filter(c => c.s === 'G' && c.w === w).map(c => c.id);
     out.push({id: 'week-' + w, kind: 'week', week: w, name: `Week ${w} Gameday`, need, of: Math.min(4, need.length), reward: {coins: 2000, packs: {gday: 1}}});
   });
-  return out;
+  return out.map(withBonus);
 }
 export const collection = id => COLLECTIONS.find(c => c.id === id) || null;
 /** How far a collection is: {have, of, done, claimed}. A card counts while you hold it; a collection of collections
@@ -448,7 +457,7 @@ export function rewardText(rw) {
 // ---------------------------------------------------------------------------------------------------- the save
 // {v, rs, born, at, sp (coins spent), cr (coins credited: sales, rewards, battles, the daily bonus), o {card id: copies},
 //  pk {pack kind: unopened}, cl {collection id: when claimed}, dk [the battle deck's 20 ids], kit (the starter Coach
-//  cards given: 1), kit2 (the starter Items given: 1), kit3 (the Starter Pack given: 1), pp (pack points), dd (the last day the daily pack was taken,
+//  cards given: 1), kit2 (the starter Items given: 1), kit3 (the Starter Pack given: 1), kit4 (the bonus packs given for collections claimed before Nov 2 2026: 1), pp (pack points), dd (the last day the daily pack was taken,
 //  YYYY-MM-DD), rec {w, l, d}, tr (trophies), bt {match id:
 //  'w'|'l'|'d', paid}, so {computer opponent id (a ladder game: g1…g30): Solo wins}, sl [the latest Solo battles paid], nm (team name), lp (the latest pulls, newest first: 24 at most), nw (cards pulled for the first time
 //  and not looked at yet: NEW)}
@@ -457,7 +466,7 @@ export const dayKey = (t = new Date()) => `${t.getFullYear()}-${String(t.getMont
  *  the welcome packs. */
 export function fresh(key = '', now = Date.now()) {
   const o = {...COACH_KIT, ...ITEM_KIT};
-  return {v: VERSION, rs: SEASON_MARK, born: now, at: now, sp: 0, cr: 0, o, pk: {start: 1, std: 2, prem: 1}, cl: {}, dk: [], kit: 1, kit2: 1, kit3: 1,
+  return {v: VERSION, rs: SEASON_MARK, born: now, at: now, sp: 0, cr: 0, o, pk: {start: 1, std: 2, prem: 1}, cl: {}, dk: [], kit: 1, kit2: 1, kit3: 1, kit4: 1,
     pp: 0, dd: '', rec: {w: 0, l: 0, d: 0}, tr: 0, bt: {}, so: {}, sl: [], nm: '', lp: [], nw: []};
 }
 /** A save as it should be (anything missing or broken put right), or null when it isn't one. */
@@ -466,7 +475,7 @@ export function clean(s) {
   const obj = x => (x && typeof x === 'object' && !Array.isArray(x) ? x : {});
   const n = x => (Number.isFinite(Number(x)) && Number(x) >= 0 ? Math.floor(Number(x)) : 0);
   const out = {v: VERSION, rs: SEASON_MARK, born: n(s.born) || Date.now(), at: n(s.at), sp: n(s.sp), cr: n(s.cr), o: {}, pk: {}, cl: {}, dk: [],
-    kit: s.kit ? 1 : 0, kit2: s.kit2 ? 1 : 0, kit3: s.kit3 ? 1 : 0, pp: n(s.pp), dd: typeof s.dd === 'string' ? s.dd : '', rec: {w: n(s.rec && s.rec.w), l: n(s.rec && s.rec.l), d: n(s.rec && s.rec.d)},
+    kit: s.kit ? 1 : 0, kit2: s.kit2 ? 1 : 0, kit3: s.kit3 ? 1 : 0, kit4: s.kit4 ? 1 : 0, pp: n(s.pp), dd: typeof s.dd === 'string' ? s.dd : '', rec: {w: n(s.rec && s.rec.w), l: n(s.rec && s.rec.l), d: n(s.rec && s.rec.d)},
     tr: n(s.tr), bt: {}, so: {}, sl: Array.isArray(s.sl) ? s.sl.filter(x => typeof x === 'string').slice(0, 20) : [],
     nm: typeof s.nm === 'string' ? s.nm.slice(0, 24) : '', lp: Array.isArray(s.lp) ? s.lp.filter(x => typeof x === 'string').slice(0, 24) : [], nw: []};
   Object.entries(obj(s.o)).forEach(([k, v]) => { if (n(v) > 0) out.o[k] = Math.min(99, n(v)); });
@@ -611,6 +620,8 @@ export function mine() {
     }
     // (and the Starter Pack, Oct 29 2026: to open, once)
     if (!MINE.kit3) { addPacks(MINE, {start: 1}); MINE.kit3 = 1; dirty = true; }
+    // (and the collections' bonus packs, Nov 2 2026: once, for each set claimed before them)
+    if (!MINE.kit4) { topUp(MINE); MINE.kit4 = 1; dirty = true; }
     writeLocal(MINE);
     if (dirty) later();
   }
@@ -751,6 +762,12 @@ export function claim(id, s = mine()) {
   addPacks(s, rw.packs);
   if (rw.card) { addCard(s, rw.card); s.lp = [rw.card, ...s.lp].slice(0, 24); }
   touch(); return {ok: true, reward: rw};
+}
+/** The bonus packs for the collections a save claimed before they paid them (kit4). The packs given. */
+export function topUp(s) {
+  const got = {};
+  COLLECTIONS.filter(c => s.cl && s.cl[c.id]).forEach(c => Object.entries(c.bonus || {}).forEach(([k, n]) => { got[k] = (got[k] || 0) + n; }));
+  addPacks(s, got); return got;
 }
 /** The collections ready to claim. */
 export const claimable = (s = mine()) => COLLECTIONS.filter(c => { const p = progress(c, s); return p.done && !p.claimed; });

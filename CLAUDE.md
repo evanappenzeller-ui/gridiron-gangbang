@@ -196,6 +196,11 @@ football (`views/dynasty-art-foil.js` helpers; designs in `dynasty-art-std/team/
 richer by price: Standard calm silver foil and a dark frame; Team brighter foil, gold frame, rings and rays; Premium rainbow
 foil that shifts, neon frame and glow, stacked cards, sparkles. `tools/dynasty/pack_art.py` builds `img/rivals/packs/`
 (foil, ball, logo-<kind>) from the cover. Gameday, Legends and the Starter Pack keep their designs. Prices and odds unchanged.
+Copies stack in the binder (Nov 2 2026, Evan: "If a user has more than one player card, should stack in the cards screen
+with a number in the corner showing how many total"): `views/dynasty.js` `stackHTML`, the printed back peeking out behind
+(one layer for two copies, two for more) and a ×N badge at the top-left (`dynasty-rivals-hub.css` `.pk-stack`, which keeps
+content-visibility so the binder stays fast). Collections pay more packs (same day: "Completing collections rewards the user
+with more packs"): `core/dynasty.js` `BONUS` joins every set's reward; a set claimed earlier got its bonus once (`kit4`, `topUp`).
 Card details retain standard 63:88 proportions; printed attacks and stats use compact spacing and smaller damage
 numbers while keeping rarity frames, team scenery, portrait credits and small-card behavior intact.
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`

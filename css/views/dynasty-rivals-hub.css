@@ -83,3 +83,22 @@
 .v-dynasty .pk-solo li.is-next .pk-solo-n { background: #25A9E0; color: #fff; }
 .v-dynasty .pk-solo li.is-locked { opacity: .55; }
 .v-dynasty .pk-solo li.is-locked .pk-solo-n { background: #E7EAEE; color: #7A8794; }
+/* Copies stack in the binder (Nov 2 2026, the owner): the card on top, one or two copies' edges peeking out behind it
+   (the printed card back), and the total in a badge at the top-left corner (clear of the HP and type). */
+.v-dynasty .pk-stack { position: relative; isolation: isolate; aspect-ratio: 63 / 88; }
+/* (off-screen stacks skip rendering as single cards do: the ratio keeps their place, the clip margin the peeking copies) */
+@supports (content-visibility: auto) {
+  .v-dynasty .pk-grid > .pk-stack { content-visibility: auto; overflow-clip-margin: 14px; }
+}
+.v-dynasty .pk-stack > .pk-card { position: relative; z-index: 2; }
+.v-dynasty .pk-stack-l { position: absolute; inset: 0; z-index: 0; border-radius: 5% / 3.6%; pointer-events: none;
+  background: #1b3a6b url("../../img/rivals/card-back-v1.webp") center / cover no-repeat;
+  box-shadow: 0 1px 3px rgba(30,45,70,.3), 0 0 0 1px rgba(255,255,255,.5) inset;
+  transform: translate(5px, -5px) rotate(2.5deg); transform-origin: 50% 100%; }
+.v-dynasty .pk-stack-l + .pk-stack-l { z-index: 1; transform: translate(3px, -3px) rotate(1.2deg); }
+.v-dynasty .pk-stack.is-3 .pk-stack-l:first-child { transform: translate(8px, -7px) rotate(3.6deg); }
+.v-dynasty .pk-stack-n { position: absolute; z-index: 3; top: -16px; left: -7px; min-width: 25px; height: 25px; padding: 0 7px;
+  display: inline-flex; align-items: center; justify-content: center; border-radius: 99px; pointer-events: none;
+  font: 800 13px/1 var(--font-text); color: #fff; background: linear-gradient(180deg, #2F6FDE, #1E4FA8);
+  box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(20,40,80,.35); }
+.v-dynasty .pk-stack-n::before { content: "\00d7"; font-size: .8em; margin-right: 1px; opacity: .8; }

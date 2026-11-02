@@ -97,7 +97,13 @@ async function run(url) {
       assert.equal(soldResult.ok, true, 'test card was sold');
       await tab(page, 'cards');
       assert.equal(await page.evaluate(() => document.querySelector('[data-dy-grid] .pk-card') === window.navFirstCard), false, 'save mutation invalidates cached binder');
-      assert.equal((await page.locator(`[data-dy-grid] [data-dy-card="${sold}"] .pk-c-cnt`).textContent()).trim(), String(soldResult.count), 'returning binder shows changed ownership');
+      // (two or more copies stack, their total on the stack's badge; one copy keeps the card's own count)
+      const shown = await page.evaluate(id => {
+        const c = document.querySelector(`[data-dy-grid] [data-dy-card="${id}"]`), st = c && c.closest('.pk-stack');
+        const el = st ? st.querySelector('.pk-stack-n') : c && c.querySelector('.pk-c-cnt');
+        return el ? el.textContent.trim() : '';
+      }, sold);
+      assert.equal(shown, String(soldResult.count), 'returning binder shows changed ownership');
       // A pack opening also invalidates a cached binder and its totals.
       await page.evaluate(() => { window.navFirstCard = document.querySelector('[data-dy-grid] .pk-card'); });
       await tab(page, 'packs');
