@@ -471,22 +471,23 @@ function runner3(st, now) {
   const run = st.run, t = now / 1000;
   if (!run || st.mode === 'ready') return {move: 'idle', t};
   if (st.mode === 'catch') {
-    // reaching up for it as it comes down; the ball his once it's there, and in it comes
+    // reaching up for it as it comes down, his hands coming down once it's there. No ball in his hand and no arm
+    // tucked after (the owner's ask, Nov 1 2026: "Take the football out of the players hand so they don't have one
+    // arm tucked the whole time"): both arms swing free in his run.
     const p = Math.min(1, (now - st.catchAt) / CATCH_MS), q = Math.max(0, (p - CATCH_HANDS) / (1 - CATCH_HANDS));
-    return {move: 'idle', t, catch: Math.min(1, p / .3) * (1 - .5 * q), carry: .5 * q, ball: p >= CATCH_HANDS};
+    return {move: 'idle', t, catch: Math.min(1, p / .3) * (1 - q), ball: false};
   }
-  const off = Math.min(1, Math.max(0, (now - st.catchAt - CATCH_MS) / 240)); // (out of the catch, into his stride)
-  const o = {move: 'run', phase: run.steps / D3.STRIDE, t, carry: .5 + .5 * off, catch: .5 * (1 - off), ball: true};
+  const o = {move: 'run', phase: run.steps / D3.STRIDE, t, ball: false};
   const fl = fallOf(st, now);
   if (run.over) {
     const k = Math.min(1, (now - st.downAt) / 420);
     // (tackled in a pothole: down in it to his waist, his chest driven over forward onto its far rim)
-    if (fl) return Object.assign(o, {move: 'fallin', u: .5, carry: .3, pitch: .2 + .45 * smooth(k), lift: -FALL.deep * fl.k, turn: 0, roll: 0, dz: fl.z - run.z});
+    if (fl) return Object.assign(o, {move: 'fallin', u: .5, pitch: .2 + .45 * smooth(k), lift: -FALL.deep * fl.k, turn: 0, roll: 0, dz: fl.z - run.z});
     return Object.assign(o, {move: 'fall', u: k, pitch: 1.48 * k * k, lift: .15 * k, turn: fallDir(run) * .55 * k, dz: .25 * k});
   }
   // in a pothole: dropped in, bent over its far rim with both hands on it, climbing out (held back with the camera: dz)
   if (fl) o.dz = fl.z - run.z;
-  if (fl && fl.pose) return Object.assign(o, {move: 'fallin', u: fl.u, carry: .2, lift: -FALL.deep * fl.k, pitch: .12 + .28 * fl.k, turn: 0, roll: 0});
+  if (fl && fl.pose) return Object.assign(o, {move: 'fallin', u: fl.u, lift: -FALL.deep * fl.k, pitch: .12 + .28 * fl.k, turn: 0, roll: 0});
   const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), h = run.y - g;
   const js = (run.t - run.lastJuke) / SIDE_S, dir = js < 1 ? Math.sign(R.xOf(run, run.lane) - run.jFrom) : 0;
   // the move: a slide; in the air (the jump's clip by how fast he's going up or down: tucked at the top, reaching for
