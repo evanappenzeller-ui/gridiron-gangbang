@@ -104,6 +104,23 @@
         {"by": "mitch", "bet": "Carolina Panthers Moneyline", "hit": true, "stat": "Panthers won 25–14"},
         {"by": "sayer", "bet": "Blake Corum 10+ Receiving Yards", "hit": true, "stat": "2 catches for 18 yds"}
       ]
+    },
+    {
+      "year": 2026, "week": 7,
+      "legs": [
+        {"by": "ben", "bet": "Cleveland Browns Moneyline", "hit": true, "stat": "Browns won 27–24"},
+        {"by": "corbin", "bet": "Kyren Williams Anytime TD Scorer", "hit": true, "stat": "1 rush TD"},
+        {"by": "dresden", "bet": "Green Bay Packers @ Detroit Lions Over 54.5", "hit": false, "stat": "Lions 20, Packers 17: 37 points"},
+        {"by": "evan", "bet": "Minnesota Vikings Moneyline", "hit": true, "stat": "Vikings won 16–10"},
+        {"by": "jackson", "bet": "Christian Watson Anytime TD Scorer", "hit": false, "stat": "No TD: 5 catches for 57 yds"},
+        {"by": "jacob", "bet": "Baltimore Ravens Moneyline", "hit": false, "stat": "Bengals won 35–13"},
+        {"by": "jaymin", "bet": "Tee Higgins 50+ Receiving Yards", "hit": true, "stat": "6 catches for 148 yds"},
+        {"by": "jayton", "bet": "Sam LaPorta Anytime TD Scorer", "hit": false, "stat": "No TD: 1 catch for 18 yds"},
+        {"by": "john", "bet": "Bucky Irving Anytime TD Scorer", "hit": true, "stat": "2 rush TDs"},
+        {"by": "mason", "bet": "Christian McCaffrey Anytime TD Scorer", "hit": true, "stat": "1 rush TD"},
+        {"by": "mitch", "bet": "Los Angeles Rams Moneyline", "hit": true, "stat": "Rams won 35–21"},
+        {"by": "sayer", "bet": "Brandin Cooks 15+ Receiving Yards", "hit": false, "stat": "1 catch for 13 yds"}
+      ]
     }
   ]
 }
