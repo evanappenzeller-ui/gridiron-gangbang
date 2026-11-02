@@ -164,7 +164,7 @@ function cardSheet(st, id) {
   if (!n && D.ppCost(c)) acts.push(ui.button({label: `Get it for ${nf(D.ppCost(c))} pack points`, kind: s.pp >= D.ppCost(c) ? 'primary' : 'secondary', block: true, attrs: {'data-dy-pp': id}, disabled: s.pp < D.ppCost(c)}));
   const body = `<div class="pk-zoom">${anyHTML(id, {size: 'l', tag: false, ghost: !n, noCount: true})}</div>`
     + `<p class="pk-own">${n ? `${n} in your collection${inDeck ? ` · ${inDeck} in your deck` : ''}` : 'Not in your collection yet'}</p>`
-    + (acts.length ? `<div class="pk-acts">${acts.join('')}</div>` : '') + (D.card(id) ? pageHTML(c) : '') + battleHTML(id) + (D.card(id) ? creditHTML(c) : '');
+    + (acts.length ? `<div class="pk-acts">${acts.join('')}</div>` : '') + battleHTML(id) + (D.card(id) ? pageHTML(c) : '') + (D.card(id) ? creditHTML(c) : '');
   let stopFoil = () => {};
   const sh = ui.openSheet({title: 'Card details', body, cls: 'pk-sheet', detents: ['large'], onClose: () => stopFoil()});
   stopFoil = bindCardFoil(sh.body);
