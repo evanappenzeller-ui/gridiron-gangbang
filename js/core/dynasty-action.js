@@ -21,20 +21,20 @@ export const ACTION = {
   "xtombrady": ["xtombrady-v4", "Tom_Brady_(2).jpg", "Keith Allison", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2009], // Tom Brady
   "xbarrysanders": ["xbarrysanders-v4", "card:87e3f8ab", "", "", "", 2025], // Barry Sanders
   "xjimbrown": ["xjimbrown-v3", "card:f4a7b560", "", "", "", 2017], // Jim Brown
-  "xpeytonmanning": ["xpeytonmanning-v3", "card:3d1c7df6", "", "", "", 2022], // Peyton Manning
+  "xpeytonmanning": ["xpeytonmanning-v4", "flickr:denverjeffrey/5043838891", "Jeffrey Beall", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0/", 2010], // Peyton Manning
   "xreggiewhite": ["xreggiewhite-v3", "card:db155bd6", "", "", "", 2020], // Reggie White
   "xaarondonald": ["xaarondonald-v4", "Aaron_Donald_2020.jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2020], // Aaron Donald
   "xdeionsanders": ["xdeionsanders-v3", "card:6ae921b6", "", "", "", 2025], // Deion Sanders
   "xjoemontana": ["xjoemontana-v3", "1986_Jeno's_Pizza_-_28_-_Roger_Craig_(Joe_Montana_crop).jpg", "Jeno's", "Public domain", "", 1985], // Joe Montana
   "xjohnnyunitas": ["xjohnnyunitas-v4", "Unitas-Johnny-1963.jpg", "Unknown author", "Public domain", "", 1963], // Johnny Unitas
-  "xrandymoss": ["xrandymoss-v3", "card:15602fe2", "", "", "", 2022], // Randy Moss
+  "xrandymoss": ["xrandymoss-v4", "Randy_Moss_with_Vikings.jpg", "Mike Morbeck", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2010], // Randy Moss
   "xraylewis": ["xraylewis-v4", "Ray_Lewis_2007.jpg", "Mr.schultz", "CC BY-SA 3.0", "https://creativecommons.org/licenses/by-sa/3.0", 2007], // Ray Lewis
   "xwalterpayton": ["xwalterpayton-v3", "card:f4d8c841", "", "", "", 2024], // Walter Payton
-  "xcalvinjohnson": ["xcalvinjohnson-v3", "card:c75efa30", "", "", "", 2025], // Calvin Johnson
+  "xcalvinjohnson": ["xcalvinjohnson-v4", "Calvin_Johnson_vs_Green_Bay.jpg", "Mike Morbeck", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2012], // Calvin Johnson
   "xdickbutkus": ["xdickbutkus-v3", "card:e54c3f74", "", "", "", 2024], // Dick Butkus
   "xedreed": ["xedreed-v3", "Ed_reed_ravens2012.jpg", "Maryland National Guard", "Public domain", "", 2012], // Ed Reed
   "xgalesayers": ["xgalesayers-v4", "Gale_sayers_playing.jpg", "Unknown", "Public domain", "", 1972], // Gale Sayers
-  "xladainiantomli": ["xladainiantomli-v3", "card:85239958", "", "", "", 2020], // LaDainian Tomlinson
+  "xladainiantomli": ["xladainiantomli-v4", "Tomlinson_warming_up_1.jpg", "Dirk", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2008], // LaDainian Tomlinson
   "xrobgronkowski": ["xrobgronkowski-v3", "card:9953c1e3", "", "", "", 2024], // Rob Gronkowski
   "xronnielott": ["xronnielott-v3", "card:30e32c01", "", "", "", 2023], // Ronnie Lott
   "xadamvinatieri": ["xadamvinatieri-v3", "card:209f8fd8", "", "", "", 2024], // Adam Vinatieri
@@ -80,7 +80,7 @@ export const ACTION = {
   "xfrancoharris": ["xfrancoharris-v4", "card:72f52514", "", "", "", 2018], // Franco Harris
   "xhowielong": ["xhowielong-v3", "card:5a7121ca", "", "", "", 2025], // Howie Long
   "xjimkelly": ["xjimkelly-v3", "card:0fd0b22d", "", "", "", 2025], // Jim Kelly
-  "xjustintucker": ["xjustintucker-v3", "card:7facf3ee", "", "", "", 2024], // Justin Tucker
+  "xjustintucker": ["xjustintucker-v4", "flickr:joeglo/50425638927", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0/", 2020], // Justin Tucker
   "xkellenwinslow": ["xkellenwinslow-v3", "card:cb5223cc", "", "", "", 2025], // Kellen Winslow
   "xkurtwarner": ["xkurtwarner-v3", "card:93e8be8d", "", "", "", 2025], // Kurt Warner
   "xmarcusallen": ["xmarcusallen-v3", "1985_Police_Raiders-Rams_-_01_Marcus_Allen_(crop).jpg", "KIIS Radio/Los Angeles Raiders/Los Angeles County Sheriff's Department", "Public domain", "", 1984], // Marcus Allen
@@ -201,7 +201,7 @@ export const ACTION = {
   "0038134": ["0038134-v3", "card:ef3f7016", "", "", "", 2025], // Kenneth Walker III
   "0039838": ["0039838-v3", "card:9c0c4140", "", "", "", 2024], // Calen Bullock
   "0039860": ["0039860-v3", "card:32634834", "", "", "", 2024], // Kool-Aid McKinstry
-  "0030506": ["0030506-v3", "card:91bc668d", "", "", "", 2025], // Travis Kelce
+  "0030506": ["0030506-v4", "flickr:joeglo/51614629582", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0/", 2021], // Travis Kelce
   "0031364": ["0031364-v3", "card:4df47511", "", "", "", 2019], // Jadeveon Clowney
   "0031898": ["0031898-v3", "card:b40f5b0c", "", "", "", 2024], // Alex Singleton
   "0034429": ["0034429-v3", "card:33521d8b", "", "", "", 2025], // Jordan Mailata

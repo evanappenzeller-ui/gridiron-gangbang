@@ -254,7 +254,8 @@ def flickr_call(method, **params):
         raise SystemExit('FLICKR_API_KEY is not set (a free key from https://www.flickr.com/services/apps/create/)')
     q = {'method': method, 'api_key': key, 'format': 'json', 'nojsoncallback': '1', **params}
     url = FLICKR + '?' + urllib.parse.urlencode(q)
-    for n in range(5):
+    # (Flickr drops about half the connections at times: keep asking, and say so when it never answered)
+    for n in range(12):
         try:
             with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': A.UA}), timeout=60) as r:
                 d = json.loads(r.read().decode('utf-8'))
@@ -262,9 +263,10 @@ def flickr_call(method, **params):
                 raise SystemExit(f'Flickr: {d.get("message", d)}')
             time.sleep(.3)
             return d
-        except (urllib.error.URLError, TimeoutError, OSError) as e:
-            log('  ! flickr', str(e)[:80]); time.sleep(5 * (n + 1))
-    return {}
+        except (urllib.error.URLError, TimeoutError, OSError):
+            time.sleep(min(30, 3 * (n + 1)))
+    log('  ! flickr never answered', method)
+    return {'failed': True}
 
 
 def flickr_info(pid):
@@ -296,10 +298,11 @@ def flickr(keys=(), nc=False):
         if keys and key not in keys:
             continue
         n = A.plain(name)
-        found, seen = [], set()
+        found, seen, failed = [], set(), False
         for q in (f'{n} {team.split()[-1]}', f'{n} NFL', f'{n} football'):
             d = flickr_call('flickr.photos.search', text=q, license=','.join(map(str, lic)), sort='relevance', per_page='100', content_type='1',
                             media='photos', extras='license,owner_name,date_taken,url_m,url_l,url_h,url_k,url_o,o_dims')
+            failed = failed or d.get('failed', False)
             for ph in d.get('photos', {}).get('photo', []):
                 if ph['id'] in seen:
                     continue
@@ -332,7 +335,7 @@ def flickr(keys=(), nc=False):
             dr.text((x + 4, y + 274), f"{ph['id']} {ph['author']}"[:40], fill='black')
         sp = os.path.join(SWEEP, f'flickr-{key}.jpg')
         sheet.save(sp, quality=82)
-        log(f'{name}: {len(found)} Flickr candidates -> {sp}')
+        log(f'{name}: {len(found)} Flickr candidates' + (' (INCOMPLETE: Flickr never answered a search)' if failed else '') + f' -> {sp}')
         print(sp)
 
 

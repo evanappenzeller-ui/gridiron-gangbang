@@ -41,7 +41,7 @@ REAL_IMG = os.path.join(ROOT, 'img', 'dynasty', 'real')
 EDSR = 'https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x4.pb'  # 4x upscaling of the card scans
 VERSION = 'v3'  # in the file names: a changed picture needs a new name (sw.js keeps pictures across releases)
 # Players alone in their photo: BiRefNet's figure is kept whole, without Segment Anything (which can drop an arm or the ball)
-ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790', '0036442', '0038542'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
+ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790', '0036442', '0038542', 'xpeytonmanning'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
 # Segment Anything's prompt by hand, where another player overlaps ours (fractions of the crop): a box round him,
 # points on him (1) and on the other (0), and boxes and outlines ('cut') to clear of what it still takes of the other
 SAM_HINT = {
@@ -89,6 +89,12 @@ REDO = {
     '0040663': 'v4',  # Harold Fannin Jr.: a Commons photo from action_sweep.py's named photos
     '0034351': 'v4',  # Dallas Goedert: a Commons photo from action_sweep.py's named photos
     '0038542': 'v4',  # Bijan Robinson: a Commons photo from action_sweep.py's named photos
+    '0030506': 'v4',  # Travis Kelce: a Flickr photo from action_sweep.py's Flickr sheets
+    'xjustintucker': 'v4',  # Justin Tucker: a Flickr photo from action_sweep.py's Flickr sheets
+    'xpeytonmanning': 'v4',  # Peyton Manning: a Flickr photo from action_sweep.py's Flickr sheets
+    'xcalvinjohnson': 'v4',  # Calvin Johnson: a Commons photo from action_sweep.py's named photos
+    'xladainiantomli': 'v4',  # LaDainian Tomlinson: a Commons photo from action_sweep.py's named photos
+    'xrandymoss': 'v4',  # Randy Moss: a Commons photo from action_sweep.py's named photos
 }
 
 # The trading-card photos (the owner, Oct 31 2026: "Where can we find live action pictures of the players that would be
@@ -127,6 +133,12 @@ COMMONS_FIRST = {
     '0034857', '0033106', '0034973',  # Josh Allen, Jared Goff, Maxx Crosby (sharp originals from action_sweep.py's named photos)
     '0036997', '0033886', '0034790',  # Javonte Williams, T.J. Watt, Derwin James (the same)
     '0039337',  # Malik Nabers (action_sweep.py's named photos)
+    '0030506',  # Travis Kelce (action_sweep.py's Flickr sheets)
+    'xjustintucker',  # Justin Tucker (action_sweep.py's Flickr sheets)
+    'xpeytonmanning',  # Peyton Manning (action_sweep.py's Flickr sheets)
+    'xcalvinjohnson',  # Calvin Johnson (action_sweep.py's named photos)
+    'xladainiantomli',  # LaDainian Tomlinson (action_sweep.py's named photos)
+    'xrandymoss',  # Randy Moss (action_sweep.py's named photos)
 }
 # (Commons photos that are a portrait, a posed head-and-shoulders or a stamp, not a game, are left out of PICK: the owner,
 # Oct 31 2026, "Remove any headshot of the legend players")
@@ -143,18 +155,18 @@ PICK = {
     "xlawrencetaylor": "Lawrence_Taylor_tackle.jpg",  # Lawrence Taylor, 1984
     "xtombrady": "Tom_Brady_(2).jpg",  # Tom Brady, a Patriots pass (the Buccaneers crop stopped at his chest)
     "xjimbrown": "Jim_Brown_1959_Topps_cropped_and_recoloured.jpg",  # Jim Brown, 1959
-    "xpeytonmanning": "Manning_cropped.jpg",  # Peyton Manning, 2008
+    "xpeytonmanning": "flickr:5043838891",  # Peyton Manning, 2010, warming up, helmet in hand
     "xreggiewhite": "19981213_28_Reggie_White,_Lambeau_Field_(cropped).jpg",  # Reggie White, 1998
     "xaarondonald": "Aaron_Donald_2020.jpg",  # Aaron Donald, 2020, the whole photo (the crop stopped at his chest)
     "xjoemontana": "1986_Jeno's_Pizza_-_28_-_Roger_Craig_(Joe_Montana_crop).jpg",  # Joe Montana, 1985
     "xjohnnyunitas": "Unitas-Johnny-1963.jpg",  # Johnny Unitas, 1963, set to pass (the 1958 Topps card was painted)
-    "xrandymoss": "Randy-Moss_8-28-09_Patriots-vs-Redskins.jpg",  # Randy Moss, 2009
+    "xrandymoss": "Randy_Moss_with_Vikings.jpg",  # Randy Moss, with the Vikings, 2010
     "xraylewis": "Ray_Lewis_2007.jpg",  # Ray Lewis, 2007 (alone, the whole of him; the 2008 game photo had a Steeler in it)
     "xwalterpayton": "1986_Jeno's_Pizza_-_12_-_Walter_Payton_(Walter_Payton_crop).jpg",  # Walter Payton, 1984
-    "xcalvinjohnson": "Calvin_Johnson_(cropped).png",  # Calvin Johnson, 2012
+    "xcalvinjohnson": "Calvin_Johnson_vs_Green_Bay.jpg",  # Calvin Johnson, at Green Bay
     "xedreed": "Ed_reed_ravens2012.jpg",  # Ed Reed, 2012
     "xgalesayers": "Gale_sayers_playing.jpg",  # Gale Sayers, 1972
-    "xladainiantomli": "LT_Chargers.jpg",  # LaDainian Tomlinson, 2006
+    "xladainiantomli": "Tomlinson_warming_up_1.jpg",  # LaDainian Tomlinson, warming up with the ball
     "xrobgronkowski": "Rob_Gronkowski_2021_(cropped).jpg",  # Rob Gronkowski, 2021
     "xronnielott": "Ronnie_lott_big_portrait.jpg",  # Ronnie Lott, 2013
     "xadamvinatieri": "Rigoberto_Sanchez,_Adam_Vinatieri_(44679700592)_(cropped).jpg",  # Adam Vinatieri, 2018
@@ -189,7 +201,7 @@ PICK = {
     "xcriscarter": "CC_Pro_Bowl.JPG",  # Cris Carter, 1999
     "xdanfouts": "1986_Jeno's_Pizza_-_53_-_Dan_Fouts_and_Don_Macek_(Dan_Fouts_crop).jpg",  # Dan Fouts, 1982
     "xfrancoharris": "1986_Jeno's_Pizza_-_46_-_Terry_Bradshaw_(Franco_Harris_crop).jpg",  # Franco Harris, 1980
-    "xjustintucker": "Justin_Tucker_Ravens_Camp_AUG2022_(cropped).jpg",  # Justin Tucker, 2022
+    "xjustintucker": "flickr:50425638927",  # Justin Tucker, 2020, kicking at Washington
     "xkellenwinslow": "Kellen_Winslow_circa_1986.jpg",  # Kellen Winslow, 1987
     "xkurtwarner": "Kurt_Warner_(2009_Pro_Bowl).jpg",  # Kurt Warner, 2009
     "xmarcusallen": "1985_Police_Raiders-Rams_-_01_Marcus_Allen_(crop).jpg",  # Marcus Allen, 1984
@@ -330,6 +342,7 @@ PICK = {
     "0033873": "Patrick_Mahomes_on_the_run_(51616124184).jpg",  # Patrick Mahomes, 2021
     "xjoethomas": "Joe_Thomas_Cleveland_Browns.jpg",  # Joe Thomas, 2011, at camp in his #73
     "0034790": "Derwin_James_-_2025_Commanders_at_Chargers.jpg",  # Derwin James, 2025, running out
+    "0030506": "flickr:51614629582",  # Travis Kelce, 2021, running with the ball at Washington
 }
 # player key -> (centre x, top, height) as fractions of the photo's width and height
 CROP = {
@@ -342,7 +355,7 @@ CROP = {
     "0034856": (0.5, 0.05, 0.95),  # Denzel Ward
     "0037250": (0.47, 0, 0.95),  # Martin Emerson
     "xlawrencetaylor": (0.55, 0.2, 0.6),  # Lawrence Taylor
-    "xpeytonmanning": (0.62, 0, 0.9),  # Peyton Manning
+    "xpeytonmanning": (0.53, 0.02, 0.72),  # Peyton Manning
     "xreggiewhite": (0.5, 0, 1),  # Reggie White
     "xgalesayers": (0.5, 0.08, 0.7),  # Gale Sayers
     "xbrettfavre": (0.55, 0.12, 0.88),  # Brett Favre
@@ -380,6 +393,11 @@ CROP = {
     "0036971": (0.5, 0.05, 0.92),  # Trevor Lawrence
     "0040663": (0.5, 0.12, 0.85),  # Harold Fannin Jr.
     "0034351": (0.11, 0.05, 0.75),  # Dallas Goedert
+    "0030506": (0.56, 0.08, 0.88),  # Travis Kelce
+    "xjustintucker": (0.42, 0.12, 0.87),  # Justin Tucker
+    "xcalvinjohnson": (0.5, 0.04, 0.96),  # Calvin Johnson
+    "xladainiantomli": (0.48, 0.1, 0.9),  # LaDainian Tomlinson
+    "xrandymoss": (0.5, 0, 1),  # Randy Moss
 }
 
 POS = {'QB': ['quarterback'], 'RB': ['running back'], 'WR': ['wide receiver'], 'TE': ['tight end'], 'K': ['placekicker', 'kicker'],
@@ -410,7 +428,10 @@ def get(url):
             if e.code == 404:
                 t = ''
                 break
-            if e.code != 429 or n == 9:
+            # (a server error that persists, as some file pages give: no page, not cached, so a later run asks again)
+            if e.code >= 500 and n >= 2:
+                return ''
+            if e.code != 429 and e.code < 500 or n == 9:
                 raise
         except (urllib.error.URLError, TimeoutError):
             if n == 9:
