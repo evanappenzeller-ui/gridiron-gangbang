@@ -31,6 +31,7 @@ export const ACTION = {
   "xraylewis": ["xraylewis-v4", "Ray_Lewis_2007.jpg", "Mr.schultz", "CC BY-SA 3.0", "https://creativecommons.org/licenses/by-sa/3.0", 2007], // Ray Lewis
   "xwalterpayton": ["xwalterpayton-v3", "card:f4d8c841", "", "", "", 2024], // Walter Payton
   "xcalvinjohnson": ["xcalvinjohnson-v4", "Calvin_Johnson_vs_Green_Bay.jpg", "Mike Morbeck", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2012], // Calvin Johnson
+  "xdeaconjones": ["xdeaconjones-v1", "own:xdeaconjones.jpg", "", "", "", 0], // Deacon Jones
   "xdickbutkus": ["xdickbutkus-v3", "card:e54c3f74", "", "", "", 2024], // Dick Butkus
   "xedreed": ["xedreed-v3", "Ed_reed_ravens2012.jpg", "Maryland National Guard", "Public domain", "", 2012], // Ed Reed
   "xgalesayers": ["xgalesayers-v4", "Gale_sayers_playing.jpg", "Unknown", "Public domain", "", 1972], // Gale Sayers
@@ -42,6 +43,7 @@ export const ACTION = {
   "xbrettfavre": ["xbrettfavre-v4", "David_Martin82_Brett_Favre4-Edit2.jpg", "Paul Cutler", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2007], // Brett Favre
   "xbrucesmith": ["xbrucesmith-v3", "card:0a7525d1", "", "", "", 2024], // Bruce Smith
   "xdarrellerevis": ["xdarrellerevis-v3", "card:00bb5024", "", "", "", 2024], // Darrelle Revis
+  "xdicknighttrain": ["xdicknighttrain-v1", "own:xdicknighttrain.jpg", "", "", "", 0], // Dick "Night Train" Lane
   "xdrewbrees": ["xdrewbrees-v3", "New_Orleans_Saints_Quarterback,_Drew_Brees_(23262414434)_(cropped).jpg", "Tammy Anthony Baker from Louisiana", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2013], // Drew Brees
   "xearlcampbell": ["xearlcampbell-v4", "own:xearlcampbell.jpg", "", "", "", 0], // Earl Campbell
   "xemmittsmith": ["xemmittsmith-v3", "card:96ea8a13", "", "", "", 2025], // Emmitt Smith
@@ -58,6 +60,7 @@ export const ACTION = {
   "xtroypolamalu": ["xtroypolamalu-v3", "Troy_Polamalu_2013_(cropped).jpg", "original: Paula Lively derivative: Diddykong1130", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2013], // Troy Polamalu
   "xadrianpeterson": ["xadrianpeterson-v3", "Adrian_Peterson_Vikings.jpg", "Arvee5.0", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2012], // Adrian Peterson
   "xbartstarr": ["xbartstarr-v3", "Bart_Starr_1958.jpg", "Vintage Football Card Gallery", "Public domain", "", 1958], // Bart Starr
+  "xbojackson": ["xbojackson-v1", "own:xbojackson.jpg", "", "", "", 0], // Bo Jackson
   "xbrucematthews": ["xbrucematthews-v3", "card:3e95cb09", "", "", "", 2024], // Bruce Matthews
   "xchampbailey": ["xchampbailey-v3", "Champ_Bailey_2010.JPG", "Jeffrey Beall", "CC BY-SA 3.0", "https://creativecommons.org/licenses/by-sa/3.0", 2010], // Champ Bailey
   "xcharleswoodson": ["xcharleswoodson-v3", "card:42100e96", "", "", "", 2025], // Charles Woodson
@@ -76,6 +79,7 @@ export const ACTION = {
   "xraymondberry": ["xraymondberry-v4", "own:xraymondberry.webp", "", "", "", 0], // Raymond Berry
   "xraynitschke": ["xraynitschke-v3", "card:90c319b1", "", "", "", 2002], // Ray Nitschke
   "xrodwoodson": ["xrodwoodson-v3", "card:74383d63", "", "", "", 2024], // Rod Woodson
+  "xstevelargent": ["xstevelargent-v1", "own:xstevelargent.webp", "", "", "", 0], // Steve Largent
   "xterrellowens": ["xterrellowens-v3", "card:e0c6dd8a", "", "", "", 2025], // Terrell Owens
   "xwalterjones": ["xwalterjones-v4", "card:df20b7f7", "", "", "", 2022], // Walter Jones
   "xbobbybell": ["xbobbybell-v4", "own:xbobbybell.webp", "", "", "", 0], // Bobby Bell
@@ -118,6 +122,7 @@ export const ACTION = {
   "xozzienewsome": ["xozzienewsome-v3", "card:b1de77e3", "", "", "", 2025], // Ozzie Newsome
   "xpaulkrause": ["xpaulkrause-v4", "card:36f47773", "", "", "", 2024], // Paul Krause
   "xsamhuff": ["xsamhuff-v3", "card:b4147426", "", "", "", 2007], // Sam Huff
+  "xsonnyjurgensen": ["xsonnyjurgensen-v1", "own:xsonnyjurgensen.jpg", "", "", "", 0], // Sonny Jurgensen
   "xtedhendricks": ["xtedhendricks-v3", "card:a96a3844", "", "", "", 2020], // Ted Hendricks
   "xtimbrown": ["xtimbrown-v4", "own:xtimbrown.jpg", "", "", "", 0], // Tim Brown
   "xwarrenmoon": ["xwarrenmoon-v3", "card:a1aa68a4", "", "", "", 2025], // Warren Moon
