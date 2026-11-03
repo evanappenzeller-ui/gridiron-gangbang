@@ -381,7 +381,7 @@ export async function dynastyChecks(check) {
     const shows = wearing.length > 0 && wearing.every(c => {
       const el = document.createElement('div'); el.innerHTML = V.cardHTML(c);
       const img = el.querySelector('.pk-c-ph'), cr = V.creditHTML(c), r = A.actionCredit(c.p), T = D.teamOf(c.team);
-      const credited = r.card ? cr.includes(data.esc(R.realName(r.card))) : cr.includes(data.esc(r.page)) && cr.includes(data.esc(r.author)) && cr.includes(data.esc(r.licence));
+      const credited = r.card ? cr.includes(data.esc(R.realName(r.card))) : r.own ? !cr : cr.includes(data.esc(r.page)) && cr.includes(data.esc(r.author)) && cr.includes(data.esc(r.licence));
       return c.head === 'a:' + c.p && img?.classList.contains('is-action') && !img.classList.contains('is-photo') && img.getAttribute('src') === A.actionUrl(c.p)
         && /\.webp$/.test(A.actionUrl(c.p)) && el.firstElementChild.style.getPropertyValue('--tp') === T.pri && credited;
     });

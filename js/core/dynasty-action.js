@@ -43,6 +43,7 @@ export const ACTION = {
   "xbrucesmith": ["xbrucesmith-v3", "card:0a7525d1", "", "", "", 2024], // Bruce Smith
   "xdarrellerevis": ["xdarrellerevis-v3", "card:00bb5024", "", "", "", 2024], // Darrelle Revis
   "xdrewbrees": ["xdrewbrees-v3", "New_Orleans_Saints_Quarterback,_Drew_Brees_(23262414434)_(cropped).jpg", "Tammy Anthony Baker from Louisiana", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2013], // Drew Brees
+  "xearlcampbell": ["xearlcampbell-v4", "own:xearlcampbell.jpg", "", "", "", 0], // Earl Campbell
   "xemmittsmith": ["xemmittsmith-v3", "card:96ea8a13", "", "", "", 2025], // Emmitt Smith
   "xericdickerson": ["xericdickerson-v4", "1985_Police_Raiders-Rams_-_20_Eric_Dickerson_(crop).jpg", "KIIS Radio/Los Angeles Rams/Los Angeles County Sheriff's Department", "Public domain", "", 1984], // Eric Dickerson
   "xjacklambert": ["xjacklambert-v4", "Jack_Lambert_in_December_1975.JPG", "Malcolm Emmons", "Public domain", "", 1975], // Jack Lambert
@@ -60,6 +61,7 @@ export const ACTION = {
   "xbrucematthews": ["xbrucematthews-v3", "card:3e95cb09", "", "", "", 2024], // Bruce Matthews
   "xchampbailey": ["xchampbailey-v3", "Champ_Bailey_2010.JPG", "Jeffrey Beall", "CC BY-SA 3.0", "https://creativecommons.org/licenses/by-sa/3.0", 2010], // Champ Bailey
   "xcharleswoodson": ["xcharleswoodson-v3", "card:42100e96", "", "", "", 2025], // Charles Woodson
+  "xchuckbednarik": ["xchuckbednarik-v4", "own:xchuckbednarik.webp", "", "", "", 0], // Chuck Bednarik
   "xdarrellgreen": ["xdarrellgreen-v3", "card:79faa686", "", "", "", 2025], // Darrell Green
   "xfrantarkenton": ["xfrantarkenton-v3", "card:40cb3dd5", "", "", "", 2025], // Fran Tarkenton
   "xginomarchetti": ["xginomarchetti-v3", "Gino_Marchetti_1961.jpg", "Jay Publishing", "Public domain", "", 1961], // Gino Marchetti
@@ -69,38 +71,55 @@ export const ACTION = {
   "xjuniorseau": ["xjuniorseau-v3", "card:b24dc757", "", "", "", 2000], // Junior Seau
   "xmarshallfaulk": ["xmarshallfaulk-v3", "card:a198ec8a", "", "", "", 2025], // Marshall Faulk
   "xmarvinharrison": ["xmarvinharrison-v3", "Marvin_Harrison_in_2007_Training_Camp_2.jpg", "The original uploader was Djmunden at English Wikipedia .", "CC BY-SA 2.5", "https://creativecommons.org/licenses/by-sa/2.5", 2008], // Marvin Harrison
+  "xmelblount": ["xmelblount-v4", "own:xmelblount.jpg", "", "", "", 0], // Mel Blount
   "xmikesingletary": ["xmikesingletary-v3", "card:991e2b27", "", "", "", 2025], // Mike Singletary
+  "xraymondberry": ["xraymondberry-v4", "own:xraymondberry.webp", "", "", "", 0], // Raymond Berry
   "xraynitschke": ["xraynitschke-v3", "card:90c319b1", "", "", "", 2002], // Ray Nitschke
   "xrodwoodson": ["xrodwoodson-v3", "card:74383d63", "", "", "", 2024], // Rod Woodson
   "xterrellowens": ["xterrellowens-v3", "card:e0c6dd8a", "", "", "", 2025], // Terrell Owens
   "xwalterjones": ["xwalterjones-v4", "card:df20b7f7", "", "", "", 2022], // Walter Jones
+  "xbobbybell": ["xbobbybell-v4", "own:xbobbybell.webp", "", "", "", 0], // Bobby Bell
   "xbriandawkins": ["xbriandawkins-v3", "Brian_Dawkins.JPG", "Jeffrey Beall", "CC BY-SA 3.0", "https://creativecommons.org/licenses/by-sa/3.0", 2009], // Brian Dawkins
   "xcriscarter": ["xcriscarter-v3", "card:a307aca8", "", "", "", 2024], // Cris Carter
   "xdanfouts": ["xdanfouts-v4", "card:3a1ad234", "", "", "", 2024], // Dan Fouts
+  "xderrickbrooks": ["xderrickbrooks-v4", "own:xderrickbrooks.webp", "", "", "", 0], // Derrick Brooks
+  "xforrestgregg": ["xforrestgregg-v4", "own:xforrestgregg.png", "", "", "", 0], // Forrest Gregg
   "xfrancoharris": ["xfrancoharris-v4", "card:72f52514", "", "", "", 2018], // Franco Harris
   "xhowielong": ["xhowielong-v3", "card:5a7121ca", "", "", "", 2025], // Howie Long
   "xjimkelly": ["xjimkelly-v3", "card:0fd0b22d", "", "", "", 2025], // Jim Kelly
   "xjustintucker": ["xjustintucker-v4", "flickr:joeglo/50425638927", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0/", 2020], // Justin Tucker
   "xkellenwinslow": ["xkellenwinslow-v3", "card:cb5223cc", "", "", "", 2025], // Kellen Winslow
   "xkurtwarner": ["xkurtwarner-v3", "card:93e8be8d", "", "", "", 2025], // Kurt Warner
+  "xlougroza": ["xlougroza-v4", "own:xlougroza.png", "", "", "", 0], // Lou Groza
   "xmarcusallen": ["xmarcusallen-v3", "1985_Police_Raiders-Rams_-_01_Marcus_Allen_(crop).jpg", "KIIS Radio/Los Angeles Raiders/Los Angeles County Sheriff's Department", "Public domain", "", 1984], // Marcus Allen
+  "xmikehaynes": ["xmikehaynes-v4", "own:xmikehaynes.png", "", "", "", 0], // Mike Haynes
   "xpaulwarfield": ["xpaulwarfield-v3", "card:d8279589", "", "", "", 2025], // Paul Warfield
   "xrandywhite": ["xrandywhite-v3", "card:4f7abc50", "", "", "", 2025], // Randy White
   "xshannonsharpe": ["xshannonsharpe-v3", "card:e822db1d", "", "", "", 2000], // Shannon Sharpe
   "xterrybradshaw": ["xterrybradshaw-v3", "card:3faf242a", "", "", "", 2025], // Terry Bradshaw
   "xtonydorsett": ["xtonydorsett-v3", "card:ce1bc138", "", "", "", 2025], // Tony Dorsett
+  "xtroyaikman": ["xtroyaikman-v4", "own:xtroyaikman.jpg", "", "", "", 0], // Troy Aikman
   "xwarrensapp": ["xwarrensapp-v3", "card:83ff64af", "", "", "", 2024], // Warren Sapp
+  "xwilliebrown": ["xwilliebrown-v4", "own:xwilliebrown.png", "", "", "", 0], // Willie Brown
   "xwillielanier": ["xwillielanier-v3", "card:d7b25bcc", "", "", "", 2020], // Willie Lanier
+  "xbuckbuchanan": ["xbuckbuchanan-v4", "own:xbuckbuchanan.png", "", "", "", 0], // Buck Buchanan
   "xcurtismartin": ["xcurtismartin-v3", "card:97ebaee1", "", "", "", 2022], // Curtis Martin
+  "xherbadderley": ["xherbadderley-v4", "own:xherbadderley.png", "", "", "", 0], // Herb Adderley
   "xjackyoungblood": ["xjackyoungblood-v3", "card:899af938", "", "", "", 2022], // Jack Youngblood
   "xjohnrandle": ["xjohnrandle-v3", "card:c3a2fd8c", "", "", "", 2024], // John Randle
+  "xkenhouston": ["xkenhouston-v4", "own:xkenhouston.png", "", "", "", 0], // Ken Houston
+  "xlarrycsonka": ["xlarrycsonka-v4", "own:xlarrycsonka.jpg", "", "", "", 0], // Larry Csonka
   "xlembarney": ["xlembarney-v3", "LemBarneyDET.png", "Unknown author Unknown author", "Public domain", "", 1968], // Lem Barney
   "xlendawson": ["xlendawson-v3", "Kansas_City_Chiefs_at_Denver_Broncos_1985-12-14_(ticket)_(crop).jpg", "Denver Broncos/Unlimited Printing & Systems, Inc.", "Public domain", "", 1970], // Len Dawson
   "xlennymoore": ["xlennymoore-v3", "card:4e5570dc", "", "", "", 2024], // Lenny Moore
+  "xmichaelirvin": ["xmichaelirvin-v4", "own:xmichaelirvin.jpg", "", "", "", 0], // Michael Irvin
+  "xmikeditka": ["xmikeditka-v5", "own:xmikeditka.jpg", "", "", "", 0], // Mike Ditka
+  "xmortenandersen": ["xmortenandersen-v4", "own:xmortenandersen.png", "", "", "", 0], // Morten Andersen
   "xozzienewsome": ["xozzienewsome-v3", "card:b1de77e3", "", "", "", 2025], // Ozzie Newsome
   "xpaulkrause": ["xpaulkrause-v4", "card:36f47773", "", "", "", 2024], // Paul Krause
   "xsamhuff": ["xsamhuff-v3", "card:b4147426", "", "", "", 2007], // Sam Huff
   "xtedhendricks": ["xtedhendricks-v3", "card:a96a3844", "", "", "", 2020], // Ted Hendricks
+  "xtimbrown": ["xtimbrown-v4", "own:xtimbrown.jpg", "", "", "", 0], // Tim Brown
   "xwarrenmoon": ["xwarrenmoon-v3", "card:a1aa68a4", "", "", "", 2025], // Warren Moon
   "xartmonk": ["xartmonk-v4", "card:665c0883", "", "", "", 2025], // Art Monk
   "xjohnriggins": ["xjohnriggins-v3", "card:e4cafdfb", "", "", "", 2024], // John Riggins
@@ -257,6 +276,8 @@ export function actionCredit(p) {
     const card = (REAL[p] || []).find(e => e[0] === r[1].slice(5));
     return card ? {card} : null;
   }
+  // (a photo the owner collected himself, 'own:<file>': no author or licence to credit)
+  if (r[1].startsWith('own:')) return {own: true, year: r[5] || 0};
   if (r[1].startsWith('flickr:')) {
     // (a Flickr photo, 'flickr:<owner>/<photo id>': its page on Flickr)
     return {author: r[2], licence: r[3], licenceUrl: r[4], page: `https://www.flickr.com/photos/${r[1].slice(7)}`, site: 'Flickr', year: r[5] || 0};

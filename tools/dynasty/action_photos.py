@@ -41,7 +41,7 @@ REAL_IMG = os.path.join(ROOT, 'img', 'dynasty', 'real')
 EDSR = 'https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x4.pb'  # 4x upscaling of the card scans
 VERSION = 'v3'  # in the file names: a changed picture needs a new name (sw.js keeps pictures across releases)
 # Players alone in their photo: BiRefNet's figure is kept whole, without Segment Anything (which can drop an arm or the ball)
-ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790', '0036442', '0038542', 'xpeytonmanning'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
+ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790', '0036442', '0038542', 'xpeytonmanning', 'xkenhouston', 'xmikehaynes', 'xlougroza', 'xforrestgregg', 'xmikeditka', 'xlarrycsonka', 'xearlcampbell', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xderrickbrooks', 'xraymondberry', 'xbobbybell', 'xchuckbednarik', 'xmichaelirvin', 'xherbadderley', 'xtroyaikman', 'xmortenandersen'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
 # Segment Anything's prompt by hand, where another player overlaps ours (fractions of the crop): a box round him,
 # points on him (1) and on the other (0), and boxes and outlines ('cut') to clear of what it still takes of the other
 SAM_HINT = {
@@ -74,6 +74,10 @@ CLEAR = {
 INK = {'xgalesayers': (110, 132)}  # Gale Sayers: a blue signature across his legs
 # The year a Commons photo was taken, where its page gives none or its upload date instead
 YEAR = {'xraylewis': 2007, 'xjohnnyunitas': 1963}
+# The owner's own photos ('own:<file>' in PICK), collected by hand from his checklist of players without one
+OWN = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'photos')
+# ...whose figure is wider than the window: padded with white above, so the whole figure fits (see flatten())
+PAD = {'xkenhouston', 'xlougroza', 'xforrestgregg', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xherbadderley', 'xmortenandersen'}
 # Players whose picture was redone since VERSION (a new pick, card or crop): their own version in the file name, so only
 # they are rebuilt and fetched again; build leaves every other player's finished picture as it is
 REDO = {
@@ -95,6 +99,25 @@ REDO = {
     'xcalvinjohnson': 'v4',  # Calvin Johnson: a Commons photo from action_sweep.py's named photos
     'xladainiantomli': 'v4',  # LaDainian Tomlinson: a Commons photo from action_sweep.py's named photos
     'xrandymoss': 'v4',  # Randy Moss: a Commons photo from action_sweep.py's named photos
+    'xkenhouston': 'v4',  # Ken Houston: his own photo (tools/dynasty/photos)
+    'xmikehaynes': 'v4',  # Mike Haynes: his own photo (tools/dynasty/photos)
+    'xlougroza': 'v4',  # Lou Groza: his own photo (tools/dynasty/photos)
+    'xforrestgregg': 'v4',  # Forrest Gregg: his own photo (tools/dynasty/photos)
+    'xmikeditka': 'v5',  # Mike Ditka: his own photo (tools/dynasty/photos)
+    'xlarrycsonka': 'v4',  # Larry Csonka: his own photo (tools/dynasty/photos)
+    'xearlcampbell': 'v4',  # Earl Campbell: his own photo (tools/dynasty/photos)
+    'xbuckbuchanan': 'v4',  # Buck Buchanan: his own photo (tools/dynasty/photos)
+    'xwilliebrown': 'v4',  # Willie Brown: his own photo (tools/dynasty/photos)
+    'xtimbrown': 'v4',  # Tim Brown: his own photo (tools/dynasty/photos)
+    'xderrickbrooks': 'v4',  # Derrick Brooks: his own photo (tools/dynasty/photos)
+    'xmelblount': 'v4',  # Mel Blount: his own photo (tools/dynasty/photos)
+    'xraymondberry': 'v4',  # Raymond Berry: his own photo (tools/dynasty/photos)
+    'xbobbybell': 'v4',  # Bobby Bell: his own photo (tools/dynasty/photos)
+    'xchuckbednarik': 'v4',  # Chuck Bednarik: his own photo (tools/dynasty/photos)
+    'xmichaelirvin': 'v4',  # Michael Irvin: his own photo (tools/dynasty/photos)
+    'xherbadderley': 'v4',  # Herb Adderley: his own photo (tools/dynasty/photos)
+    'xtroyaikman': 'v4',  # Troy Aikman: his own photo (tools/dynasty/photos)
+    'xmortenandersen': 'v4',  # Morten Andersen: his own photo (tools/dynasty/photos)
 }
 
 # The trading-card photos (the owner, Oct 31 2026: "Where can we find live action pictures of the players that would be
@@ -343,6 +366,25 @@ PICK = {
     "xjoethomas": "Joe_Thomas_Cleveland_Browns.jpg",  # Joe Thomas, 2011, at camp in his #73
     "0034790": "Derwin_James_-_2025_Commanders_at_Chargers.jpg",  # Derwin James, 2025, running out
     "0030506": "flickr:51614629582",  # Travis Kelce, 2021, running with the ball at Washington
+    "xkenhouston": "own:xkenhouston.png",  # Ken Houston, Washington #27, with the ball (his own photo)
+    "xmikehaynes": "own:xmikehaynes.png",  # Mike Haynes, Raiders #22, in his stance (his own photo)
+    "xlougroza": "own:xlougroza.png",  # Lou Groza, Browns #76, kicking (his own photo)
+    "xforrestgregg": "own:xforrestgregg.png",  # Forrest Gregg, Packers #75 (his own photo)
+    "xmikeditka": "own:xmikeditka.jpg",  # Mike Ditka, Bears #89, with the ball (his own photo)
+    "xlarrycsonka": "own:xlarrycsonka.jpg",  # Larry Csonka, Dolphins #39 (his own photo)
+    "xearlcampbell": "own:xearlcampbell.jpg",  # Earl Campbell, Oilers #34, with the ball (his own photo)
+    "xbuckbuchanan": "own:xbuckbuchanan.png",  # Buck Buchanan, Chiefs #86 (his own photo)
+    "xwilliebrown": "own:xwilliebrown.png",  # Willie Brown, Raiders #24, with the ball (his own photo)
+    "xtimbrown": "own:xtimbrown.jpg",  # Tim Brown, Raiders #81, a one-handed catch (his own photo)
+    "xderrickbrooks": "own:xderrickbrooks.webp",  # Derrick Brooks, Buccaneers #55 (his own photo)
+    "xmelblount": "own:xmelblount.jpg",  # Mel Blount, Steelers #47 (his own photo; Segment Anything for the referee behind)
+    "xraymondberry": "own:xraymondberry.webp",  # Raymond Berry, Colts #82 (his own photo)
+    "xbobbybell": "own:xbobbybell.webp",  # Bobby Bell, Chiefs #78 (his own photo)
+    "xchuckbednarik": "own:xchuckbednarik.webp",  # Chuck Bednarik, Eagles #60, in his stance (his own photo)
+    "xmichaelirvin": "own:xmichaelirvin.jpg",  # Michael Irvin, Cowboys #88, with the ball (his own photo)
+    "xherbadderley": "own:xherbadderley.png",  # Herb Adderley, Packers #26 (his own photo)
+    "xtroyaikman": "own:xtroyaikman.jpg",  # Troy Aikman, Cowboys #8, on the sideline (his own photo)
+    "xmortenandersen": "own:xmortenandersen.png",  # Morten Andersen, Saints #7 (his own photo)
 }
 # player key -> (centre x, top, height) as fractions of the photo's width and height
 CROP = {
@@ -398,6 +440,25 @@ CROP = {
     "xcalvinjohnson": (0.5, 0.04, 0.96),  # Calvin Johnson
     "xladainiantomli": (0.48, 0.1, 0.9),  # LaDainian Tomlinson
     "xrandymoss": (0.5, 0, 1),  # Randy Moss
+    "xkenhouston": (0.5, 0, 1),  # Ken Houston
+    "xmikehaynes": (0.5, 0.02, 1),  # Mike Haynes
+    "xlougroza": (0.5, 0, 1),  # Lou Groza
+    "xforrestgregg": (0.5, 0, 1),  # Forrest Gregg
+    "xmikeditka": (0.47, 0.07, 0.62),  # Mike Ditka
+    "xlarrycsonka": (0.5, 0, 1),  # Larry Csonka
+    "xearlcampbell": (0.5, 0.04, 0.96),  # Earl Campbell
+    "xbuckbuchanan": (0.5, 0, 1),  # Buck Buchanan
+    "xwilliebrown": (0.5, 0, 1),  # Willie Brown
+    "xtimbrown": (0.5, 0, 1),  # Tim Brown
+    "xderrickbrooks": (0.48, 0.03, 0.97),  # Derrick Brooks
+    "xmelblount": (0.52, 0.03, 0.96),  # Mel Blount
+    "xraymondberry": (0.4, 0, 1),  # Raymond Berry
+    "xbobbybell": (0.5, 0, 0.74),  # Bobby Bell
+    "xchuckbednarik": (0.5, 0.08, 0.92),  # Chuck Bednarik
+    "xmichaelirvin": (0.48, 0, 1),  # Michael Irvin
+    "xherbadderley": (0.5, 0, 1),  # Herb Adderley
+    "xtroyaikman": (0.4, 0.02, 0.98),  # Troy Aikman
+    "xmortenandersen": (0.5, 0, 1),  # Morten Andersen
 }
 
 POS = {'QB': ['quarterback'], 'RB': ['running back'], 'WR': ['wide receiver'], 'TE': ['tight end'], 'K': ['placekicker', 'kicker'],
@@ -699,6 +760,21 @@ def sheets(out):
         sheet.save(os.path.join(CACHE, f'sheet-{n // 8:02d}.jpg'), quality=80)
 
 
+def flatten(src, out, pad=False):
+    """An owner's photo on white (a cut-out he found keeps its transparency as white, which the cut-out clears again),
+    and, padded (PAD), with white above it until it is as tall as the window's shape, so a wide figure fits whole."""
+    from PIL import Image, ImageOps
+    img = ImageOps.exif_transpose(Image.open(src)).convert('RGBA')
+    flat = Image.new('RGBA', img.size, 'white')
+    flat.alpha_composite(img)
+    iw, ih = img.size
+    if pad and iw * H > ih * W:
+        tall = Image.new('RGBA', (iw, round(iw * H / W)), 'white')
+        tall.paste(flat, (0, tall.height - ih))
+        flat = tall
+    flat.convert('RGB').save(out)
+
+
 def crop(src, out, hand=None):
     """A crop of the player in action (hand's, else round the largest face with his shoulders and chest below it, else
     the photo's upper middle), in the window's shape at twice its size (S), saved as a PNG for the cut-out."""
@@ -973,6 +1049,19 @@ def prepare():
             if not os.path.exists(src) and not done:
                 crop(raw, src, CROP.get(key))
             row = [stem, f'flickr:{i["owner"]}/{pid}', plain(i['author'])[:120], i['licence'], i['licenceUrl'], YEAR.get(key) or i['year'] or 0]
+        elif key in PICK and PICK[key].startswith('own:'):
+            # (a photo the owner collected himself, kept in tools/dynasty/photos: no author or licence to credit)
+            f = os.path.join(OWN, PICK[key][4:])
+            if not os.path.exists(f):
+                print('no such photo:', key, f, file=sys.stderr)
+                continue
+            raw = os.path.join(CACHE, f'raw-{slug(key)}-own.png')
+            tag = hashlib.sha1(json.dumps([PICK[key], os.path.getsize(f), key in PAD, CROP.get(key), W, H, S]).encode()).hexdigest()[:10]
+            src = os.path.join(CACHE, f'crop-{slug(key)}-{tag}.png')
+            if not os.path.exists(src) and not done:
+                flatten(f, raw, key in PAD)
+                crop(raw, src, CROP.get(key))
+            row = [stem, PICK[key], '', '', '', YEAR.get(key, 0)]
         elif key in PICK:
             f = PICK[key]
             i = file_info(f.replace(' ', '_'))
