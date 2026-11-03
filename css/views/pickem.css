@@ -554,19 +554,22 @@ html.rm .c-pk-dot::after { animation: none; }
 .v-pickem .lp-foot .pk-f-in .ic { width: 15px; height: 15px; }
 .v-pickem .lp-board { margin-top: 26px; }
 .v-pickem .lp-board .seg { margin: 0 0 10px; }
-.v-pickem .lp-board-c { padding: 4px 0; }
-.v-pickem .lp-rows { list-style: none; margin: 0; padding: 0; }
-.v-pickem .lp-r { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 16px; }
-.v-pickem .lp-r + .lp-r { border-top: .5px solid var(--separator); }
-.v-pickem .lp-r.is-me { background: var(--tint-soft); }
-.v-pickem .lp-r-k { flex: none; width: 22px; text-align: center; color: var(--ink-3); }
-.v-pickem .lp-r-n { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-.v-pickem .lp-r-t { font: 600 var(--fs-body)/var(--lh-body) var(--font-text); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v-pickem .lp-r-s { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
-.v-pickem .lp-r-s:empty { display: none; }
-.v-pickem .lp-r-v { flex: none; color: var(--ink); font-variant-numeric: tabular-nums; }
-.v-pickem .lp-you { margin-left: 4px; padding: 1px 6px; border-radius: 6px; background: var(--tint); color: var(--on-tint); font: 800 10px/14px var(--font-text); font-style: normal; letter-spacing: .06em; vertical-align: 2px; }
-.v-pickem .lp-you.is-g { background: var(--gold); color: #1B1B1B; }
+.v-pickem .lp-board-c, .sh-lp-board .lp-board-c { padding: 4px 0; }
+.v-pickem .lp-rows, .sh-lp-board .lp-rows { list-style: none; margin: 0; padding: 0; }
+.v-pickem .lp-r, .sh-lp-board .lp-r { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 16px; }
+.v-pickem .lp-r + .lp-r, .sh-lp-board .lp-r + .lp-r { border-top: .5px solid var(--separator); }
+.v-pickem .lp-r.is-me, .sh-lp-board .lp-r.is-me { background: var(--tint-soft); }
+.v-pickem .lp-r-k, .sh-lp-board .lp-r-k { flex: none; width: 22px; text-align: center; color: var(--ink-3); }
+.v-pickem .lp-r-n, .sh-lp-board .lp-r-n { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.v-pickem .lp-r-t, .sh-lp-board .lp-r-t { font: 600 var(--fs-body)/var(--lh-body) var(--font-text); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-pickem .lp-r-s, .sh-lp-board .lp-r-s { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-pickem .lp-r-s:empty, .sh-lp-board .lp-r-s:empty { display: none; }
+.v-pickem .lp-r-v, .sh-lp-board .lp-r-v { flex: none; color: var(--ink); font-variant-numeric: tabular-nums; }
+.v-pickem .lp-you, .sh-lp-board .lp-you { margin-left: 4px; padding: 1px 6px; border-radius: 6px; background: var(--tint); color: var(--on-tint); font: 800 10px/14px var(--font-text); font-style: normal; letter-spacing: .06em; vertical-align: 2px; }
+.v-pickem .lp-you.is-g, .sh-lp-board .lp-you.is-g { background: var(--gold); color: #1B1B1B; }
+.v-pickem .lp-r-k.gold, .sh-lp-board .lp-r-k.gold { color: var(--gold); }
+.v-pickem .lp-sum .lp-sum-more { width: calc(100% + 36px); margin: 12px -18px -16px; padding: 0 18px; }
+.v-pickem .lp-sum-more .lp-sum-me { flex: none; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-weight: 400; color: var(--ink-2); }
 .v-pickem .lp-none { padding: 18px 16px; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .v-pickem .lp-rules { margin: 22px 6px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 

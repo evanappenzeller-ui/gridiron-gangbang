@@ -48,6 +48,19 @@ export async function lpickChecks(check) {
     return {pass: ok && split, detail: rows.map(r => `${r.rank}. ${r.name} ${r.right}–${r.wrong}${r.guest ? ' (guest)' : ''}`).join(', ') + `; split after the lock ${split ? 'shown' : 'WRONG'}, none before`};
   });
 
+  check('League pick\'em leaderboard: the season sums the weeks, and a week won (its top, ties sharing it) counts once its finals are in', () => {
+    const y = 2026, w1 = 7, w2 = 8;
+    if (!LP.weekDone(y, w1) || !LP.weekDone(y, w2)) return {pass: true, detail: 'weeks 7 and 8 aren\'t both final in this data'};
+    const side = (wk, f) => Object.fromEntries(LP.gamesOf(y, wk).map(g => { const r = LP.resultOf(y, wk, g.a, g.b); const w = r.winner || g.a; return [g.id, f ? w : (w === g.a ? g.b : g.a)]; }));
+    const t = wk => week.lockTime(y, wk).getTime() - H;
+    const doc = (id, nick, weeks) => ({id, nick, total: 0, [LP.F]: Object.fromEntries(weeks.map(([wk, f]) => [week.weekKey(y, wk), {p: side(wk, f), t: t(wk)}]))});
+    const list = [doc('k-a', nickOf('jayton'), [[w1, true], [w2, false]]), doc('k-b', nickOf('mitch'), [[w2, true]]), doc('k-c', nickOf('john'), [[w1, true]])];
+    const rows = LP.seasonRows(y, list), by = n => rows.find(r => r.name === nickOf(n)) || {};
+    const a = by('jayton'), b = by('mitch'), c = by('john');
+    const ok = a.won === 1 && a.weeks === 2 && a.wrong === 6 && b.won === 1 && b.weeks === 1 && c.won === 1 && rows.length === 3;
+    return {pass: ok, detail: rows.map(r => `${r.rank}. ${r.name} ${r.right}–${r.wrong}, ${r.weeks} wk, ${r.won} won`).join('; ')};
+  });
+
   // Survivor, on crafted NFL boards in a fixed week (Week 8 here: Thursday Oct 29 2026 8:15 PM ET, Sunday Nov 1 1 PM
   // and 4:25 PM ET), looked at Wednesday (nothing played), Saturday (Thursday's game played, the week still open) and
   // Sunday once its first game is under way (locked)
