@@ -108,6 +108,7 @@ export const ACTION = {
   "xwillielanier": ["xwillielanier-v3", "card:d7b25bcc", "", "", "", 2020], // Willie Lanier
   "xbuckbuchanan": ["xbuckbuchanan-v4", "own:xbuckbuchanan.png", "", "", "", 0], // Buck Buchanan
   "xcurtismartin": ["xcurtismartin-v3", "card:97ebaee1", "", "", "", 2022], // Curtis Martin
+  "xemlentunnell": ["xemlentunnell-v2", "own:xemlentunnell.jpg", "", "", "", 0], // Emlen Tunnell
   "xherbadderley": ["xherbadderley-v4", "own:xherbadderley.png", "", "", "", 0], // Herb Adderley
   "xjackyoungblood": ["xjackyoungblood-v3", "card:899af938", "", "", "", 2022], // Jack Youngblood
   "xjohnmackey": ["xjohnmackey-v1", "own:xjohnmackey.jpg", "", "", "", 0], // John Mackey

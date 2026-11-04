@@ -41,7 +41,7 @@ REAL_IMG = os.path.join(ROOT, 'img', 'dynasty', 'real')
 EDSR = 'https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x4.pb'  # 4x upscaling of the card scans
 VERSION = 'v3'  # in the file names: a changed picture needs a new name (sw.js keeps pictures across releases)
 # Players alone in their photo: BiRefNet's figure is kept whole, without Segment Anything (which can drop an arm or the ball)
-ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790', '0036442', '0038542', 'xpeytonmanning', 'xkenhouston', 'xmikehaynes', 'xlougroza', 'xforrestgregg', 'xmikeditka', 'xlarrycsonka', 'xearlcampbell', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xderrickbrooks', 'xraymondberry', 'xbobbybell', 'xchuckbednarik', 'xmichaelirvin', 'xherbadderley', 'xtroyaikman', 'xmortenandersen', 'xbojackson', 'xdicknighttrain', 'xjohnmackey'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
+ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790', '0036442', '0038542', 'xpeytonmanning', 'xkenhouston', 'xmikehaynes', 'xlougroza', 'xforrestgregg', 'xmikeditka', 'xlarrycsonka', 'xearlcampbell', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xderrickbrooks', 'xraymondberry', 'xbobbybell', 'xchuckbednarik', 'xmichaelirvin', 'xherbadderley', 'xtroyaikman', 'xmortenandersen', 'xbojackson', 'xdicknighttrain', 'xjohnmackey', 'xemlentunnell'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
 # Segment Anything's prompt by hand, where another player overlaps ours (fractions of the crop): a box round him,
 # points on him (1) and on the other (0), and boxes and outlines ('cut') to clear of what it still takes of the other
 SAM_HINT = {
@@ -77,7 +77,7 @@ YEAR = {'xraylewis': 2007, 'xjohnnyunitas': 1963}
 # The owner's own photos ('own:<file>' in PICK), collected by hand from his checklist of players without one
 OWN = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'photos')
 # ...whose figure is wider than the window: padded with white above, so the whole figure fits (see flatten())
-PAD = {'xkenhouston', 'xlougroza', 'xforrestgregg', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xherbadderley', 'xmortenandersen', 'xdeaconjones'}
+PAD = {'xkenhouston', 'xlougroza', 'xforrestgregg', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xherbadderley', 'xmortenandersen', 'xdeaconjones', 'xemlentunnell'}
 # Players whose picture was redone since VERSION (a new pick, card or crop): their own version in the file name, so only
 # they are rebuilt and fetched again; build leaves every other player's finished picture as it is
 REDO = {
@@ -124,6 +124,7 @@ REDO = {
     'xdicknighttrain': 'v1',  # Dick "Night Train" Lane: his own photo (tools/dynasty/photos)
     'xstevelargent': 'v1',  # Steve Largent: his own photo (tools/dynasty/photos)
     'xjohnmackey': 'v1',  # John Mackey: his own photo (tools/dynasty/photos)
+    'xemlentunnell': 'v2',  # Emlen Tunnell: his own photo (tools/dynasty/photos)
 }
 
 # The trading-card photos (the owner, Oct 31 2026: "Where can we find live action pictures of the players that would be
@@ -397,6 +398,7 @@ PICK = {
     "xdicknighttrain": "own:xdicknighttrain.jpg",  # Dick "Night Train" Lane, Lions #81 (his own photo)
     "xstevelargent": "own:xstevelargent.webp",  # Steve Largent, Seahawks #80, with the ball (his own photo)
     "xjohnmackey": "own:xjohnmackey.jpg",  # John Mackey, Colts #88 (his own photo)
+    "xemlentunnell": "own:xemlentunnell.jpg",  # Emlen Tunnell, Giants #45 (his own photo)
 }
 # player key -> (centre x, top, height) as fractions of the photo's width and height
 CROP = {
@@ -477,6 +479,7 @@ CROP = {
     "xdicknighttrain": (0.545, 0, 1),  # Dick "Night Train" Lane
     "xstevelargent": (0.5, 0.03, 0.75),  # Steve Largent
     "xjohnmackey": (0.5, 0.1, 0.87),  # John Mackey
+    "xemlentunnell": (0.54, 0.41, 0.59),  # Emlen Tunnell
 }
 
 POS = {'QB': ['quarterback'], 'RB': ['running back'], 'WR': ['wide receiver'], 'TE': ['tight end'], 'K': ['placekicker', 'kicker'],
