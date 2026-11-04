@@ -41,7 +41,7 @@ REAL_IMG = os.path.join(ROOT, 'img', 'dynasty', 'real')
 EDSR = 'https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x4.pb'  # 4x upscaling of the card scans
 VERSION = 'v3'  # in the file names: a changed picture needs a new name (sw.js keeps pictures across releases)
 # Players alone in their photo: BiRefNet's figure is kept whole, without Segment Anything (which can drop an arm or the ball)
-ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790', '0036442', '0038542', 'xpeytonmanning', 'xkenhouston', 'xmikehaynes', 'xlougroza', 'xforrestgregg', 'xmikeditka', 'xlarrycsonka', 'xearlcampbell', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xderrickbrooks', 'xraymondberry', 'xbobbybell', 'xchuckbednarik', 'xmichaelirvin', 'xherbadderley', 'xtroyaikman', 'xmortenandersen', 'xbojackson', 'xdicknighttrain', 'xjohnmackey', 'xemlentunnell', 'xdanmarino', 'xanthonymuñoz', 'xalanpage', 'xjimparker', 'xleeroyselmon', 'xmichaelstrahan', 'xbrianurlacher', 'xsteveyoung', 'xlarryallen', '0039338', 'xmerlinolsen', 'xjohnelway', 'xmarshallfaulk', 'xjohnhannah', 'xsamhuff', 'xwalterjones', 'xjimkelly', 'xwillielanier', 'xcurtismartin', '0031279', '0037744', '0033280', '0036388', 'xterrellowens', 'xjohnrandle', 'xjerryrice', 'xjjwatt'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
+ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790', '0036442', '0038542', 'xpeytonmanning', 'xkenhouston', 'xmikehaynes', 'xlougroza', 'xforrestgregg', 'xmikeditka', 'xlarrycsonka', 'xearlcampbell', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xderrickbrooks', 'xraymondberry', 'xbobbybell', 'xchuckbednarik', 'xmichaelirvin', 'xherbadderley', 'xtroyaikman', 'xmortenandersen', 'xbojackson', 'xdicknighttrain', 'xjohnmackey', 'xemlentunnell', 'xdanmarino', 'xanthonymuñoz', 'xalanpage', 'xjimparker', 'xleeroyselmon', 'xmichaelstrahan', 'xbrianurlacher', 'xsteveyoung', 'xlarryallen', '0039338', 'xmerlinolsen', 'xjohnelway', 'xmarshallfaulk', 'xjohnhannah', 'xsamhuff', 'xwalterjones', 'xjimkelly', 'xwillielanier', 'xcurtismartin', '0031279', '0037744', '0033280', '0036388', 'xterrellowens', 'xjohnrandle', 'xjerryrice', 'xjjwatt', 'xlawrencetaylor'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
 # Segment Anything's prompt by hand, where another player overlaps ours (fractions of the crop): a box round him,
 # points on him (1) and on the other (0), and boxes and outlines ('cut') to clear of what it still takes of the other
 SAM_HINT = {
@@ -72,7 +72,7 @@ YEAR = {'xraylewis': 2007, 'xjohnnyunitas': 1963}
 # The owner's own photos ('own:<file>' in PICK), collected by hand from his checklist of players without one
 OWN = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'photos')
 # ...whose figure is wider than the window: padded with white above, so the whole figure fits (see flatten())
-PAD = {'xkenhouston', 'xlougroza', 'xforrestgregg', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xherbadderley', 'xmortenandersen', 'xdeaconjones', 'xemlentunnell', 'xanthonymuñoz', 'xalanpage', 'xleeroyselmon', 'xmichaelstrahan', 'xderrickthomas', 'xthurmanthomas', 'xbrianurlacher', 'xlarrywilson', 'xsteveyoung', '0039172', '0039840', '0039141', '0036963', '0034495', '0034752', '0032378', '0037248', 'xmarshallfaulk', 'xjohnhannah', 'xwalterjones', 'xjimkelly', 'xpaulkrause', 'xcurtismartin', '0033280', 'xterrellowens', 'xjohnrandle', '0039163', 'xrodwoodson'}
+PAD = {'xkenhouston', 'xlougroza', 'xforrestgregg', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xherbadderley', 'xmortenandersen', 'xdeaconjones', 'xemlentunnell', 'xanthonymuñoz', 'xalanpage', 'xleeroyselmon', 'xmichaelstrahan', 'xderrickthomas', 'xthurmanthomas', 'xbrianurlacher', 'xlarrywilson', 'xsteveyoung', '0039172', '0039840', '0039141', '0036963', '0034495', '0034752', '0032378', '0037248', 'xmarshallfaulk', 'xjohnhannah', 'xwalterjones', 'xjimkelly', 'xpaulkrause', 'xcurtismartin', '0033280', 'xterrellowens', 'xjohnrandle', '0039163', 'xrodwoodson', 'xlawrencetaylor'}
 # Players whose picture was redone since VERSION (a new pick, card or crop): their own version in the file name, so only
 # they are rebuilt and fetched again; build leaves every other player's finished picture as it is
 REDO = {
@@ -120,6 +120,8 @@ REDO = {
     'xstevelargent': 'v1',  # Steve Largent: his own photo (tools/dynasty/photos)
     'xjohnmackey': 'v1',  # John Mackey: his own photo (tools/dynasty/photos)
     'xemlentunnell': 'v2',  # Emlen Tunnell: his own photo (tools/dynasty/photos)
+    'xlawrencetaylor': 'v4',  # Lawrence Taylor: his own photo (tools/dynasty/photos)
+    '0035248': 'v4',  # Zach Allen: his own photo (tools/dynasty/photos)
     '0031364': 'v4',  # Jadeveon Clowney: his own photo (tools/dynasty/photos)
     '0039491': 'v4',  # Jalen Coker: his own photo (tools/dynasty/photos)
     '0036554': 'v4',  # Nico Collins: his own photo (tools/dynasty/photos)
@@ -299,6 +301,7 @@ COMMONS_FIRST = {
     'xkurtwarner', '0037228', '0040128', '0038124', 'xjjwatt', '0040148', 'xrandywhite',  # Kurt Warner, Jaylen Warren, Tyler Warren, Christian Watson, J.J. Watt, Xavier Watts, Randy White
     'xreggiewhite', '0037240', '0031933', 'xcharleswoodson', 'xrodwoodson',  # Reggie White, Jameson Williams, Leonard Williams, Charles Woodson, Rod Woodson
     '0033831', '0039137',  # Andrew Wylie, Byron Young  (his own photos, Nov 3 2026)
+    'xlawrencetaylor', '0035248',  # Lawrence Taylor, Zach Allen  (his own photos, Nov 4 2026)
 }
 # (Commons photos that are a portrait, a posed head-and-shoulders or a stamp, not a game, are left out of PICK: the owner,
 # Oct 31 2026, "Remove any headshot of the legend players")
@@ -311,7 +314,7 @@ SEASON = 2026   # this season (a Live player's first season: SEASON - his years 
 # player key -> the Commons file chosen by eye (its name as the file page has it, without "File:"), or 'flickr:<photo id>'
 # for a photo from action_sweep.py's Flickr sheets
 PICK = {
-    "0035248": "Zach_Allen.png",  # Zach Allen, 2025
+    "0035248": "own:0035248.jpg",  # Zach Allen, Broncos #99 (his own photo)
     "xtombrady": "Tom_Brady_(2).jpg",  # Tom Brady, a Patriots pass (the Buccaneers crop stopped at his chest)
     "xjimbrown": "Jim_Brown_1959_Topps_cropped_and_recoloured.jpg",  # Jim Brown, 1959
     "xpeytonmanning": "flickr:5043838891",  # Peyton Manning, 2010, warming up, helmet in hand
@@ -568,7 +571,7 @@ PICK = {
     "xjohnriggins": "JohnRiggins1983TrainingCamp.jpg",  # John Riggins, 2008
     "0036914": "Gregory_Rousseau_(51528386792)_(cropped).jpg",  # Greg Rousseau, 2021
     "0026498": "2025_Rams_vs_Titans_Matthew_Stafford_(cropped).png",  # Matthew Stafford, 2025
-    "xlawrencetaylor": "Lawrence_Taylor_tackle.jpg",  # Lawrence Taylor, 1984
+    "xlawrencetaylor": "own:xlawrencetaylor.jpg",  # Lawrence Taylor, Giants #56 (his own photo)
     "xadamvinatieri": "Rigoberto_Sanchez,_Adam_Vinatieri_(44679700592)_(cropped).jpg",  # Adam Vinatieri, 2018
     "xpaulwarfield": "Paul_Warfield_1971MIA.png",  # Paul Warfield, 1971
     "0037840": "NFL_Playoff_Wildcard_Game_-_Kyren_Williams_Running_Back_Rams_(54266524948).jpg",  # Kyren Williams, 2025
@@ -766,7 +769,8 @@ CROP = {
     "0033873": (0.37, 0.18, 0.8),  # Patrick Mahomes
     "xwarrenmoon": (0.25, 0, 1),  # Warren Moon
     "xdarrellerevis": (0.5, 0, 1),  # Darrelle Revis
-    "xlawrencetaylor": (0.55, 0.2, 0.6),  # Lawrence Taylor
+    "xlawrencetaylor": (0.5, 0, 1),  # Lawrence Taylor
+    "0035248": (0.445, 0, 1),  # Zach Allen
     "0037840": (0.36, 0.36, 0.4),  # Kyren Williams
 }
 

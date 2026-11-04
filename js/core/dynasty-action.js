@@ -17,7 +17,7 @@ import {REAL} from './dynasty-real.js';
 // <action-photos> (written by tools/dynasty/action_photos.py)
 export const ACTION = {
   "xjerryrice": ["xjerryrice-v4", "own:xjerryrice.jpg", "", "", "", 0], // Jerry Rice
-  "xlawrencetaylor": ["xlawrencetaylor-v3", "card:4f9bbace", "", "", "", 2025], // Lawrence Taylor
+  "xlawrencetaylor": ["xlawrencetaylor-v4", "own:xlawrencetaylor.jpg", "", "", "", 0], // Lawrence Taylor
   "xtombrady": ["xtombrady-v4", "Tom_Brady_(2).jpg", "Keith Allison", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2009], // Tom Brady
   "xbarrysanders": ["xbarrysanders-v4", "card:87e3f8ab", "", "", "", 2025], // Barry Sanders
   "xjimbrown": ["xjimbrown-v3", "card:f4a7b560", "", "", "", 2017], // Jim Brown
@@ -187,7 +187,7 @@ export const ACTION = {
   "0039851": ["0039851-v4", "own:0039851.jpg", "", "", "", 0], // Drake Maye
   "0033288": ["0033288-v4", "49ers_at_Redskins_2019,_George_Kittle_(48933294286).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2019], // George Kittle
   "0034815": ["0034815-v3", "Fred_Warner_49ers_2018_(cropped).jpg", "U.S. Air Force Airman 1st Class Jonathon D. A. Carnell", "Public domain", "", 2018], // Fred Warner
-  "0035248": ["0035248-v3", "card:8591528f", "", "", "", 2024], // Zach Allen
+  "0035248": ["0035248-v4", "own:0035248.jpg", "", "", "", 0], // Zach Allen
   "0036409": ["0036409-v4", "own:0036409.jpg", "", "", "", 0], // Jordyn Brooks
   "0037192": ["0037192-v3", "card:cbb67e9a", "", "", "", 2025], // George Karlaftis
   "0038552": ["0038552-v3", "card:622671c6", "", "", "", 2025], // Riley Moss
