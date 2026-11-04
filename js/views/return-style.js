@@ -96,16 +96,57 @@ export function gate(id, original) {
   return enabled() ? ['#F9E8C5', THEMES[id].accent, '#FFE3A1', '#FFFFFF'] : original;
 }
 
+// Dusk to night (Nov 4 2026, Evan, with a runner's video: "Upgrade return man game mode while drawing inspiration from the
+// attached video", a run under a crimson sky through purple fog): the longer the run, the later the day. Every place
+// keeps its own look, under the time of day's light: day for the first time round the nine places, sunset the second
+// (a low gold sun in a violet sky), night the third (the video's: crimson under deep purple, a moon, stars, and fog
+// rolling along the roadsides: return-3dworld.js fogBanks), then day again. dusk(z): how much of each there is z yards
+// in, [day, sunset, night] (adding up to 1, eased over FADE yards up to a gate). TOD: each time's sky (its top, middle
+// and bottom: the haze, where it meets the ground's fog), its far silhouettes, clouds, sun or moon, its light (the
+// sky's, the ground's, the sun's: return-3dworld.js look) and its fog. Only the picture: the course is the same.
+export const DUSK = {lap: 900, fade: 120};
+export const TOD = [null,
+  {sky: '#4E3489', mid: '#D2647E', haze: '#FFA27A', far: '#8E4F7A', cloud: '#FFC7AF', sun: '#FFD77A', mix: .82,
+    light: {sky: '#FFC2A6', ground: '#5E4552', hemi: 1.35, sun: '#FFA05C', sunI: 2.1, at: [4.5, 5, 1.6]}, fog: '#E7A0B8'},
+  {sky: '#2A0B35', mid: '#B12A48', haze: '#8E3A70', far: '#3B2244', cloud: '#5E2248', moon: '#FFEAD6', mix: .9,
+    light: {sky: '#A884EC', ground: '#33224A', hemi: .95, sun: '#FF9FBE', sunI: 1.15, at: [-4, 6, 2]}, fog: '#A271DA'}];
+const smooth01 = v => { const u = Math.max(0, Math.min(1, v)); return u * u * (3 - 2 * u); };
+/** How much day, sunset and night there is z yards into a run: [day, sunset, night]. */
+export function dusk(z) {
+  if (!enabled() || !(z > 0)) return [1, 0, 0];
+  const L = DUSK.lap, F = DUSK.fade, u = z % (3 * L), at = e => smooth01((u - (e - F)) / F);
+  const a = at(L), b = at(2 * L), c = at(3 * L);
+  return [1 - a + c, a - b, b - c];
+}
+const hexRGB = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+/** Colour a mixed k of the way to b (hex), as hex. */
+export function mixHex(a, b, k) {
+  const A = hexRGB(a), B = hexRGB(b);
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * k).toString(16).padStart(2, '0')).join('');
+}
+/** A place's haze at a time of day (tod 0, 1, 2), the colour its sky meets the ground's fog in. */
+export const hazeAt = (id, tod) => (tod ? mixHex(THEMES[id].haze, TOD[tod].haze, TOD[tod].mix) : THEMES[id].haze);
+/** A place's haze z yards in (the times of day blended). */
+export function hazeOfZ(id, z) {
+  const w = dusk(z);
+  let c = hazeAt(id, 0);
+  if (w[1] > 0) c = mixHex(c, hazeAt(id, 1), w[1] / (w[0] + w[1]));
+  if (w[2] > 0) c = mixHex(c, hazeAt(id, 2), w[2]);
+  return c;
+}
+
 // Sky paintings have their own bounded cache, never reused by the original renderer.
 const SKIES = new Map();
 export function clear() { SKIES.clear(); }
-function skyImage(id, width, height) {
-  const k = id + ':' + width + ':' + height;
+function skyImage(id, width, height, tod = 0) {
+  const k = id + ':' + width + ':' + height + ':' + tod;
   if (SKIES.has(k)) return SKIES.get(k);
   const cv = document.createElement('canvas'); cv.width = width; cv.height = height;
-  const c = cv.getContext('2d'), p = THEMES[id], w = width, h = height;
+  // (at sunset or night, the place's colours taken most of the way to the time's: its sky, its silhouettes, its haze)
+  const c = cv.getContext('2d'), D = TOD[tod], P0 = THEMES[id], w = width, h = height;
+  const p = D ? Object.assign({}, P0, {sky: mixHex(P0.sky, D.sky, D.mix), haze: hazeAt(id, tod), far: mixHex(P0.far, D.far, D.mix * .85)}) : P0;
   const gradient = c.createLinearGradient(0, 0, 0, h);
-  gradient.addColorStop(0, p.sky); gradient.addColorStop(1, p.haze); c.fillStyle = gradient; c.fillRect(0, 0, w, h);
+  gradient.addColorStop(0, p.sky); if (D) gradient.addColorStop(.62, mixHex(P0.haze, D.mid, D.mix)); gradient.addColorStop(1, p.haze); c.fillStyle = gradient; c.fillRect(0, 0, w, h);
   const poly = (color, points) => { c.fillStyle = color; c.beginPath(); points.forEach(([x,y], i) => i ? c.lineTo(x*w,y*h) : c.moveTo(x*w,y*h)); c.closePath(); c.fill(); };
   const disk = (color, x, y, r) => { c.fillStyle = color; c.beginPath(); c.arc(x*w, y*h, r*h, 0, Math.PI*2); c.fill(); };
   if (id === 'space') {
@@ -113,33 +154,53 @@ function skyImage(id, width, height) {
     disk('#E5B3D1', .76, .29, .17); disk('#CF95C4', .79, .3, .13);
     c.strokeStyle = '#EFCD9D'; c.lineWidth = h * .017; c.beginPath(); c.ellipse(w*.76, h*.29, h*.29, h*.045, -.3, 0, Math.PI*2); c.stroke();
   } else {
-    disk('#FFF1BF', .78, .23, .075);
+    if (tod === 2) {
+      // night: stars, and the moon with its glow
+      for (let i = 0; i < 46; i++) { const x = ((i * 137.51) % 997) / 997, y = ((i * 83.3) % 541) / 1000; disk(i % 5 ? '#FFE6EE' : '#FFFFFF', x, y, i % 9 ? .0018 : .0035); }
+      const g = c.createRadialGradient(w*.74, h*.22, 0, w*.74, h*.22, h*.24); g.addColorStop(0, 'rgba(255,214,220,.55)'); g.addColorStop(1, 'rgba(255,160,190,0)');
+      c.fillStyle = g; c.fillRect(0, 0, w, h);
+      disk(D.moon, .74, .22, .07); disk(mixHex(D.moon, '#E7B9B4', .5), .755, .205, .016); disk(mixHex(D.moon, '#E7B9B4', .5), .725, .24, .011);
+    } else if (tod === 1) {
+      // sunset: the sun big and low, a glow round it
+      const g = c.createRadialGradient(w*.7, h*.62, 0, w*.7, h*.62, h*.42); g.addColorStop(0, 'rgba(255,226,140,.75)'); g.addColorStop(1, 'rgba(255,150,110,0)');
+      c.fillStyle = g; c.fillRect(0, 0, w, h);
+      disk(D.sun, .7, .62, .12);
+    } else disk('#FFF1BF', .78, .23, .075);
     // Broad cloud clusters, readable shapes rather than noisy cloud photographs.
+    const cloud = D ? D.cloud : '#E8FAF2';
     [[.13,.3,.8],[.56,.19,.6],[.89,.44,.55]].forEach(([x,y,s]) => {
-      c.fillStyle = '#E8FAF2'; c.beginPath(); c.ellipse(w*x,h*y,h*.19*s,h*.045*s,0,0,Math.PI*2); c.fill();
-      disk('#E8FAF2',x-.025,y-.02,.063*s); disk('#E8FAF2',x+.02,y-.035,.079*s);
+      c.fillStyle = cloud; c.beginPath(); c.ellipse(w*x,h*y,h*.19*s,h*.045*s,0,0,Math.PI*2); c.fill();
+      disk(cloud,x-.025,y-.02,.063*s); disk(cloud,x+.02,y-.035,.079*s);
     });
   }
+  const tint = hex => (D ? mixHex(hex, D.far, D.mix * .8) : hex);
   if (id === 'desert') {
-    poly('#DFA976', [[0,1],[0,.67],[.08,.67],[.12,.43],[.22,.43],[.27,.76],[.41,.76],[.44,1]]);
-    poly('#D09360', [[.6,1],[.65,.75],[.73,.75],[.77,.5],[.88,.5],[.91,.71],[1,.71],[1,1]]);
-    poly('#F2C68D', [[.12,.43],[.22,.43],[.24,.55],[.1,.55]]);
+    poly(tint('#DFA976'), [[0,1],[0,.67],[.08,.67],[.12,.43],[.22,.43],[.27,.76],[.41,.76],[.44,1]]);
+    poly(tint('#D09360'), [[.6,1],[.65,.75],[.73,.75],[.77,.5],[.88,.5],[.91,.71],[1,.71],[1,1]]);
+    poly(tint('#F2C68D'), [[.12,.43],[.22,.43],[.24,.55],[.1,.55]]);
   } else if (id === 'tundra') {
-    poly('#8FC2D7', [[0,1],[0,.72],[.13,.29],[.27,.7],[.39,.43],[.53,.85],[.71,.37],[.85,.67],[.94,.4],[1,.63],[1,1]]);
-    poly('#F4FFFF', [[.067,.5],[.13,.29],[.2,.52],[.15,.47],[.12,.51],[.095,.47]]);
-    poly('#E7F9F8', [[.65,.55],[.71,.37],[.78,.55],[.72,.49],[.69,.54]]);
+    poly(tint('#8FC2D7'), [[0,1],[0,.72],[.13,.29],[.27,.7],[.39,.43],[.53,.85],[.71,.37],[.85,.67],[.94,.4],[1,.63],[1,1]]);
+    poly(tint('#F4FFFF'), [[.067,.5],[.13,.29],[.2,.52],[.15,.47],[.12,.51],[.095,.47]]);
+    poly(tint('#E7F9F8'), [[.65,.55],[.71,.37],[.78,.55],[.72,.49],[.69,.54]]);
   } else {
     poly(p.far, [[0,1],[0,.72],[.08,.66],[.16,.79],[.28,.63],[.39,.8],[.49,.77],[.6,.89],[.72,.65],[.84,.71],[.94,.6],[1,.76],[1,1]]);
   }
   if (id === 'city' || id === 'market' || id === 'tailgate' || id === 'stadium') {
-    const colors = id === 'city' ? ['#8AC0BF','#9CCDC2','#79B5B5'] : ['#A4C8B6','#B6D5BF','#92BBAE'];
+    const colors = (id === 'city' ? ['#8AC0BF','#9CCDC2','#79B5B5'] : ['#A4C8B6','#B6D5BF','#92BBAE']).map(tint);
     for (let i = 0; i < 14; i++) {
       const x = i / 14, top = .74 + ((i*7)%5)*.028;
       poly(colors[i%3], [[x,1],[x,top],[x+.064,top],[x+.064,1]]);
-      if (id === 'market') poly('#CD9B7F', [[x-.008,top],[x+.032,top-.08],[x+.074,top]]);
+      if (id === 'market') poly(tint('#CD9B7F'), [[x-.008,top],[x+.032,top-.08],[x+.074,top]]);
     }
   }
-  if (id === 'beach') { c.fillStyle = '#71CED6'; c.fillRect(0,h*.91,w,h*.09); }
+  if (id === 'beach') { c.fillStyle = tint('#71CED6'); c.fillRect(0,h*.91,w,h*.09); }
+  // (at night, the windows of the far skyline lit)
+  if (tod === 2 && (id === 'city' || id === 'market' || id === 'tailgate' || id === 'stadium')) {
+    for (let i = 0; i < 14; i++) {
+      const x = i / 14, top = .74 + ((i*7)%5)*.028;
+      for (let j = 0; j < 4; j++) if ((i * 7 + j * 3) % 5 < 2) { c.fillStyle = 'rgba(255,214,140,.85)'; c.fillRect(w*(x+.014+(j%2)*.022), h*(top+.035+Math.floor(j/2)*.05), w*.012, h*.022); }
+    }
+  }
   // The lower edge exactly matches world fog, including when the curved road exposes it.
   const mist = c.createLinearGradient(0,h*.83,0,h); mist.addColorStop(0,p.haze+'00'); mist.addColorStop(1,p.haze);
   c.fillStyle=mist; c.fillRect(0,h*.83,w,h*.17);
@@ -149,9 +210,15 @@ export function sky(st, c, t, z) {
   if (!enabled()) return false;
   const zone = R.zoneAt(st.co,z), next = R.zoneAt(st.co,zone.z0+R.ZONE), k = Math.max(0,Math.min(1,(z-zone.z0-R.ZONE+28)/28));
   const w = Math.min(1536,Math.ceil(st.W)), h = Math.max(1,Math.ceil(st.y0+2));
-  const draw = (id,alpha) => {
-    const cv = skyImage(id,w,h); c.globalAlpha=alpha; c.drawImage(cv,0,0,st.W,st.y0+2);
+  // (each place's sky at the times of day there are now: the first of them whole, the next over it as much as it's come in)
+  const tods = dusk(z);
+  const one = (id,tod,alpha) => {
+    const cv = skyImage(id,w,h,tod); c.globalAlpha=alpha; c.drawImage(cv,0,0,st.W,st.y0+2);
     if (st.bend) c.drawImage(cv,0,h-1,w,1,0,st.y0+1,st.W,Math.max(0,st.H-st.y0-1));
+  };
+  const draw = (id,alpha) => {
+    let first = true, sum = 0;
+    tods.forEach((wt,tod) => { if (wt <= .002) return; sum += wt; one(id,tod,alpha*(first ? 1 : wt/sum)); first = false; });
   };
   c.save(); draw(zone.theme.id,1); if (k>0) draw(next.theme.id,k); c.restore();
   return true;

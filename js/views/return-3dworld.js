@@ -17,7 +17,9 @@ import * as features from '../core/features.js';
 // The curved world (the owner's ask, Oct 2026): every material here and on the players is bent (bend(): its vertex
 // shader sinks each point BEND_U * d^2 yards, d its depth ahead of the camera, after it's placed), so the ground needs
 // vertices along it to bend: the ground's planes come in 2-yard strips, long boxes in 5-yard pieces.
-// Exports: init(three, scene, utils), update(st, now), look(st, z), bend(obj), BEND_U, sceneryReady(id), renewScenery().
+// The winding road (Nov 4 2026): the same shader also moves each point BENDX_U * d^2 yards across, so up ahead the road swings
+// off left or right (return-world.js sway).
+// Exports: init(three, scene, utils), update(st, now), look(st, z), bend(obj), BEND_U, BENDX_U, sceneryReady(id), renewScenery().
 import * as R from '../core/return.js';
 import {dressList, LOOKS, OBS, GOODS_COL, HOLE_COL, coneFly, CONE_MS} from './return-world.js';
 import {seeded} from './stadium.js';
@@ -31,19 +33,32 @@ import * as models from './return-models.js';
 let T = null, U = null, SCENE = null, ROOT = null;
 /** The bend (yards down per yard of depth squared: return-3d.js sets it each frame from st.bend). */
 export const BEND_U = {value: 0};
+/** The sideways bend (the winding road, Nov 4 2026: yards across per yard of depth squared, + to the right;
+ *  return-3d.js sets it each frame from st.bendX, return-world.js sway). */
+export const BENDX_U = {value: 0};
 const BENT = new WeakSet();
 // (one function for every material, so they all share its programs)
 function bendShader(sh) {
-  sh.uniforms.uBend = BEND_U;
-  const v = sh.vertexShader, curve = 'mvPosition.y -= uBend * mvPosition.z * mvPosition.z;\ngl_Position = projectionMatrix * mvPosition;';
-  sh.vertexShader = 'uniform float uBend;\n' + (v.includes('#include <project_vertex>')
+  sh.uniforms.uBend = BEND_U; sh.uniforms.uBendX = BENDX_U;
+  const v = sh.vertexShader, curve = 'float bz2 = mvPosition.z * mvPosition.z;\nmvPosition.y -= uBend * bz2;\nmvPosition.x += uBendX * bz2;\ngl_Position = projectionMatrix * mvPosition;';
+  sh.vertexShader = 'uniform float uBend;\nuniform float uBendX;\n' + (v.includes('#include <project_vertex>')
     ? v.replace('#include <project_vertex>', '#include <project_vertex>\n' + curve)
     : v.replace('gl_Position = projectionMatrix * mvPosition;', curve)); // (a sprite's)
+}
+/** Bends one material (once). */
+export function bendMaterial(m) {
+  if (!m || BENT.has(m)) return m;
+  BENT.add(m); m.onBeforeCompile = bendShader; m.needsUpdate = true;
+  return m;
 }
 /** Bends every material on obj and what's under it (once each). */
 export function bend(obj) {
   obj.traverse(o => {
     if (!o.material) return;
+    // (bent sideways, the roadside can swing into view from outside where three.js thinks it is: it's never culled for
+    // that. What casts a shadow stands in the lanes, near the middle, always in view unbent when it's ahead: it keeps its
+    // culling, so the sun's shadows aren't drawn for all of them out to the haze)
+    if ((o.isMesh || o.isSprite || o.isPoints || o.isLine) && !o.castShadow) o.frustumCulled = false;
     (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
       if (BENT.has(m)) return;
       BENT.add(m);
@@ -63,7 +78,7 @@ const rnd = (...k) => seeded(hashOf(k.join('|')) || 1);
 export function init(three, scene, utils) {
   T = three; U = utils; SCENE = scene;
   ROOT = new T.Group(); ROOT.name = 'world';
-  COINS = null; // (the owner's coins: made again, in this world, when a coin run's drawn)
+  COINS = null; FOG = null; // (the owner's coins, the ground fog: made again, in this world, when they're drawn)
   SCENE.add(ROOT);
   cityBus.init(T, refreshCityBuses);
   fieldLogo.subscribe(refreshFieldLogos);
@@ -78,7 +93,7 @@ export function init(three, scene, utils) {
   R.THEMES.forEach(th => { roadMat(th.id); baseMat(th.id); obstacleOf('hurdle', th.id); obstacleOf('bar', th.id); gateOf(th); });
   // (the hard course's potholes, their cones and sleds: the owner's only, so only on his phones)
   if (features.available()) { R.THEMES.forEach(th => R.HARD_OBST.forEach(type => obstacleOf(type, th.id))); coneObj(); }
-  ['salts', 'pills', 'booze'].forEach(itemOf);
+  ['salts', 'pills', 'booze', 'cleats'].forEach(itemOf);
   endzoneMat(); logoMat(); seaMat(); for (let n = 10; n <= 50; n += 10) numberMat(n);
 }
 
@@ -931,10 +946,10 @@ function coneObj() {
   return m;
 }
 // ---------------------------------------------------------------- The power-ups
-const HALO = {salts: 0x96E1FF, pills: 0xFFA53C, booze: 0xFFD65A};
+const HALO = {salts: 0x96E1FF, pills: 0xFFA53C, booze: 0xFFD65A, cleats: 0xFF8A2A};
 // On the hard course (the owner's, Oct 2026: bigger and easy to tell apart): each its own colour, ice blue, red and
 // green, BIG times the size, and a beam of its light standing up out of it to spot from far off.
-const HALO_BIG = {salts: 0x5CE1FF, pills: 0xFF4040, booze: 0x6EF05A}, BIG = 1.7;
+const HALO_BIG = {salts: 0x5CE1FF, pills: 0xFF4040, booze: 0x6EF05A, cleats: 0xFF801E}, BIG = 1.7;
 function itemOf(kind, big = false) {
   if (features.available()) return arcadeItemOf(kind);
   const key = 'item:' + kind + (big ? ':big' : '');
@@ -966,7 +981,7 @@ function itemOf(kind, big = false) {
 }
 // Evan's floating collectibles: modelled at their display size, with readable fronts and a warm runner-game burst.
 // These procedural textures are created only after the profile gate above; no new artwork is fetched or precached.
-const PICKUP_COLOR = {salts: 0x54E8FF, pills: 0xFF8740, booze: 0x8AE53F};
+const PICKUP_COLOR = {salts: 0x54E8FF, pills: 0xFF8740, booze: 0x8AE53F, cleats: 0xFF7A1A};
 function pickupLabel(kind) {
   return texOf('arcade-pickup-label:' + kind, () => canvasTex(512, 512, (c, w, h) => {
     c.fillStyle = '#FFF9DF'; c.fillRect(0, 0, w, h);
@@ -1024,8 +1039,33 @@ function arcadeItemOf(kind) {
     const mesh = new T.Mesh(new T.LatheGeometry(points.map(([r, y]) => new T.Vector2(r, y)), 24), material);
     mesh.castShadow = true; model.add(mesh); return mesh;
   };
-  const label = new T.MeshBasicMaterial({map: pickupLabel(kind), toneMapped: false});
-  if (kind === 'booze') {
+  const label = kind === 'cleats' ? null : new T.MeshBasicMaterial({map: pickupLabel(kind), toneMapped: false});
+  if (kind === 'cleats') {
+    // The rocket cleats (Nov 4 2026): an orange high-top football cleat side on, its toe to the right, on black studs,
+    // a white flash and laces; a silver booster strapped to its heel, fire out of its nozzle (the flame: flickering,
+    // animateArcadeItem). Tipped up a little, taking off.
+    trim.add('box', '#23262E', .02, -.44, 0, 1.08, .12, .46);
+    [-.36, -.13, .1, .33].forEach(x => trim.add('cone', '#E9EDF2', x, -.56, 0, .055, .13, .055, Math.PI));
+    trim.add('box', '#FF7A1A', -.08, -.2, 0, .78, .36, .44);
+    trim.add('sph', '#FF7A1A', .3, -.25, 0, .3, .2, .22);
+    trim.add('box', '#FF7A1A', -.32, .1, 0, .34, .44, .42);
+    trim.add('box', '#1E2129', -.32, .35, 0, .37, .07, .45);
+    trim.add('box', '#FFFFFF', -.02, -.26, -.226, .66, .08, .012, 0, 0, .18);
+    trim.add('box', '#FFFFFF', -.02, -.26, .226, .66, .08, .012, 0, 0, .18);
+    for (let i = 0; i < 4; i++) trim.add('box', '#FFFFFF', -.2 + i * .11, .17 - i * .1, 0, .05, .035, .3, 0, 0, -.5);
+    trim.add('sph', '#FFC48A', -.36, .02, -.212, .035, .26, .012);
+    trim.add('cyl', '#D9E1E8', -.68, -.02, 0, .15, .42, .15, 0, 0, Math.PI / 2);
+    trim.add('cyl', '#F2453A', -.6, -.02, 0, .153, .08, .153, 0, 0, Math.PI / 2);
+    trim.add('cone', '#5B6470', -.98, -.02, 0, .15, .2, .15, 0, 0, -Math.PI / 2);
+    const flame = new T.Mesh(new T.ConeGeometry(.15, .62, 14).rotateZ(Math.PI / 2).translate(-.31, 0, 0), new T.MeshBasicMaterial({color: 0xFF6418,
+      transparent: true, opacity: .92, depthWrite: false, toneMapped: false}));
+    flame.name = 'flame'; flame.position.set(-1.07, -.02, 0); model.add(flame);
+    const core = new T.Mesh(new T.ConeGeometry(.09, .4, 10).rotateZ(Math.PI / 2).translate(-.2, 0, 0), new T.MeshBasicMaterial({color: 0xFFE27A,
+      transparent: true, opacity: .97, depthWrite: false, toneMapped: false}));
+    core.renderOrder = 1;
+    core.name = 'flame'; core.position.set(-1.07, -.02, 0); model.add(core);
+    model.scale.setScalar(.92); model.rotation.order = 'YXZ';
+  } else if (kind === 'booze') {
     lathe([[0, -.92], [.23, -.92], [.31, -.88], [.34, -.79], [.34, .15], [.32, .27], [.23, .4], [.13, .49], [.12, .78], [.14, .81], [.14, .87], [0, .87]], solid(0x32932F, .24));
     trim.cyl('#255C25', 0, -.91, -.83, 0, .305); trim.cyl('#FFDA54', 0, .84, .96, 0, .16);
     trim.cyl('#FFED98', 0, .94, .98, 0, .15); trim.cyl('#F6D966', 0, .61, .74, 0, .123);
@@ -1080,6 +1120,12 @@ function animateArcadeItem(o, t, phase, camX, distance) {
   model.position.y = y;
   // A small turn shows the model's thickness while keeping its label visible from every lane.
   model.rotation.set(.04 * Math.sin(t * 1.6 + phase), Math.atan2(camX - o.position.x, Math.max(1, distance)) + .24 * Math.sin(t * 1.7 + phase), -.1 + .08 * Math.sin(t * 2 + phase));
+  // (the rocket cleat: tipped up, taking off, its booster's fire flickering)
+  if (o.name === 'arcade-pickup-cleats') {
+    model.rotation.z = .3 + .06 * Math.sin(t * 2 + phase);
+    const f = .8 + .25 * Math.sin(t * 37 + phase) * Math.sin(t * 23);
+    model.children.forEach(m => { if (m.name === 'flame') m.scale.set(f, 1 + .15 * Math.sin(t * 29), 1 + .15 * Math.sin(t * 29)); });
+  }
   glow.position.y = burst.position.y = y;
   glow.scale.setScalar(3.2 + .25 * pulse); burst.scale.setScalar(3.7 + .25 * pulse);
   ring.position.y = .035; ring.scale.setScalar(1 + .12 * pulse);
@@ -1290,14 +1336,65 @@ const LIGHT = {
   space: {sky: 0x9B86E0, ground: 0x2A1F5C, hemi: 1.1, sun: 0xC8F6FF, sunI: 2, at: [3, 5, -2]},
   farm: {sky: 0xE2F6E8, ground: 0x6E9A4A, hemi: 1.2, sun: 0xFFF4E2, sunI: 2.5, at: [-3, 6, 2]}
 };
-const hazeOf = id => { if (style.enabled()) return new T.Color(style.haze(id)); const [r, g, b] = (LOOKS[id] || LOOKS.stadium).haze.split(',').map(Number); return new T.Color(r / 255, g / 255, b / 255); };
-/** The light and haze at z (blending into the next place's as you come to its gate). */
+const hazeOf = (id, z) => { if (style.enabled()) return new T.Color(style.hazeOfZ(id, z)); const [r, g, b] = (LOOKS[id] || LOOKS.stadium).haze.split(',').map(Number); return new T.Color(r / 255, g / 255, b / 255); };
+/** The light and haze at z (blending into the next place's as you come to its gate; and later in a run, into the
+ *  sunset's and then the night's: return-style.js dusk, TOD). */
 export function look(st, z) {
   const zone = R.zoneAt(st.co, z), next = R.zoneAt(st.co, zone.z0 + R.ZONE), k = clamp((z - (zone.z0 + R.ZONE - 28)) / 28, 0, 1);
   const a = style.light(zone.theme.id, LIGHT[zone.theme.id]), b = style.light(next.theme.id, LIGHT[next.theme.id]);
   const c = (x, y) => new T.Color(x).lerp(new T.Color(y), k);
-  return {sky: c(a.sky, b.sky), ground: c(a.ground, b.ground), hemi: a.hemi + (b.hemi - a.hemi) * k, sun: c(a.sun, b.sun), sunI: a.sunI + (b.sunI - a.sunI) * k,
-    at: a.at.map((v, i) => v + (b.at[i] - v) * k), haze: hazeOf(zone.theme.id).lerp(hazeOf(next.theme.id), k)};
+  const L = {sky: c(a.sky, b.sky), ground: c(a.ground, b.ground), hemi: a.hemi + (b.hemi - a.hemi) * k, sun: c(a.sun, b.sun), sunI: a.sunI + (b.sunI - a.sunI) * k,
+    at: a.at.map((v, i) => v + (b.at[i] - v) * k), haze: hazeOf(zone.theme.id, z).lerp(hazeOf(next.theme.id, z), k)};
+  // the time of day's light over the place's (the haze has it already)
+  const w = style.dusk(z);
+  if (w[0] < 1) {
+    const toward = (tod, wt) => {
+      if (!(wt > 0)) return;
+      const D = style.TOD[tod].light, m = style.TOD[tod].mix * wt;
+      L.sky.lerp(new T.Color(D.sky), m); L.ground.lerp(new T.Color(D.ground), m); L.sun.lerp(new T.Color(D.sun), m);
+      L.hemi += (D.hemi - L.hemi) * m; L.sunI += (D.sunI - L.sunI) * m; L.at = L.at.map((v, i) => v + (D.at[i] - v) * m);
+    };
+    toward(1, w[1] / Math.max(1e-6, w[0] + w[1])); toward(2, w[2]);
+  }
+  return L;
+}
+// ---------------------------------------------------------------- The ground fog (sunset and night)
+// Purple fog rolling along both sides of the road once the sun's going down (return-style.js TOD fog; Nov 4 2026, after
+// Evan's runner video): soft banks of it, low over the roadside from just past the lanes out, each where it is on the
+// course (so you run on past them), drifting a little, thicker at night. Never over the lanes: what's in them stays clear.
+const FOG_N = 26, FOG_GAP = 7;
+let FOG = null;
+const fogTex = () => texOf('fogbank', () => canvasTex(256, 128, (g, w, h) => {
+  for (let i = 0; i < 7; i++) {
+    const x = w * (.18 + .64 * ((i * 37) % 7) / 6), y = h * (.52 + .12 * Math.sin(i * 2.3)), r = h * (.32 + .1 * ((i * 5) % 3));
+    const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  }
+}, false));
+function fogBanks(st, t) {
+  const w = style.dusk(st.camZ + st.back), k = .55 * w[1] + w[2];
+  if (!FOG) {
+    if (!(k > .01)) return;
+    FOG = new T.Group(); FOG.name = 'ground-fog';
+    for (let i = 0; i < FOG_N; i++) {
+      const m = new T.Sprite(new T.SpriteMaterial({map: fogTex(), color: 0xA271DA, transparent: true, depthWrite: false, opacity: 0, fog: true}));
+      m.center.set(.5, .3); FOG.add(m);
+    }
+    ROOT.add(bend(FOG));
+  }
+  FOG.visible = k > .01;
+  if (!FOG.visible) return;
+  const col = new T.Color(style.TOD[1].fog).lerp(new T.Color(style.TOD[2].fog), w[2] / Math.max(1e-6, w[1] + w[2]));
+  const base = Math.floor((st.camZ - 6) / FOG_GAP);
+  FOG.children.forEach((m, i) => {
+    // (slot j along the course: where it is, which side, how far out, how big: the same each time it comes round)
+    const j = base + i, r = rnd('fog', j), side = j % 2 ? 1 : -1, z = j * FOG_GAP + r() * FOG_GAP, d = z - st.camZ;
+    // (its middle far enough out that its soft inner edge stops short of the lanes, x 4.6 either side)
+    const sc = 7 + r() * 6, wd = sc * 1.7, x = side * (4.6 + .42 * wd + r() * 5 + .8 * (1 + Math.sin(t * .25 + j)));
+    m.position.set(x, -.2, -z); m.scale.set(wd, sc * .55, 1);
+    m.material.color.copy(col);
+    m.material.opacity = k * (.62 + .3 * r()) * clamp((d - 1.5) / 5, 0, 1); // (thinning out as it comes up to the camera)
+  });
 }
 /** Brings the world up to where the camera is: the chunks from just behind it to the haze, the lane things in view
  *  (knocked flying, picked up, spinning, blinking). */
@@ -1307,7 +1404,7 @@ export function update(st, now) {
   cityBus.sync();
   fieldLogo.sync();
   FRAME++;
-  const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}${st.co.hard ? 'h' : ''}`;
+  const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}${st.co.hard ? 'h' : ''}${st.co.cl ? 'c' : ''}`; // (c: the rocket cleats' course)
   // the places' models (return-models.js): this one's and the next two's asked for in time; what was built before its
   // place's came in, built again with them while it's still off in the haze
   for (let z = cz; z <= cz + 2 * R.ZONE; z += R.ZONE) models.want(R.zoneAt(st.co, z).theme.id);
@@ -1384,6 +1481,7 @@ export function update(st, now) {
     // the coins (the owner's first run of the day): one instanced mesh
     coinsUpdate(st, A, t);
   } else coinsUpdate(st, null, t);
+  fogBanks(st, t);
   // let go of whatever's out of view
   for (const [k, e] of LIVE) {
     if (e.seen === FRAME) continue;

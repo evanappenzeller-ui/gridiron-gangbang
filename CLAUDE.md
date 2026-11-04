@@ -36,6 +36,23 @@ Winter, Tropical Beach/Island, Sci-Fi City, Spaceships, Environment, Playground,
 the run nears it and places the models (roadside, extras, and the in-lane kinds it re-skins inside their exact
 collision boxes); without them the world falls back to its procedural shapes.
 
+Return Man upgrade (Nov 4 2026, Evan, with a runner's screen recording: "Upgrade return man game mode while drawing
+inspiration from the attached video"), for everyone:
+- The winding road: in 3D the world bends sideways as well as down (`return-3dworld.js` `BENDX_U` in the bend shader,
+  `return-world.js` `BENDX`/`sway(z)` and `P`, set per frame as `st.bendX` in `views/return.js`; never with reduced
+  motion, never in 2D). Only the picture bends: lanes, rows and collisions are untouched, the near road stays straight.
+  Bent meshes are never frustum-culled (they can swing into view).
+- Rocket cleats (`core/return.js` `CLEATS`, `POWER.cleats`, `cleatsOn`): a fourth power-up on the hard course from day
+  `CLEATS.from` (17, Nov 5 2026; Test play has them now): 10 s of super jumps (off at 15 yd/s: over anything, onto a tall
+  vehicle's roof), fire at his heels (`return-3d.js` `jets`), the camera up with him, the HUD chip, the 3D pickup
+  (`return-3dworld.js` `arcadeItemOf('cleats')`) and the icon (`return-world.js` `rocketCleat`). A day's course is never
+  changed once it's out: where cleats are drawn the course is otherwise identical (`addItem` turns a slice of the same draw
+  into cleats). The kit check "Return Man: the rocket cleats…" covers it; `HARD_FP` is the hard course without them,
+  `CLEATS_FP` as it's run.
+- Dusk to night (`return-style.js` `dusk(z)`, `TOD`): day the first time round the nine places, sunset the second, night
+  the third (crimson sky, moon, stars, lit skylines, purple ground fog off the lanes: `return-3dworld.js` `fogBanks`), then
+  day again; `look()` blends the light and haze so fog and sky still meet. Each place keeps its own look under it.
+
 ## Scoreboards show everyone
 
 Standing rule from the league's owner (October 24, 2026: "Everyone should be visible on the scoreboards and Keepfall.

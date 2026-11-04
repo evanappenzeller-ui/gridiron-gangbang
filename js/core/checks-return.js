@@ -120,17 +120,19 @@ function regularPrint() {
 }
 // The hard course (the owner's) as it was before its coins came in (Oct 21 2026): days 1-20's kickoff to 3,000 yards,
 // the same with the coins laid out first (they draw from a seed of their own). (Changed Oct 22 2026, the owner's ask:
-// the sleds gone, their lanes left open, everything else on it where it was: was 7d9998b7.)
-const HARD_FP = '6ac2e402';
+// the sleds gone, their lanes left open, everything else on it where it was: was 7d9998b7.) Without the rocket cleats
+// (Nov 4 2026: from day CLEATS.from a power-up may be them, the course otherwise where it was: hardPrint asks for it
+// without them, so this still holds it); CLEATS_FP is the course as it's run now, with them from that day.
+const HARD_FP = '6ac2e402', CLEATS_FP = 'f0e1c5e3';
 // The coins' lines on days 1-20's hard course (to 2,900 yards) when they came in (Oct 21 2026): the same however far
 // ahead they're laid out at a time, on every phone. It changes only when the coins' layout does: on purpose, never
 // mid-day. (Changed before they first came out, Oct 21 2026: no banner or sled in a line's lane just before it, COIN.look.)
 const COIN_FP = 'af842f2f';
 const fnv32 = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return (h >>> 0).toString(16).padStart(8, '0'); };
-function hardPrint(coinsFirst) {
+function hardPrint(coinsFirst, cl = false) {
   const out = [], lt = z => z < 3000;
   for (let n = 1; n <= 20; n++) {
-    const co = R.course(n, 0, true);
+    const co = R.course(n, 0, true, cl && R.cleatsOn(n, true, false));
     if (coinsFirst) R.coinsTo(co, 3000);
     R.fill(co, 3000);
     out.push(JSON.stringify([co.order, co.rows.filter(r => lt(r.z)), co.sets.filter(s => lt(s.zs)), co.items.filter(i => lt(i.z))]));
@@ -605,6 +607,51 @@ export async function returnChecks(check) {
     const dbl = R.POWER.booze.s === 8 && y8 - 10 > (z8 - 10) * 1.95 && booze.yards - y8 < (booze.z - z8) * 1.05;
     const words = R.powerOf('salts', true).does.startsWith('A 10-second burst') && R.powerOf('salts', false) === R.POWER.salts && /without stumbling/.test(R.powerOf('pills', true).does) && /blurry/.test(R.powerOf('booze', true).is);
     return {pass: tenS && burst && through && dbl && words, detail: `salts: ${R.burstSecs(R.startRun(1, 0, true))} s hard (${hard.map(x => x.toFixed(2) + '×').join(' then ')}), ${R.BURST.s} s regular (${reg.map(x => x.toFixed(2) + '×').join(' then ')}); painkillers: ${through ? 'through all four and up onto the bus, not a stumble' : 'WRONG ' + pills.ev.join()}; booze: double ${dbl}; words ${words}`};
+  });
+  check('Return Man: the rocket cleats (Nov 4 2026, Evan, with a runner\'s video: its runner leaping high over the trains in glowing shoes): a fourth power-up, the hard course\'s alone, on the day\'s course from day ' + R.CLEATS.from + ' (Nov 5 2026: today\'s course is never changed once it\'s out; Test play\'s sandbox has them now); for 10 seconds every jump is a super jump: over anything, down onto a tall one\'s roof with no ramp (no hit) where the same jump without them runs into it; a swipe down still drops him; worn off, a jump is a jump; the course is the one it was but for some power-ups\' kind (the days before untouched: fingerprint ' + HARD_FP + ' without them, ' + CLEATS_FP + ' as it\'s run)', () => {
+    const C = R.CLEATS, peak = C.v * C.v / 2 / R.GRAV, bad = [];
+    const words = !!R.POWER.cleats && R.POWER.cleats.s === C.s && C.s === 10 && peak > R.HIGH_H + .5 && /super jump/.test(R.powerOf('cleats', true).does);
+    const when = !R.cleatsOn(C.from - 1, true, false) && R.cleatsOn(C.from, true, false) && R.cleatsOn(C.from + 30, true, false) && R.cleatsOn(C.from - 1, true, true)
+      && !R.cleatsOn(C.from + 5, false, true) && !R.course(C.from + 5, 0, false, true).cl && R.course(C.from - 1, 0, true, false) !== R.course(C.from - 1, 0, true, true);
+    // the same course with them or without, but for the kind of some of its power-ups (the same draw, shared out four ways)
+    let n4 = 0, all = 0;
+    for (let n = C.from; n < C.from + 30; n++) {
+      const a = R.fill(R.course(n, 0, true, true), 3000), b = R.fill(R.course(n, 0, true, false), 3000), cut = x => x.filter(q => q.z < 3000 && (q.zs == null || q.zs < 3000));
+      if (JSON.stringify([a.order, cut(a.rows), a.sets.filter(q => q.zs < 3000)]) !== JSON.stringify([b.order, cut(b.rows), b.sets.filter(q => q.zs < 3000)])) bad.push(`day ${n}: rows or vehicles moved`);
+      const ia = cut(a.items), ib = cut(b.items);
+      if (ia.length !== ib.length || ia.some((it, i) => it.z !== ib[i].z || it.lane !== ib[i].lane || it.top !== ib[i].top || (it.kind !== ib[i].kind && it.kind !== 'cleats'))) bad.push(`day ${n}: power-ups moved`);
+      all += ia.length; n4 += ia.filter(it => it.kind === 'cleats').length;
+      if (b.items.some(it => it.kind === 'cleats') || !a.cl || b.cl) bad.push(`day ${n}: cleats without them`);
+    }
+    const before = [1, 5, C.from - 1].every(n => !R.fill(R.course(n, 0, true, R.cleatsOn(n, true, false)), 3000).items.some(it => it.kind === 'cleats'));
+    const share = n4 / Math.max(1, all), prints = hardPrint(false) === HARD_FP && hardPrint(false, true) === CLEATS_FP;
+    // on the road: a cleats pickup at 10, then a bus (no ramp) in his lane from 40 to 60; a jump from 34 yards
+    const bus = [set(plat(1, 40, 60, true))], cleats = [{i: 0, z: 10, lane: 1, top: false, kind: 'cleats'}];
+    const leap = (items, at = 34, down = null) => {
+      const run = field({items, sets: bus}), ev = [];
+      let jumped = false, top = 0, onRoof = false, dropAt = null;
+      for (let i = 0; i < 120 * 8 && !run.over && run.z < 70; i++) {
+        if (!jumped && run.z >= at) { R.move(run, 'up'); jumped = run.z; }
+        if (down != null && jumped && dropAt == null && run.z >= jumped + down) { R.move(run, 'down'); dropAt = run.t; }
+        R.step(run, 1 / 120).forEach(e => { ev.push(e); if (e.type === 'landed' && e.on) onRoof = true; });
+        top = Math.max(top, run.y);
+        if (dropAt != null && run.y === 0 && run.vy === 0 && run.dropped == null) run.dropped = run.t - dropAt;
+      }
+      return {run, ev, top, onRoof, hit: ev.some(e => ['stumbled', 'crashed', 'tackled'].includes(e.type)), sj: ev.some(e => e.type === 'landed' && e.sj)};
+    };
+    const up = leap(cleats), plain = leap([]), dropped = leap(cleats, 20, 1.5);
+    const got = up.ev.some(e => e.type === 'pickup' && e.kind === 'cleats');
+    const roof = got && up.onRoof && !up.hit && up.sj && up.top > R.HIGH_H + .4 && plain.hit && plain.top < 1.5;
+    const drop = dropped.run.dropped != null && dropped.run.dropped < .3 && dropped.top < 2.6;
+    // worn off: 10 seconds on, a jump's a jump again
+    const worn = field({items: cleats});
+    for (let i = 0; i < 120 * 12; i++) R.step(worn, 1 / 120);
+    R.move(worn, 'up');
+    let wTop = 0;
+    for (let i = 0; i < 120; i++) { R.step(worn, 1 / 120); wTop = Math.max(wTop, worn.y); }
+    const off = worn.cleats === 0 && Math.abs(wTop - R.JUMP_V * R.JUMP_V / 2 / R.GRAV) < .05;
+    const pass = words && when && !bad.length && n4 > 10 && share > .12 && share < .4 && before && prints && roof && drop && off;
+    return {pass, detail: `words ${words}, a super jump ${peak.toFixed(2)} yds up; from day ${C.from} on the hard course alone ${when}; ${bad.length ? 'WRONG: ' + bad.slice(0, 4).join('; ') : 'courses the same but for the power-ups\' kind'} (${n4} of ${all} power-ups the cleats, ${Math.round(share * 100)}%), none before ${before}; prints ${prints ? 'as ever' : `CHANGED (${hardPrint(false)}, ${hardPrint(false, true)})`}; onto the bus ${roof} (up ${up.top.toFixed(2)}, without them ${plain.hit ? 'into it' : 'NOT'} at ${plain.top.toFixed(2)}); dropped ${drop}; worn off ${off} (${wTop.toFixed(2)} up)`};
   });
   check('Return Man: on Evan\'s hard course, the second distinct unprotected collision after a stumble is a tackle, even after a clean stretch or within collision grace; duplicate contact is still ignored; regular courses retain timed recovery', () => {
     const row = (z, ob = 'hurdle', lane = 1) => ({i: z, z, lanes: [0, 1, 2].map(l => l === lane ? ob : null)});

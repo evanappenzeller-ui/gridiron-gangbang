@@ -218,6 +218,45 @@ function hang(bone, obj, at, rot = null) {
   m.decompose(obj.position, obj.quaternion, obj.scale);
   bone.add(obj);
 }
+// The rocket cleats (Nov 4 2026, core CLEATS: the returner's): fire out of the heel of each cleat while he has them,
+// the cleats themselves glowing orange (shown by pose: s.cleats, how strong, 0 to 1; s.jet, 0 to 1, how hard they're
+// blazing: full on a super jump's way up). Additive, unlit, no shadow; hidden till then.
+let JET_TEX = null;
+const jetTex = () => JET_TEX || (JET_TEX = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(.3, 'rgba(255,170,60,.85)'); gr.addColorStop(1, 'rgba(255,90,20,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; return t;
+})());
+function jets(B, at) {
+  const out = [];
+  ['Left', 'Right'].forEach(n => {
+    const foot = B[n + 'Foot'], toe = B[n + 'ToeBase'];
+    if (!foot) return;
+    const ankle = at(n + 'Foot'), ahead = toe ? at(n + 'ToeBase').sub(ankle).setY(0).normalize() : new T.Vector3(0, 0, 1);
+    const g = new T.Group(); g.visible = false; g.name = 'rocket-cleat';
+    const add = (geo, color, opacity) => {
+      const m = new T.Mesh(geo, new T.MeshBasicMaterial({color, transparent: true, opacity, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false}));
+      m.castShadow = false; m.frustumCulled = false; g.add(m); return m;
+    };
+    // (the flame: a cone from the heel down out of the sole, tip downward; its white-hot core inside it)
+    const flame = add(new T.ConeGeometry(.06, .34, 12).rotateX(Math.PI).translate(0, -.17, 0), 0xFF8A26, .85);
+    const core = add(new T.ConeGeometry(.03, .18, 10).rotateX(Math.PI).translate(0, -.09, 0), 0xFFF2C0, .95);
+    const glow = new T.Sprite(new T.SpriteMaterial({map: jetTex(), color: 0xFFA040, transparent: true, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false}));
+    glow.scale.set(.42, .42, 1); glow.frustumCulled = false; g.add(glow);
+    hang(foot, g, ankle.clone().addScaledVector(ahead, -.05).add(new T.Vector3(0, -.07, 0)));
+    out.push({g, flame, core, glow});
+  });
+  return out;
+}
+const HOT = new WeakMap(), COOL = new WeakMap();
+/** A cleat's material glowing orange (made once from the one it's wearing). */
+function hotOf(m) {
+  let h = HOT.get(m);
+  if (!h) { h = m.clone(); if (h.emissive) { h.emissive = new T.Color(0xFF5A10); h.emissiveIntensity = 1.4; } else h.color = new T.Color(0xFF8A30); W3.bendMaterial(h); HOT.set(m, h); COOL.set(h, m); }
+  return h;
+}
 /** One player: the model cloned and dressed in kit k. */
 function dress(gltf, SK, k) {
   const model = SK.clone(gltf.scene), mats = kitMaterials(gltf, k);
@@ -242,6 +281,8 @@ function dress(gltf, SK, k) {
     const hand = at('RightHand'), fore = at('RightForeArm'), along = hand.clone().sub(fore).normalize();
     hang(B.RightForeArm, ball, hand.clone().lerp(fore, .3).add(new T.Vector3(0, -.02, .07)), new T.Quaternion().setFromUnitVectors(new T.Vector3(-1, 0, 0), along));
   }
+  const jet = k.ball ? jets(B, at) : null, shoes = [];
+  if (k.ball) model.traverse(o => { if (o.isMesh && o.material && o.material.name === 'sepatu_key.obj') shoes.push(o); });
   const root = new T.Group(), wrap = new T.Group();
   root.rotation.order = 'YXZ';
   wrap.rotation.y = Math.PI; wrap.scale.setScalar(SCALE * k.size);
@@ -257,7 +298,7 @@ function dress(gltf, SK, k) {
     a.play(); a.setEffectiveWeight(0);
     layer[c.name] = {a, w: 0, u: 0};
   });
-  return {root, wrap, model, B, mixer, run, idle, ball, hipsY: B.Hips.position.y, q: new T.Quaternion(),
+  return {root, wrap, model, B, mixer, run, idle, ball, jets: jet, shoes, hipsY: B.Hips.position.y, q: new T.Quaternion(),
     act: {run, idle}, w: {run: 0, idle: 1}, u: {}, slot: {}, layer, last: 0};
 }
 /** Gives a player the moves' clips (two takes of each: a move started again while the last is still fading out takes
@@ -480,6 +521,20 @@ function pose(P, s, dt) {
   if (s.catch > 0) { limb(P, 'Left', [.3, .85, .42], [.06, .9, .45], s.catch); limb(P, 'Right', [-.3, .85, .42], [-.06, .9, .45], s.catch); }
   if (s.carry > 0) { const sw = .12 * Math.sin((s.phase || 0) * Math.PI * 2); limb(P, 'Right', [-.22, -.86, -.42 + sw], [.42, .3 + sw * .5, .86], s.carry); }
   if (P.ball) P.ball.visible = !!s.ball;
+  // the rocket cleats: the fire out of his heels, flickering, bigger the harder they're blazing; the cleats glowing
+  const lit = s.cleats > 0;
+  if (P.jets) P.jets.forEach((j, i) => {
+    j.g.visible = lit;
+    if (!lit) return;
+    const f = (.75 + .25 * Math.sin(t * 41 + i * 2) * Math.sin(t * 23 + i)) * (.45 + .55 * (s.jet || 0)) * Math.min(1, s.cleats);
+    j.flame.scale.set(.8 + .4 * f, .35 + 1.5 * f, .8 + .4 * f); j.core.scale.set(1, .4 + 1.2 * f, 1);
+    j.glow.scale.setScalar(.22 + .34 * f);
+  });
+  if (P.shoes) P.shoes.forEach(o => {
+    const hot = COOL.has(o.material);
+    if (lit && !hot) o.material = hotOf(o.material);
+    else if (!lit && hot) o.material = COOL.get(o.material);
+  });
 }
 
 // ---------------------------------------------------------------------------- Drawing it all
@@ -495,6 +550,7 @@ function camera(st) {
   cam.projectionMatrix.makePerspective(-st.W / 2 / st.f * n, st.W / 2 / st.f * n, st.y0 / st.f * n, -(st.H - st.y0) / st.f * n, n, f);
   cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
   W3.BEND_U.value = st.bend || 0;
+  W3.BENDX_U.value = st.bendX || 0;
 }
 /** Renders the world and the players as they are now; who: {us, them, ghost} (each {spec (pose's), x, y, z (his
  *  feet), show} or null: not there). Returns the canvas it's on (transparent where the sky shows through). */

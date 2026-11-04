@@ -17,14 +17,15 @@ import * as features from './features.js';
 // unprotected collision catches you even after a long clean stretch. Other profiles keep the timed recovery.
 // On the way, three power-ups: smelling salts (a burst of speed, BURST: the owner's ask, Oct 2026; and an extra life:
 // the next time he'd catch you, you shake him off, and away you burst again; on Evan's course, never an obstacle shield),
-// prescription painkillers (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You
+// prescription painkillers (a few seconds when nothing can stop you) and booze (a few seconds of double yards); and on
+// the hard course from Nov 5 2026 a fourth, the rocket cleats (CLEATS: a few seconds of super jumps, up onto the roofs). You
 // speed up as you go, and every 100 yards is a touchdown. One return a day (RUNS: the owner's ask, Oct 26 2026: "Change
 // to one attempt a day"; from Oct 20 it could be run back as often as you liked, the best run counting), the day's
 // course the same on every phone; the day's score is its yards (a day run more than once before then keeps its best).
 // No DOM. Owner: RETURN.
 //
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new day at local midnight
-//   course(n, k, hard), fill(course, z)         day n's course (k 0: every run of the day runs it; hard: HARD_SPEED,
+//   course(n, k, hard, cl), fill(course, z)     day n's course (k 0: every run of the day runs it; hard: HARD_SPEED,
 //                                               HARD_GAP, HARD_OBST), worked out as far as z yards: its rows
 //                                               [{i, z (where it stands), lanes: [OBST type|null x 3]}], its vehicles
 //                                               (sets: [{i, zs, ze, plats: [{lane, kind, part, z0 (the front), z1, h, b,
@@ -229,6 +230,17 @@ export const HARD_POWER = {
 export const HARD_BURST_S = 10;
 /** A power-up's words on the course (hard: the hard course's). */
 export const powerOf = (kind, hard) => (hard ? Object.assign({}, POWER[kind], HARD_POWER[kind]) : POWER[kind]);
+// Rocket cleats (Nov 4 2026, Evan, with a runner's video: "Upgrade return man game mode while drawing inspiration from the
+// attached video", its runner leaping high over the trains in glowing shoes): a fourth power-up, the hard course's, for
+// CLEATS.s seconds every jump a super jump, off the ground at CLEATS.v (up v^2 / 2GRAV, 3.75 yards: over anything in
+// the lanes and down onto a tall one's roof, HIGH_H; a second in the air). A swipe down in the air still drops him. On
+// the day's course from CLEATS.from (Nov 5 2026: a day's course is never changed once it's out, so today's runs all
+// met the same one), and in Test play from now (the owner's sandbox: to try them first). Where one's drawn, the course
+// is as it was but for that power-up's kind (the same draw: addItem).
+export const CLEATS = {s: 10, v: 15, from: 17};
+POWER.cleats = {name: 'Rocket cleats', says: 'Super jumps', s: CLEATS.s, is: 'Bottle rockets laced to your cleats', does: 'For 10 seconds, every jump is a super jump: over anything, up onto the roofs'};
+/** Whether day n's course has the rocket cleats (hard: the hard course; test: Test play's sandbox). */
+export const cleatsOn = (n, hard, test = TEST) => !!hard && (n >= CLEATS.from || !!test);
 export const SALTS_MAX = 2, SHIELD = 1.2; // Revival protection is only for the regular course.
 // The salts' burst (picked up, and again when they shake the linebacker off): k faster for s seconds, easing back to
 // your own speed over the last ease of them.
@@ -331,14 +343,14 @@ export const GAP = {first: 22, cars: 45, max: 1.3, min: .62, by: 1000, jitter: .
 export const HARD_GAP = {first: 20, cars: 35, max: 1.1, min: .32, by: 650, late: [.06, 3000], jitter: .2, in: .6, after: [.25, .1], mix: 700, sets: [.22, .38], two: .6, hole: 120, sled: 220};
 const COURSES = new Map();
 /** Day n's kickoff k: the same on every phone. It's worked out as it's needed (fill). */
-export function course(n, k, hard = false) {
-  hard = !!hard;
-  const key = `${n}|${k}|${hard ? 'h' : ''}`;
+export function course(n, k, hard = false, cl = cleatsOn(n, hard)) {
+  hard = !!hard; cl = !!cl && hard; // (cl: with the rocket cleats or not; the day's own say, unless asked for: the kit's checks)
+  const key = `${n}|${k}|${hard ? 'h' : ''}${cl ? 'c' : ''}`;
   if (COURSES.has(key)) return COURSES.get(key);
   // the places after the stadium: the day's order, each kickoff starting one further on
   const others = shuffle(THEMES.map((_, i) => i).slice(1), rng(hashStr(`return-man-places-${n}`))), m = others.length;
   const order = [0, ...others.slice(k % m), ...others.slice(0, k % m)];
-  const c = {n, k, hard, order, rows: [], sets: [], items: [], r: rng(hashStr(`return-man-${n}-${k}${hard ? '-hard' : ''}`)), z: (hard ? HARD_GAP : GAP).first, itemAt: 100, done: 0, first: {}};
+  const c = {n, k, hard, cl, order, rows: [], sets: [], items: [], r: rng(hashStr(`return-man-${n}-${k}${hard ? '-hard' : ''}`)), z: (hard ? HARD_GAP : GAP).first, itemAt: 100, done: 0, first: {}};
   if (COURSES.size > 12) COURSES.clear();
   COURSES.set(key, c);
   return c;
@@ -356,7 +368,9 @@ function gapAt(co, L, z) {
 }
 const speedOn = (co, z) => speedAt(z, co.hard);
 function addItem(co, z, lane, top) {
-  const u = co.r(), kind = u < .25 ? 'salts' : u < .6 ? 'pills' : 'booze';
+  // (with the rocket cleats, the top of each kind's share of the same draw is the cleats instead: 24 in a hundred, the
+  // rest of them what they'd have been, everything else on the course just where it was)
+  const u = co.r(), kind = co.cl && ((u >= .19 && u < .25) || (u >= .52 && u < .6) || u >= .9) ? 'cleats' : u < .25 ? 'salts' : u < .6 ? 'pills' : 'booze';
   co.items.push({i: co.items.length, z: round2(z), lane, top: !!top, kind});
   co.itemAt = z + 180 + co.r() * 180;
 }
@@ -581,7 +595,7 @@ export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
 export function startRun(n, k, hard = false, coins = false) {
   return {n, k, co: course(n, 0, hard), t: 0, steps: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
     slide: 0, lastJuke: -9, bump: -9, next: 0, nextCone: 0, nextItem: 0, zone: 0, tds: 0,
-    salts: 0, pills: 0, booze: 0, shield: 0, burst: 0, over: false, why: null, by: null,
+    salts: 0, pills: 0, booze: 0, cleats: 0, sj: false, jv: JUMP_V, shield: 0, burst: 0, over: false, why: null, by: null,
     hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null,
     stumblePending: false, lastHit: null, // (the linebacker starts on you, at the catch)
     coins: !!(coins && hard), c: 0, nextCoin: 0};
@@ -596,6 +610,11 @@ export const xOf = (run, lane) => (lane - 1) * LANE;
 /** The lane you're in now (the nearest to you, mid-juke). */
 export const laneOf = run => clamp(Math.round(run.x / LANE) + 1, 0, LANES - 1);
 const grounded = run => run.vy <= 0 && run.y <= groundAt(run.co, laneOf(run), run.z, run.y) + 1e-3;
+/** Off the ground: a jump (a super jump in the rocket cleats: run.sj till he's down, run.jv how fast he went up). */
+function jumpOff(run) {
+  run.vy = run.jv = run.cleats > 0 ? CLEATS.v : JUMP_V; run.sj = run.cleats > 0;
+  run.slide = 0; run.jumpQ = -9;
+}
 /** A swipe: 'left' and 'right' juke a lane over, 'up' jumps (out of a slide too), 'down' slides (and drops you, in the
  *  air). False when it can't: off the edge of the road or into the side of a vehicle (a hit, both: run.bump notes when,
  *  step counts it), the return's over. */
@@ -610,7 +629,7 @@ export function move(run, dir) {
     return true;
   }
   if (dir === 'up') {
-    if (grounded(run)) { run.vy = JUMP_V; run.slide = 0; run.jumpQ = -9; } else run.jumpQ = run.t;
+    if (grounded(run)) jumpOff(run); else run.jumpQ = run.t;
     return true;
   }
   if (dir === 'down') {
@@ -719,9 +738,9 @@ function sub(run, dt, out) {
   let landed = false;
   if (run.vy > 0 || run.y > g + 1e-3) {
     run.vy -= GRAV * dt; run.y += run.vy * dt;
-    if (run.y <= g) { landed = run.vy < -1; run.y = g; run.vy = 0; if (landed) out.push({type: 'landed', z: run.z, on: g > 0}); }
-  } else { run.y = g; run.vy = 0; }
-  if (run.y <= g + 1e-3 && run.vy === 0 && run.t - run.jumpQ < BUFFER) { run.vy = JUMP_V; run.slide = 0; run.jumpQ = -9; }
+    if (run.y <= g) { landed = run.vy < -1; run.y = g; run.vy = 0; if (landed) out.push(Object.assign({type: 'landed', z: run.z, on: g > 0}, run.sj ? {sj: true} : {})); run.sj = false; }
+  } else { run.y = g; run.vy = 0; run.sj = false; }
+  if (run.y <= g + 1e-3 && run.vy === 0 && run.t - run.jumpQ < BUFFER) jumpOff(run);
   // the place, the touchdowns
   const zone = Math.floor(run.z / ZONE);
   if (zone > run.zone) { run.zone = zone; out.push({type: 'zone', z: run.z, theme: zoneAt(co, run.z).theme}); }
@@ -770,6 +789,7 @@ function sub(run, dt, out) {
   run.slide = Math.max(0, run.slide - dt);
   run.pills = Math.max(0, run.pills - dt);
   run.booze = Math.max(0, run.booze - dt);
+  run.cleats = Math.max(0, (run.cleats || 0) - dt);
   run.shield = Math.max(0, run.shield - dt);
   run.burst = Math.max(0, (run.burst || 0) - dt);
   run.slow = Math.max(0, run.slow - dt);

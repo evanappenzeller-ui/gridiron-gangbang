@@ -7,7 +7,7 @@ import * as features from '../core/features.js';
 // trading post), the gate into it, and its weather. In the lanes: the vehicles (boxes in perspective, each place's own,
 // with their ramps), the power-ups, and the goal line every 100 yards.
 // st: the view's state {W, H, y0, dpr, f, camX, camZ, camH, co (the course)}. The world in yards (x across, y up, z
-// ahead); P(st, x, y, z) puts a point on the screen. Exports: P, NEAR, FAR, BEND, horizonOf, sky, ground, sides, vehicle, obstacle (the
+// ahead); P(st, x, y, z) puts a point on the screen. Exports: P, NEAR, FAR, BEND, BENDX, sway, horizonOf, sky, ground, sides, vehicle, obstacle (the
 // rows' barricades and banners), cone (a pothole's), item, coin (the owner's first run's gold coins), gate, weather, ICONS (the
 // power-ups' pictures, for the HUD and the cards);
 // dressList, LOOKS, OBS, GOODS_COL, HOLE_COL, coneFly, coneAhead, CONE_MS (for the 3D world).
@@ -24,12 +24,25 @@ export const NEAR = .9, FAR = 150;
 // drawn over the 3D (the hints, the dust, the kick) sits where it should. horizonOf: where the brow is on the screen.
 export const BEND = .0012;
 export const horizonOf = st => Math.round(st.y0 + 2 * st.f * Math.sqrt(Math.max(0, st.camH0 * (st.bend || 0))));
+// The winding road (Nov 4 2026, Evan, with a runner's video: "Upgrade return man game mode while drawing inspiration from
+// the attached video"): out of the stadium the world bends sideways too, the road swinging off to the left and the right
+// up ahead as you run (return-3dworld.js bend(): each point moved BENDX * sway * d^2 yards across, d its depth ahead of
+// the camera). Only the picture bends: the lanes, the rows and the vehicles are where they always were, and the near
+// road (where anything's judged) is straight. sway(z) is how far it's curving, -1 (left) to 1 (right), for the camera at
+// z yards: the same on every phone, eased in over the stadium's last yards, slow enough to read. st.bendX is BENDX * sway
+// while the 3D world is up (0 in 2D, and with reduced motion), and P follows it.
+export const BENDX = .0034;
+export function sway(z) {
+  const k = clamp((z - 60) / 90, 0, 1), e = k * k * (3 - 2 * k), u = z / 1000 * Math.PI * 2;
+  const s = clamp(.68 * Math.sin(u * 3.3 + .7) + .32 * Math.sin(u * 7.9 + 2.1), -1, 1);
+  return e * Math.sign(s) * Math.abs(s) ** .75; // (held out in its bends a little longer, through the straight a little quicker)
+}
 const FADE = 28; // yards before a gate the next place's sky comes in over
 const WORDS = ['RETURN MAN', '★', 'GRIDIRON', '★', 'KICKOFF', '★'];
 const DISPLAY = '"Barlow Condensed", "Arial Narrow", sans-serif';
 export function P(st, x, y, z) {
   const Z = Math.max(.05, z - st.camZ);
-  return {x: st.W / 2 + st.f * (x - st.camX) / Z, y: st.y0 + st.f * (st.camH - y + (st.bend || 0) * Z * Z) / Z, s: st.f / Z};
+  return {x: st.W / 2 + st.f * (x - st.camX + (st.bendX || 0) * Z * Z) / Z, y: st.y0 + st.f * (st.camH - y + (st.bend || 0) * Z * Z) / Z, s: st.f / Z};
 }
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function path(c, pts) { c.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) c.lineTo(pts[i].x, pts[i].y); c.closePath(); }
@@ -1961,8 +1974,38 @@ const LEGACY_ICONS = {
     c.fillStyle = '#E8C547'; c.fillRect(-.065, -.47, .13, .06);
     c.fillStyle = '#F2E3B3'; c.fillRect(-.14, .04, .28, .2);
     c.fillStyle = '#C8102E'; c.fillRect(-.14, .1, .28, .05);
-  }
+  },
+  cleats(c, t) { rocketCleat(c, t || 0); }
 };
+/** A rocket cleat (the rocket cleats, Nov 4 2026), side on, its toe to the right, about a unit across: an orange
+ *  football boot on black studs, a white flash and laces, a silver booster on its heel spitting fire (t: the flicker). */
+function rocketCleat(c, t = 0) {
+  c.save(); c.translate(.17, .07); c.rotate(-.3); c.scale(.74, .74); // (the whole of it, flame and all, inside the unit: taking off)
+  const f = .82 + .18 * Math.sin(t * 31) * Math.sin(t * 17 + 1);
+  // the flame out of the booster, behind the heel
+  const fl = c.createLinearGradient(-.62, 0, -.62 - .34 * f, 0);
+  fl.addColorStop(0, '#FFF6C4'); fl.addColorStop(.35, '#FFB02E'); fl.addColorStop(1, 'rgba(255,72,24,0)');
+  c.fillStyle = fl; c.beginPath(); c.moveTo(-.6, -.15); c.quadraticCurveTo(-.78 - .2 * f, -.08, -.98 - .12 * f, .02); c.quadraticCurveTo(-.78 - .2 * f, .1, -.6, .15); c.closePath(); c.fill();
+  // the booster
+  c.fillStyle = '#5B6470'; c.beginPath(); c.moveTo(-.46, -.1); c.lineTo(-.64, -.15); c.lineTo(-.64, .15); c.lineTo(-.46, .1); c.closePath(); c.fill();
+  c.fillStyle = '#DDE4EA'; rr(c, -.5, -.13, .26, .22, .05); c.fill();
+  c.fillStyle = '#F2453A'; c.fillRect(-.43, -.13, .055, .22);
+  // the sole and studs
+  c.fillStyle = '#E9EDF2'; [-.3, -.1, .12, .32].forEach(x => { c.beginPath(); c.moveTo(x - .045, .25); c.lineTo(x + .045, .25); c.lineTo(x, .36); c.closePath(); c.fill(); });
+  c.fillStyle = '#23262E'; rr(c, -.4, .17, .88, .1, .045); c.fill();
+  // the boot: heel and collar up the back, the toe round to the right
+  c.beginPath(); c.moveTo(-.38, .18); c.lineTo(-.39, -.46); c.quadraticCurveTo(-.28, -.52, -.1, -.47); c.lineTo(-.05, -.16);
+  c.quadraticCurveTo(.2, -.12, .38, -.03); c.quadraticCurveTo(.52, .04, .48, .18); c.closePath();
+  c.fillStyle = pickupShade(c, -.4, .5, [[0, '#E2560E'], [.35, '#FF8A2A'], [.7, '#FFA048'], [1, '#E8620F']]); c.fill();
+  c.strokeStyle = '#8A2E06'; c.lineWidth = .025; c.lineJoin = 'round'; c.stroke();
+  c.fillStyle = '#1E2129'; rr(c, -.41, -.53, .33, .08, .035); c.fill();
+  // the flash and the laces
+  c.fillStyle = '#FFFFFF'; c.beginPath(); c.moveTo(-.3, .1); c.quadraticCurveTo(.05, .02, .36, .03); c.quadraticCurveTo(.05, .1, -.28, .15); c.closePath(); c.fill();
+  c.strokeStyle = '#FFFFFF'; c.lineWidth = .03; c.lineCap = 'round';
+  [[-.08, -.36], [-.04, -.24], [.06, -.17], [.16, -.12]].forEach(([x, y]) => { c.beginPath(); c.moveTo(x - .04, y - .03); c.lineTo(x + .04, y + .03); c.stroke(); });
+  c.fillStyle = 'rgba(255,236,190,.55)'; rr(c, -.33, -.42, .05, .5, .025); c.fill();
+  c.restore();
+}
 // The owner's pickups: chunky, readable silhouettes, bright bevels and a mostly front-facing label.
 // Shared by the road's 2D fallback and the HUD; no separate image asset or offline artwork cache.
 function pickupPoly(c, points, col) {
@@ -2028,12 +2071,13 @@ const OWNER_ICONS = {
     c.fillStyle = '#205F2C'; c.font = `900 .142px ${DISPLAY}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('BEER', 0, .14);
     c.fillStyle = 'rgba(214,255,125,.5)'; rr(c, -.14, .383, .27, .031, .015); c.fill();
     c.restore();
-  }
+  },
+  cleats(c, t) { c.save(); c.scale(.92, .92); rocketCleat(c, t || 0); c.restore(); }
 };
 export const ICONS = Object.fromEntries(Object.keys(LEGACY_ICONS).map(kind => [kind, (c, t) => (features.available() ? OWNER_ICONS : LEGACY_ICONS)[kind](c, t)]));
-const HALO = {salts: '150,225,255', pills: '255,165,60', booze: '255,214,90'};
+const HALO = {salts: '150,225,255', pills: '255,165,60', booze: '255,214,90', cleats: '255,138,42'};
 // (the hard course's, the owner's: bigger, and each its own colour: return-3dworld.js HALO_BIG)
-const HALO_BIG = {salts: '92,225,255', pills: '255,64,64', booze: '110,240,90'};
+const HALO_BIG = {salts: '92,225,255', pills: '255,64,64', booze: '110,240,90', cleats: '255,128,30'};
 function ownerItem(st, c, it, t, X, g) {
   const bob = Math.sin(t * 3 + it.i) * .16, p = P(st, X, g + 1.65 + bob, it.z), base = P(st, X, g + .025, it.z), s = p.s;
   if (s < 1.2) return;

@@ -16,6 +16,10 @@ import * as features from '../core/features.js';
 // On his first run of the day there, lines of gold coins to run through (core COIN; the owner's ask, Oct 21 2026): a
 // sparkle and a tick of the counter beside the yards for each, and on the end card what they pay Keepfall.
 // Every 100 yards is a touchdown.
+// After a runner's video of Evan's (Nov 4 2026): the road winds left and right up ahead (return-world.js sway; in 3D,
+// never with reduced motion), the rocket cleats (core CLEATS: super jumps, fire at his heels, the camera up with him) and
+// the day going down as a run goes on: sunset the second time round the places, night with purple ground fog the third
+// (return-style.js dusk, TOD).
 // The scene is in real 3D (the owner's ask, Oct 2026): the world (views/return-3dworld.js: each place's ground, what
 // stands beside the road, the gates, the barricades and banners, the vehicles, the power-ups) and the players
 // (views/return-3d.js: a rigged, animated athlete in each side's uniform, smooth at the screen's frame rate: running,
@@ -40,7 +44,7 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The version mark css/views/return.css carries (--rm-css): an older cached stylesheet gets the new one linked.
-const CSS_V = '7';
+const CSS_V = '8';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim() === CSS_V) return;
@@ -73,7 +77,7 @@ function iconURL(kind) {
   return ICON_URL[kind];
 }
 const iconHTML = (kind, size = 28) => `<img class="rm-ic" data-rm-icon="${kind}" src="${iconURL(kind)}" width="${size}" height="${size}" alt="" draggable="false">`;
-function keysHTML(hard) {
+function keysHTML(hard, cleats = false) {
   const k = (cls, label, what) => `<li class="rm-key"><span class="rm-kk ${cls}" aria-hidden="true">${label}</span><span>${what}</span></li>`;
   const pw = (kind, name, what) => `<li class="rm-pk">${iconHTML(kind, 34)}<b>${name}</b><span>${what}</span></li>`;
   return `<ul class="rm-keys" aria-label="How to play">`
@@ -86,6 +90,7 @@ function keysHTML(hard) {
     + pw('salts', 'Smelling salts', hard ? '10-second speed burst + extra life' : 'Speed burst + extra life')
     + pw('pills', 'Painkillers', hard ? 'Hit anything, no stumble' : 'Feel nothing')
     + pw('booze', 'Booze', hard ? 'Double yards, but blurry' : 'Double yards')
+    + (cleats ? pw('cleats', 'Rocket cleats', 'Super jumps: up onto the roofs') : '')
     + `</ul>`;
 }
 // Return Man is in beta (open to the league while the owner works on it, Oct 2026): a BETA tag on the cards before a
@@ -152,7 +157,7 @@ function cardHTML(st) {
   }
   return `<div class="rm-card-in is-first"><p class="rm-card-o">${koLabel(0)}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
     + `<h2 class="rm-card-t">Take it to the house</h2>`
-    + keysHTML(features.available()) + note + betaLine()
+    + keysHTML(features.available(), R.cleatsOn(st.n, features.available())) + note + betaLine()
     + again('Field the kick') + creditLine() + `</div>`;
 }
 // The gold coins (core COIN: the owner's hard course, his first run of the day alone; the owner's ask, Oct 21 2026):
@@ -493,10 +498,12 @@ function runner3(st, now) {
   // the move: a slide; in the air (the jump's clip by how fast he's going up or down: tucked at the top, reaching for
   // the ground coming down); a juke's side-step; or running
   if (run.slide > 0) { o.move = 'slide'; o.u = 1 - run.slide / R.MOVE.slide; }
-  else if (h > .02 || run.vy > 0) { o.move = 'jump'; o.u = Math.max(0, Math.min(1, (R.JUMP_V - run.vy) / (2 * R.JUMP_V))); }
+  else if (h > .02 || run.vy > 0) { const jv = run.jv || R.JUMP_V; o.move = 'jump'; o.u = Math.max(0, Math.min(1, (jv - run.vy) / (2 * jv))); }
   else if (dir) { o.move = dir > 0 ? 'sideR' : 'sideL'; o.u = js; }
   const stum = run.slow > 0 ? run.slow / R.CHASE.slow : 0, he = st.hitAt ? now - st.hitAt : 1e9;
   if (stum) o.stumble = stum;
+  // (the rocket cleats: fire out of his heels, blazing on a super jump's way up, easing off as they run out)
+  if (run.cleats > 0) { o.cleats = Math.min(1, run.cleats / .6); o.jet = run.sj ? (run.vy > 0 ? 1 : .55) : .25; }
   if (he < HIT_MS) o.hit = he / HIT_MS;
   o.pitch = .1 + .3 * R.burstOf(run) + (he < 320 ? .38 * Math.sin(Math.PI * he / 320) : 0); // (leaning into his run, more in a burst; a hit: he lurches forward)
   // a juke: turned and leaned into it, eased in and out; a spin goes all the way round
@@ -669,7 +676,8 @@ function runnerFx(st, c, now, bx, g, az) {
   const run = st.run;
   if (!run) return;
   if (!run.over && run.slide > 0) dust(st, c, run.x, g, run.z, now, Math.min(1, run.slide / .25));
-  if (!run.over && st.landAt) puff(st, c, run.x, g, run.z, (now - st.landAt) / 350, .7); // (landing a jump)
+  if (!run.over && st.landAt) puff(st, c, run.x, g, run.z, (now - st.landAt) / (st.landSj ? 480 : 350), st.landSj ? 1.35 : .7); // (landing a jump)
+  if (!run.over) cleatsFx(st, c, now, g);
   if (run.over) puff(st, c, bx, g, az + .5, (now - st.downAt - 520) / 450, 1.1); // (down)
   // (dropping into a pothole: bits of its rim kicked up off its near and far edges, up and down again, in its colours;
   // each hole's own, the same every time)
@@ -687,6 +695,36 @@ function runnerFx(st, c, now, bx, g, az) {
   }
 }
 const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(',');
+/** The rocket cleats (core CLEATS, Nov 4 2026): a glow at his heels while he has them; on a super jump the fire's trail
+ *  down behind him to the road, and coming down on a roof or the road, a ring of it blown out round his feet. (The 3D
+ *  player's own fire is return-3d.js's; this is the light it throws.) */
+function cleatsFx(st, c, now, g) {
+  const run = st.run, k = Math.min(1, (run.cleats || 0) / .6), ring = st.landSj && st.landAt ? (now - st.landAt) / 420 : 1;
+  if (!(k > 0) && !(ring < 1)) return;
+  c.save();
+  try {
+    c.globalCompositeOperation = 'lighter';
+    if (k > 0) {
+      const up = run.y - g, f = .85 + .15 * Math.sin(now / 37);
+      const q = P(st, run.x, run.y + .12, run.z), r = q.s * (.55 + .25 * Math.min(1, up / 2)) * f;
+      const gr = c.createRadialGradient(q.x, q.y, 0, q.x, q.y, r);
+      gr.addColorStop(0, `rgba(255,214,120,${(.55 * k).toFixed(3)})`); gr.addColorStop(1, 'rgba(255,110,30,0)');
+      c.fillStyle = gr; c.fillRect(q.x - r, q.y - r, r * 2, r * 2);
+      if (run.sj && up > .2 && !ui.RM) {
+        // the trail: from his heels back down toward where he took off, fading
+        const b = P(st, run.x, Math.max(g, run.y - 2.4), run.z - 1.4), w = q.s * .22;
+        const tr = c.createLinearGradient(q.x, q.y, b.x, b.y);
+        tr.addColorStop(0, `rgba(255,190,90,${(.7 * k).toFixed(3)})`); tr.addColorStop(1, 'rgba(255,90,30,0)');
+        c.fillStyle = tr; c.beginPath(); c.moveTo(q.x - w, q.y); c.lineTo(q.x + w, q.y); c.lineTo(b.x + w * .2, b.y); c.lineTo(b.x - w * .2, b.y); c.closePath(); c.fill();
+      }
+    }
+    if (ring < 1 && !ui.RM) {
+      const q = P(st, run.x, g + .03, run.z), rr = (.4 + 1.6 * ring) * q.s;
+      c.strokeStyle = `rgba(255,160,60,${(.8 * (1 - ring)).toFixed(3)})`; c.lineWidth = Math.max(1, .12 * q.s * (1 - ring));
+      c.beginPath(); c.ellipse(q.x, q.y, rr, rr * .3, 0, 0, Math.PI * 2); c.stroke();
+    }
+  } finally { c.restore(); }
+}
 // ---------------------------------------------------------------- The coins (the owner's first run of the day)
 // core COIN: lines of gold coins on his hard course, his first run of the day alone. Each one he runs through goes in a
 // little sparkle where it was on him (SPARK_MS), the counter beside the yards ticks up, and a tap of haptics; no words
@@ -808,7 +846,9 @@ function draw(st, now = performance.now()) {
   if (st.camF == null) { st.camF = tx; st.camV = 0; }
   else { st.camV += (CAM_W * CAM_W * (tx - st.camF) - 2 * CAM_W * st.camV) * dt; st.camF += st.camV * dt; }
   st.camX = st.camF + .2 * bump + .35 * shake;
-  const lift = run && !run.over ? R.groundAt(run.co, R.laneOf(run), run.z, run.y) * .8 : st.lift || 0;
+  // (on a super jump in the rocket cleats, up with him a good part of the way, so the roofs he's coming down on show)
+  const gl = run && !run.over ? R.groundAt(run.co, R.laneOf(run), run.z, run.y) : 0;
+  const lift = run && !run.over ? gl * .8 + (run.sj ? .45 * Math.max(0, run.y - gl) : 0) : st.lift || 0;
   st.lift = (st.lift || 0) + (lift - (st.lift || 0)) * Math.min(1, dt * 3.5);
   // (down into a pothole with him: the picture's held back with him (core fallAt: a moment, a yard or two), the camera
   // too, and it dips, down quick and back up easier; with reduced motion it does neither: it stays on where he is)
@@ -834,6 +874,8 @@ function draw(st, now = performance.now()) {
   if (blur !== (st.blur || 0) && (!blur || now - (st.blurAt || 0) >= 250)) { st.blur = blur; st.blurAt = now; st.layers.style.filter = blur ? `blur(${blur}px)` : ''; }
   const three = in3D(st), wait = waiting3D(st);
   st.bend = three || wait ? W.BEND : 0;
+  // (the winding road: in 3D only, never with reduced motion)
+  st.bendX = three && !ui.RM ? W.BENDX * W.sway(st.camZ) : 0;
   // In 3D the stage is three layers the phone puts together itself, rather than the 3D copied into this canvas every
   // frame (a whole screen of pixels, each frame): the sky here, the 3D's own canvas over it, and over that (o) the
   // glows, hints, speed lines, weather and tints. Without the 3D it's all drawn here, as before.
@@ -956,7 +998,7 @@ function patchHud(st) {
   const pw = el.querySelector('[data-rm-pows]');
   if (pw) {
     // (the salts: how many he's got, and the burst's time left while he's bursting)
-    const list = on ? [(run.salts > 0 || run.burst > 0) && 'salts', run.pills > 0 && 'pills', run.booze > 0 && 'booze'].filter(Boolean) : [];
+    const list = on ? [(run.salts > 0 || run.burst > 0) && 'salts', run.pills > 0 && 'pills', run.booze > 0 && 'booze', run.cleats > 0 && 'cleats'].filter(Boolean) : [];
     const key = list.join() + (on ? run.salts + (run.burst > 0 ? 'b' : '') : '');
     if (pw.dataset.key !== key) {
       pw.dataset.key = key;
@@ -1047,12 +1089,13 @@ function ungot(st) {
 // owner's ask, Oct 2026: "only catch phrases when something is picked up ... when the smelling salts are picked up the
 // screen says, Woooo"): no place names, move calls, hit words or the pickup's card. The haptics, the red edges and the
 // screen reader's words stay.
-const CATCHPHRASE = {salts: 'WOOOO!', pills: 'CAN’T FEEL A THING!', booze: 'HOLD MY BEER!'};
+const CATCHPHRASE = {salts: 'WOOOO!', pills: 'CAN’T FEEL A THING!', booze: 'HOLD MY BEER!', cleats: 'LIFTOFF!'};
 // The owner's chosen catchphrases; rotate when a pickup has more than one line.
 const PICKUP_LINES = {
   salts: ['YEAH BUDDY'],
   pills: ['PUT ME IN COACH'],
-  booze: ['LET’S RIDE!', 'WHERE ARE MY KEYS']
+  booze: ['LET’S RIDE!', 'WHERE ARE MY KEYS'],
+  cleats: ['LIFTOFF!', 'HANG TIME!']
 };
 function pickupLine(st, kind) {
   const lines = PICKUP_LINES[kind];
@@ -1102,7 +1145,7 @@ function onEvents(st, evs) {
       if (!quiet) got(st, e.kind);
       ui.haptic('success'); ui.announce(`${line ? line + '. ' : ''}${pw.name}: ${pw.is}. ${pw.does}.`);
     }
-    else if (e.type === 'landed') st.landAt = now;
+    else if (e.type === 'landed') { st.landAt = now; st.landSj = !!e.sj; if (e.sj) ui.haptic('medium'); }
     // (a coin: his, on his profile; off it, where they're hidden, it isn't counted)
     else if (e.type === 'coin') { if (coinsShown(st)) coinGot(st, e, now); else if (st.run) st.run.c = Math.max(0, st.run.c - (e.add ?? 1)); }
     // a pothole's cone he ran through: kicked flying, off to the side (his lane's, or the way he's juking); nothing more
