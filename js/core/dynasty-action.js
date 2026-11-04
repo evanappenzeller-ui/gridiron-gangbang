@@ -110,6 +110,7 @@ export const ACTION = {
   "xcurtismartin": ["xcurtismartin-v3", "card:97ebaee1", "", "", "", 2022], // Curtis Martin
   "xherbadderley": ["xherbadderley-v4", "own:xherbadderley.png", "", "", "", 0], // Herb Adderley
   "xjackyoungblood": ["xjackyoungblood-v3", "card:899af938", "", "", "", 2022], // Jack Youngblood
+  "xjohnmackey": ["xjohnmackey-v1", "own:xjohnmackey.jpg", "", "", "", 0], // John Mackey
   "xjohnrandle": ["xjohnrandle-v3", "card:c3a2fd8c", "", "", "", 2024], // John Randle
   "xkenhouston": ["xkenhouston-v4", "own:xkenhouston.png", "", "", "", 0], // Ken Houston
   "xlarrycsonka": ["xlarrycsonka-v4", "own:xlarrycsonka.jpg", "", "", "", 0], // Larry Csonka
