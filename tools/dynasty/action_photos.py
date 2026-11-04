@@ -41,7 +41,7 @@ REAL_IMG = os.path.join(ROOT, 'img', 'dynasty', 'real')
 EDSR = 'https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x4.pb'  # 4x upscaling of the card scans
 VERSION = 'v3'  # in the file names: a changed picture needs a new name (sw.js keeps pictures across releases)
 # Players alone in their photo: BiRefNet's figure is kept whole, without Segment Anything (which can drop an arm or the ball)
-ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790', '0036442', '0038542', 'xpeytonmanning', 'xkenhouston', 'xmikehaynes', 'xlougroza', 'xforrestgregg', 'xmikeditka', 'xlarrycsonka', 'xearlcampbell', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xderrickbrooks', 'xraymondberry', 'xbobbybell', 'xchuckbednarik', 'xmichaelirvin', 'xherbadderley', 'xtroyaikman', 'xmortenandersen', 'xbojackson', 'xdicknighttrain', 'xjohnmackey', 'xemlentunnell'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
+ALONE = {'0034856', 'xbrettfavre', 'xjohnnyunitas', '0034790', '0036442', '0038542', 'xpeytonmanning', 'xkenhouston', 'xmikehaynes', 'xlougroza', 'xforrestgregg', 'xmikeditka', 'xlarrycsonka', 'xearlcampbell', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xderrickbrooks', 'xraymondberry', 'xbobbybell', 'xchuckbednarik', 'xmichaelirvin', 'xherbadderley', 'xtroyaikman', 'xmortenandersen', 'xbojackson', 'xdicknighttrain', 'xjohnmackey', 'xemlentunnell', 'xdanmarino', 'xanthonymuñoz', 'xalanpage', 'xjimparker', 'xleeroyselmon', 'xmichaelstrahan', 'xbrianurlacher', 'xsteveyoung', 'xlarryallen', '0039338', 'xmerlinolsen'}  # Denzel Ward, Brett Favre, Johnny Unitas, Derwin James
 # Segment Anything's prompt by hand, where another player overlaps ours (fractions of the crop): a box round him,
 # points on him (1) and on the other (0), and boxes and outlines ('cut') to clear of what it still takes of the other
 SAM_HINT = {
@@ -65,7 +65,6 @@ CLEAR = {
     'xericdickerson': {'cut': [[(0.9, 0.77), (1, 0.75), (1, 1), (0.89, 1), (0.89, 0.9)]]},  # Eric Dickerson
     'xfrancoharris': {'cut': [[(0.2, 0.04), (0.96, 0.04), (0.96, 0.3), (0.9, 0.3), (0.895, 0.27), (0.885, 0.245), (0.87, 0.22), (0.855, 0.21), (0.83, 0.2), (0.83, 0.19), (0.815, 0.18), (0.8, 0.17), (0.8, 0.158), (0.575, 0.158), (0.56, 0.19), (0.2, 0.19)], [(0.1, 0.18), (0.4, 0.18), (0.4, 0.3), (0.335, 0.35), (0.32, 0.38), (0.31, 0.42), (0.3, 0.46), (0.29, 0.5), (0.1, 0.5)], [(0.925, 0.3), (0.98, 0.3), (0.98, 0.99), (0.925, 0.99)], [(0.55, 0.92), (0.65, 0.9), (0.75, 0.875), (0.85, 0.855), (0.93, 0.835), (0.98, 0.82), (0.98, 0.99), (0.55, 0.99)]], 'band': (0.09, 0.06, 0.93, 0.94)},  # Franco Harris
     'xjacklambert': {'cut': [[(0, 0.4), (0.07, 0.4), (0.07, 0.72), (0, 0.72)], [(0, 0.76), (0.12, 0.76), (0.17, 0.86), (0.17, 1), (0, 1)]]},  # Jack Lambert
-    'xlancealworth': {'cut': [[(0.09, 0.06), (0.93, 0.06), (0.93, 0.32), (0.915, 0.32), (0.905, 0.26), (0.895, 0.23), (0.885, 0.21), (0.865, 0.19), (0.835, 0.17), (0.8, 0.155), (0.77, 0.145), (0.09, 0.145)], [(0.09, 0.145), (0.58, 0.145), (0.58, 0.3), (0.44, 0.32), (0.4, 0.35), (0.37, 0.4), (0.365, 0.5), (0.35, 0.56), (0.335, 0.62), (0.335, 0.96), (0.09, 0.96)], [(0.907, 0.3), (0.96, 0.3), (0.96, 0.96), (0.907, 0.96)], [(0, 0.952), (0.12, 0.948), (0.2, 0.942), (0.3, 0.933), (0.4, 0.924), (0.5, 0.915), (0.6, 0.906), (0.7, 0.896), (0.8, 0.887), (0.88, 0.88), (1, 0.876), (1, 1), (0, 1)]], 'band': (0.09, 0.06, 0.925, 0.955)},  # Lance Alworth
     'xpaulkrause': {'cut': [[(0.91, 0.38), (1, 0.38), (1, 0.82), (0.91, 0.82)], [(0.8, 0.845), (0.92, 0.845), (0.92, 0.93), (0.8, 0.93)]], 'band': (0.05, 0.085, 0.91, 0.82)},  # Paul Krause
     'xwalterjones': {'cut': [[(0.76, 0.12), (0.95, 0.12), (0.95, 0.58), (0.86, 0.63), (0.8, 0.6), (0.755, 0.55), (0.755, 0.4), (0.76, 0.36)]], 'band': (0.22, 0.05, 0.93, 0.84)},  # Walter Jones
 }
@@ -77,14 +76,14 @@ YEAR = {'xraylewis': 2007, 'xjohnnyunitas': 1963}
 # The owner's own photos ('own:<file>' in PICK), collected by hand from his checklist of players without one
 OWN = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'photos')
 # ...whose figure is wider than the window: padded with white above, so the whole figure fits (see flatten())
-PAD = {'xkenhouston', 'xlougroza', 'xforrestgregg', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xherbadderley', 'xmortenandersen', 'xdeaconjones', 'xemlentunnell'}
+PAD = {'xkenhouston', 'xlougroza', 'xforrestgregg', 'xbuckbuchanan', 'xwilliebrown', 'xtimbrown', 'xherbadderley', 'xmortenandersen', 'xdeaconjones', 'xemlentunnell', 'xanthonymuñoz', 'xalanpage', 'xleeroyselmon', 'xmichaelstrahan', 'xderrickthomas', 'xthurmanthomas', 'xbrianurlacher', 'xlarrywilson', 'xsteveyoung', '0039172', '0039840', '0039141', '0036963', '0034495', '0034752', '0032378'}
 # Players whose picture was redone since VERSION (a new pick, card or crop): their own version in the file name, so only
 # they are rebuilt and fetched again; build leaves every other player's finished picture as it is
 REDO = {
     'xraylewis': 'v4', 'xtombrady': 'v4', '0036358': 'v4', '0033288': 'v4', '0034856': 'v4', '0037250': 'v4',
     'xbrettfavre': 'v4', 'xaarondonald': 'v4', '0037236': 'v4',
     'xjohnnyunitas': 'v4', 'xgalesayers': 'v4',
-    'xartmonk': 'v4', 'xbarrysanders': 'v4', 'xdanfouts': 'v4', 'xericdickerson': 'v4', 'xfrancoharris': 'v4', 'xjacklambert': 'v4', 'xlancealworth': 'v4', 'xpaulkrause': 'v4', 'xwalterjones': 'v4',  # Legends: card remnants cleared by hand
+    'xartmonk': 'v4', 'xbarrysanders': 'v4', 'xdanfouts': 'v4', 'xericdickerson': 'v4', 'xfrancoharris': 'v4', 'xjacklambert': 'v4', 'xlancealworth': 'v5', 'xpaulkrause': 'v4', 'xwalterjones': 'v4',  # Legends: card remnants cleared by hand
     '0034857': 'v4', '0033106': 'v4', '0034973': 'v4',  # Josh Allen, Jared Goff, Maxx Crosby: Commons originals over their card scans
     '0036997': 'v4', '0033886': 'v4', '0034790': 'v5',  # Javonte Williams, T.J. Watt, Derwin James: the same
     '0039337': 'v4',  # Malik Nabers: a Commons photo from action_sweep.py's named photos
@@ -125,6 +124,50 @@ REDO = {
     'xstevelargent': 'v1',  # Steve Largent: his own photo (tools/dynasty/photos)
     'xjohnmackey': 'v1',  # John Mackey: his own photo (tools/dynasty/photos)
     'xemlentunnell': 'v2',  # Emlen Tunnell: his own photo (tools/dynasty/photos)
+    'xdanmarino': 'v1',  # Dan Marino: his own photo (tools/dynasty/photos)
+    'xdonmaynard': 'v1',  # Don Maynard: his own photo (tools/dynasty/photos)
+    'xanthonymuñoz': 'v1',  # Anthony Muñoz: his own photo (tools/dynasty/photos)
+    'xmerlinolsen': 'v1',  # Merlin Olsen: his own photo (tools/dynasty/photos)
+    'xjimotto': 'v1',  # Jim Otto: his own photo (tools/dynasty/photos)
+    'xalanpage': 'v1',  # Alan Page: his own photo (tools/dynasty/photos)
+    'xjimparker': 'v1',  # Jim Parker: his own photo (tools/dynasty/photos)
+    'xleeroyselmon': 'v1',  # Lee Roy Selmon: his own photo (tools/dynasty/photos)
+    '0039846': 'v1',  # Tykee Smith: his own photo (tools/dynasty/photos)
+    'xjanstenerud': 'v1',  # Jan Stenerud: his own photo (tools/dynasty/photos)
+    'xmichaelstrahan': 'v1',  # Michael Strahan: his own photo (tools/dynasty/photos)
+    '0034399': 'v1',  # Wyatt Teller: his own photo (tools/dynasty/photos)
+    'xderrickthomas': 'v1',  # Derrick Thomas: his own photo (tools/dynasty/photos)
+    'xthurmanthomas': 'v1',  # Thurman Thomas: his own photo (tools/dynasty/photos)
+    'xgeneupshaw': 'v1',  # Gene Upshaw: his own photo (tools/dynasty/photos)
+    'xbrianurlacher': 'v1',  # Brian Urlacher: his own photo (tools/dynasty/photos)
+    'xmikewebster': 'v1',  # Mike Webster: his own photo (tools/dynasty/photos)
+    'xlarrywilson': 'v1',  # Larry Wilson: his own photo (tools/dynasty/photos)
+    'xsteveyoung': 'v1',  # Steve Young: his own photo (tools/dynasty/photos)
+    '0039371': 'v4',  # Kris Abrams-Draine: his own photo (tools/dynasty/photos)
+    'xlarryallen': 'v4',  # Larry Allen: his own photo (tools/dynasty/photos)
+    '0039108': 'v4',  # Will Anderson Jr.: his own photo (tools/dynasty/photos)
+    'xsteveatwater': 'v4',  # Steve Atwater: his own photo (tools/dynasty/photos)
+    '0039172': 'v4',  # Jake Bates: his own photo (tools/dynasty/photos)
+    '0034675': 'v4',  # Jessie Bates: his own photo (tools/dynasty/photos)
+    '0038560': 'v4',  # Jordan Battle: his own photo (tools/dynasty/photos)
+    '0036418': 'v4',  # Zack Baun: his own photo (tools/dynasty/photos)
+    '0039840': 'v4',  # Austin Booker: his own photo (tools/dynasty/photos)
+    '0039338': 'v4',  # Brock Bowers: his own photo (tools/dynasty/photos)
+    'xterrybradshaw': 'v4',  # Terry Bradshaw: his own photo (tools/dynasty/photos)
+    '0039141': 'v4',  # Brian Branch: his own photo (tools/dynasty/photos)
+    '0036409': 'v4',  # Jordyn Brooks: his own photo (tools/dynasty/photos)
+    '0035676': 'v4',  # A.J. Brown: his own photo (tools/dynasty/photos)
+    '0036963': 'v4',  # Amon-Ra St. Brown: his own photo (tools/dynasty/photos)
+    '0036220': 'v4',  # Derrick Brown: his own photo (tools/dynasty/photos)
+    '0034495': 'v4',  # Evan Brown: his own photo (tools/dynasty/photos)
+    '0034752': 'v4',  # Orlando Brown: his own photo (tools/dynasty/photos)
+    '0032071': 'v4',  # Trent Brown: his own photo (tools/dynasty/photos)
+    'xdickbutkus': 'v4',  # Dick Butkus: his own photo (tools/dynasty/photos)
+    '0033132': 'v4',  # Kevin Byard: his own photo (tools/dynasty/photos)
+    '0039018': 'v4',  # Jack Campbell: his own photo (tools/dynasty/photos)
+    '0036974': 'v4',  # Tyson Campbell: his own photo (tools/dynasty/photos)
+    '0032378': 'v4',  # DeForest Buckner: his own photo (tools/dynasty/photos)
+    '0039838': 'v4',  # Calen Bullock: his own photo (tools/dynasty/photos)
 }
 
 # The trading-card photos (the owner, Oct 31 2026: "Where can we find live action pictures of the players that would be
@@ -169,6 +212,7 @@ COMMONS_FIRST = {
     'xcalvinjohnson',  # Calvin Johnson (action_sweep.py's named photos)
     'xladainiantomli',  # LaDainian Tomlinson (action_sweep.py's named photos)
     'xrandymoss',  # Randy Moss (action_sweep.py's named photos)
+    '0039371', 'xlarryallen', 'xlancealworth', '0039108', 'xsteveatwater', '0039172', '0034675', '0038560', '0036418', '0039840', '0039338', 'xterrybradshaw', '0039141', '0036409', '0035676', '0036963', '0036220', '0034495', '0034752', '0032071', 'xdickbutkus', '0033132', '0039018', '0036974', '0032378', '0039838',  # his own photos (Nov 3 2026): Kris Abrams-Draine, Larry Allen, Lance Alworth, Will Anderson Jr., Steve Atwater, Jake Bates, Jessie Bates, Jordan Battle, Zack Baun, Austin Booker, Brock Bowers, Terry Bradshaw, Brian Branch, Jordyn Brooks, A.J. Brown, Amon-Ra St. Brown, Derrick Brown, Evan Brown, Orlando Brown, Trent Brown, Dick Butkus, Kevin Byard, Jack Campbell, Tyson Campbell, DeForest Buckner, Calen Bullock
 }
 # (Commons photos that are a portrait, a posed head-and-shoulders or a stamp, not a game, are left out of PICK: the owner,
 # Oct 31 2026, "Remove any headshot of the legend players")
@@ -181,6 +225,7 @@ SEASON = 2026   # this season (a Live player's first season: SEASON - his years 
 # player key -> the Commons file chosen by eye (its name as the file page has it, without "File:"), or 'flickr:<photo id>'
 # for a photo from action_sweep.py's Flickr sheets
 PICK = {
+    "0035248": "Zach_Allen.png",  # Zach Allen, 2025
     "xjerryrice": "Jerry_Rice_1985.jpg",  # Jerry Rice, 1985
     "xlawrencetaylor": "Lawrence_Taylor_tackle.jpg",  # Lawrence Taylor, 1984
     "xtombrady": "Tom_Brady_(2).jpg",  # Tom Brady, a Patriots pass (the Buccaneers crop stopped at his chest)
@@ -207,8 +252,6 @@ PICK = {
     "xericdickerson": "1985_Police_Raiders-Rams_-_20_Eric_Dickerson_(crop).jpg",  # Eric Dickerson, 1984
     "xjacklambert": "Jack_Lambert_in_December_1975.JPG",  # Jack Lambert, 1975
     "xjjwatt": "JJ_Watt_(cropped1).JPG",  # J.J. Watt, 2012
-    "xlancealworth": "Lance_Alworth_wr_(cropped).jpg",  # Lance Alworth, 1969
-    "xlarryallen": "Larry_Allen_in_2007.jpg",  # Larry Allen, 2007
     "xrogerstaubach": "Staubach_cowboys_qb.jpg",  # Roger Staubach, 1976
     "xtonygonzalez": "Pass-Interference-Chargers-vs-Chiefs-Nov-9-08.jpg",  # Tony Gonzalez, 2008
     "xtroypolamalu": "Troy_Polamalu_2013_(cropped).jpg",  # Troy Polamalu, 2013
@@ -236,7 +279,6 @@ PICK = {
     "xkurtwarner": "Kurt_Warner_(2009_Pro_Bowl).jpg",  # Kurt Warner, 2009
     "xmarcusallen": "1985_Police_Raiders-Rams_-_01_Marcus_Allen_(crop).jpg",  # Marcus Allen, 1984
     "xpaulwarfield": "Paul_Warfield_1971MIA.png",  # Paul Warfield, 1971
-    "xterrybradshaw": "1983_Steelers_Police_-_04_Terry_Bradshaw_(crop).jpg",  # Terry Bradshaw, 1982
     "xwillielanier": "WillieLanierKC.png",  # Willie Lanier, 1986
     "xjackyoungblood": "JackYoungbloodLA.png",  # Jack Youngblood, 1980
     "xlembarney": "LemBarneyDET.png",  # Lem Barney, 1968
@@ -259,19 +301,15 @@ PICK = {
     "0035699": "Steelers_vs_Bucs_10.18.2026_2_(cropped).jpg",  # Jamel Dean, 2026
     "0039075": "Nacua_731_(cropped_2).jpg",  # Puka Nacua, 2023
     "0033280": "Christian_McCaffrey.png",  # Christian McCaffrey, 2019
-    "0036963": "Amon-Ra_St._Brown_vs._Commanders_2022_(cropped).jpg",  # Amon-Ra St. Brown, 2022
-    "0039338": "Brock_Bowers_(2025).jpg",  # Brock Bowers, 2025
     "0026498": "2025_Rams_vs_Titans_Matthew_Stafford_(cropped).png",  # Matthew Stafford, 2025
     "0031565": "Danielle_Hunter.JPG",  # Danielle Hunter, 2015
     "0037248": "JamesCookProBowl2024_(cropped).jpg",  # James Cook, 2024
     "0037834": "Brock_Purdy_injury_49ers_Bears_2024.jpg",  # Brock Purdy, 2024
     "0030561": "Eagles_at_Redskins_2017.jpg",  # Lane Johnson, 2017
     "0031279": "Jake_Matthews_&_Matt_Ryan_vs_WFT_2021_(cropped).jpg",  # Jake Matthews, 2021
-    "0033132": "Jeffery_Simmons_&_Kevin_Byard_Oilers_Throwback_Jerseys.png",  # Kevin Byard, 2023
     "0036358": "Washington_at_Dallas_Photo_110_(51787382465).jpg",  # CeeDee Lamb, 2021, alone with the ball (his card had a defender on him)
     "0036564": "Hufanga_2025.png",  # Talanoa Hufanga, 2025
     "0031330": "NFL_2020_-_Playoffs_-_Washington_vs._Buccaneers_209_(50833182757).jpg",  # Morgan Moses, 2021
-    "0032071": "Trenton_Brown.JPG",  # Trent Brown, 2015
     "0034351": "Dallas_Goedert.jpg",  # Dallas Goedert, 2019, running in at Washington
     "0034974": "Julian_Love_(cropped).jpg",  # Julian Love, 2019
     "0036223": "Jonathan_Taylor_Colts_OCT2022_(cropped).jpg",  # Jonathan Taylor, 2022
@@ -284,11 +322,8 @@ PICK = {
     "0032445": "Ted_Karras_(offensive_lineman).JPG",  # Ted Karras, 2016
     "0033288": "49ers_at_Redskins_2019,_George_Kittle_(48933294286).jpg",  # George Kittle, 2019, running (the crop was his head and chest, no helmet)
     "0034815": "Fred_Warner_49ers_2018_(cropped).jpg",  # Fred Warner, 2018
-    "0035248": "Zach_Allen.png",  # Zach Allen, 2025
-    "0036409": "Jordyn_Brooks_(50744647202)_(cropped).jpg",  # Jordyn Brooks, 2020
     "0038552": "Riley_Moss_Broncos.png",  # Riley Moss, 2025
     "0039064": "Ravens_Training_Camp_(53880447586).jpg",  # Zay Flowers, 2024
-    "0032378": "DeForest_Buckner.JPG",  # DeForest Buckner, 2016
     "0033281": "Marlon_Humphrey_Baltimore_Ravens_2021_(cropped).jpg",  # Marlon Humphrey, 2021
     "0037191": "Washington_Commanders_at_Kansas_City_Chiefs_(55091195803).jpg",  # Trent McDuffie, 2026
     "0038124": "Pass_interference_-_Detroit_Lions_vs_Green_Bay_Packers_2022_Week_18.jpg",  # Christian Watson, 2023
@@ -307,7 +342,6 @@ PICK = {
     "0037192": "George_Karlaftis.jpg",  # George Karlaftis, 2022
     "0037239": "IX8A4137_(45339431234)_(cropped).jpg",  # Chris Olave, 2018
     "0038386": "Jalen_Carter.png",  # Jalen Carter, 2023
-    "0038560": "Jordan_Battle,_2021.jpg",  # Jordan Battle, 2021
     "0037840": "NFL_Playoff_Wildcard_Game_-_Kyren_Williams_Running_Back_Rams_(54266524948).jpg",  # Kyren Williams, 2025
     "0039065": "SamLaPorta.jpg",  # Sam LaPorta, 2021
     "0031492": "Jason_Myers_-_51720303739_(cropped).jpg",  # Jason Myers, 2021
@@ -319,12 +353,10 @@ PICK = {
     "0036986": "Nahshon_Wright.jpg",  # Nahshon Wright, 2025
     "0036997": "Javonte_WIlliams_2025.jpg",  # Javonte Williams, 2025, a carry for Dallas
     "0038038": "Kyle_Hamilton_Ravens_Training_Camp_AUG2023_(cropped).jpg",  # Kyle Hamilton, 2023
-    "0039018": "Jack_Campbell_Iowa_(cropped).jpg",  # Jack Campbell, 2022
     "0040128": "Tyler_Warren_pro_bowl.png",  # Tyler Warren, 2026
     "0032764": "Derrick_Henry_Titans_vs_Commanders_OCT2022.jpg",  # Derrick Henry, 2022
     "0034158": "Brian_O'Neill_2020.png",  # Brian O'Neill, 2020
     "0035358": "Chase_McLaughlin_(51402814375)_(cropped).jpg",  # Chase McLaughlin, 2021
-    "0036418": "ZackBaunUW2018_(cropped).jpg",  # Zack Baun, 2018
     "0036442": "Joe_Burrow_Bengals.jpg",  # Joe Burrow, 2020, alone in the pocket
     "0036912": "Devonta_Smith_2022_(cropped).jpg",  # DeVonta Smith, 2022
     "0037240": "Jameson_Williams.png",  # Jameson Williams, 2021
@@ -333,23 +365,18 @@ PICK = {
     "0039888": "Quinyon_Mitchell_Toledo_Rockets_Football,_December_2023.jpg",  # Quinyon Mitchell, 2023
     "0040122": "2025_Raiders_at_Commanders_106.jpg",  # Ashton Jeanty, 2025
     "0033131": "Maliek_Collins.jpg",  # Maliek Collins, 2017
-    "0036220": "Derrick_Brown_(American_football).jpg",  # Derrick Brown, 2020
     "0037692": "Brandon_Aubrey_10_1_2023.jpg",  # Brandon Aubrey, 2023
-    "0039838": "Calen_Bullock_pro_bowl.png",  # Calen Bullock, 2026
     "0039860": "Kool-Aid_McKinstry_2021.jpg",  # Kool-Aid McKinstry, 2021
     "0031364": "Jadeveon_Clowney_vs_Redskins_2018.jpg",  # Jadeveon Clowney, 2018
     "0031898": "Alex_Singleton_1_(cropped).jpg",  # Alex Singleton, 2022
     "0034429": "Jordan_Mailata.jpg",  # Jordan Mailata, 2020
-    "0034495": "Evan_Brown_(52379162989)_(cropped).jpg",  # Evan Brown, 2022
     "0034668": "Aaron_Stinnie_2018_08-09.jpg",  # Aaron Stinnie, 2018
-    "0034675": "Jessie_Bates_III_(31015688557)_(cropped).jpg",  # Jessie Bates, 2018
     "0034759": "Kolton_Miller_2025.jpg",  # Kolton Miller, 2025
     "0034856": "Denzel_Ward_(43775487861).jpg",  # Denzel Ward, 2018 camp, helmet on and the ball in hand
     "0035230": "Ed_Oliver_2021_(cropped).jpg",  # Ed Oliver, 2021
     "0035261": "Tony_Pollard_(cropped).jpg",  # Tony Pollard, 2019
     "0035687": "Bobby_Okereke_(7370935)_(cropped).jpg",  # Bobby Okereke, 2022
     "0036971": "Trevor_Lawrence_Commanders_vs_Jaguars_SEP2022.jpg",  # Trevor Lawrence, 2022, rolling out at Washington
-    "0036974": "Tyson_Campbell_(cropped).jpg",  # Tyson Campbell, 2026
     "0037228": "Jaylen_Warren_Cropped.jpg",  # Jaylen Warren, 2024
     "0037250": "2022_Cleveland_Browns_Training_Camp_(52339586867).jpg",  # Martin Emerson, 2022 camp, running alone
     "0038563": "Tre_Tucker_(54841331175)_(cropped).jpg",  # Tre Tucker, 2025
@@ -361,9 +388,7 @@ PICK = {
     "0033890": "Budda_Baker.JPG",  # Budda Baker, 2017
     "0034768": "Chukwuma_Okorafor_(50695534763)_(cropped).jpg",  # Chukwuma Okorafor, 2020
     "0034836": "Braden_Smith_at_Lambeau_Field.jpg",  # Braden Smith, 2024
-    "0035676": "Aj_brown_titans_vs_browns.png",  # A.J. Brown, 2020
     "0036322": "Jefferson_2022.jpg",  # Justin Jefferson, 2022
-    "0039172": "Jake_Bates_(53752265654)_(cropped).jpg",  # Jake Bates, 2024
     "0039918": "Commanders_vs._Bears_(54857809842).jpg",  # Caleb Williams, 2025
     "0040663": "Harold_Fannin_Jr._3.jpg",  # Harold Fannin Jr., 2026, at Browns camp
     "0034796": "Lamar_Jackson_passing_2020_(cropped).jpg",  # Lamar Jackson, 2020
@@ -399,6 +424,51 @@ PICK = {
     "xstevelargent": "own:xstevelargent.webp",  # Steve Largent, Seahawks #80, with the ball (his own photo)
     "xjohnmackey": "own:xjohnmackey.jpg",  # John Mackey, Colts #88 (his own photo)
     "xemlentunnell": "own:xemlentunnell.jpg",  # Emlen Tunnell, Giants #45 (his own photo)
+    "xdanmarino": "own:xdanmarino.jpg",  # Dan Marino, Dolphins #13 (his own photo)
+    "xdonmaynard": "own:xdonmaynard.jpg",  # Don Maynard, Jets #13 (his own photo)
+    "xanthonymuñoz": "own:xanthonymuñoz.jpg",  # Anthony Muñoz, Bengals #78 (his own photo)
+    "xmerlinolsen": "own:xmerlinolsen.jpg",  # Merlin Olsen, Rams #74 (his own photo)
+    "xjimotto": "own:xjimotto.jpg",  # Jim Otto, Raiders #00 (his own photo)
+    "xalanpage": "own:xalanpage.jpg",  # Alan Page, Vikings #88 (his own photo)
+    "xjimparker": "own:xjimparker.jpg",  # Jim Parker, Colts #77 (his own photo)
+    "xleeroyselmon": "own:xleeroyselmon.jpg",  # Lee Roy Selmon, Buccaneers #63 (his own photo)
+    "0039846": "own:0039846.jpg",  # Tykee Smith, Buccaneers #23 (his own photo)
+    "xjanstenerud": "own:xjanstenerud.jpg",  # Jan Stenerud, Chiefs #3, kicking (a Prestige card) (his own photo)
+    "xmichaelstrahan": "own:xmichaelstrahan.jpg",  # Michael Strahan, Giants #92 (his own photo)
+    "0034399": "own:0034399.jpg",  # Wyatt Teller, Browns #77 (his own photo)
+    "xderrickthomas": "own:xderrickthomas.jpg",  # Derrick Thomas, Chiefs #58 (his own photo)
+    "xthurmanthomas": "own:xthurmanthomas.jpg",  # Thurman Thomas, Bills #34, with the ball (his own photo)
+    "xgeneupshaw": "own:xgeneupshaw.jpg",  # Gene Upshaw, Raiders #63 (his own photo)
+    "xbrianurlacher": "own:xbrianurlacher.jpg",  # Brian Urlacher, Bears #54 (his own photo)
+    "xmikewebster": "own:xmikewebster.jpg",  # Mike Webster, Steelers #52 (his own photo)
+    "xlarrywilson": "own:xlarrywilson.jpg",  # Larry Wilson, Cardinals #8 (his own photo)
+    "xsteveyoung": "own:xsteveyoung.jpg",  # Steve Young, 49ers #8, throwing (his own photo)
+    "0039371": "own:0039371.jpg",  # Kris Abrams-Draine, Broncos #31 (his own photo)
+    "xlarryallen": "own:xlarryallen.jpg",  # Larry Allen, Cowboys #73 (his own photo)
+    "xlancealworth": "own:xlancealworth.jpg",  # Lance Alworth, Chargers #19 (his own photo)
+    "0039108": "own:0039108.jpg",  # Will Anderson Jr., Texans #51 (his own photo)
+    "xsteveatwater": "own:xsteveatwater.jpg",  # Steve Atwater, Broncos #27 (his own photo)
+    "0039172": "own:0039172.jpg",  # Jake Bates, Lions #43, kicking (his own photo)
+    "0034675": "own:0034675.jpg",  # Jessie Bates, Falcons #3 (his own photo)
+    "0038560": "own:0038560.jpg",  # Jordan Battle, Bengals #27 (his own photo)
+    "0036418": "own:0036418.jpg",  # Zack Baun, Eagles #53 (his own photo)
+    "0039840": "own:0039840.jpg",  # Austin Booker, Bears #94 (his own photo)
+    "0039338": "own:0039338.jpg",  # Brock Bowers, Raiders #89 (his own photo)
+    "xterrybradshaw": "own:xterrybradshaw.jpg",  # Terry Bradshaw, Steelers #12, with the ball (his own photo)
+    "0039141": "own:0039141.jpg",  # Brian Branch, Lions #32 (his own photo)
+    "0036409": "own:0036409.jpg",  # Jordyn Brooks, Dolphins #20 (his own photo)
+    "0035676": "own:0035676.jpg",  # A.J. Brown, Patriots #1 (his own photo)
+    "0036963": "own:0036963.jpg",  # Amon-Ra St. Brown, Lions #14 (his own photo)
+    "0036220": "own:0036220.jpg",  # Derrick Brown, Panthers #95 (his own photo)
+    "0034495": "own:0034495.jpg",  # Evan Brown, Cardinals OL (his own photo)
+    "0034752": "own:0034752.jpg",  # Orlando Brown, Bengals #75 (his own photo)
+    "0032071": "own:0032071.jpg",  # Trent Brown, Texans #77 (his own photo)
+    "xdickbutkus": "own:xdickbutkus.jpg",  # Dick Butkus, Bears #51 (his own photo)
+    "0033132": "own:0033132.jpg",  # Kevin Byard, Patriots #31 (his own photo)
+    "0039018": "own:0039018.jpg",  # Jack Campbell, Lions #46 (his own photo)
+    "0036974": "own:0036974.jpg",  # Tyson Campbell, Browns #7 (his own photo)
+    "0032378": "own:0032378.jpg",  # DeForest Buckner, 49ers #99 (his own photo)
+    "0039838": "own:0039838.jpg",  # Calen Bullock, Texans #2 (his own photo)
 }
 # player key -> (centre x, top, height) as fractions of the photo's width and height
 CROP = {
@@ -422,10 +492,7 @@ CROP = {
     "0037841": (0.5, 0, 0.55),  # Quentin Lake
     "0030561": (0.6, 0.08, 0.75),  # Lane Johnson
     "0031279": (0.17, 0.02, 0.8),  # Jake Matthews
-    "0033132": (0.8, 0.12, 0.4),  # Kevin Byard
-    "0032071": (0.5, 0, 0.85),  # Trent Brown
     "0037244": (0.3, 0, 1),  # Devin Lloyd
-    "0036409": (0.5, 0.02, 0.55),  # Jordyn Brooks
     "0039064": (0.2, 0, 1),  # Zay Flowers
     "0037191": (0.72, 0.06, 0.55),  # Trent McDuffie
     "0038124": (0.48, 0.15, 0.6),  # Christian Watson
@@ -480,6 +547,51 @@ CROP = {
     "xstevelargent": (0.5, 0.03, 0.75),  # Steve Largent
     "xjohnmackey": (0.5, 0.1, 0.87),  # John Mackey
     "xemlentunnell": (0.54, 0.41, 0.59),  # Emlen Tunnell
+    "xdanmarino": (0.555, 0.012, 0.988),  # Dan Marino
+    "xdonmaynard": (0.575, 0.166, 0.79),  # Don Maynard
+    "xanthonymuñoz": (0.5, 0.004, 0.996),  # Anthony Muñoz
+    "xmerlinolsen": (0.48, 0.144, 0.853),  # Merlin Olsen
+    "xjimotto": (0.475, 0.022, 0.978),  # Jim Otto
+    "xalanpage": (0.545, 0.057, 0.943),  # Alan Page
+    "xjimparker": (0.455, 0.0, 0.988),  # Jim Parker
+    "xleeroyselmon": (0.5, 0.0, 1.0),  # Lee Roy Selmon
+    "0039846": (0.51, 0.0, 1.0),  # Tykee Smith
+    "xjanstenerud": (0.475, 0.056, 0.794),  # Jan Stenerud
+    "xmichaelstrahan": (0.53, 0.004, 0.996),  # Michael Strahan
+    "0034399": (0.455, 0.012, 0.988),  # Wyatt Teller
+    "xderrickthomas": (0.58, 0.194, 0.806),  # Derrick Thomas
+    "xthurmanthomas": (0.44, 0.406, 0.594),  # Thurman Thomas
+    "xgeneupshaw": (0.375, 0.012, 0.988),  # Gene Upshaw
+    "xbrianurlacher": (0.49, 0.0, 1.0),  # Brian Urlacher
+    "xmikewebster": (0.46, 0.0, 0.978),  # Mike Webster
+    "xlarrywilson": (0.5, 0.258, 0.742),  # Larry Wilson
+    "xsteveyoung": (0.52, 0.0, 1.0),  # Steve Young
+    "0039371": (0.345, 0.0, 1.0),  # Kris Abrams-Draine
+    "xlarryallen": (0.59, 0.0, 1.0),  # Larry Allen
+    "xlancealworth": (0.45, 0.021, 0.957),  # Lance Alworth
+    "0039108": (0.52, 0.0, 1.0),  # Will Anderson Jr.
+    "xsteveatwater": (0.515, 0.0, 1.0),  # Steve Atwater
+    "0039172": (0.525, 0.205, 0.795),  # Jake Bates
+    "0034675": (0.41, 0.012, 0.988),  # Jessie Bates
+    "0038560": (0.475, 0.0, 1.0),  # Jordan Battle
+    "0036418": (0.485, 0.023, 0.977),  # Zack Baun
+    "0039840": (0.525, 0.0, 1.0),  # Austin Booker
+    "0039338": (0.51, 0.0, 1.0),  # Brock Bowers
+    "xterrybradshaw": (0.455, 0.021, 0.967),  # Terry Bradshaw
+    "0039141": (0.525, 0.311, 0.689),  # Brian Branch
+    "0036409": (0.46, 0.0, 1.0),  # Jordyn Brooks
+    "0035676": (0.5, 0.096, 0.79),  # A.J. Brown
+    "0036963": (0.545, 0.099, 0.901),  # Amon-Ra St. Brown
+    "0036220": (0.53, 0.043, 0.957),  # Derrick Brown
+    "0034495": (0.55, 0.343, 0.657),  # Evan Brown
+    "0034752": (0.51, 0.025, 0.975),  # Orlando Brown
+    "0032071": (0.5, 0.126, 0.746),  # Trent Brown
+    "xdickbutkus": (0.46, 0.023, 0.915),  # Dick Butkus
+    "0033132": (0.49, 0.074, 0.863),  # Kevin Byard
+    "0039018": (0.505, 0.0, 1.0),  # Jack Campbell
+    "0036974": (0.405, 0.023, 0.892),  # Tyson Campbell
+    "0032378": (0.515, 0.078, 0.922),  # DeForest Buckner
+    "0039838": (0.58, 0.043, 0.957),  # Calen Bullock
 }
 
 POS = {'QB': ['quarterback'], 'RB': ['running back'], 'WR': ['wide receiver'], 'TE': ['tight end'], 'K': ['placekicker', 'kicker'],

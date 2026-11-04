@@ -30,9 +30,11 @@ export const ACTION = {
   "xrandymoss": ["xrandymoss-v4", "Randy_Moss_with_Vikings.jpg", "Mike Morbeck", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2010], // Randy Moss
   "xraylewis": ["xraylewis-v4", "Ray_Lewis_2007.jpg", "Mr.schultz", "CC BY-SA 3.0", "https://creativecommons.org/licenses/by-sa/3.0", 2007], // Ray Lewis
   "xwalterpayton": ["xwalterpayton-v3", "card:f4d8c841", "", "", "", 2024], // Walter Payton
+  "xanthonymu\u00f1oz": ["xanthonymunoz-v1", "own:xanthonymuñoz.jpg", "", "", "", 0], // Anthony Muñoz
   "xcalvinjohnson": ["xcalvinjohnson-v4", "Calvin_Johnson_vs_Green_Bay.jpg", "Mike Morbeck", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2012], // Calvin Johnson
+  "xdanmarino": ["xdanmarino-v1", "own:xdanmarino.jpg", "", "", "", 0], // Dan Marino
   "xdeaconjones": ["xdeaconjones-v1", "own:xdeaconjones.jpg", "", "", "", 0], // Deacon Jones
-  "xdickbutkus": ["xdickbutkus-v3", "card:e54c3f74", "", "", "", 2024], // Dick Butkus
+  "xdickbutkus": ["xdickbutkus-v4", "own:xdickbutkus.jpg", "", "", "", 0], // Dick Butkus
   "xedreed": ["xedreed-v3", "Ed_reed_ravens2012.jpg", "Maryland National Guard", "Public domain", "", 2012], // Ed Reed
   "xgalesayers": ["xgalesayers-v4", "Gale_sayers_playing.jpg", "Unknown", "Public domain", "", 1972], // Gale Sayers
   "xladainiantomli": ["xladainiantomli-v4", "Tomlinson_warming_up_1.jpg", "Dirk", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2008], // LaDainian Tomlinson
@@ -53,12 +55,14 @@ export const ACTION = {
   "xjohnelway": ["xjohnelway-v3", "card:13e21bf9", "", "", "", 2025], // John Elway
   "xjohnhannah": ["xjohnhannah-v3", "card:698a1909", "", "", "", 2024], // John Hannah
   "xjonathanogden": ["xjonathanogden-v3", "card:122abf8f", "", "", "", 2024], // Jonathan Ogden
-  "xlancealworth": ["xlancealworth-v4", "card:30eda0df", "", "", "", 2020], // Lance Alworth
-  "xlarryallen": ["xlarryallen-v3", "card:c303b2ca", "", "", "", 2024], // Larry Allen
+  "xlancealworth": ["xlancealworth-v5", "own:xlancealworth.jpg", "", "", "", 0], // Lance Alworth
+  "xlarryallen": ["xlarryallen-v4", "own:xlarryallen.jpg", "", "", "", 0], // Larry Allen
   "xrogerstaubach": ["xrogerstaubach-v3", "Staubach_cowboys_qb.jpg", "Unknown author Unknown author", "Public domain", "", 1976], // Roger Staubach
+  "xsteveyoung": ["xsteveyoung-v1", "own:xsteveyoung.jpg", "", "", "", 0], // Steve Young
   "xtonygonzalez": ["xtonygonzalez-v3", "card:4d84e5a9", "", "", "", 2022], // Tony Gonzalez
   "xtroypolamalu": ["xtroypolamalu-v3", "Troy_Polamalu_2013_(cropped).jpg", "original: Paula Lively derivative: Diddykong1130", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2013], // Troy Polamalu
   "xadrianpeterson": ["xadrianpeterson-v3", "Adrian_Peterson_Vikings.jpg", "Arvee5.0", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2012], // Adrian Peterson
+  "xalanpage": ["xalanpage-v1", "own:xalanpage.jpg", "", "", "", 0], // Alan Page
   "xbartstarr": ["xbartstarr-v3", "Bart_Starr_1958.jpg", "Vintage Football Card Gallery", "Public domain", "", 1958], // Bart Starr
   "xbojackson": ["xbojackson-v1", "own:xbojackson.jpg", "", "", "", 0], // Bo Jackson
   "xbrucematthews": ["xbrucematthews-v3", "card:3e95cb09", "", "", "", 2024], // Bruce Matthews
@@ -66,16 +70,21 @@ export const ACTION = {
   "xcharleswoodson": ["xcharleswoodson-v3", "card:42100e96", "", "", "", 2025], // Charles Woodson
   "xchuckbednarik": ["xchuckbednarik-v4", "own:xchuckbednarik.webp", "", "", "", 0], // Chuck Bednarik
   "xdarrellgreen": ["xdarrellgreen-v3", "card:79faa686", "", "", "", 2025], // Darrell Green
+  "xderrickthomas": ["xderrickthomas-v1", "own:xderrickthomas.jpg", "", "", "", 0], // Derrick Thomas
   "xfrantarkenton": ["xfrantarkenton-v3", "card:40cb3dd5", "", "", "", 2025], // Fran Tarkenton
   "xginomarchetti": ["xginomarchetti-v3", "Gino_Marchetti_1961.jpg", "Jay Publishing", "Public domain", "", 1961], // Gino Marchetti
   "xjackham": ["xjackham-v3", "JackHamPIT.png", "Unknown author Unknown author", "Public domain", "", 1982], // Jack Ham
+  "xjimparker": ["xjimparker-v1", "own:xjimparker.jpg", "", "", "", 0], // Jim Parker
   "xjoenamath": ["xjoenamath-v3", "1986_Jeno's_Pizza_-_37_-_Joe_Namath_(Joe_Namath_crop).jpg", "Jeno's", "Public domain", "", 1969], // Joe Namath
   "xjoethomas": ["xjoethomas-v3", "Joe_Thomas_Cleveland_Browns.jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2011], // Joe Thomas
   "xjuniorseau": ["xjuniorseau-v3", "card:b24dc757", "", "", "", 2000], // Junior Seau
   "xmarshallfaulk": ["xmarshallfaulk-v3", "card:a198ec8a", "", "", "", 2025], // Marshall Faulk
   "xmarvinharrison": ["xmarvinharrison-v3", "Marvin_Harrison_in_2007_Training_Camp_2.jpg", "The original uploader was Djmunden at English Wikipedia .", "CC BY-SA 2.5", "https://creativecommons.org/licenses/by-sa/2.5", 2008], // Marvin Harrison
   "xmelblount": ["xmelblount-v4", "own:xmelblount.jpg", "", "", "", 0], // Mel Blount
+  "xmerlinolsen": ["xmerlinolsen-v1", "own:xmerlinolsen.jpg", "", "", "", 0], // Merlin Olsen
+  "xmichaelstrahan": ["xmichaelstrahan-v1", "own:xmichaelstrahan.jpg", "", "", "", 0], // Michael Strahan
   "xmikesingletary": ["xmikesingletary-v3", "card:991e2b27", "", "", "", 2025], // Mike Singletary
+  "xmikewebster": ["xmikewebster-v1", "own:xmikewebster.jpg", "", "", "", 0], // Mike Webster
   "xraymondberry": ["xraymondberry-v4", "own:xraymondberry.webp", "", "", "", 0], // Raymond Berry
   "xraynitschke": ["xraynitschke-v3", "card:90c319b1", "", "", "", 2002], // Ray Nitschke
   "xrodwoodson": ["xrodwoodson-v3", "card:74383d63", "", "", "", 2024], // Rod Woodson
@@ -84,13 +93,16 @@ export const ACTION = {
   "xwalterjones": ["xwalterjones-v4", "card:df20b7f7", "", "", "", 2022], // Walter Jones
   "xbobbybell": ["xbobbybell-v4", "own:xbobbybell.webp", "", "", "", 0], // Bobby Bell
   "xbriandawkins": ["xbriandawkins-v3", "Brian_Dawkins.JPG", "Jeffrey Beall", "CC BY-SA 3.0", "https://creativecommons.org/licenses/by-sa/3.0", 2009], // Brian Dawkins
+  "xbrianurlacher": ["xbrianurlacher-v1", "own:xbrianurlacher.jpg", "", "", "", 0], // Brian Urlacher
   "xcriscarter": ["xcriscarter-v3", "card:a307aca8", "", "", "", 2024], // Cris Carter
   "xdanfouts": ["xdanfouts-v4", "card:3a1ad234", "", "", "", 2024], // Dan Fouts
   "xderrickbrooks": ["xderrickbrooks-v4", "own:xderrickbrooks.webp", "", "", "", 0], // Derrick Brooks
   "xforrestgregg": ["xforrestgregg-v4", "own:xforrestgregg.png", "", "", "", 0], // Forrest Gregg
   "xfrancoharris": ["xfrancoharris-v4", "card:72f52514", "", "", "", 2018], // Franco Harris
+  "xgeneupshaw": ["xgeneupshaw-v1", "own:xgeneupshaw.jpg", "", "", "", 0], // Gene Upshaw
   "xhowielong": ["xhowielong-v3", "card:5a7121ca", "", "", "", 2025], // Howie Long
   "xjimkelly": ["xjimkelly-v3", "card:0fd0b22d", "", "", "", 2025], // Jim Kelly
+  "xjimotto": ["xjimotto-v1", "own:xjimotto.jpg", "", "", "", 0], // Jim Otto
   "xjustintucker": ["xjustintucker-v4", "flickr:joeglo/50425638927", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0/", 2020], // Justin Tucker
   "xkellenwinslow": ["xkellenwinslow-v3", "card:cb5223cc", "", "", "", 2025], // Kellen Winslow
   "xkurtwarner": ["xkurtwarner-v3", "card:93e8be8d", "", "", "", 2025], // Kurt Warner
@@ -100,7 +112,7 @@ export const ACTION = {
   "xpaulwarfield": ["xpaulwarfield-v3", "card:d8279589", "", "", "", 2025], // Paul Warfield
   "xrandywhite": ["xrandywhite-v3", "card:4f7abc50", "", "", "", 2025], // Randy White
   "xshannonsharpe": ["xshannonsharpe-v3", "card:e822db1d", "", "", "", 2000], // Shannon Sharpe
-  "xterrybradshaw": ["xterrybradshaw-v3", "card:3faf242a", "", "", "", 2025], // Terry Bradshaw
+  "xterrybradshaw": ["xterrybradshaw-v4", "own:xterrybradshaw.jpg", "", "", "", 0], // Terry Bradshaw
   "xtonydorsett": ["xtonydorsett-v3", "card:ce1bc138", "", "", "", 2025], // Tony Dorsett
   "xtroyaikman": ["xtroyaikman-v4", "own:xtroyaikman.jpg", "", "", "", 0], // Troy Aikman
   "xwarrensapp": ["xwarrensapp-v3", "card:83ff64af", "", "", "", 2024], // Warren Sapp
@@ -108,13 +120,17 @@ export const ACTION = {
   "xwillielanier": ["xwillielanier-v3", "card:d7b25bcc", "", "", "", 2020], // Willie Lanier
   "xbuckbuchanan": ["xbuckbuchanan-v4", "own:xbuckbuchanan.png", "", "", "", 0], // Buck Buchanan
   "xcurtismartin": ["xcurtismartin-v3", "card:97ebaee1", "", "", "", 2022], // Curtis Martin
+  "xdonmaynard": ["xdonmaynard-v1", "own:xdonmaynard.jpg", "", "", "", 0], // Don Maynard
   "xemlentunnell": ["xemlentunnell-v2", "own:xemlentunnell.jpg", "", "", "", 0], // Emlen Tunnell
   "xherbadderley": ["xherbadderley-v4", "own:xherbadderley.png", "", "", "", 0], // Herb Adderley
   "xjackyoungblood": ["xjackyoungblood-v3", "card:899af938", "", "", "", 2022], // Jack Youngblood
+  "xjanstenerud": ["xjanstenerud-v1", "own:xjanstenerud.jpg", "", "", "", 0], // Jan Stenerud
   "xjohnmackey": ["xjohnmackey-v1", "own:xjohnmackey.jpg", "", "", "", 0], // John Mackey
   "xjohnrandle": ["xjohnrandle-v3", "card:c3a2fd8c", "", "", "", 2024], // John Randle
   "xkenhouston": ["xkenhouston-v4", "own:xkenhouston.png", "", "", "", 0], // Ken Houston
   "xlarrycsonka": ["xlarrycsonka-v4", "own:xlarrycsonka.jpg", "", "", "", 0], // Larry Csonka
+  "xlarrywilson": ["xlarrywilson-v1", "own:xlarrywilson.jpg", "", "", "", 0], // Larry Wilson
+  "xleeroyselmon": ["xleeroyselmon-v1", "own:xleeroyselmon.jpg", "", "", "", 0], // Lee Roy Selmon
   "xlembarney": ["xlembarney-v3", "LemBarneyDET.png", "Unknown author Unknown author", "Public domain", "", 1968], // Lem Barney
   "xlendawson": ["xlendawson-v3", "Kansas_City_Chiefs_at_Denver_Broncos_1985-12-14_(ticket)_(crop).jpg", "Denver Broncos/Unlimited Printing & Systems, Inc.", "Public domain", "", 1970], // Len Dawson
   "xlennymoore": ["xlennymoore-v3", "card:4e5570dc", "", "", "", 2024], // Lenny Moore
@@ -126,11 +142,12 @@ export const ACTION = {
   "xsamhuff": ["xsamhuff-v3", "card:b4147426", "", "", "", 2007], // Sam Huff
   "xsonnyjurgensen": ["xsonnyjurgensen-v1", "own:xsonnyjurgensen.jpg", "", "", "", 0], // Sonny Jurgensen
   "xtedhendricks": ["xtedhendricks-v3", "card:a96a3844", "", "", "", 2020], // Ted Hendricks
+  "xthurmanthomas": ["xthurmanthomas-v1", "own:xthurmanthomas.jpg", "", "", "", 0], // Thurman Thomas
   "xtimbrown": ["xtimbrown-v4", "own:xtimbrown.jpg", "", "", "", 0], // Tim Brown
   "xwarrenmoon": ["xwarrenmoon-v3", "card:a1aa68a4", "", "", "", 2025], // Warren Moon
   "xartmonk": ["xartmonk-v4", "card:665c0883", "", "", "", 2025], // Art Monk
   "xjohnriggins": ["xjohnriggins-v3", "card:e4cafdfb", "", "", "", 2024], // John Riggins
-  "xsteveatwater": ["xsteveatwater-v3", "card:5374a50e", "", "", "", 2024], // Steve Atwater
+  "xsteveatwater": ["xsteveatwater-v4", "own:xsteveatwater.jpg", "", "", "", 0], // Steve Atwater
   "0032726": ["0032726-v3", "card:fdb4b05b", "", "", "", 2024], // Ka'imi Fairbairn
   "0034857": ["0034857-v4", "Josh_Allen_(30419600128).jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2018], // Josh Allen
   "0037236": ["0037236-v4", "Commanders_at_Lions_(52379162544).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Aidan Hutchinson
@@ -143,24 +160,24 @@ export const ACTION = {
   "0033886": ["0033886-v4", "TJ_Watt.jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2019], // T.J. Watt
   "0035643": ["0035643-v3", "card:ab489ef6", "", "", "", 2025], // Jeffery Simmons
   "0035699": ["0035699-v3", "card:8a07c251", "", "", "", 2019], // Jamel Dean
-  "0038560": ["0038560-v3", "card:9ec9e416", "", "", "", 2023], // Jordan Battle
+  "0038560": ["0038560-v4", "own:0038560.jpg", "", "", "", 0], // Jordan Battle
   "0039075": ["0039075-v3", "card:b0fcd71b", "", "", "", 2025], // Puka Nacua
   "0033280": ["0033280-v3", "card:e4e54d0a", "", "", "", 2025], // Christian McCaffrey
-  "0036963": ["0036963-v3", "card:85d5b9a5", "", "", "", 2025], // Amon-Ra St. Brown
+  "0036963": ["0036963-v4", "own:0036963.jpg", "", "", "", 0], // Amon-Ra St. Brown
   "0036994": ["0036994-v3", "card:7437998c", "", "", "", 2023], // Ernest Jones
-  "0039338": ["0039338-v3", "card:7da92708", "", "", "", 2025], // Brock Bowers
+  "0039338": ["0039338-v4", "own:0039338.jpg", "", "", "", 0], // Brock Bowers
   "0026498": ["0026498-v3", "card:db6e878a", "", "", "", 2025], // Matthew Stafford
   "0031565": ["0031565-v3", "card:6a5c936e", "", "", "", 2025], // Danielle Hunter
   "0037248": ["0037248-v3", "card:53cee6fd", "", "", "", 2025], // James Cook
   "0037834": ["0037834-v3", "card:7fb70609", "", "", "", 2025], // Brock Purdy
-  "0039108": ["0039108-v3", "card:e7b77dc0", "", "", "", 2025], // Will Anderson Jr.
+  "0039108": ["0039108-v4", "own:0039108.jpg", "", "", "", 0], // Will Anderson Jr.
   "0031279": ["0031279-v3", "card:16942cf7", "", "", "", 2024], // Jake Matthews
-  "0033132": ["0033132-v3", "card:0ad80e50", "", "", "", 2023], // Kevin Byard
+  "0033132": ["0033132-v4", "own:0033132.jpg", "", "", "", 0], // Kevin Byard
   "0036358": ["0036358-v4", "Washington_at_Dallas_Photo_110_(51787382465).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2021], // CeeDee Lamb
   "0036564": ["0036564-v3", "card:889a4391", "", "", "", 2024], // Talanoa Hufanga
   "0038542": ["0038542-v4", "Bijan_Robinson_2025.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Bijan Robinson
   "0039841": ["0039841-v3", "card:af1d70e6", "", "", "", 2025], // Cooper DeJean
-  "0032071": ["0032071-v3", "card:7fc98f76", "", "", "", 2020], // Trent Brown
+  "0032071": ["0032071-v4", "own:0032071.jpg", "", "", "", 0], // Trent Brown
   "0034351": ["0034351-v4", "Dallas_Goedert.jpg", "AlexanderJonesi", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2019], // Dallas Goedert
   "0034974": ["0034974-v3", "card:6e82f20b", "", "", "", 2025], // Julian Love
   "0036223": ["0036223-v3", "card:2c36ebe3", "", "", "", 2025], // Jonathan Taylor
@@ -171,16 +188,16 @@ export const ACTION = {
   "0033288": ["0033288-v4", "49ers_at_Redskins_2019,_George_Kittle_(48933294286).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2019], // George Kittle
   "0034815": ["0034815-v3", "Fred_Warner_49ers_2018_(cropped).jpg", "U.S. Air Force Airman 1st Class Jonathon D. A. Carnell", "Public domain", "", 2018], // Fred Warner
   "0035248": ["0035248-v3", "card:8591528f", "", "", "", 2024], // Zach Allen
-  "0036409": ["0036409-v3", "card:7114bad2", "", "", "", 2025], // Jordyn Brooks
+  "0036409": ["0036409-v4", "own:0036409.jpg", "", "", "", 0], // Jordyn Brooks
   "0037192": ["0037192-v3", "card:cbb67e9a", "", "", "", 2025], // George Karlaftis
   "0038552": ["0038552-v3", "card:622671c6", "", "", "", 2025], // Riley Moss
   "0039064": ["0039064-v3", "card:482c966e", "", "", "", 2025], // Zay Flowers
-  "0032378": ["0032378-v3", "card:71dbf72f", "", "", "", 2025], // DeForest Buckner
+  "0032378": ["0032378-v4", "own:0032378.jpg", "", "", "", 0], // DeForest Buckner
   "0037239": ["0037239-v3", "card:3e6d8781", "", "", "", 2025], // Chris Olave
   "0038124": ["0038124-v3", "card:d0755ba9", "", "", "", 2025], // Christian Watson
   "0038386": ["0038386-v3", "Jalen_Carter.png", "Atlanta Falcons", "CC BY 3.0", "https://creativecommons.org/licenses/by/3.0", 2023], // Jalen Carter
   "0039404": ["0039404-v3", "card:f3163f69", "", "", "", 2024], // Will Reichard
-  "0039840": ["0039840-v3", "card:d1ed13fb", "", "", "", 2024], // Austin Booker
+  "0039840": ["0039840-v4", "own:0039840.jpg", "", "", "", 0], // Austin Booker
   "0031933": ["0031933-v3", "card:edec21ec", "", "", "", 2025], // Leonard Williams
   "0032965": ["0032965-v3", "card:005af885", "", "", "", 2016], // Ronnie Stanley
   "0035642": ["0035642-v3", "Commanders_vs._Jaguars_(52377888202).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Josh Hines-Allen
@@ -203,45 +220,46 @@ export const ACTION = {
   "0036986": ["0036986-v3", "card:43715dbb", "", "", "", 2021], // Nahshon Wright
   "0036997": ["0036997-v4", "Javonte_WIlliams_2025.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Javonte Williams
   "0038038": ["0038038-v3", "card:ef680e7b", "", "", "", 2025], // Kyle Hamilton
-  "0039018": ["0039018-v3", "card:55ff57af", "", "", "", 2024], // Jack Campbell
+  "0039018": ["0039018-v4", "own:0039018.jpg", "", "", "", 0], // Jack Campbell
   "0040128": ["0040128-v3", "card:ec900f0b", "", "", "", 2025], // Tyler Warren
   "0032764": ["0032764-v3", "card:6d82e0b7", "", "", "", 2025], // Derrick Henry
   "0034158": ["0034158-v3", "card:4f58855c", "", "", "", 2025], // Brian O'Neill
   "0035236": ["0035236-v3", "card:ea42c304", "", "", "", 2025], // Byron Murphy
   "0035358": ["0035358-v3", "card:474c3657", "", "", "", 2025], // Chase McLaughlin
   "0035647": ["0035647-v3", "card:a692a885", "", "", "", 2025], // Montez Sweat
-  "0036418": ["0036418-v3", "card:37d7a6ae", "", "", "", 2025], // Zack Baun
+  "0036418": ["0036418-v4", "own:0036418.jpg", "", "", "", 0], // Zack Baun
   "0036442": ["0036442-v4", "Joe_Burrow_Bengals.jpg", "AlexanderJonesi", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2020], // Joe Burrow
   "0036912": ["0036912-v3", "Devonta_Smith_2022_(cropped).jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // DeVonta Smith
   "0037240": ["0037240-v3", "card:0d38f2da", "", "", "", 2025], // Jameson Williams
   "0038996": ["0038996-v3", "2025_Commanders_at_Packers_77.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Tucker Kraft
-  "0039141": ["0039141-v3", "card:6ccaff04", "", "", "", 2023], // Brian Branch
+  "0039141": ["0039141-v4", "own:0039141.jpg", "", "", "", 0], // Brian Branch
   "0039340": ["0039340-v3", "card:2884fc63", "", "", "", 2024], // Laiatu Latu
   "0039852": ["0039852-v3", "card:4f7d7d32", "", "", "", 2025], // Jared Verse
   "0039888": ["0039888-v3", "card:c0c4fd4c", "", "", "", 2025], // Quinyon Mitchell
   "0040122": ["0040122-v3", "2025_Raiders_at_Commanders_106.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Ashton Jeanty
   "0033131": ["0033131-v3", "Maliek_Collins.jpg", "Keith Allison from Hanover, MD, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2017], // Maliek Collins
   "0034342": ["0034342-v3", "card:39210d3c", "", "", "", 2024], // Quenton Nelson
-  "0036220": ["0036220-v3", "card:4358aa6a", "", "", "", 2022], // Derrick Brown
+  "0034399": ["0034399-v1", "own:0034399.jpg", "", "", "", 0], // Wyatt Teller
+  "0036220": ["0036220-v4", "own:0036220.jpg", "", "", "", 0], // Derrick Brown
   "0037692": ["0037692-v3", "Brandon_Aubrey_10_1_2023.jpg", "Time2Football", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0", 2023], // Brandon Aubrey
   "0038134": ["0038134-v3", "card:ef3f7016", "", "", "", 2025], // Kenneth Walker III
-  "0039838": ["0039838-v3", "card:9c0c4140", "", "", "", 2024], // Calen Bullock
+  "0039838": ["0039838-v4", "own:0039838.jpg", "", "", "", 0], // Calen Bullock
   "0039860": ["0039860-v3", "card:32634834", "", "", "", 2024], // Kool-Aid McKinstry
   "0030506": ["0030506-v4", "flickr:joeglo/51614629582", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0/", 2021], // Travis Kelce
   "0031364": ["0031364-v3", "card:4df47511", "", "", "", 2019], // Jadeveon Clowney
   "0031898": ["0031898-v3", "card:b40f5b0c", "", "", "", 2024], // Alex Singleton
   "0034429": ["0034429-v3", "card:33521d8b", "", "", "", 2025], // Jordan Mailata
-  "0034495": ["0034495-v3", "card:1845e325", "", "", "", 2025], // Evan Brown
+  "0034495": ["0034495-v4", "own:0034495.jpg", "", "", "", 0], // Evan Brown
   "0034668": ["0034668-v3", "card:652f9351", "", "", "", 2021], // Aaron Stinnie
-  "0034675": ["0034675-v3", "card:143c21d6", "", "", "", 2021], // Jessie Bates
-  "0034752": ["0034752-v3", "card:3dc1fbf9", "", "", "", 2018], // Orlando Brown
+  "0034675": ["0034675-v4", "own:0034675.jpg", "", "", "", 0], // Jessie Bates
+  "0034752": ["0034752-v4", "own:0034752.jpg", "", "", "", 0], // Orlando Brown
   "0034759": ["0034759-v3", "Kolton_Miller_2025.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Kolton Miller
   "0034856": ["0034856-v4", "Denzel_Ward_(43775487861).jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2018], // Denzel Ward
   "0035230": ["0035230-v3", "card:e0ed6773", "", "", "", 2024], // Ed Oliver
   "0035261": ["0035261-v3", "card:6069d76c", "", "", "", 2025], // Tony Pollard
   "0035687": ["0035687-v3", "card:5f794291", "", "", "", 2024], // Bobby Okereke
   "0036971": ["0036971-v4", "Trevor_Lawrence_Commanders_vs_Jaguars_SEP2022.jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Trevor Lawrence
-  "0036974": ["0036974-v3", "card:aa81a98a", "", "", "", 2023], // Tyson Campbell
+  "0036974": ["0036974-v4", "own:0036974.jpg", "", "", "", 0], // Tyson Campbell
   "0037228": ["0037228-v3", "card:644c7b7d", "", "", "", 2025], // Jaylen Warren
   "0037250": ["0037250-v4", "2022_Cleveland_Browns_Training_Camp_(52339586867).jpg", "Erik Drost", "CC BY 2.0", "https://creativecommons.org/licenses/by/2.0", 2022], // Martin Emerson
   "0037838": ["0037838-v3", "card:cdf271ac", "", "", "", 2025], // Isaiah Likely
@@ -249,8 +267,9 @@ export const ACTION = {
   "0039067": ["0039067-v3", "Rashee_Rice_(55090108907)_(cropped).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2026], // Rashee Rice
   "0039137": ["0039137-v3", "card:8c752b19", "", "", "", 2024], // Byron Young
   "0039309": ["0039309-v3", "card:a0107403", "", "", "", 2024], // Byron Murphy II
-  "0039371": ["0039371-v3", "card:246c5662", "", "", "", 2024], // Kris Abrams-Draine
+  "0039371": ["0039371-v4", "own:0039371.jpg", "", "", "", 0], // Kris Abrams-Draine
   "0039491": ["0039491-v3", "card:65217e78", "", "", "", 2025], // Jalen Coker
+  "0039846": ["0039846-v1", "own:0039846.jpg", "", "", "", 0], // Tykee Smith
   "0040579": ["0040579-v3", "Carson_Schwesinger_2025_Browns_Camp_(cropped).jpg", "Erik Drost", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0", 2025], // Carson Schwesinger
   "0041528": ["0041528-v3", "card:97e9381e", "", "", "", 2025], // Michael Taaffe
   "0032762": ["0032762-v3", "Chris_Jones_(defensive_tackle,_born_1994).JPG", "Jeffrey Beall", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0", 2017], // Chris Jones
@@ -258,11 +277,11 @@ export const ACTION = {
   "0034768": ["0034768-v3", "Chukwuma_Okorafor_(50695534763)_(cropped).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2020], // Chukwuma Okorafor
   "0034790": ["0034790-v5", "Derwin_James_-_2025_Commanders_at_Chargers.jpg", "All-Pro Reels", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Derwin James
   "0034836": ["0034836-v3", "Braden_Smith_at_Lambeau_Field.jpg", "Jhansen23", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0", 2024], // Braden Smith
-  "0035676": ["0035676-v3", "card:919d0a36", "", "", "", 2025], // A.J. Brown
+  "0035676": ["0035676-v4", "own:0035676.jpg", "", "", "", 0], // A.J. Brown
   "0036322": ["0036322-v3", "Jefferson_2022.jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Justin Jefferson
   "0036500": ["0036500-v3", "card:e203925b", "", "", "", 2025], // Jamien Sherwood
   "0036624": ["0036624-v3", "card:5ce83c72", "", "", "", 2021], // Alim McNeill
-  "0039172": ["0039172-v3", "card:26614a6e", "", "", "", 2025], // Jake Bates
+  "0039172": ["0039172-v4", "own:0039172.jpg", "", "", "", 0], // Jake Bates
   "0039918": ["0039918-v3", "Commanders_vs._Bears_(54857809842).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0", 2025], // Caleb Williams
   "0040663": ["0040663-v4", "Harold_Fannin_Jr._3.jpg", "Erik Drost", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0", 2026], // Harold Fannin Jr.
   "0033873": ["0033873-v3", "card:6e94ee7f", "", "", "", 2020], // Patrick Mahomes
