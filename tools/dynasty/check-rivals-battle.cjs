@@ -1,4 +1,4 @@
-// Tabletop hand and battle presentation smoke test. Firebase and external requests are disabled.
+// Baseline (Ryan Stewart) tabletop hand and battle presentation smoke test; the owner pilot is check-table.cjs. Firebase and external requests are disabled.
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), assert = require('node:assert/strict');
 const {chromium} = require('playwright');
 const root = path.resolve(__dirname, '../..');
@@ -17,7 +17,7 @@ async function main(url) {
   try {
     const ctx = await browser.newContext({viewport: {width: 390, height: 844}, serviceWorkers: 'block', reducedMotion: 'reduce'});
     await ctx.route('https://**/*', r => r.abort());
-    await ctx.addInitScript(() => { localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-release-3.0:evan', '1'); });
+    await ctx.addInitScript(() => { localStorage.setItem('gg-me', 'none'); localStorage.setItem('gg-guest', 'Ryan Stewart'); sessionStorage.setItem('gg-skip-title', '1'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-release-3.0:user%3Aryan-stewart', '1'); });
     const page = await ctx.newPage(), errors = [];
     page.on('pageerror', e => errors.push(String(e)));
     await page.goto(url + '/#/puzzles');
@@ -149,7 +149,7 @@ async function main(url) {
     for (const profile of ['mason', 'none']) {
       await page.evaluate(async profile => {
         const data = await import('/js/core/data.js'), app = await import('/js/app.js');
-        data.setMe(profile);
+        data.setGuest(''); data.setMe(profile);
         await app.nav('/puzzles/dynasty/battle/' + window.battleTestMid);
       }, profile);
       await page.waitForFunction(() => !location.hash.includes('/dynasty/battle/'));

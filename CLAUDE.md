@@ -334,3 +334,23 @@ A new tab needs its entry in `APPS` and its icon in the bar. Verify `node tools/
   completed task's changes, preserving unrelated work in progress. Ship to every user (the rule above).
 - Work on branch `claude/17-0-game-mode`, then fast-forward `main` (the live site).
 - Bump `CACHE` in `sw.js` on every deploy.
+
+
+## Rivals owner table pilot (November 4, 2026)
+
+Under the current AGENTS.md scope, `data.isOwner()` enables the hold/drag card table and cosmetics on Evan's
+existing profile only. Other profiles keep the deployed presentation and v5 games. New owner solo matches
+explicitly save rules v6; friend matches remain v5 and old v1-v5 records keep their exact rules and replay.
+`core/dynasty-table.js` builds a separate 40-card solo deck from owned cards plus eight reusable match-playbook
+Items (never added to the collection or pack pools). At least six players, at most two copies. `s.table` on the
+existing save stores the deck, chosen finish and successful pack-open count; no balances or collection are reset.
+Every defeated player counts once, including Legends; three KOs wins. An empty bench recruits a player from the
+hand/deck, then the player chooses the promotion. A 100-turn stalemate is a draw. All or Nothing is an additional
+heads-or-fail attack; the two existing attacks, automatic energy and signature costs remain.
+`views/dynasty-table-touch.js` owns pointer holds, legal drops, hand scrolling and cancellation. Tap/keyboard
+alternatives remain. Opponent face-up cards can be inspected; their hand and draw order remain hidden. Coin
+presentation reveals already-resolved seeded results and never rerolls. Table finishes unlock from solo wins,
+challenge 10, and five/twenty successful pack openings; equipment lives on the same profile save. Inspect the
+Decks tab's Solo table panel or the finish button on the table. Use `node tools/dynasty/check-table.cjs` for pure
+rules, offline real-touch browser interactions, full-match simulations, save round trips and profile boundaries;
+keep the existing rules, decks, scope, start and reveal checks passing before deployment.

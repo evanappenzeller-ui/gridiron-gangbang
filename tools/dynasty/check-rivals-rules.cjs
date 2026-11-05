@@ -148,7 +148,7 @@ function board(B, version = 3, attacker = 'pass', defender = 'anchor') {
   // Production persistence adapters must retain the rules version through cleaning, storage and reload.
   const storage = new Map(); let profile = 'm_evan';
   const localStorage = {getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k)};
-  const D = {status: 'ready', mayPlay: () => true, mine: () => ({}), deckOf: () => ({ok: true, ids: decks[0]}), CARDS: cards,
+  const D = {tableOpen: () => false, status: 'ready', mayPlay: () => true, mine: () => ({}), deckOf: () => ({ok: true, ids: decks[0]}), CARDS: cards,
     FIELD: 'dy1', autoDeck: () => decks[1], rng: () => () => .5, payBattle: () => {}, paySolo: () => null};
   const shared = {B, D, localStorage, profileKey: () => profile, setTimeout: () => 1, clearTimeout: () => {}};
   const S = loadIsolated('js/core/dynasty-solo.js', shared, ['get', 'start', 'nextMove']);

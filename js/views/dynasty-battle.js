@@ -1,3 +1,5 @@
+import {bindTableTouch} from './dynasty-table-touch.js';
+import {tableOptions} from './dynasty-table-options.js';
 // Gridiron Rivals match (/puzzles/dynasty/battle/<match id>). Rules and saved turns live in the core modules.
 // A card table (the owner, Oct 30 2026: "The gameplay is far too confusing. I want it to include the cards that are in
 // play laid out and the available cards in your hand are spread out at the bottom. Clicking on each card will show the
@@ -30,11 +32,12 @@ function evText(ev, you, opp) {
   switch (ev.k) {
     case 'setup': return `${who} lined up ${nameOf(ev.act)}${ev.bench.length ? ` with ${ev.bench.length} on the bench` : ''}.`;
     case 'draw': return mine ? `You drew ${nameOf(ev.id)}.` : '';
+    case 'reinforce': return `${who} brought ${nameOf(ev.id)} from reserves to the bench.`;
     case 'bench': return `${who} put ${nameOf(ev.id)} on the bench.`;
     case 'evolve': return `${who} evolved ${short(ev.from)} into ${D.card(ev.id) && D.card(ev.id).t ? D.card(ev.id).t : D.SERIES[(D.card(ev.id) || {}).s] ? D.SERIES[D.card(ev.id).s].name : ''} ${short(ev.id)}.`;
     case 'energy': return ev.auto ? `${mine ? 'Your' : `${opp}’s`} ${short(ev.id)} got a ${B.ENERGY[ev.e]} energy.` : `${who} gave ${short(ev.id)} a ${B.ENERGY[ev.e]} energy.`;
     case 'stadium': return `${who} played ${nameOf(ev.id)}.`;
-    case 'item': return `${who} played ${nameOf(ev.id)}${ev.got && mine ? `: ${nameOf(ev.got)}` : ''}${ev.heal ? `: healed ${ev.heal}` : ''}.`;
+    case 'item': return `${who} played ${nameOf(ev.id)}${ev.got && mine ? `: ${nameOf(ev.got)}` : ''}${ev.heal ? `: healed ${ev.heal}` : ''}${ev.energy ? `: +${ev.energy} energy` : ''}${ev.n != null ? `: drew ${ev.n} cards` : ''}.`;
     case 'retreat': return `${who} switched ${short(ev.from)} out for ${short(ev.to)}.`;
     case 'promote': return `${who} sent in ${short(ev.id)}.`;
     case 'injury': return `${short(ev.id)} took 10 from his injury.`;
@@ -50,6 +53,7 @@ function evText(ev, you, opp) {
     case 'attack': {
       let x = `${short(ev.id)}’s ${ev.name}`;
       if (ev.heads != null) x += ev.heads ? ' (heads)' : ' (tails)';
+      if (ev.failed) return `${x}: the attack fails. No damage.`;
       if (ev.missed) return `${x}: ${short(ev.target)} jukes it! No damage.`;
       x += ` hits ${short(ev.target)} for ${ev.dmg}${ev.weak ? ' (weakness)' : ''}.`;
       if (ev.strip || ev.sack) x += ' An energy is knocked off.';
@@ -61,7 +65,7 @@ function evText(ev, you, opp) {
       if (ev.jukeReduced) x += ` Juke blocks ${ev.jukeReduced}.`;
       return x;
     }
-    case 'ko': return `${short(ev.id)} is knocked out! ${ev.who === you ? opp : 'You'} score${ev.who === you ? 's' : ''} ${ev.pts === 2 ? '2 touchdowns' : 'a touchdown'}.`;
+    case 'ko': if (ev.players) return `${short(ev.id)} is knocked out. ${ev.who === you ? 'You have' : `${opp} has`} lost a player.`; return `${short(ev.id)} is knocked out! ${ev.who === you ? opp : 'You'} score${ev.who === you ? 's' : ''} ${ev.pts === 2 ? '2 touchdowns' : 'a touchdown'}.`;
     case 'over': return '';
     default: return '';
   }
@@ -89,6 +93,7 @@ function athleteHTML(id, role) {
 }
 function clearCinema(st) {
   clearTimeout(st.sceneRetry); st.sceneRetry = null;
+  clearTimeout(st.coinTimer); st.coinTimer = null;
   clearTimeout(st.sceneTimer); st.sceneTimer = null;
   st.scenes = []; st.scene = null;
   st.el.querySelector('.db-cinema')?.remove();
@@ -96,6 +101,7 @@ function clearCinema(st) {
   if (host) { host.inert = false; host.classList.remove('is-presenting'); }
 }
 function finishCinema(st) {
+  clearTimeout(st.coinTimer); st.coinTimer = null;
   clearTimeout(st.sceneTimer); st.sceneTimer = null;
   st.el.querySelector('.db-cinema')?.remove(); st.scene = null;
   if (st.dead) return;
@@ -118,6 +124,7 @@ function nextCinema(st) {
   }
   clearTimeout(st.sceneRetry); st.sceneRetry = null;
   const scene = st.scenes.shift(), ev = scene.ev, attack = ev.k === 'attack';
+  if (D.tableOpen()) { tableScene(st, scene); return; }
   const host = st.el.querySelector('[data-db]');
   if (!host.inert) st.returnFocus = document.activeElement && host.contains(document.activeElement)
     ? [...document.activeElement.attributes].filter(a => a.name.startsWith('data-db-')).map(a => [a.name, a.value])[0] : null;
@@ -165,10 +172,10 @@ function faceHTML(id, slot = null) {
 }
 /** A card on the felt (side: 'me' | 'opp'), a button that lifts it; pick: a target for the move being chosen. */
 function slotHTML(slot, side, act, {pick = false, ready = false, lifted = false} = {}) {
-  if (!slot) return `<div class="db-slot is-empty${act ? ' is-act' : ''}"><span>${act ? 'Active' : 'Bench'}</span></div>`;
+  if (!slot) return `<div data-db-drop="${side === 'me' ? act ? 'active' : 'bench' : 'none'}" class="db-slot is-empty${act ? ' is-act' : ''}"><span>${act ? 'Active' : 'Bench'}</span></div>`;
   const stats = B.stats(slot.id), hp = stats.hp, left = Math.max(0, hp - slot.dmg);
   const label = `${nameOf(slot.id)}, ${left} of ${hp} HP, ${slot.en.length} energy${slot.stun ? ', Stunned' : ''}${slot.inj ? ', Injured' : ''}${pick ? ', choose this player' : ready ? ', ready to attack' : ''}`;
-  return `<button type="button" class="db-slot${act ? ' is-act' : ''}${pick ? ' is-pick' : ''}${ready ? ' is-ready' : ''}${lifted ? ' is-lifted' : ''}${left <= hp * 0.3 ? ' is-low' : ''}" data-db-slot="${slot.u}" data-side="${side}" aria-label="${esc(label)}">`
+  return `<button type="button" class="db-slot${act ? ' is-act' : ''}${pick ? ' is-pick' : ''}${ready ? ' is-ready' : ''}${lifted ? ' is-lifted' : ''}${left <= hp * 0.3 ? ' is-low' : ''}" data-db-slot="${slot.u}" data-side="${side}" data-db-drop="${side === 'me' ? `slot:${slot.u}` : 'none'}" aria-label="${esc(label)}">`
     + faceHTML(slot.id, slot) + (ready ? '<span class="db-tag">Tap to attack</span>' : pick ? '<span class="db-tag">Choose</span>' : '') + '</button>';
 }
 /** What a hand card does when played now: {a, candidates, targeted, ok, why, label}. */
@@ -202,7 +209,7 @@ function suggestLineup(st, hand) {
 function attackButtons(st, x, slot, mine) {
   const G = x.G, stats = B.stats(slot.id), me = G.p[x.you];
   const active = mine && slot === me.active;
-  return stats.attacks.map((a, n) => {
+  return B.attacksOf(slot.id, G.v).map((a, n) => {
     const p = active ? B.attackPreview(G, x.you, n) : null;
     const missing = B.unpaid(a.cost, slot.en);
     const dmg = p ? p.damageText : `${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}`;
@@ -234,7 +241,7 @@ function focusHTML(st, x, mySlots) {
       const action = handAction(G, you, id);
       moves += btn(action.label, `data-db-play-hand${yours && action.ok && !me.promote ? '' : ' disabled'}`);
       why = !yours ? 'You can play this on your turn.' : me.promote ? 'Send in a new active player first.' : action.ok ? '' : action.why;
-      if (stats) moves = `<div class="db-moves is-info">${attackPreviewList(stats)}</div>` + moves;
+      if (stats) moves = `<div class="db-moves is-info">${attackPreviewList(stats, G.v)}</div>` + moves;
     }
   } else if (F.kind === 'slot') {
     const side = F.side === 'opp' ? op : null;
@@ -244,7 +251,7 @@ function focusHTML(st, x, mySlots) {
     const stats = B.stats(id), left = Math.max(0, stats.hp - slot.dmg);
     const ab = stats.ability ? ` · ${B.ABILITY[stats.ability].name}: ${B.abilityText(stats.ability, G.v)}` : '';
     sub = `${B.TYPES[stats.type].name} · ${left} of ${stats.hp} HP${stats.weak ? ` · Weak to ${B.TYPES[stats.weak].name}` : ''}${ab}`;
-    if (setup) {
+    if (setup && (!side || !D.tableOpen())) {
       const act = F.u === -1;
       moves = (act ? '' : btn('Make him the starter', 'data-db-lineup="promote"')) + btn('Back to hand', 'data-db-lineup="hand"', 'soft');
     } else if (side) {
@@ -276,8 +283,8 @@ function focusHTML(st, x, mySlots) {
     + '</div></div>';
 }
 // (a hand player's plays, to read before he's out)
-function attackPreviewList(stats) {
-  return stats.attacks.map(a => `<span class="db-move is-read"><span class="db-move-cost">${a.cost.map(pipHTML).join('')}</span><span class="db-move-name"><b>${esc(a.name)}</b>${B.fxText(a) ? `<small>${esc(B.fxText(a))}</small>` : ''}</span><strong>${a.dmg}<small>DMG</small></strong></span>`).join('');
+function attackPreviewList(stats, v = RV) {
+  return B.attacksOf(stats.id, v).map(a => `<span class="db-move is-read"><span class="db-move-cost">${a.cost.map(pipHTML).join('')}</span><span class="db-move-name"><b>${esc(a.name)}</b>${B.fxText(a) ? `<small>${esc(B.fxText(a))}</small>` : ''}</span><strong>${a.dmg}<small>DMG</small></strong></span>`).join('');
 }
 
 // (no app menu at the foot while you play, as on the Dynasty page: views/dynasty.js fullScreen)
@@ -295,10 +302,13 @@ function focusValid(st, x, mySlots) {
 function draw(st) {
   if (st.dead) return;
   const host = st.el.querySelector('[data-db]');
+  host.classList.toggle('is-owner-table', D.tableOpen());
   // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
   if (!D.mayPlay()) { clearCinema(st); fullScreen(st, false); host.innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
   if (D.status !== 'ready') { host.innerHTML = `<div class="db-msg">${ui.skeleton('rows', 3, {label: 'Loading the battle'})}</div>`; return; }
   const x = src(st).get(st.mid);
+  if (D.tableOpen() && st.touch?.active && st.touch.revision === x?.G?.ev.length) return;
+  st.touch?.cancel();
   const close = ui.iconButton({icon: 'close', label: 'Back to Rivals', cls: 'db-x', attrs: 'data-back'});
   if (!x || !x.G) {
     const why = !x ? 'This battle isn’t here (yet). It shows once the board has it.' : x.state === 'invite' ? `${x.opp.name} challenged you. Accept it on the Battle tab.`
@@ -307,9 +317,19 @@ function draw(st) {
     return;
   }
   st.x = x; RV = x.G.v;
+  const enhanced = D.tableOpen(), finish = enhanced ? D.tableFinish() : null;
+  host.classList.toggle('is-owner-table', enhanced);
+  if (enhanced) {
+    host.dataset.turn = x.state === 'theirs' ? 'opponent' : 'you';
+    host.dataset.finish = finish.id;
+    host.style.setProperty('--felt', finish.color); host.style.setProperty('--away', finish.away);
+  }
   const G = x.G, you = x.you, me = G.p[you], op = G.p[1 - you], over = x.state === 'over';
   const myMove = x.state === 'yours' || x.state === 'setup';
-  if (x.state === 'setup' && !st.setup.init) suggestLineup(st, me.hand);
+  if (x.state === 'setup' && !st.setup.init) {
+    if (enhanced) st.setup = {act: null, actI: -1, bench: [], benchI: [], init: true};
+    else suggestLineup(st, me.hand);
+  }
   if (!myMove) st.mode = null;
   const mode = st.mode;
   const mySlots = x.state === 'setup' ? setupSlots(st) : me;
@@ -323,10 +343,11 @@ function draw(st) {
     if (mode.k === 'retreat') return can({a: 'retreat', to: u});
     return false;
   };
-  const canAttack = x.state === 'yours' && !me.promote && me.active && B.stats(me.active.id).attacks.some((a, n) => B.check(G, you, {a: 'attack', n}).ok);
+  const canAttack = x.state === 'yours' && !me.promote && me.active && B.attacksOf(me.active.id, G.v).some((a, n) => B.check(G, you, {a: 'attack', n}).ok);
   // the status line
   let status;
-  if (over) status = `<b class="${x.result === 'w' ? 'is-w' : x.result === 'l' ? 'is-l' : ''}">${x.result === 'w' ? 'You win!' : x.result === 'l' ? 'You lose' : 'A draw'}</b> ${esc({points: 'Three touchdowns.', empty: 'No players left.', time: 'The turn limit.', resign: x.result === 'w' ? 'They resigned.' : 'You resigned.', claim: 'Left 72 hours.'}[x.why] || '')}`;
+  if (over) status = `<b class="${x.result === 'w' ? 'is-w' : x.result === 'l' ? 'is-l' : ''}">${x.result === 'w' ? 'You win!' : x.result === 'l' ? 'You lose' : 'A draw'}</b> ${esc({points: G.v >= 6 ? 'Three players knocked out.' : 'Three touchdowns.', empty: 'No players left.', time: 'The turn limit.', resign: x.result === 'w' ? 'They resigned.' : 'You resigned.', claim: 'Left 72 hours.'}[x.why] || '')}`;
+  else if (x.state === 'setup' && enhanced) status = st.setup.act ? '<b>Ready to play.</b> Add reserves to your bench, then Start.' : '<b>Choose your starter.</b> Hold a player card, then drag to Active.';
   else if (x.state === 'setup') status = st.setup.act ? '<b>Your lineup is set.</b> Tap a card to change it, then Start.' : 'Tap a Basic player in your hand to start with him.';
   else if (x.state === 'theirs') status = G.phase === 'setup' ? `Waiting for ${esc(x.opp.name)} to set up.` : x.solo ? `${esc(x.opp.name)} is playing…` : `${esc(x.opp.name)}’s turn. You’ll see it here when they move.`;
   else if (me.promote) status = '<b>Your player was knocked out.</b> Tap a bench player to send in.';
@@ -339,7 +360,7 @@ function draw(st) {
   const handHTML = hand.map(({id, i}, n) => {
     const off = n - mid, lifted = st.focus && st.focus.kind === 'hand' && st.focus.i === i;
     const playable = x.state === 'yours' && !me.promote && !mode && handAction(G, you, id).ok;
-    return `<button type="button" class="db-card${lifted ? ' is-lifted' : ''}${playable ? ' is-playable' : ''}" style="--rot:${(off * spread).toFixed(1)}deg;--lift:${Math.round(off * off * spread * 0.55)}px;--z:${n + 1}" data-db-hand="${i}" aria-label="${esc(nameOf(id))}${playable ? ', playable' : ''}">${faceHTML(id)}</button>`;
+    return `<button type="button" class="db-card${lifted ? ' is-lifted' : ''}${playable ? ' is-playable' : ''}" style="--rot:${(off * spread).toFixed(1)}deg;--lift:${Math.round(Math.min(enhanced ? 18 : Infinity, off * off * spread * 0.55))}px;--z:${n + 1}" data-db-hand="${i}" aria-label="${esc(nameOf(id))}${playable ? ', playable' : ''}">${faceHTML(id)}</button>`;
   }).join('');
   const stadium = G.stadium ? `<span class="db-stad">${ui.icon('star', {size: 13})}${esc(D.trainer(G.stadium.id).name)}</span>` : '';
   const log = G.ev.map(e => ({e, t: evText(e, you, x.opp.name)})).filter(l => l.t).slice(-1);
@@ -349,11 +370,11 @@ function draw(st) {
   const theirs = (slot, act) => slotHTML(slot, 'opp', act, {lifted: !!slot && lifted('opp', slot.u)});
   const cpu = x.solo && x.opp.cpu;
   const kicker = cpu && cpu.n ? `GAME ${cpu.n} · ${cpu.tier.name.toUpperCase()}` : x.solo ? 'SOLO MATCH' : 'FRIEND MATCH';
-  host.innerHTML = `<header class="db-top">${close}<div class="db-match-title"><small>${esc(kicker)}</small><b>${esc(x.opp.name)}</b></div><span class="db-score" aria-label="Score: you ${me.pts}, opponent ${op.pts}"><b>${me.pts}</b><i>:</i><b>${op.pts}</b><small>First to ${B.WIN_POINTS}</small></span>${ui.iconButton({icon: 'list', label: 'Battle log and options', cls: 'db-more', attrs: 'data-db-more'})}</header>`
-    + `<div class="db-table"><div class="db-opponent-hand" aria-label="${op.hand.length} cards in their hand · ${op.deck.length} in their deck">${Array.from({length: Math.min(op.hand.length, 8)}, () => '<span aria-hidden="true">R</span>').join('')}<small>${op.hand.length} in hand · ${op.deck.length} in deck</small></div>`
+  host.innerHTML = `<header class="db-top">${close}<div class="db-match-title"><small>${esc(kicker)}</small><b>${esc(x.opp.name)}</b></div><span class="db-score" aria-label="Score: you ${me.pts}, opponent ${op.pts}"><b>${me.pts}</b><i>:</i><b>${op.pts}</b><small>${G.v >= 6 ? 'KNOCKOUTS' : `First to ${B.WIN_POINTS}`}</small></span>${ui.iconButton({icon: 'list', label: 'Battle log and options', cls: 'db-more', attrs: 'data-db-more'})}</header>`
+    + `<div class="db-table">${enhanced ? `<div class="db-table-brand" aria-hidden="true">GRIDIRON <b>RIVALS</b></div><div class="db-turn-chip">${over ? 'FINAL' : x.state === 'setup' ? 'SET YOUR LINEUP' : x.state === 'theirs' ? 'OPPONENT’S TURN' : 'YOUR TURN'}</div>` : ''}<div class="db-opponent-hand" aria-label="${op.hand.length} cards in their hand · ${op.deck.length} in their deck">${Array.from({length: Math.min(op.hand.length, 8)}, () => enhanced ? '<button type="button" data-db-hidden aria-label="Opponent’s face-down card">R</button>' : '<span aria-hidden="true">R</span>').join('')}<small>${op.hand.length} in hand · ${op.deck.length} in deck</small></div>`
     + `<section class="db-side is-opp" aria-label="${esc(x.opp.name)}’s players"><div class="db-row is-bench">${[0, 1, 2].map(i => theirs(op.bench[i], false)).join('')}</div><div class="db-row is-active">${theirs(op.active, true)}</div></section>`
-    + `<div class="db-mid"><p class="db-status" aria-live="polite">${status}</p>${stadium}<button type="button" class="db-log" data-db-log aria-label="Open battle log">${log.map(l => `<span>${esc(l.t)}</span>`).join('') || '<span>First to three touchdowns wins.</span>'}</button></div>`
-    + `<section class="db-side is-me" aria-label="Your players"><div class="db-row is-active">${mine(mySlots.active, true)}</div><div class="db-row is-bench">${[0, 1, 2].map(i => mine(mySlots.bench[i], false)).join('')}</div></section></div>`
+    + `<div class="db-mid" data-db-drop="play"><p class="db-status" aria-live="polite">${status}</p>${stadium}<button type="button" class="db-log" data-db-log aria-label="Open battle log">${log.map(l => `<span>${esc(l.t)}</span>`).join('') || (G.v >= 6 ? '<span>Lose three players and the match is over.</span>' : '<span>First to three touchdowns wins.</span>')}</button></div>`
+    + `<section class="db-side is-me" aria-label="Your players"><div class="db-row is-active">${mine(mySlots.active, true)}</div><div class="db-row is-bench">${[0, 1, 2].map(i => mine(mySlots.bench[i], false)).join('')}</div></section>${enhanced ? `<div class="db-table-bottom"><button data-db-table type="button">♧ ${esc(finish.name)}</button><button data-db-pile="deck" type="button">▤ ${me.deck.length} in deck</button><button data-db-pile="discard" type="button">${me.disc.length} discarded</button></div>` : ''}</div>`
     + `<section class="db-hand-section" aria-label="Your hand: ${me.hand.length} cards, ${me.deck.length} in your deck"><div class="db-hand"><div class="db-hand-fan" style="--n:${Math.max(1, hand.length)}">${handHTML || `<span class="db-none">${x.state === 'setup' ? 'Every card is in your lineup' : 'No cards in hand'}</span>`}</div></div></section>`
     + `<footer class="db-bar">${barHTML(st, x, G, me, myMove, over, canAttack)}</footer>`
     + focusHTML(st, x, mySlots);
@@ -374,6 +395,11 @@ function draw(st) {
   // Only fresh, resolved public events are presented. Opening a saved match never replays old moves.
   const freshEvents = st.evAt == null ? [] : G.ev.slice(st.evAt);
   st.evAt = G.ev.length;
+  if (enhanced && !st.tossShown && G.phase === 'setup') {
+    st.tossShown = true;
+    st.scenes.push({ev: {k: 'toss', heads: G.first === you}, you, opp: x.opp.name});
+    nextCinema(st);
+  }
   if (!st.hidden && freshEvents.length) {
     freshEvents.filter(e => ['attack', 'bench', 'evolve', 'coach', 'item', 'stadium'].includes(e.k)).forEach(e => {
       st.scenes.push({ev: {...e}, you, opp: x.opp.name});
@@ -402,7 +428,7 @@ function barHTML(st, x, G, me, myMove, over, canAttack) {
   }
   if (x.state === 'setup') return ui.button({label: 'Start', kind: 'primary', attrs: {'data-db-ready': ''}, disabled: !st.setup.act, cls: 'db-go'});
   if (!myMove) return `<span class="db-wait">${ui.icon('clock', {size: 15})} ${x.solo ? `${esc(x.opp.name)} is playing` : 'Their move'}</span>`;
-  const hint = me.promote ? 'Send in a bench player' : 'Tap any card to see what it can do';
+  const hint = me.promote ? 'Send in a bench player' : D.tableOpen() ? 'Hold to inspect · hold + drag to play' : 'Tap any card to see what it can do';
   return `<span class="db-hint">${esc(hint)}</span>` + ui.button({label: 'End turn', kind: canAttack ? 'secondary' : 'primary', size: 's', attrs: {'data-db-end': ''}, disabled: me.promote});
 }
 
@@ -487,12 +513,13 @@ function slotTap(st, u, side) {
 }
 function endTurn(st) {
   const x = st.x, me = x.G.p[x.you];
-  const canAttack = me.active && B.stats(me.active.id).attacks.some((a, n) => B.check(x.G, x.you, {a: 'attack', n}).ok);
+  const canAttack = me.active && B.attacksOf(me.active.id, x.G.v).some((a, n) => B.check(x.G, x.you, {a: 'attack', n}).ok);
   if (!canAttack) { send(st, {a: 'end'}); return; }
   ui.actionSheet({title: 'End your turn without attacking?', cls: 'pk-sheet', actions: [{label: 'End turn', role: 'primary', value: 'y'}]}).then(v => { if (v === 'y') send(st, {a: 'end'}); });
 }
 function more(st) {
-  ui.actionSheet({title: 'Battle', cls: 'pk-sheet', actions: [{label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
+  ui.actionSheet({title: 'Battle', cls: 'pk-sheet', actions: [...(D.tableOpen() ? [{label: 'Table finishes & challenges', value: 'table'}] : []), {label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
+    if (v === 'table') tableOptions(() => draw(st));
     if (v === 'log') logSheet(st);
     if (v === 'resign') resign(st);
   });
@@ -519,6 +546,97 @@ function soloAgain(st, id) {
   st.ctx.nav(`/puzzles/dynasty/battle/${r.mid}`);
 }
 
+function hiddenCard() {
+  ui.openSheet({title: 'Opponent’s hand', body: '<p class="pk-note">These cards stay face down until played. Hold any player on the table to inspect their HP, energy and attacks.</p>', cls: 'pk-sheet', detents: ['fit']});
+}
+function pileSheet(st, kind) {
+  const side = st.x.G.p[st.x.you], ids = kind === 'deck' ? side.deck : side.disc, counts = {};
+  ids.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+  // Sort names, never expose the next draw or the opponent's hidden cards.
+  const body = `<p class="pk-note">${ids.length} cards${kind === 'deck' ? ' remaining. Draw order stays hidden.' : ' discarded.'}</p>`
+    + Object.keys(counts).sort((a,b) => nameOf(a).localeCompare(nameOf(b))).map(id => `<button type="button" class="rt-pile-card" data-rt-card="${esc(id)}">${esc(nameOf(id))}<b>×${counts[id]}</b></button>`).join('');
+  const sh = ui.openSheet({title: kind === 'deck' ? 'Your deck' : 'Discard pile', body, cls: 'pk-sheet', detents: ['large']});
+  sh.body.addEventListener('click', e => { const b = e.target.closest('[data-rt-card]'); if (b) detail(st, b.dataset.rtCard); });
+}
+function tableGestures(st) {
+  const enabled = () => D.tableOpen() && !st.dead && !st.hidden && st.x && !st.scene && !st.focus && !ui.sheetCount();
+  const valid = v => enabled() && v.mid === st.mid && v.rev === st.x.G.ev.length && st.x.G.p[st.x.you].hand[v.i] === v.id;
+  function action(v, drop) {
+    if (!valid(v) || !['setup', 'yours'].includes(st.x.state)) return null;
+    const G = st.x.G, who = st.x.you, me = G.p[who];
+    if (st.x.state === 'setup') {
+      if (!B.basicIn(v.id, G.v) || st.setup.actI === v.i || st.setup.benchI.includes(v.i)) return null;
+      if (drop === 'active' || drop === 'slot:-1') return {setup: 'act'};
+      if (drop === 'bench' && st.setup.bench.length < B.BENCH_MAX) return {setup: 'bench'};
+      return null;
+    }
+    const a = handAction(G, who, v.id);
+    if (!a.ok || me.promote) return null;
+    const on = drop.startsWith('slot:') ? Number(drop.slice(5)) : null;
+    if (a.targeted) return a.candidates.some(s => s.u === on) ? {a: a.a, id: v.id, on} : null;
+    if (a.a === 'bench') return drop === 'bench' ? {a: 'bench', id: v.id} : null;
+    return drop === 'play' ? {a: a.a, id: v.id} : null;
+  }
+  return bindTableTouch(st.el, {
+    enabled,
+    describe(card) {
+      if (card.hasAttribute('data-db-hidden')) return {hidden: true, rev: st.x.G.ev.length};
+      const G = st.x.G;
+      if (card.hasAttribute('data-db-hand')) {
+        const i = Number(card.dataset.dbHand), id = G.p[st.x.you].hand[i];
+        return {kind: 'hand', i, id, mid: st.mid, rev: G.ev.length, draggable: ['setup', 'yours'].includes(st.x.state)};
+      }
+      const u = Number(card.dataset.dbSlot), side = card.dataset.side;
+      const mine = st.x.state === 'setup' ? setupSlots(st) : G.p[st.x.you];
+      const slot = B.slots(side === 'opp' ? G.p[1 - st.x.you] : mine).find(s => s.u === u);
+      return slot ? {kind: 'slot', side, u, id: slot.id, slot, rev: G.ev.length} : null;
+    },
+    preview(v) {
+      if (v.hidden) return '<div class="db-peek-in"><div class="db-card-back">R</div><b>Opponent’s hand</b><p>Face down until played</p></div>';
+      const t = D.trainer(v.id), stats = B.stats(v.id);
+      return `<div class="db-peek-in"><div class="db-peek-card">${faceHTML(v.id, v.slot)}</div><b>${esc(nameOf(v.id))}</b><p>${esc(t?.text || `${stats.hp} HP · ${B.TYPES[stats.type].name}`)}</p>${stats ? `<div class="db-moves is-info">${attackPreviewList(stats, st.x.G.v)}</div>` : ''}<small>${v.draggable ? 'Drag to a glowing space to play · release to inspect' : 'Release to inspect · no move is played'}</small></div>`;
+    },
+    accepts: (v, drop) => !!action(v, drop),
+    drop(v, drop) { const m = action(v, drop); if (!m) return; if (m.setup) { st.focus = v; lineup(st, m.setup); } else send(st, m); },
+    inspect(v) { if (v.hidden) hiddenCard(); else lift(st, v); },
+    invalid() { ui.toast('Card returned to hand. Drop on a highlighted space to play.', {icon: 'info'}); },
+    haptic() { ui.haptic('selection'); }
+  });
+}
+
+// Coin results are already in the seeded match log. Tapping reveals, never rerolls.
+function tableScene(st, scene) {
+  st.touch?.cancel(); st.scene = scene;
+  const ev = scene.ev, toss = ev.k === 'toss';
+  const flips = ev.flips || (ev.heads != null ? [ev.heads] : ev.stunned != null ? [ev.stunned] : []);
+  const text = toss ? ev.heads ? 'Heads · You go first' : `${scene.opp} goes first · You go second` : evText(ev, scene.you, scene.opp);
+  scene.coinText = text;
+  const host = st.el.querySelector('[data-db]');
+  const el = document.createElement('section'); el.className = 'db-cinema is-table-scene';
+  el.dataset.dbScene = flips.length ? 'coin' : 'card';
+  el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', toss ? 'Opening coin toss' : 'Play result');
+  el.innerHTML = `<div class="db-event"><small>${toss ? 'OPENING COIN TOSS' : ev.who === scene.you ? 'YOUR PLAY' : 'OPPONENT’S PLAY'}</small><h2>${esc(toss ? 'Who goes first?' : ev.name || nameOf(ev.id))}</h2>`
+    + (flips.length ? `<button type="button" class="db-coin" data-db-coin aria-label="Reveal coin flip"><span>R</span></button><p data-db-coin-result>Tap the coin to flip</p><div class="db-coin-results" hidden>${flips.map(f => `<b class="${f ? 'is-heads' : 'is-tails'}">${f ? 'HEADS' : 'TAILS'}</b>`).join('')}</div>`
+      : `<div class="db-event-card">${faceHTML(ev.id)}</div><p>${esc(text)}</p>`)
+    + `<button type="button" class="db-act is-back" data-db-skip>${flips.length ? 'Skip animation' : 'Continue'}</button></div>`;
+  st.el.append(el); host.inert = true; host.classList.add('is-presenting');
+  el.querySelector('button').focus({preventScroll: true});
+  el.addEventListener('keydown', e => { if (e.key !== 'Tab') return; const btns = [...el.querySelectorAll('button:not(:disabled)')]; const next = (btns.indexOf(document.activeElement) + (e.shiftKey ? -1 : 1) + btns.length) % btns.length; e.preventDefault(); btns[next].focus(); });
+  if (flips.length) st.coinTimer = setTimeout(() => revealCoin(st), 3500);
+  else st.sceneTimer = setTimeout(() => finishCinema(st), matchMedia('(prefers-reduced-motion: reduce)').matches ? 600 : 1000);
+}
+function revealCoin(st) {
+  const el = st.el.querySelector('.is-table-scene'), coin = el?.querySelector('[data-db-coin]');
+  if (!coin || coin.disabled) return;
+  clearTimeout(st.coinTimer); coin.disabled = true; coin.classList.add('is-flipping');
+  coin.querySelector('span').textContent = st.scene.ev.heads === false ? 'T' : 'H';
+  el.querySelector('.db-coin-results').hidden = false;
+  el.querySelector('[data-db-coin-result]').textContent = st.scene.coinText;
+  el.querySelector('[data-db-skip]').textContent = 'Continue';
+  el.querySelector('[data-db-skip]').focus({preventScroll: true});
+  st.sceneTimer = setTimeout(() => finishCinema(st), 1600);
+}
+
 export default {
   id: 'dynasty-battle',
   chrome: 'none',
@@ -530,11 +648,17 @@ export default {
     const st = {el, ctx, mid: String((ctx.params && ctx.params.id) || ''), mode: null, focus: null, scenes: [], scene: null, hidden: false, setup: {act: null, actI: -1, bench: [], benchI: []}, dead: false, stops: [], evAt: null};
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
+    st.touch = tableGestures(st);
+    st.stops.push(() => st.touch.stop());
     el.addEventListener('click', e => {
       const q = s => e.target.closest(s);
       let b;
       if (q('[data-db-skip]')) { finishCinema(st); return; }
+      if (q('[data-db-coin]')) { revealCoin(st); return; }
       if (!st.x || st.scene) return;
+      if (D.tableOpen() && q('[data-db-table]')) { tableOptions(() => draw(st)); return; }
+      if (D.tableOpen() && (b = q('[data-db-pile]'))) { pileSheet(st, b.dataset.dbPile); return; }
+      if (D.tableOpen() && q('[data-db-hidden]')) { hiddenCard(); return; }
       if (q('[data-db-putback]')) { putBack(st); return; }
       if ((b = q('[data-db-details]'))) { const f = st.focus, sl = f && f.kind === 'slot' ? [...B.slots(st.x.G.p[0]), ...B.slots(st.x.G.p[1])].find(s => s.u === f.u) : null; detail(st, b.dataset.dbDetails, sl); return; }
       if ((b = q('[data-db-attack]'))) { if (!b.disabled) send(st, {a: 'attack', n: Number(b.dataset.dbAttack)}); return; }
@@ -566,6 +690,12 @@ export default {
     });
     el.addEventListener('keydown', e => {
       if (st.scene) { if (e.key === 'Escape') { e.preventDefault(); finishCinema(st); } return; }
+      if (D.tableOpen() && st.focus && e.key === 'Tab') {
+        const buttons = [...el.querySelectorAll('.db-focus button:not(:disabled)')];
+        const first = buttons[0], last = buttons.at(-1);
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
       if (st.focus && e.key === 'Escape' && !ui.sheetCount()) { e.preventDefault(); putBack(st); }
     });
     // (their moves come in with the board)
@@ -579,7 +709,7 @@ export default {
 
   onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; fullScreen(st, true); draw(st); } },
 
-  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; clearCinema(st); fullScreen(st, false); } },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; st.touch?.cancel(); clearCinema(st); fullScreen(st, false); } },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);

@@ -1,3 +1,4 @@
+import * as TABLE from './dynasty-table.js';
 // Gridiron Dynasty (the owner's ask, Oct 27 2026: "most comparable to Ultimate Team in Madden. Players can earn points to
 // open packs to unlock players. Players are based on real life [players]... inspiration [from] how MLB The Show does
 // their player cards with different types and collections"). A persistent game on Daily Games, Evan's and Ryan
@@ -128,7 +129,7 @@ export function setData(d) {
 export const card = id => BY_ID.get(id) || null;
 /** A Coach or Stadium card: {id, kind, name, r, text, ...}. */
 export const trainer = id => (B.TRAINERS[id] ? {id, ...B.TRAINERS[id]} : null);
-export const TRAINER_IDS = Object.keys(B.TRAINERS);
+export const TRAINER_IDS = Object.keys(B.TRAINERS).filter(id => !B.TRAINERS[id].vmin);
 /** Whether id is a card of the game, a player or a Coach or Stadium card. */
 export const isCard = id => !!(card(id) || B.TRAINERS[id]);
 export const attrKeys = pos => (DATA && DATA.attrs && DATA.attrs[pos]) || [];
@@ -526,6 +527,7 @@ export function clean(s) {
   // (the battles paid: the latest 200)
   Object.entries(obj(s.bt)).slice(-200).forEach(([k, v]) => { if (['w', 'l', 'd'].includes(v)) out.bt[k] = v; });
   Object.entries(obj(s.so)).slice(0, 80).forEach(([k, v]) => { if (n(v) > 0) out.so[k] = Math.min(9999, n(v)); });
+  if (s.table) out.table = TABLE.clean(s.table);
   fold(out);
   return out;
 }
@@ -781,6 +783,7 @@ export function open(kind, {team = null, free = unlimited()} = {}, s = mine()) {
   s.lp = [...ids.slice().reverse(), ...s.lp].slice(0, 24);
   // (the Starter Pack's players make a deck that isn't ready: a new Dynasty's first)
   if (PACKS[kind].starter && !B.checkDeck(s.dk, s.o).ok) s.dk = autoDeck(s.o);
+  if (data.isOwner()) { s.table = TABLE.clean(s.table); s.table.packs++; }
   touch('open');
   return {ok: true, cards: ids, dup};
 }
@@ -908,4 +911,20 @@ export function others(docs = daily.LB.raw || [], {withMe = false} = {}) {
       tr: s.tr, cards: Object.keys(s.o).filter(isCard).length, cols: Object.keys(s.cl).length, rec: s.rec, at: s.at, deck: B.checkDeck(s.dk, s.o).ok});
   });
   return out.sort((a, b) => b.tr - a.tr || b.cards - a.cards || a.name.localeCompare(b.name));
+}
+
+// Owner-only solo table loadout and cosmetics. Collection and friend deck stay intact.
+export const tableOpen = () => data.isOwner();
+export const tableDeck = (s = mine()) => TABLE.deck(s);
+export function setTableDeck(ids, s = mine()) {
+  if (!tableOpen()) return {ok: false, why: 'This table is not available on this profile.'};
+  const result = TABLE.check(ids, s);
+  if (result.ok) { s.table = {...TABLE.clean(s.table), deck: ids.slice()}; touch('table'); }
+  return result;
+}
+export const tableFinishes = (s = mine()) => TABLE.finishes(s);
+export function tableFinish(s = mine()) { return tableFinishes(s).find(f => f.id === s.table?.finish && f.unlocked) || TABLE.FINISHES[0]; }
+export function setTableFinish(id, s = mine()) {
+  if (!tableOpen() || !tableFinishes(s).some(f => f.id === id && f.unlocked)) return false;
+  s.table = {...TABLE.clean(s.table), finish: id}; touch('table'); return true;
 }

@@ -191,10 +191,11 @@ async function reducedPass(page, order) {
 
 async function run(url) {
   const {chromium} = require('playwright');
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || undefined});
   try {
     for (const pass of ['timed', 'skip', 'deadtap', 'reduced']) {
       const context = await browser.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2, serviceWorkers: 'block', reducedMotion: pass === 'reduced' ? 'reduce' : 'no-preference'});
+      await context.route('https://**/*', route => route.abort());
       await context.addInitScript(() => {
         localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-release-3.0:evan', '1');
       });

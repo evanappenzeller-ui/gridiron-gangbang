@@ -1,3 +1,4 @@
+import * as TABLE from './dynasty-table.js';
 // Gridiron Rivals' Solo battles against the computer. Since Oct 30 2026 (the owner: "This game mode should be focused on
 // games against the cpu getting increasingly difficult. The beginning stage should be very easily with very little
 // challenge. And around 15-20 games in there is a noticeable difference, where strategy must be applied to win") they are
@@ -150,7 +151,7 @@ export function deckFor(id, yours = 'A') {
 // (rules before v4), a Coach card that helps now, its Stadium, a switch-out when the active player is about to fall, and
 // an attack. A low ladder game keeps it simple and slips (now and then it ends its turn without attacking); the Pro games
 // and up play everything they hold and hunt knockouts.
-const atkOf = id => (B.stats(id) ? B.stats(id).attacks : []);
+const atkOf = (id, v) => B.attacksOf(id, v);
 const best = id => Math.max(0, ...atkOf(id).map(a => a.dmg));
 const left = s => B.hpOf(s) - s.dmg;
 const needsEnergy = s => { const a = atkOf(s.id); return a.length && !B.canPay(a[a.length - 1].cost, s.en); };
@@ -181,6 +182,12 @@ export function nextMove(G, who, lv = 'int') {
   const tryAll = list => list.find(ok) || null;
   // Items
   let m;
+  if (G.v >= 6 && act) {
+    if (me.hand.includes('I-charge') && needsEnergy(act)) return {a: 'item', id: 'I-charge', on: act.u};
+    if (me.hand.includes('I-draw') && me.hand.length < 7 && me.deck.length) return {a: 'item', id: 'I-draw'};
+    if (K.items && me.hand.includes('I-recover') && act.dmg >= 30) return {a: 'item', id: 'I-recover', on: act.u};
+    if (K.items && me.hand.includes('I-focus') && atkOf(act.id, G.v).some((a,n) => ok({a:'attack',n}))) return {a: 'item', id: 'I-focus'};
+  }
   if (K.items && me.hand.includes('I-recruit') && me.bench.length < K.bench && me.deck.some(basic) && (m = tryAll([{a: 'item', id: 'I-recruit'}]))) return m;
   const hurt = all.filter(s => s.dmg >= 20).sort((x, y) => (y === act) - (x === act) || y.dmg - x.dmg);
   if (K.items && me.hand.includes('I-water') && hurt.length && (m = tryAll([{a: 'item', id: 'I-water', on: hurt[0].u}]))) return m;
@@ -227,7 +234,7 @@ export function nextMove(G, who, lv = 'int') {
   // an attack: the first it can pay (the lowest games, which now and then let the turn go by), the hardest-hitting, or
   // (smart) a knockout first, else the best value for the energy
   if (act) {
-    const opts = atkOf(act.id).map((a, n) => {
+    const opts = atkOf(act.id, G.v).map((a, n) => {
       if (G.v < 3) return {n, dmg: a.dmg};
       const p = B.attackPreview(G, who, n);
       return {n, dmg: p.min, score: (p.min + p.max) / 2 - p.energySpent * 15};
@@ -264,7 +271,7 @@ function write() { try { if (REC) localStorage.setItem(KEY(), JSON.stringify(REC
 function game(r) {
   if (CACHE && CACHE.id === r.id && CACHE.n === r.log.length) return CACHE.G;
   // Older solo saves had no version and always used v2. Never reinterpret their recorded moves.
-  const G = B.newGame(r.seed, r.decks, r.v >= 5 ? 5 : r.v >= 4 ? 4 : r.v >= 3 ? 3 : 2);
+  const G = B.newGame(r.seed, r.decks, r.v >= 6 ? 6 : r.v >= 5 ? 5 : r.v >= 4 ? 4 : r.v >= 3 ? 3 : 2);
   for (const [w, m] of r.log) { if (!B.play(G, w, m).ok) break; }
   CACHE = {id: r.id, n: r.log.length, G};
   return G;
@@ -298,11 +305,11 @@ export function start(id) {
   const o = opponent(id);
   if (!o || !D.mayPlay() || D.status !== 'ready') return {ok: false, why: 'Solo battles aren’t open here.'};
   if (ladderN(id) && !unlocked(id)) return {ok: false, why: `Win game ${ladderAt()} first.`};
-  const dk = D.deckOf();
+  const table = D.tableOpen(), dk = table ? D.tableDeck() : D.deckOf();
   if (!dk.ok) return {ok: false, why: `Your deck isn’t ready: ${dk.why}`};
   rec();
   const mid = 'cpu' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
-  REC = {id: mid, opp: o.id, seed: mid, v: B.RULES_VERSION, decks: [dk.ids.slice(), deckFor(o.id, mainType(dk.ids))], log: [], at: Date.now(), z: '', paid: 0, pay: null};
+  REC = {id: mid, opp: o.id, seed: mid, v: table ? TABLE.VERSION : B.RULES_VERSION, decks: [dk.ids.slice(), table ? TABLE.cpuDeck(deckFor(o.id, mainType(dk.ids)), D.CARDS.map(c => c.id)) : deckFor(o.id, mainType(dk.ids))], log: [], at: Date.now(), z: '', paid: 0, pay: null};
   CACHE = null; clearTimeout(timer); timer = 0;
   // (the computer sets up at once)
   const G = game(REC), m = nextMove(G, 1, o.lv);
