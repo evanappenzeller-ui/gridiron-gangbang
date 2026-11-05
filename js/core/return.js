@@ -680,7 +680,7 @@ export function move(run, dir) {
 }
 /** How far behind you the linebacker is now, in yards (CHASE): near at the catch, running up on you from where he was
  *  just after a hit (near runUp s on), falling back to edge while he's on you, then out of sight (far) once he's lost.
- *  The shared hard course keeps him at the edge until a revival; the owner outruns him after four seconds. */
+ *  The shared hard course keeps him at the edge until a revival; the owner loses him after four seconds plus his visible retreat. */
 export function gapOf(run) {
   if (!run) return CHASE.far;
   if (run.over && run.why === 'caught') return .6;
@@ -692,7 +692,7 @@ export function gapOf(run) {
 }
 /** Whether the linebacker is on you now (at the catch, or a hit ago, and not lost yet, or still in the picture as he
  *  falls away): a hit now is a tackle. */
-export const chasing = run => !!run && !run.over && (run.t - run.hitAt < CHASE.window || (!run.co.enhanced && gapOf(run) < CHASE.seen));
+export const chasing = run => !!run && !run.over && (run.t - run.hitAt < CHASE.window || gapOf(run) < CHASE.seen);
 // Grace prevents duplicate contact with the same obstacle, not a free pass through the next one.
 function sameCollision(a, b) {
   return !!a && (b.plat ? a.plat === b.plat : b.row ? a.row === b.row && a.lane === b.lane : !!b.edge && a.edge === b.edge);
@@ -753,7 +753,7 @@ export function hitLine(what) {
 function sub(run, dt, out) {
   const co = run.co, v0 = speedAt(run.z, co.hard), v = v0 * (1 - CHASE.slowBy * run.slow / CHASE.slow) * (1 + burstOf(run));
   run.t += dt; run.z += v * dt; run.yards += v * dt * multiplierOf(run);
-  if (co.enhanced && run.stumblePending && run.t - run.hitAt >= CHASE.window) clearStumble(run);
+  if (co.enhanced && run.stumblePending && !chasing(run)) clearStumble(run);
   // (his strides: a yard a yard up to STRIDE_V, longer past it, so his legs never spin faster than they do at a sprint)
   run.steps += run.co.enhanced ? (flying(run) ? 0 : strideRate(v) * dt) : v * dt * Math.min(1, STRIDE_V / v0);
   if (co.enhanced) run.chaseSteps += strideRate(v) * dt;

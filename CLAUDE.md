@@ -47,8 +47,11 @@ and a stumble (software-GPU timings are diagnostic, not a phone frame-rate guara
 All active boosts give 2x yards, never stacking above 2x: salts during its burst, pills, booze and flight.
 Stored salts remain an extra life after the burst. `surfaceAt` includes moving vehicle roofs, used by descent,
 ground support, jumps, camera and poses. Landing on a roof ends flight at contact; the roof stays solid afterward.
-The enhanced runner's first stumble starts a four-second pursuit; a second hit inside it tackles, while four
-clean seconds reset it. The chaser uses the same run clip, stride rate, bounce and lean as the runner.
+The enhanced runner's first stumble starts a four-second pursuit, then the chaser retreats. The pursuit stays
+lethal until he leaves the screen; its visible retreat is not a grace period. A new unprotected ground-obstacle
+impact while he is visible ends the owner's run. Evan explicitly kept the existing power-up protection:
+painkillers, stored salts, flight clearance and safe roof landings remain unchanged. Duplicate contact with
+the same obstacle still counts once. The chaser uses the runner's run clip, stride rate, bounce and lean.
 Other profiles retain the shared deployed scoring, launch and chase rules. Keep the existing regression checks
 and the new start-screen, roof-landing, multiplier and pursuit cases in `check-motion.cjs` passing.
 

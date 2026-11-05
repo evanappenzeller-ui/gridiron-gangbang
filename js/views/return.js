@@ -85,7 +85,7 @@ function keysHTML(hard) {
     + k('is-dn', '↓', 'Slide under a banner')
     + k('is-ramp', '◢', hard ? 'Run up a ramp onto the roofs. Head on into a bus: down' : 'Run up a ramp onto the roofs')
     + (data.isOwner() ? k('is-train', '↔', 'Incoming trains: change lanes to dodge') : '')
-    + k('is-chase', '!', data.isOwner() ? 'After a stumble, stay clean for 4 seconds to outrun the chaser' : hard ? 'The linebacker starts close. After a stumble, your next unprotected hit tackles you—even after a clean stretch' : 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
+    + k('is-chase', '!', data.isOwner() ? 'While the chaser is visible, your next unprotected hit ends the run. Stay clean until he leaves the screen' : hard ? 'The linebacker starts close. After a stumble, your next unprotected hit tackles you—even after a clean stretch' : 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
     + pw('salts', 'Smelling salts', hard ? '10-second speed burst + extra life' : 'Speed burst + extra life')
     + pw('pills', 'Painkillers', hard ? 'Hit anything, no stumble' : 'Feel nothing')
@@ -147,7 +147,7 @@ function cardHTML(st) {
       + `<button type="button" class="rm-start-play" data-rm-go${st.goOn3D ? ' disabled aria-busy="true"' : ''}>${st.goOn3D ? 'GETTING READY…' : 'PLAY!'}<span>${R.testing() ? 'Practice · unlimited runs' : 'One return. Make it count.'}</span></button>`
       + '<div class="rm-start-menu"><details class="rm-start-help"><summary>HOW TO PLAY</summary>'
       + '<ul class="rm-start-controls"><li><b>← →</b> Swipe to change lanes</li><li><b>↑</b> Jump onto roofs</li><li><b>↓</b> Slide under obstacles</li></ul>'
-      + '<p>All boosts give 2× points. With a jetpack, swipe to barrel roll through coins. After a stumble, stay clean for 4 seconds to outrun the chaser.</p></details>'
+      + '<p>All boosts give 2× points. With a jetpack, swipe to barrel roll through coins. While the chaser is visible, your next unprotected hit ends the run. Stay clean until he leaves the screen.</p></details>'
       + '<button type="button" data-rm-sb>SCOREBOARD</button></div>'
       + `<p class="rm-start-date">${esc(R.dayLabel(st.n))}${R.testing() ? ' · Scores are not posted' : ''}</p></div>`;
   }

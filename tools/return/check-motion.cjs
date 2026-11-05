@@ -30,7 +30,7 @@ async function main() {
           const file = path.resolve(root, '.' + decodeURIComponent(url.pathname)), rel = path.relative(root, file);
           assert(!rel.startsWith('..') && !path.isAbsolute(rel));
           body = fs.readFileSync(file);
-          if (url.pathname === '/js/views/return.js') body += '\nexport {runner3, runnerAnim, chaser3, draw, patchHud, frame, onEvents};';
+          if (url.pathname === '/js/views/return.js') body += '\nexport {runner3, runnerAnim, chaser3, chaserAt, draw, patchHud, frame, onEvents};';
           if (url.pathname === '/js/views/return-3d.js') body += '\nexport {GL};';
           if (url.pathname === '/js/views/return-3dworld.js') body += '\nexport {LIVE};';
         }
@@ -201,17 +201,54 @@ async function main() {
           r.booze = r.pills = r.burst = r.jetpack = 0; ok(R.multiplierOf(r) === 1, 'stored salts alone are not a timed boost');
         }
       });
-      test('A stumble brings a four-second chase, then a clean run resets it', () => {
+      test('A stumble stays lethal until the visible chaser finishes retreating', () => {
         const hit = r => { r.co.rows.push({i: r.co.rows.length, z: r.z + .01, lanes: [null, 'hurdle', null]}); return tick(r, .02); };
         const r = empty(); ok(hit(r).some(e => e.type === 'stumbled'), 'first hit is a stumble');
         tick(r, 3.8); ok(R.chasing(r) && R.gapOf(r) < R.CHASE.seen, 'chaser stays for four seconds');
         const near = empty(); hit(near); tick(near, 3.7); ok(hit(near).some(e => e.type === 'tackled'), 'second hit inside window tackles');
-        tick(r, .3); ok(!R.chasing(r) && !r.stumblePending, 'four seconds clears chase');
-        tick(r, .6); ok(R.gapOf(r) >= R.CHASE.seen, 'chaser recedes out of view');
+        tick(r, .3); ok(R.chasing(r) && r.stumblePending && R.gapOf(r) < R.CHASE.seen, 'chase remains lethal while visibly retreating');
+        tick(r, .6); ok(!R.chasing(r) && !r.stumblePending && R.gapOf(r) >= R.CHASE.seen, 'only leaving the screen clears the chase');
         ok(hit(r).some(e => e.type === 'stumbled') && !r.over, 'later hit starts a new pursuit');
         const clean = empty(); tick(clean, 1);
         const st = {run: clean, mode: 'run'}, main = V.runner3(st, 10000), chase = V.chaser3(st, 10000, clean.z - 3);
         ok(main.move === chase.move && main.phase === chase.phase && main.lift === chase.lift && main.pitch === chase.pitch, 'same running clip, stride, bounce and lean');
+      });
+      test('Every distinct unprotected obstacle hit with a visible chaser ends the owner run', () => {
+        const rowHit = (r, ob = 'hurdle') => { r.co.rows.push({i:r.co.rows.length,z:r.z+.01,lanes:[null,ob,null],th:'stadium'}); return tick(r,.02); };
+        for (const dt of [1/30,1/60,1/120]) for (const elapsed of [.2,1,3.9,4.02,4.1,4.2]) for (const kind of ['hurdle','bar','hole','low vehicle','vehicle side','edge']) {
+          const r=empty(); rowHit(r); tick(r,Math.max(0,elapsed-(r.t-r.hitAt)),dt);
+          const st={run:r,camZ:r.z-7,lag:0,dt,mode:'run'};
+          ok(V.chaserAt(st)!==null, 'chaser visible before '+kind+' at '+elapsed);
+          let events;
+          if (['hurdle','bar','hole'].includes(kind)) events=rowHit(r,kind);
+          else if (kind==='edge') { r.lane=0; r.x=R.xOf(r,0); R.move(r,'left'); events=tick(r,.02,dt); }
+          else {
+            const side=kind==='vehicle side', p={lane:side?0:1,kind:'bench',part:0,z0:side?r.z-1:r.z+.01,z1:r.z+8,h:side?R.HIGH_H:R.LOW_H,b:0,ramp:0,hi:side};
+            r.co.sets=[{i:0,zs:p.z0,ze:p.z1,plats:[p]}];
+            if(side) R.move(r,'left'); events=tick(r,.02,dt);
+          }
+          ok(r.over && events.some(e=>e.type==='tackled') && r.hits===1, kind+' must tackle, not give another stumble, at '+elapsed+' / '+dt);
+        }
+        const r=empty(); rowHit(r); ok(r.grace>0,'inside duplicate-contact grace');
+        ok(rowHit(r,'bar').some(e=>e.type==='tackled') && r.over,'a distinct obstacle is never ignored by grace');
+      });
+      test('Visible-chaser hits preserve painkillers and stored salts; duplicate contacts still count once', () => {
+        const hit = r => { r.co.rows.push({i:r.co.rows.length,z:r.z+.01,lanes:[null,'hurdle',null]}); return tick(r,.02); };
+        for (const elapsed of [.8,4.1]) for (const boost of ['pills','salts','booze','burst','shield','combined']) {
+          const r=empty(); hit(r); tick(r,elapsed);
+          if(boost==='combined') Object.assign(r,{pills:6,salts:2,booze:6,burst:10,shield:1}); else r[boost]=boost==='salts'?2:6;
+          const salts=r.salts, events=hit(r);
+          if (boost==='pills' || boost==='combined') ok(!r.over && r.salts===salts && events.some(e=>e.type==='trucked'),'painkillers keep their protection without spending salts');
+          else if (boost==='salts') {
+            ok(!r.over && r.salts===salts-1 && events.some(e=>e.type==='revived'),'one stored life saves the collision');
+            ok(hit(r).some(e=>e.type==='revived') && r.salts===0 && !r.over,'second stored life saves a second collision');
+            ok(hit(r).some(e=>e.type==='tackled') && r.over,'without salts the very next collision tackles');
+          } else ok(r.over && events.some(e=>e.type==='tackled'),boost+' is not obstacle protection');
+        }
+        const r=empty(); r.lane=0; r.x=R.xOf(r,0); R.move(r,'left'); tick(r,.02);
+        tick(r,.2); ok(R.gapOf(r)<R.CHASE.seen && r.grace>0,'visible chaser during edge-contact grace');
+        R.move(r,'left'); const repeated=tick(r,.02);
+        ok(!r.over && r.hits===1 && repeated.some(e=>e.type==='shoved'),'holding against the same edge is still one contact');
       });
       test('Jetpack descent lands on moving roofs, stays supported, and permits a roof jump', () => {
         for (const dt of [1 / 30, 1 / 120]) {
