@@ -164,7 +164,7 @@ async function main(url) {
       assert.equal(await page.locator('.db-cinema, .db-hand-fan').count(), 0, profile + ' cannot see a battle presentation');
     }
     assert.deepEqual(errors, []);
-    console.log('PASS Rivals table: ladder lock, suggested lineup, a tapped card's details sheet (no Put back), automatic energy, attacks from the details sheet, scene and skip, repeat-action guard, responsive widths, profile boundaries.');
+    console.log('PASS Rivals table: ladder lock, suggested lineup, a tapped card’s details sheet (no Put back), automatic energy, attacks from the details sheet, scene and skip, repeat-action guard, responsive widths, profile boundaries.');
     await ctx.close();
   } finally { await browser.close(); }
 }
