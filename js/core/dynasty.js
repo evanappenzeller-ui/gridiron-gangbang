@@ -1,9 +1,9 @@
 import * as TABLE from './dynasty-table.js';
 // Gridiron Dynasty (the owner's ask, Oct 27 2026: "most comparable to Ultimate Team in Madden. Players can earn points to
 // open packs to unlock players. Players are based on real life [players]... inspiration [from] how MLB The Show does
-// their player cards with different types and collections"). A persistent game on Daily Games, Evan's and Ryan
-// Stewart's alone (Oct 28 2026: "Make available to Evan and Ryan Stewart's profiles only"; core/features.js
-// dynastyOpen): no one else's phone plays it or posts to it, and only their Dynasties show (others()).
+// their player cards with different types and collections"). A persistent game on Daily Games for Evan, Ryan
+// Stewart and Jayton (core/features.js dynastyOpen): only approved profiles play or post to it, and only
+// their Dynasties show (others()).
 //
 // The cards (data/dynasty.json, tools/dynasty/build.py): real NFL players from nflverse, in six series after The Show's
 // card types: Live Series (every active player, OVR from his 2025 and 2026 play), Rookie, Prime, Gameday (a week's best
@@ -32,7 +32,7 @@ import * as daily from './daily.js';
 import * as data from './data.js';
 import {profileKey, visitWho} from './realm-active.js';
 import * as B from './dynasty-battle.js';
-import {dynastyOpen, dynastyKey, packsUnlimited} from './features.js';
+import {dynastyOpen, dynastyKey, packsUnlimited, coinsUnlimited} from './features.js';
 import {REAL} from './dynasty-real.js';
 import {ACTION} from './dynasty-action.js';
 
@@ -43,7 +43,7 @@ export const STARTER_COINS = 2500;
 export const DAILY_PACK = 'std';
 const LOCAL = key => `gg-dy1-${key}`;
 
-/** Whether this phone can play: Evan's profile or Ryan Stewart's (core/features.js dynastyOpen, Oct 28 2026). */
+/** Whether this phone's selected profile can play (core/features.js dynastyOpen). */
 export const mayPlay = () => dynastyOpen();
 
 // ---------------------------------------------------------------------------------------------------- the cards
@@ -752,8 +752,11 @@ export function earned(s = mine(), force = false) {
   }
   return EARNED;
 }
-export const balance = (s = mine()) => Math.max(0, STARTER_COINS + earned(s).total + s.cr - s.sp);
-const spend = (s, n) => { if (balance(s) < n) return false; s.sp += n; return true; };
+/** Unlimited coins follow the selected profile, never a saved balance or display name. */
+export const unlimitedCoins = () => coinsUnlimited(profileKey());
+// Infinity is computed only; saved credits/spending remain finite and retain existing progress.
+export const balance = (s = mine()) => unlimitedCoins() ? Infinity : Math.max(0, STARTER_COINS + earned(s).total + s.cr - s.sp);
+const spend = (s, n) => { if (unlimitedCoins()) return true; if (balance(s) < n) return false; s.sp += n; return true; };
 const credit = (s, n) => { s.cr += Math.max(0, Math.round(n)); };
 const addCard = (s, id) => { s.o[id] = (s.o[id] || 0) + 1; };
 const addPacks = (s, packs) => Object.entries(packs || {}).forEach(([k, n]) => { if (RETIRED[k]) { n *= RETIRED[k]; k = 'prem'; } if (PACKS[k]) s.pk[k] = (s.pk[k] || 0) + n; });

@@ -8,9 +8,9 @@ export const available = () => true;
 // This rollout is independent of owner privileges and other games' pilots.
 export const returnManUpdated = () => true;
 
-// Gridiron Dynasty is Evan's and Ryan Stewart's alone (Evan, Oct 28 2026: "Make available to Evan and Ryan Stewart's
-// profiles only"): by their stable ids, his member id and Ryan Stewart's app-user id (data.js USERS), never a typed name.
-export const DYNASTY = Object.freeze({members: Object.freeze([data.OWNER]), users: Object.freeze(['ryan-stewart'])});
+// Gridiron Rivals (internal name Dynasty): Evan and Ryan Stewart (Oct 28 2026), plus Jayton
+// (owner-approved Nov 5 2026). Access follows stable member/app-user ids, never a typed display name.
+export const DYNASTY = Object.freeze({members: Object.freeze([data.OWNER, 'jayton']), users: Object.freeze(['ryan-stewart'])});
 /** Whether a profile may play Gridiron Dynasty (member: a league member's id; user: an app user, data.user()). */
 export const dynastyOpen = (member = data.me(), user = member ? null : data.user()) =>
   member ? DYNASTY.members.includes(member) : !!user && DYNASTY.users.includes(user.id);
@@ -20,3 +20,6 @@ export const dynastyKey = key => DYNASTY.members.some(m => key === 'm_' + m) || 
 // without buying it or holding one, by the same ids. A saved profile key (m_<member>, u_<app user>).
 export const PACKS_UNLIMITED = Object.freeze({members: Object.freeze([data.OWNER]), users: Object.freeze(['ryan-stewart'])});
 export const packsUnlimited = key => PACKS_UNLIMITED.members.some(m => key === 'm_' + m) || PACKS_UNLIMITED.users.some(u => key === 'u_' + u);
+
+// Jayton's unlimited Rivals coins (owner-approved Nov 5 2026), independent of unlimited packs and owner tools.
+export const coinsUnlimited = key => key === 'm_jayton';

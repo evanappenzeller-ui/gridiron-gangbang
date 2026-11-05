@@ -146,15 +146,22 @@ How it's enforced, and what to keep doing:
   a pack's cards revealed by rarity, Oct 29 2026: "The more rare the player, the more exciting the animation",
   `views/dynasty-open.js` `REVEAL`/`revealOf`, ◆ dealt to ♛ with the crown, rays, flash, sparks and confetti, verify
   `node tools/dynasty/check-reveal.cjs`):
-  Evan's and Ryan Stewart's alone (Oct 28 2026: "Make available to
-  Evan and Ryan Stewart's profiles only"). `js/core/features.js` `DYNASTY` / `dynastyOpen()` / `dynastyKey()` hold it, by
-  his member id and Ryan Stewart's app-user id (`ryan-stewart`), never a typed name: the Daily Games case (`games.js`
+  Evan's, Ryan Stewart's and Jayton's (Jayton added November 5, 2026 by the owner).
+  `js/core/features.js` `DYNASTY` / `dynastyOpen()` / `dynastyKey()` hold it, by
+  the member ids (`evan`, `jayton`) and Ryan Stewart's app-user id (`ryan-stewart`), never a typed name: the Daily Games case (`games.js`
   ONLY), the routes, `mayPlay()` (saving), who can be challenged and the board all go by them. Don't open it to anyone
   else unless he says so.
   Each profile's save rides on its board doc as `dy1[profileKey]`, its side of each battle as `dyb[profileKey][matchId]`;
   its Dynasty board, who can be challenged and the other side of a battle read `daily.LB.raw` (`others()`, `list()`),
   never `LB.all` (that only finds your own saved copies, as Keepfall does). Its coins come from the Daily Games' results
   on your board docs (`earnedOf`). The kit checks "Gridiron Dynasty…" (`js/core/checks-dynasty.js`) cover it.
+
+Jayton's admin and Rivals access (November 5, 2026): the owner requested Jayton become an admin and receive
+Rivals access with unlimited coins. `core/lay.js` `ADMINS` includes his existing member id `jayton`, allowing
+him to enter, edit or remove any member's leg even after closing. `features.coinsUnlimited('m_jayton')`
+gives his Rivals wallet unlimited spending; Infinity is computed for display, never saved, and purchases leave
+his existing credits/spending intact. Evan and Ryan Stewart keep their existing unlimited packs. Owner-only
+tools and Rivals pilots still use `data.isOwner()`; Jayton is not an owner. Verify `node tools/dynasty/check-access.cjs`.
 
 ## Keepfall asset refresh: preserve current progress
 

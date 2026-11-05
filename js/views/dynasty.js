@@ -42,7 +42,7 @@ export const headUrl = (h, w = 300) => {
 // (a real card that won't load gives way to the headshot it carries, else to the window beneath: a Legend's number)
 const REAL_FAIL = "if(this.dataset.alt){this.className='pk-c-ph';this.src=this.dataset.alt;this.removeAttribute('data-alt')}else this.remove()";
 export const logoUrl = (abbr, w = 80) => `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${String(D.teamOf(abbr).espn || abbr).toLowerCase()}.png&w=${w}&h=${w}`;
-const coinHTML = n => `<span class="pk-coin-n"><i class="pk-coin" aria-hidden="true"></i><b>${nf(n)}</b><span class="sr-only"> coins</span></span>`;
+const coinHTML = n => `<span class="pk-coin-n"${n === Infinity ? ' aria-label="Unlimited coins"' : ''}><i class="pk-coin" aria-hidden="true"></i><b>${nf(n)}</b><span class="sr-only"> coins</span></span>`;
 
 // ---------------------------------------------------------------------------------------------------- energy symbols
 // Each Play Call's symbol, as Pokémon's energy symbols: Pass (a football in flight), Run (a cleat's chevrons), Blitz (a
@@ -438,7 +438,8 @@ function artTo(st, to, dir) {
 function earnSheet() {
   const s = D.mine(), E = D.earned(s);
   const rows = Object.keys(D.PAY).map(g => `<li><span><b>${esc(D.GAME_NAME[g])}</b><small>${esc(D.PAY_WORDS[g])}</small></span><em>${E.today[g] ? '+' + nf(E.today[g]) : '–'}</em></li>`).join('');
-  const body = `<p class="pk-note">Coins open packs. The Daily Games pay them: each game’s first finished result of the day, from the day your Rivals began. You’ve earned ${nf(E.total)} from ${E.days} game${E.days === 1 ? '' : 's'}.</p>`
+  const body = (D.unlimitedCoins() ? '<p class="pk-note">You have unlimited coins. Pack purchases leave your earned coins untouched.</p>' : '')
+    + `<p class="pk-note">Coins open packs. The Daily Games pay them: each game’s first finished result of the day, from the day your Rivals began. You’ve earned ${nf(E.total)} from ${E.days} game${E.days === 1 ? '' : 's'}.</p>`
     + `<ul class="pk-list">${rows}</ul>`
     + `<p class="pk-note">You also get a free Standard Pack every day, Epic Packs for Solo milestones and collection rewards, ${nf(D.BATTLE_PAY.w.coins)} coins for a battle won (${nf(D.BATTLE_PAY.l.coins)} for a loss), coins for quick-selling cards, and collection rewards. Every pack opened gives ${D.PP_PER_PACK} pack points, to trade for a card you don’t have.</p>`;
   ui.openSheet({title: 'Coins', body, cls: 'pk-sheet', detents: ['large']});
