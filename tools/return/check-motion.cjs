@@ -21,7 +21,7 @@ async function main() {
     await context.route('**/*', async route => {
       const url = new URL(route.request().url());
       if (url.origin !== origin) { external.push(url.href); return route.abort(); }
-      if (url.pathname === '/check') return route.fulfill({contentType: 'text/html', body: '<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/css/views/return.css"><style>body{margin:0;background:#112333;font-family:system-ui;color:white}.rm-pane{width:430px}.rm-stage{height:820px!important;max-height:none!important}.rm-card{display:none!important}</style><main class="rm-pane"></main>'});
+      if (url.pathname === '/check') return route.fulfill({contentType: 'text/html', body: '<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/css/tokens.css"><link rel="stylesheet" href="/css/base.css"><link rel="stylesheet" href="/css/components.css"><link rel="stylesheet" href="/css/views/return.css"><style>body{margin:0;background:#112333;font-family:system-ui;color:white}.rm-pane{width:430px}.rm-stage{height:820px!important;max-height:none!important}</style><main class="rm-pane"></main>'});
       if (url.pathname === '/js/app.js') return route.fulfill({contentType: 'text/javascript', body: 'export const APP_VERSION="offline-check", installEvent=null; export async function promptInstall(){return false;}'});
       try {
         let body;
@@ -30,7 +30,7 @@ async function main() {
           const file = path.resolve(root, '.' + decodeURIComponent(url.pathname)), rel = path.relative(root, file);
           assert(!rel.startsWith('..') && !path.isAbsolute(rel));
           body = fs.readFileSync(file);
-          if (url.pathname === '/js/views/return.js') body += '\nexport {runner3, runnerAnim, draw, patchHud, frame};';
+          if (url.pathname === '/js/views/return.js') body += '\nexport {runner3, runnerAnim, chaser3, draw, patchHud, frame, onEvents};';
           if (url.pathname === '/js/views/return-3d.js') body += '\nexport {GL};';
         }
         return route.fulfill({contentType: mime[path.extname(url.pathname)] || 'application/octet-stream', body});
@@ -76,7 +76,7 @@ async function main() {
       D.setGuest(null); D.setMe('evan');
       test('Owner stride covers more ground per cycle and remains capped under salts', () => {
         const a = empty(), b = empty(); b.co.enhanced = false; a.burst = b.burst = 10;
-        tick(a, 1); tick(b, 1); ok(a.z === b.z && a.yards === b.yards, 'score and forward speed unchanged');
+        tick(a, 1); tick(b, 1); ok(a.z === b.z && Math.abs(a.yards - b.yards * 2) < .001, 'same forward speed, owner salts give double points');
         ok(a.steps < b.steps * .7 && R.strideRate(100) === 10.5, 'slower legs and bounded cadence');
         const st = {run: a, mode: 'run'}; a.steps = 1.25;
         ok(V.runner3(st, 10000).lift > .16, 'springy visible lift');
@@ -170,6 +170,40 @@ async function main() {
         for (let z = 100; z < 20000; z += 100) ok(R.zoneAt(c, z).theme.id !== 'stadium', 'no later football field');
         D.setMe('ben'); const old = R.course(9090, 0, true, true); ok(R.zoneAt(old, 900).theme.id === 'stadium', 'public cycle unchanged'); D.setMe('evan');
       });
+      test('Every active power-up doubles points, overlaps stay 2x, and expiry restores 1x', () => {
+        for (const kind of ['salts', 'pills', 'booze', 'jetpack']) {
+          const r = empty(); r.co.items = [{i: 0, kind, lane: 1, z: .01}]; tick(r, .02); r.sky = null;
+          const z = r.z, score = r.yards; tick(r, .5);
+          ok(Math.abs((r.yards - score) - (r.z - z) * 2) < .001, kind + ' gives 2x');
+          r.booze = r.pills = r.burst = r.jetpack = 1; ok(R.multiplierOf(r) === 2, 'overlap never 4x');
+          r.booze = r.pills = r.burst = r.jetpack = 0; ok(R.multiplierOf(r) === 1, 'stored salts alone are not a timed boost');
+        }
+      });
+      test('A stumble brings a four-second chase, then a clean run resets it', () => {
+        const hit = r => { r.co.rows.push({i: r.co.rows.length, z: r.z + .01, lanes: [null, 'hurdle', null]}); return tick(r, .02); };
+        const r = empty(); ok(hit(r).some(e => e.type === 'stumbled'), 'first hit is a stumble');
+        tick(r, 3.8); ok(R.chasing(r) && R.gapOf(r) < R.CHASE.seen, 'chaser stays for four seconds');
+        const near = empty(); hit(near); tick(near, 3.7); ok(hit(near).some(e => e.type === 'tackled'), 'second hit inside window tackles');
+        tick(r, .3); ok(!R.chasing(r) && !r.stumblePending, 'four seconds clears chase');
+        tick(r, .6); ok(R.gapOf(r) >= R.CHASE.seen, 'chaser recedes out of view');
+        ok(hit(r).some(e => e.type === 'stumbled') && !r.over, 'later hit starts a new pursuit');
+        const clean = empty(); tick(clean, 1);
+        const st = {run: clean, mode: 'run'}, main = V.runner3(st, 10000), chase = V.chaser3(st, 10000, clean.z - 3);
+        ok(main.move === chase.move && main.phase === chase.phase && main.lift === chase.lift && main.pitch === chase.pitch, 'same running clip, stride, bounce and lean');
+      });
+      test('Jetpack descent lands on moving roofs, stays supported, and permits a roof jump', () => {
+        for (const dt of [1 / 30, 1 / 120]) {
+          const r = empty(); r.y = R.JETPACK.height; r.jetpack = .8; r.jetAge = 7.2;
+          const p = train(r, 1, -12); p.z1 = 80;
+          const events = tick(r, .8, dt);
+          ok(events.some(e => e.type === 'jetlanded') && !R.flying(r) && r.y === p.h, 'feet contact moving roof');
+          ok(R.surfaceAt(r, 1, r.z, r.y) === p.h && !p.cleared, 'roof stays solid and does not consume vehicle collision');
+          tick(r, .2, dt); ok(r.y === p.h && !r.over, 'supported after fuel ends');
+          ok(R.move(r, 'up') && r.vy > 0, 'can jump from moving roof');
+          tick(r, .1, dt); ok(r.y > p.h, 'roof jump rises');
+          R.move(r, 'left'); tick(r, 1, dt); ok(r.lane === 0 && r.y < p.h, 'can leave roof naturally');
+        }
+      });
       return results;
     });
     console.log(report.gameplay.map(x => 'PASS ' + x).join('\n'));
@@ -177,6 +211,7 @@ async function main() {
       const {D, R, V, D3} = window.qa; D.setMe('evan');
       if (!await D3.load()) throw new Error('3D player failed to load');
       const el = document.querySelector('main'); el.innerHTML = V.render({});
+      el.querySelector('[data-rm-card]').hidden = true;
       const cv = el.querySelector('[data-rm-cv]'), fx = el.querySelector('[data-rm-fx]');
       cv.width = fx.width = 430; cv.height = fx.height = 820; cv.style.height = '820px';
       const run = R.startRun(98999, 0, true, false, true);
@@ -189,6 +224,7 @@ async function main() {
       window.qa.st = st;
       window.qa.render = () => { V.draw(st, 12000); V.patchHud(st); };
       window.qa.render();
+      await D3.prepare(st);
     });
     await page.waitForTimeout(1200);
     await page.evaluate(() => { for (let i = 0; i < 12; i++) window.qa.render(); });
@@ -238,10 +274,28 @@ async function main() {
     });
     await page.screenshot({path: path.join(output, 'fallback-gear.png')});
     await page.evaluate(() => {
+      const {st, V, R} = window.qa; st.flat = false; st.run.jetpack = 0; st.run.y = R.TRAFFIC.height;
+      st.run.trains = [{i: 'roof-landing', lane: 1, kind: 'express', part: 0, z0: st.run.z - 4, z1: st.run.z + 16, h: R.TRAFFIC.height, b: 0, ramp: 0, hi: true}];
+      for (let i = 0; i < 60; i++) V.draw(st, 13000 + i * 17);
+      if (V.runner3(st, 14000).move !== 'run') throw new Error('Moving roof must use the grounded running pose');
+    });
+    await page.screenshot({path: path.join(output, 'moving-roof-landing.png')});
+    await page.evaluate(() => {
       const {R, V} = window.qa; R.setTest(true);
       const el = document.querySelector('main'), ctx = {visible: true, timer: () => () => {}};
       window.qa.ctx = ctx; V.mount(el, ctx);
     });
+    await page.waitForFunction(() => document.querySelector('[data-rm-cv]').__rm.warmed);
+    assert(await page.evaluate(() => { const st = document.querySelector('[data-rm-cv]').__rm; return st.mode === 'ready' && !st.run && !document.querySelector('[data-rm-card]').hidden; }), 'owner waits on start screen after loading');
+    await page.waitForTimeout(200);
+    await page.screenshot({path: path.join(output, 'start-screen.png')});
+    await page.setViewportSize({width: 375, height: 667});
+    const small = await page.addStyleTag({content: '.rm-pane{width:375px}.rm-stage{height:610px!important}'});
+    const start = await page.locator('[data-rm-go]').boundingBox();
+    assert(start && start.y >= 0 && start.y + start.height <= 667, 'start button fits a small phone');
+    await page.screenshot({path: path.join(output, 'start-screen-small.png')});
+    await small.evaluate(el => el.remove()); await page.setViewportSize({width: 430, height: 820});
+    await page.locator('[data-rm-go]').click();
     await page.waitForFunction(() => document.querySelector('[data-rm-cv]').__rm.mode === 'run');
     await page.evaluate(() => {
       const {R} = window.qa, st = document.querySelector('[data-rm-cv]').__rm, r = st.run;

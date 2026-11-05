@@ -4,7 +4,17 @@
    laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/return.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --rm-css: 8; }
+:root { --rm-css: 9; }
+
+.rm-pane .rm-card-in.rm-start { width: min(100%, 340px); }
+.rm-pane .rm-start .rm-card-t { font-size: 42px; line-height: 1; margin-top: 10px !important; }
+.rm-pane .rm-start-controls { display: grid; gap: 9px; padding: 15px 0; margin: 8px 0 0; list-style: none; text-align: left; font: 600 14px/20px var(--font-text); }
+.rm-pane .rm-start-controls b { display: inline-block; width: 46px; color: var(--rm-good); text-align: center; font-size: 19px; }
+.rm-pane .rm-start-powers { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; padding: 14px 6px; margin-top: 14px !important; border-radius: 12px; background: #f3c54215; }
+.rm-pane .rm-start-powers strong { width: 100%; color: var(--rm-gold); font: 800 13px/20px var(--font-text); letter-spacing: .04em; }
+.rm-pane .is-owner-pilot .rm-chip { -webkit-backdrop-filter: none; backdrop-filter: none; background-color: #102538ed; }
+.rm-pane .is-owner-pilot .rm-pop { will-change: transform, opacity; }
+.rm-pane .is-owner-pilot .rm-card { overflow-y: auto; align-items: safe center; touch-action: pan-y; }
 
 .rm-pane .rm-pw.is-jetpack { color: #79efff; border-color: #52d3ed; }
 .rm-pane .rm-pw.is-jetpack > b { font-size: 10px; letter-spacing: .06em; }

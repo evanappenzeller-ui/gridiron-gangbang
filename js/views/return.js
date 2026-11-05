@@ -42,7 +42,7 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The version mark css/views/return.css carries (--rm-css): an older cached stylesheet gets the new one linked.
-const CSS_V = '8';
+const CSS_V = '9';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim() === CSS_V) return;
@@ -84,11 +84,11 @@ function keysHTML(hard) {
     + k('is-dn', '↓', 'Slide under a banner')
     + k('is-ramp', '◢', hard ? 'Run up a ramp onto the roofs. Head on into a bus: down' : 'Run up a ramp onto the roofs')
     + (data.isOwner() ? k('is-train', '↔', 'Incoming trains: change lanes to dodge') : '')
-    + k('is-chase', '!', hard ? 'The linebacker starts close. After a stumble, your next unprotected hit tackles you—even after a clean stretch' : 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
+    + k('is-chase', '!', data.isOwner() ? 'After a stumble, stay clean for 4 seconds to outrun the chaser' : hard ? 'The linebacker starts close. After a stumble, your next unprotected hit tackles you—even after a clean stretch' : 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
     + pw('salts', 'Smelling salts', hard ? '10-second speed burst + extra life' : 'Speed burst + extra life')
     + pw('pills', 'Painkillers', hard ? 'Hit anything, no stumble' : 'Feel nothing')
-    + pw('booze', 'Booze', hard ? 'Double yards, but blurry' : 'Double yards')
+    + pw('booze', 'Booze', data.isOwner() ? 'Double yards, with a swaying view' : hard ? 'Double yards, but blurry' : 'Double yards')
     + (data.isOwner() ? pw('jetpack', 'Jetpack', 'Fly headfirst for 8 seconds. Swipe left or right to barrel roll through coins and dodge sky hazards. A hit brings you down') : '')
     + `</ul>`;
 }
@@ -137,6 +137,16 @@ function cardHTML(st) {
       + `<h2 class="rm-card-t">That’s today’s return</h2>`
       + `<p class="rm-card-s">${esc(d.runs ? 'One kickoff a day. Come back tomorrow for the next one.' : 'You ran today’s kickoff on another phone. One a day: come back tomorrow for the next one.')}</p>`
       + sb() + nextKick() + `</div>`;
+  }
+  if (data.isOwner() && st.mode === 'ready') {
+    return `<div class="rm-card-in rm-start"><p class="rm-card-o">${esc(R.dayLabel(st.n))}${R.testing() ? ' · Practice' : ' · Daily kickoff'}</p>`
+      + '<h2 class="rm-card-t">Return Man</h2><p class="rm-card-s">Find the gap. Keep running.</p>'
+      + '<ul class="rm-start-controls"><li><b>← →</b> Change lanes</li><li><b>↑</b> Jump onto roofs</li><li><b>↓</b> Slide under obstacles</li></ul>'
+      + '<p class="rm-card-s">Jetpack: barrel roll to dodge, then land on the roofs below.</p>'
+      + `<div class="rm-start-powers">${['salts', 'pills', 'booze', 'jetpack'].map(k => iconHTML(k, 30)).join('')}<strong>ALL BOOSTS · 2× POINTS</strong></div>`
+      + '<p class="rm-card-s">Stumble once and the chaser follows for 4 seconds. Stay clean to outrun him.</p>'
+      + again(st.goOn3D ? 'Getting the field ready…' : 'Start run')
+      + (R.testing() ? '<p class="rm-card-s rm-beta-l">Practice runs do not count on the scoreboard.</p>' : '') + '</div>';
   }
   if (k > 0) {
     // back for another: today's best to beat, and when the course changes
@@ -227,7 +237,7 @@ function boardHTML(st) {
 // His day's first run, a coin run, waits for the board (core coinsWait: only it can tell the run's the first across his
 // phones, coinsOpen): the stage a moment (BOARD_WAIT_MS), then his card saying so; it kicks off as the board comes in
 // (the 'lb' in mount).
-const autoGoes = st => features.available() && st.mode === 'ready' && !st.day.next && !doneToday(st);
+const autoGoes = st => !data.isOwner() && features.available() && st.mode === 'ready' && !st.day.next && !doneToday(st);
 const BOARD_WAIT_MS = 2500;
 function autoGo(st) {
   if (st.dead) return;
@@ -245,7 +255,7 @@ function autoGo(st) {
 // While a return's on (or before the day's first), the scoreboard waits under the stage; between runs it shows.
 const playing = st => !st.day.runs || st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused';
 function bodyHTML(st) {
-  return `<div class="rm${playing(st) ? ' is-playing' : ''}" data-rm>`
+  return `<div class="rm${playing(st) ? ' is-playing' : ''}${data.isOwner() ? ' is-owner-pilot' : ''}" data-rm>`
     + `<div class="rm-stage" data-rm-stage data-hscroll aria-label="Return Man: swipe left or right to juke, up to jump, down to slide">`
     + `<div class="rm-layers" data-rm-layers><canvas class="rm-cv" data-rm-cv></canvas><div class="rm-gl" data-rm-gl></div><canvas class="rm-fx" data-rm-fx></canvas></div>${hudHTML()}`
     + `<div class="rm-pop" data-rm-pop aria-hidden="true"></div>`
@@ -379,7 +389,7 @@ function runnerAnim(st, now) {
     return {f: 'rb.dive', flip: dir < 0, dz: .9 * smooth(k), ex: {lift: .2 * Math.sin(Math.PI * k)}};
   }
   if (R.flying(run)) return {f: 'rb.r_b0', ex: {rot: .035 * Math.sin(run.t * 3)}};
-  const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), h = run.y - g, ph = (run.co.enhanced ? run.steps : run.z) / 1.5 * Math.PI;
+  const g = R.surfaceAt(run, R.laneOf(run), run.z, run.y), h = run.y - g, ph = (run.co.enhanced ? run.steps : run.z) / 1.5 * Math.PI;
   // (a stumble: he staggers, side to side, as he gets going again)
   const wob = run.slow > 0 ? Math.sin(run.slow * 22) * .7 * run.slow / R.CHASE.slow : 0;
   const mo = {ph, t, land: st.landAt ? (now - st.landAt) / 1000 : null, lean: (R.xOf(run, run.lane) - run.x) / 1.2 + wob};
@@ -419,6 +429,7 @@ function chaserAnim(st, now, z) {
     return {f: 'def.flat', dz: .4 + .7 * smooth(k), ex: {lift: .3 * (1 - k * k)}};
   }
   if (st.mode === 'catch' || st.mode === 'ready') return {f: 'def.r_b0', mo: {t, seed: 7}};
+  if (run.co.enhanced) return {f: `def.r_b${Math.floor(run.chaseSteps / 1.5) & 1}`, mo: {ph: run.chaseSteps / 1.5 * Math.PI, t, seed: 7}, ex: {lift: .17 * Math.sin(run.chaseSteps / D3.STRIDE * Math.PI * 2) ** 2}};
   return {f: `def.r_b${Math.floor(z / 1.4) & 1}`, mo: {ph: z / 1.4 * Math.PI, t, seed: 7}};
 }
 // In 3D (views/return-3d.js, once it's loaded; the pictures above till then, or on a phone without WebGL): the same
@@ -502,7 +513,7 @@ function runner3(st, now) {
   // in a pothole: dropped in, bent over its far rim with both hands on it, climbing out (held back with the camera: dz)
   if (fl) o.dz = fl.z - run.z;
   if (fl && fl.pose) return Object.assign(o, {move: 'fallin', u: fl.u, lift: -FALL.deep * fl.k, pitch: .12 + .28 * fl.k, turn: 0, roll: 0});
-  const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), h = run.y - g;
+  const g = R.surfaceAt(run, R.laneOf(run), run.z, run.y), h = run.y - g;
   const js = (run.t - run.lastJuke) / SIDE_S, dir = js < 1 ? Math.sign(R.xOf(run, run.lane) - run.jFrom) : 0;
   // the move: a slide; in the air (the jump's clip by how fast he's going up or down: tucked at the top, reaching for
   // the ground coming down); a juke's side-step; or running
@@ -532,6 +543,10 @@ function chaser3(st, now, z) {
     return {move: 'fall', u: k, phase: z / D3.STRIDE, t, pitch: .3 + 1.22 * smooth(k), lift: .45 * Math.sin(Math.PI * k) + .1 * k, turn: fallDir(run) * .4 * k, dz: .45 * smooth(k)};
   }
   if (st.mode === 'catch' || st.mode === 'ready') return {move: 'idle', t: t + 1.3};
+  if (run.co.enhanced) {
+    const phase = run.chaseSteps / D3.STRIDE;
+    return {move: 'run', phase, t, pitch: .1 + .3 * R.burstOf(run) + .025 * Math.sin(phase * Math.PI * 4), lift: .17 * Math.sin(phase * Math.PI * 2) ** 2};
+  }
   return {move: 'run', phase: z / D3.STRIDE, t, pitch: .12};
 }
 /** The dust he kicks up sliding in (k: how far into it), off his feet and his seat. */
@@ -602,7 +617,7 @@ function drawLanes(st, c, now) {
       puff(st, c, cx, 0, az + .6, (e - 480) / 450, 1.2); // (down on top of him)
     }});
   }
-  const an = runnerAnim(st, now), g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0, fl = run ? fallOf(st, now) : null;
+  const an = runnerAnim(st, now), g = run ? R.surfaceAt(run, R.laneOf(run), rz, ry) : 0, fl = run ? fallOf(st, now) : null;
   // (bouncing off the edge of the road; thrown forward; held back in a pothole)
   // (a picture, cut off at the road: to about his waist, as in 3D)
   const bx = rx + .5 * edgeBounce(st, now), az = (fl ? fl.z : rz - easeBack(st)) + (an.dz || 0), sink = fl ? FALL.deep * .9 * fl.k : 0;
@@ -799,7 +814,7 @@ function draw3(st, c, now) {
     c.fillStyle = gr; c.beginPath(); c.arc(0, 0, r, 0, Math.PI * 2); c.fill();
     c.restore();
   }
-  const g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0;
+  const g = run ? R.surfaceAt(run, R.laneOf(run), rz, ry) : 0;
   pillsGlow(st, c, now, g);
   runnerFx(st, c, now, bx, g, az);
   coinFx(st, c, now, bx, az);
@@ -826,6 +841,7 @@ function drawSpeed(st, c, now) {
   }
 }
 function draw(st, now = performance.now()) {
+  if (st.preparing) return;
   const c = st.c2;
   if (!c || !st.W) return;
   c.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
@@ -839,7 +855,7 @@ function draw(st, now = performance.now()) {
   if (st.camF == null) { st.camF = tx; st.camV = 0; }
   else { st.camV += (CAM_W * CAM_W * (tx - st.camF) - 2 * CAM_W * st.camV) * dt; st.camF += st.camV * dt; }
   st.camX = st.camF + .2 * bump + .35 * shake;
-  const lift = run && !run.over ? (R.flying(run) ? run.y * .88 : R.groundAt(run.co, R.laneOf(run), run.z, run.y) * .8) : st.lift || 0;
+  const lift = run && !run.over ? (R.flying(run) ? run.y * .88 : R.surfaceAt(run, R.laneOf(run), run.z, run.y) * .8) : st.lift || 0;
   st.lift = (st.lift || 0) + (lift - (st.lift || 0)) * Math.min(1, dt * 3.5);
   // (down into a pothole with him: the picture's held back with him (core fallAt: a moment, a yard or two), the camera
   // too, and it dips, down quick and back up easier; with reduced motion it does neither: it stays on where he is)
@@ -862,7 +878,7 @@ function draw(st, now = performance.now()) {
   }
   // (the blur's on the stage's pictures, so the score and the power-ups over them stay sharp)
   // (in half pixels, changed at most four times a second: each change has the phone blur the whole screen again)
-  const blur = hardDrunk ? Math.round((1.8 + .9 * Math.sin(t * 2.3)) * drunk * 2) / 2 : 0;
+  const blur = hardDrunk && !run.co.enhanced ? Math.round((1.8 + .9 * Math.sin(t * 2.3)) * drunk * 2) / 2 : 0;
   if (blur !== (st.blur || 0) && (!blur || now - (st.blurAt || 0) >= 250)) { st.blur = blur; st.blurAt = now; st.layers.style.filter = blur ? `blur(${blur}px)` : ''; }
   const three = in3D(st), wait = waiting3D(st);
   st.bend = three || wait ? W.BEND : 0;
@@ -987,7 +1003,7 @@ function patchHud(st) {
     if (cn && cn.textContent !== cv) cn.textContent = cv;
   }
   // the power-ups he's carrying: the salts, and what's left of the painkillers and the booze
-  const on = live && !run.over, x2 = on && run.booze > 0;
+  const on = live && !run.over, x2 = on && R.multiplierOf(run) === 2;
   const flightNote = el.querySelector('[data-rm-flight-note]');
   if (flightNote) {
     const message = on && data.isOwner() && run.co.enhanced
@@ -1024,6 +1040,14 @@ function pop(st, text, cls = '', sub = '') {
   el.textContent = text;
   if (sub) { const sm = document.createElement('small'); sm.textContent = sub; el.appendChild(sm); }
   el.className = 'rm-pop' + (cls ? ' ' + cls : '');
+  if (st.run?.co.enhanced) {
+    st.popAnimation?.cancel();
+    st.popAnimation = el.animate(ui.RM ? [{opacity: 1}, {opacity: 1, offset: .9}, {opacity: 0}] : [
+      {opacity: 0, transform: 'translateY(14px) scale(.7)'}, {opacity: 1, transform: 'translateY(0) scale(1.08)', offset: .18},
+      {opacity: 1, transform: 'translateY(-8px) scale(1)', offset: .6}, {opacity: 0, transform: 'translateY(-26px) scale(.96)'}
+    ], {duration: 2100, easing: 'ease-out', fill: 'forwards'});
+    return;
+  }
   void el.offsetWidth;
   el.classList.add('is-on');
 }
@@ -1032,7 +1056,8 @@ function go(st) {
   if (st.mode === 'run' || st.mode === 'catch') return;
   if (doneToday(st)) { st.mode = 'ready'; st.run = null; setCard(st, true); return; } // (one a day: today's is run)
   // (the 3D still coming: the kickoff waits for it, mount's settle3D; a run begun without it stays in the pictures)
-  if (waiting3D(st)) { st.goOn3D = true; return; }
+  if (waiting3D(st)) { st.goOn3D = true; if (data.isOwner()) setCard(st, true); return; }
+  if (data.isOwner() && D3.ready() && !st.warmed) { st.goOn3D = true; setCard(st, true); st.prepare?.(); return; }
   st.flat = !D3.ready();
   clearTimeout(st.waitT); st.waitT = 0; st.waited = false;
   // (a run of the day's left under way here and never ended (paused, then dropped some other way): it counts where it
@@ -1117,6 +1142,7 @@ function pickupLine(st, kind) {
   return deck.last = deck.left.pop();
 }
 function clearPickupPop(st) {
+  st.popAnimation?.cancel(); st.popAnimation = null;
   const el = st.el.querySelector('[data-rm-pop].is-quippy');
   if (el) { el.className = 'rm-pop'; el.textContent = ''; }
 }
@@ -1154,7 +1180,7 @@ function onEvents(st, evs) {
       const pw = R.powerOf(e.kind, st.run.co.hard); st.got.add(e.item.i);
       const line = quiet ? catchphrase(st, e.kind) : '';
       if (!quiet) got(st, e.kind);
-      ui.haptic('success'); ui.announce(`${line ? line + '. ' : ''}${pw.name}: ${pw.is}. ${pw.does}.`);
+      ui.haptic('success'); ui.announce(`${line ? line + '. ' : ''}${pw.name}: ${pw.is}. ${pw.does}.${st.run.co.enhanced ? ' Double points while the boost is active.' : ''}`);
     }
     else if (e.type === 'landed') st.landAt = now;
     // (a coin: his, on his profile; off it, where they're hidden, it isn't counted)
@@ -1404,6 +1430,8 @@ export function mount(el, ctx) {
   st.unsubIcons = data.subscribe(type => {
     if (type === 'me' && !st.dead && st.pilotOwner !== data.isOwner()) {
       st.pilotOwner = data.isOwner();
+      if (st.mode === 'ready') st.goOn3D = false;
+      el.querySelector('[data-rm]')?.classList.toggle('is-owner-pilot', st.pilotOwner);
       if (st.run?.co.enhanced && !st.run.over && !st.pilotOwner) { R.stop(st.run); tackled(st); }
       const card = el.querySelector('[data-rm-card]');
       if (card && !card.hidden) { card.innerHTML = cardHTML(st); ui.hydrate(card); }
@@ -1430,7 +1458,18 @@ export function mount(el, ctx) {
   R.autoPost();
   SP.load().then(() => { if (!st.dead) draw(st); });
   // (the 3D in, or not to be had, or too slow: a kickoff that waited for it goes now)
-  const settle3D = () => { clearTimeout(st.wait3T); if (st.dead) return; if (st.goOn3D) { st.goOn3D = false; go(st); } else draw(st); };
+  const settle3D = st.prepare = async () => {
+    clearTimeout(st.wait3T); if (st.dead || st.preparing) return;
+    if (data.isOwner() && D3.ready() && !st.warmed && (st.mode === 'ready' || st.mode === 'tackled')) {
+      draw(st); st.preparing = true;
+      try {
+        await D3.prepare(st);
+        await Promise.all(['salts', 'pills', 'booze', 'jetpack'].map(async kind => { const img = new Image(); img.src = iconURL(kind); await img.decode().catch(() => {}); }));
+      } finally { st.preparing = false; st.warmed = true; }
+    }
+    if (st.dead) return;
+    if (st.goOn3D) { st.goOn3D = false; go(st); } else draw(st);
+  };
   st.wait3T = setTimeout(() => { st.gaveUp3D = true; settle3D(); }, WAIT_3D_MS);
   D3.load().then(settle3D);
   requestAnimationFrame(() => { if (st.dead) return; size(st); draw(st); fitScreen(st, true); autoGo(st); });

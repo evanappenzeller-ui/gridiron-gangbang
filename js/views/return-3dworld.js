@@ -832,10 +832,28 @@ function syncStyle() {
   if (styleChanged) { if (FAR_GROUND) FAR_GROUND.visible = false; style.clear(); }
 }
 function disposeAir(obj) {
-  const geometries = new Set(), materials = new Set();
-  obj.traverse(o => { if (o.isInstancedMesh) o.dispose(); if (o.geometry) geometries.add(o.geometry); if (o.material) materials.add(o.material); });
-  geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose());
+  // Templates own geometry/materials; each flock owns only its instance buffers.
+  obj.traverse(o => { if (o.isInstancedMesh) o.dispose(); });
 }
+const AIR_MODELS = new Map();
+function airOf(kind) {
+  if (!AIR_MODELS.has(kind)) AIR_MODELS.set(kind, bend(makeHazard(T, kind)));
+  return AIR_MODELS.get(kind).clone();
+}
+/** Built and uploaded under the start screen, before a pickup or collision can interrupt play. */
+export function warmObjects() {
+  const g = new T.Group();
+  for (const [i, kind] of ['salts', 'pills', 'booze', 'jetpack'].entries()) {
+    const o = itemOf(kind, true).clone(); o.position.set((i - 1.5) * 1.5, 0, -10); g.add(o);
+  }
+  for (const [i, kind] of ['birds', 'balloon', 'drone', 'debris'].entries()) {
+    const o = airOf(kind); o.position.set((i - 1.5) * 1.5, 3, -12); animateHazard(T, o, 0); g.add(o);
+  }
+  const coins = coinsMesh().clone(); coins.count = 1; coins.visible = true;
+  coins.setMatrixAt(0, new T.Matrix4().makeTranslation(0, 2, -8)); g.add(coins);
+  return bend(g);
+}
+export const releaseWarmObjects = disposeAir;
 // Readiness and profile changes must replace cached vehicles, even with the game view hidden.
 function refreshCityBuses() {
   for (const [key, entry] of LIVE) {
@@ -1431,7 +1449,7 @@ export function update(st, now) {
     });
     if (R.flying(run)) for (const h of run.sky?.hazards || []) {
       if (h.z < cz || h.z > cz + AHEAD) continue;
-      const o = keep(`a:${key}|${h.i}`, () => makeHazard(T, h.kind));
+      const o = keep(`a:${key}|${h.i}`, () => airOf(h.kind));
       if (o) { o.position.set(R.xOf(run, h.lane), h.y, -h.z); animateHazard(T, o, lifeTime, st.reducedMotion); }
     }
     // Ground rewards and the coin trail made by every jetpack share one instanced mesh.

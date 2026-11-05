@@ -68,6 +68,33 @@ export const ready = () => !!GL && !DEAD;
 export const settled = () => !!GL || DEAD;
 /** The canvas render() draws on (one for the session), for the stage to show as a layer of its own. */
 export const canvas = () => (GL ? GL.canvas : null);
+let PREPARED = null;
+function flightGear(P) {
+  if (!P.jetpack) { P.jetpack = W3.bend(makeJetpack(T)); P.jetpack.scale.setScalar(.7); P.root.add(P.jetpack); }
+  return P.jetpack;
+}
+/** Compile shaders and upload both players, flight gear and pickups before the owner starts. */
+export function prepare(st) {
+  if (!GL || !data.isOwner()) return Promise.resolve();
+  if (PREPARED) return PREPARED;
+  PREPARED = (async () => {
+    await new Promise(requestAnimationFrame);
+    const {renderer, scene, players} = GL, warm = W3.warmObjects(), target = new T.WebGLRenderTarget(64, 64);
+    const visibility = Object.values(players).map(P => [P, P.root.visible, P.root.position.clone()]);
+    const gear = flightGear(players.us), wasGear = gear.visible;
+    warm.position.z = -st.camZ;
+    scene.add(warm); visibility.forEach(([P], i) => { P.root.visible = true; P.root.position.set((i - 1) * 1.4, 0, -(st.camZ + 8)); }); gear.visible = true;
+    try {
+      camera(st);
+      if (renderer.compileAsync) await renderer.compileAsync(scene, GL.camera); else renderer.compile(scene, GL.camera);
+      renderer.setRenderTarget(target); renderer.render(scene, GL.camera);
+    } finally {
+      renderer.setRenderTarget(null); target.dispose(); scene.remove(warm); W3.releaseWarmObjects(warm);
+      visibility.forEach(([P, visible, position]) => { P.root.visible = visible; P.root.position.copy(position); }); gear.visible = wasGear;
+    }
+  })().catch(e => { PREPARED = null; console.warn('Return Man preparation:', e); });
+  return PREPARED;
+}
 
 /** The ghost's materials: his own, see-through (views/return.js sets how much). */
 function ghostMaterials(P) {
@@ -483,7 +510,7 @@ function pose(P, s, dt) {
   P.model.updateMatrixWorld(true);
   const t = s.t || 0;
   if (s.jetpack && data.isOwner()) {
-    if (!P.jetpack) { P.jetpack = W3.bend(makeJetpack(T)); P.jetpack.scale.setScalar(.7); P.root.add(P.jetpack); }
+    flightGear(P);
     // Streamlined, belly down, arms reaching ahead and legs trailing behind the pack.
     trunk(P, [0, 1, 0]); aim(P, 'Neck', 'Head', [0, 1, 0]);
     leg(P, 'Left', [.12, -1, .05], [.03, -1, -.06]);

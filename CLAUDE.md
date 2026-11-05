@@ -38,6 +38,20 @@ only the owner roadside and sky objects. The environment check compares public s
 all nine owner scenes and reduced motion, and captures previews. `check-motion.cjs` also verifies sky coins,
 collisions, actual prone bone positions, the back-mounted pack, rolls, and the one-stadium route.
 
+November 5 follow-up (owner-only): opening Return Man, including Practice, now waits on a Start run card.
+`D3.prepare` compiles shaders and uploads both players, the jetpack and cached sky/pickup models under that
+card, before an explicit start. Owner pickup callouts use transform/opacity animations without a layout flush;
+the HUD and booze effect avoid live full-scene blur. `check-performance.cjs` compares the pre-change event
+paths with the working version, checking zero new shader programs and zero forced layout reads on pickups
+and a stumble (software-GPU timings are diagnostic, not a phone frame-rate guarantee).
+All active boosts give 2x yards, never stacking above 2x: salts during its burst, pills, booze and flight.
+Stored salts remain an extra life after the burst. `surfaceAt` includes moving vehicle roofs, used by descent,
+ground support, jumps, camera and poses. Landing on a roof ends flight at contact; the roof stays solid afterward.
+The enhanced runner's first stumble starts a four-second pursuit; a second hit inside it tackles, while four
+clean seconds reset it. The chaser uses the same run clip, stride rate, bounce and lean as the runner.
+Other profiles retain the shared deployed scoring, launch and chase rules. Keep the existing regression checks
+and the new start-screen, roof-landing, multiplier and pursuit cases in `check-motion.cjs` passing.
+
 Evan chose the supplied colorful low-poly runner reference for Return Man's environments: bold silhouettes,
 warm cream trim, saturated accents, faceted foliage, clean roads and clearly visible hazards. Keep each of the
 nine locations distinct. This direction applies to Evan's profile only. `return-style.js` owns the procedural
