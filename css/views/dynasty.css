@@ -737,3 +737,11 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-recap { margin: 0; padding: 0 0 0 20px; display: grid; gap: 8px; font-size: var(--fs-sub); color: var(--ink-2); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-recap .db-lt { list-style: none; margin-left: -20px; font: 800 12px var(--font-text); color: var(--tint); padding-top: 6px; text-transform: uppercase; letter-spacing: .04em; }
 @media (prefers-reduced-motion: reduce) { :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-slot.is-pick, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone-now, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-slot.is-hit { animation: none !important; } }
+/* Rivals music settings are scoped to their sheet, including compact phones. */
+.pk-sheet .pk-music { display: grid; gap: 16px; padding: 4px 4px 12px; }
+.pk-sheet .pk-music .pk-note { margin: 0; }
+.pk-sheet .pk-music > button { min-height: 44px; border: 1px solid var(--separator); border-radius: 12px; background: var(--surface-2); }
+.pk-sheet .pk-music > button[aria-pressed="true"] { background: var(--tint); color: var(--on-tint); }
+.pk-sheet .pk-music-volume { display: grid; grid-template-columns: 1fr auto; gap: 8px; font-weight: 600; }
+.pk-sheet .pk-music-volume input { grid-column: 1 / -1; width: 100%; min-height: 44px; accent-color: var(--tint); }
+.pk-sheet .pk-music-volume output { font-variant-numeric: tabular-nums; }

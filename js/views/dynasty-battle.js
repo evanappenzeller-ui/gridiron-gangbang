@@ -1,4 +1,6 @@
 import {bindTableTouch} from './dynasty-table-touch.js';
+import * as music from '../core/dynasty-music.js';
+import {musicSheet} from './dynasty-music.js';
 import {tableOptions} from './dynasty-table-options.js';
 // Gridiron Rivals match (/puzzles/dynasty/battle/<match id>). Rules and saved turns live in the core modules.
 // A card table (the owner, Oct 30 2026: "The gameplay is far too confusing. I want it to include the cards that are in
@@ -555,7 +557,8 @@ function endTurn(st) {
   ui.actionSheet({title: 'End your turn without attacking?', cls: 'pk-sheet', actions: [{label: 'End turn', role: 'primary', value: 'y'}]}).then(v => { if (v === 'y') send(st, {a: 'end'}); });
 }
 function more(st) {
-  ui.actionSheet({title: 'Battle', cls: 'pk-sheet', actions: [...(D.tableOpen() ? [{label: 'Table finishes & challenges', value: 'table'}] : []), {label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
+  ui.actionSheet({title: 'Battle', cls: 'pk-sheet', actions: [...(data.isOwner() ? [{label: 'Music', value: 'music'}] : []), ...(D.tableOpen() ? [{label: 'Table finishes & challenges', value: 'table'}] : []), {label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
+    if (v === 'music' && !st.dead && !st.hidden) musicSheet();
     if (v === 'table') tableOptions(() => draw(st));
     if (v === 'log') logSheet(st);
     if (v === 'resign') resign(st);
@@ -684,6 +687,8 @@ export default {
   mount(el, ctx) {
     const st = {el, ctx, mid: String((ctx.params && ctx.params.id) || ''), mode: null, focus: null, scenes: [], scene: null, hidden: false, setup: {act: null, actI: -1, bench: [], benchI: []}, dead: false, stops: [], evAt: null};
     ST.set(ctx, st);
+    st.music = music.attach(el, ctx.visible);
+    st.stops.push(() => st.music.stop());
     fullScreen(st, ctx.visible);
     st.touch = tableGestures(st);
     st.stops.push(() => st.touch.stop());
@@ -723,9 +728,9 @@ export default {
     draw(st);
   },
 
-  onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; fullScreen(st, true); draw(st); } },
+  onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; st.music.visible(true); fullScreen(st, true); draw(st); } },
 
-  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; st.touch?.cancel(); st.focus = null; closeFocus(st); clearCinema(st); fullScreen(st, false); } },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; st.music.visible(false); st.touch?.cancel(); st.focus = null; closeFocus(st); clearCinema(st); fullScreen(st, false); } },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);

@@ -1,5 +1,14 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals music (November 5, 2026)
+
+Owner-only under AGENTS.md: `data.isOwner()` enables the original synthesized Fourth Quarter instrumental.
+`core/dynasty-music.js` owns one shared Web Audio transport for the hub and battle views; it starts only after
+a gesture, pauses when the view or document is hidden, and stops immediately on profile changes. Menu → Music
+and Battle options → Music share saved on/off and volume settings in `gg-rivals-music:m_evan:v1`, separate from
+game progress. No external tracks or samples. Other profiles keep their existing silent game and menus.
+Verify `node tools/dynasty/check-music.cjs`, the title-screen browser check and the stylesheet scope check.
+
 ## Rivals deck shelf (November 5, 2026)
 
 The owner shelf now includes 16 additional recipes: eight position groups and eight attribute themes (Gunslinger
