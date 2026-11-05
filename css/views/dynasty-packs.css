@@ -272,3 +272,68 @@
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-band, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-brand small { display: none; }
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-plate b { font-size: 10cqw; padding: 1.6cqw 5cqw; }
 }
+
+/* Owner's printed packs, November 2026. Common-card paper and silver rules; no holographic
+   wrapper or animated effects. Only packHTML's owner branch emits .is-printed / .pk-print-*. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-printed {
+  color: #25343b; border-radius: 2% / 1.25%;
+  background: linear-gradient(90deg, #a6acad, #e1e3e1 3%, #f1f1ed 7%, #e4e5e1 50%, #f1f1ed 93%, #b9bebe 98%, #969e9f);
+  box-shadow: 0 6px 14px #14283830, inset 0 0 0 1px #fff8;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-card {
+  position: absolute; inset: 6.5% 5.5% 7%; overflow: hidden; border-radius: 2cqw;
+  background: #f8f6ef; box-shadow: 0 0 0 .6cqw #8a9699, inset 0 0 0 .7cqw #fff, inset 0 0 0 1.2cqw #bac2c0;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-brand {
+  position: absolute; inset: 5% 5% auto; display: flex; flex-direction: column; align-items: center;
+  color: #25343b; text-align: center;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-brand small {
+  font: 800 5.5cqw/1 var(--font-text); letter-spacing: .3em; padding-left: .3em;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-brand b {
+  font: 800 18cqw/.97 'Barlow Condensed', var(--font-text); letter-spacing: -.025em;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-brand em {
+  margin-top: 2cqw; font: 700 2.7cqw/1 var(--font-text); letter-spacing: .17em; font-style: normal;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-printed .pk-pack-art {
+  inset: 28% 5.5% 27%; overflow: hidden; border-radius: .5cqw;
+  border: .5cqw solid #f7f8f2; background: #d8d6ce; box-shadow: 0 0 0 .6cqw #8e9d9d;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-label {
+  position: absolute; inset: auto 5% 9.5%; height: 15%; display: flex; flex-direction: column;
+  justify-content: center; align-items: center; gap: 1.6cqw; text-align: center;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-label b {
+  font: 800 8.5cqw/1 'Barlow Condensed', var(--font-text); letter-spacing: .025em;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-label small {
+  font: 600 2.8cqw/1 var(--font-text); letter-spacing: .2em; color: #566267;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-details {
+  position: absolute; inset: auto 5.5% 3.5%; display: flex; justify-content: space-between;
+  padding-top: 2.2cqw; border-top: .4cqw solid #b3bcba;
+  font: 700 2.6cqw/1 var(--font-text); letter-spacing: .05em; color: #566267;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-printed .pk-pack-crimp {
+  background: repeating-linear-gradient(90deg, #fff8 0 .7cqw, #727c7c35 .7cqw 1.4cqw, transparent 1.4cqw 2.8cqw) top / 100% 3.8% no-repeat,
+    repeating-linear-gradient(90deg, #fff8 0 .7cqw, #727c7c35 .7cqw 1.4cqw, transparent 1.4cqw 2.8cqw) bottom / 100% 4.2% no-repeat;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-printed .pk-pack-n {
+  top: 3cqw; right: 3cqw; bottom: auto; font-size: 6cqw; color: #25343b;
+}
+/* Team's color stays inside its framed card face, distinct from the neutral Standard. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-printed.k-team .pk-print-card {
+  color: #edf2e8; background: var(--pack-paper, #183d35); box-shadow: 0 0 0 .6cqw #8a9699, inset 0 0 0 .7cqw #eff6e9, inset 0 0 0 1.2cqw #739087;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-printed.k-team .pk-print-brand { color: #edf2e8; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-printed.k-team .pk-print-label small,
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.is-printed.k-team .pk-print-details { color: #c2d4ca; border-color: #739087; }
+@container pk-pack (max-width: 120px) {
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-brand em,
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-label small,
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-details { display: none; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-label { bottom: 6%; height: 18%; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-print-label b { font-size: 10cqw; }
+}
