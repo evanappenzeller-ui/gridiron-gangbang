@@ -597,7 +597,7 @@ function tableGestures(st) {
     preview(v) {
       if (v.hidden) return '<div class="db-peek-in"><div class="db-card-back">R</div><b>Opponent’s hand</b><p>Face down until played</p></div>';
       const t = D.trainer(v.id), stats = B.stats(v.id);
-      return `<div class="db-peek-in"><div class="db-peek-card">${faceHTML(v.id, v.slot)}</div><b>${esc(nameOf(v.id))}</b><p>${esc(t?.text || `${stats.hp} HP · ${B.TYPES[stats.type].name}`)}</p>${stats ? `<div class="db-moves is-info">${attackPreviewList(stats, st.x.G.v)}</div>` : ''}<small>${v.draggable ? 'Drag to a glowing space to play · release to inspect' : 'Release to inspect · no move is played'}</small></div>`;
+      return `<div class="db-peek-in"><div class="db-peek-card">${faceHTML(v.id, v.slot)}</div><b>${esc(nameOf(v.id))}</b><p>${esc(t?.text || `${stats.hp} HP · ${B.TYPES[stats.type].name}`)}</p>${stats ? `<div class="db-moves is-info">${attackPreviewList(stats, st.x.G.v)}</div>` : ''}<small>${v.kind === 'hand' ? 'Slide across your hand to preview · ' : ''}${v.draggable ? 'Drag onto a glowing space to play · release to inspect' : 'Release to inspect · no move is played'}</small></div>`;
     },
     accepts: (v, drop) => !!action(v, drop),
     drop(v, drop) { const m = action(v, drop); if (!m) return; if (m.setup) { st.focus = v; lineup(st, m.setup); } else send(st, m); },

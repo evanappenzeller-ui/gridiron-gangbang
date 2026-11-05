@@ -1,4 +1,5 @@
-// Pointer gestures for the owner table. A hold inspects; moving a held hand card drags it.
+// Pointer gestures for the owner table. Hold and slide along the hand to inspect;
+// leave the hand to drag the selected card into play.
 // No game state is changed here. The view revalidates the destination at release.
 export function bindTableTouch(root, api) {
   let gesture = null, blockedUntil = 0;
@@ -11,6 +12,42 @@ export function bindTableTouch(root, api) {
     try { root.releasePointerCapture(g.pointer); } catch (_) {}
   }
   const cancel = () => { if (gesture?.held) blockedUntil = Date.now() + 500; clear(); };
+  function preview(g) {
+    g.ghost?.remove(); g.ghost = null; g.dragging = false;
+    root.querySelectorAll('.is-drop-ready, .is-drop-over').forEach(el => el.classList.remove('is-drop-ready', 'is-drop-over'));
+    if (!g.preview?.isConnected) {
+      g.preview = document.createElement('div');
+      g.preview.className = 'db-peek';
+      g.preview.setAttribute('aria-hidden', 'true'); root.append(g.preview);
+    }
+    g.preview.innerHTML = api.preview(g.value);
+  }
+  function browse(g, x, y) {
+    const hand = g.card.closest('.db-hand');
+    if (!hand) return false;
+    const r = hand.getBoundingClientRect();
+    if (y < r.top || y > r.bottom || x < r.left || x > r.right) return false;
+    // The preview ignores hit testing. Prefer the actual card under the finger;
+    // in a gap choose the nearest visible card, including fanned/overlapping cards.
+    let card = document.elementFromPoint(x, y)?.closest('[data-db-hand]');
+    if (!card || !hand.contains(card)) {
+      let distance = Infinity;
+      for (const c of hand.querySelectorAll('[data-db-hand]')) {
+        const b = c.getBoundingClientRect();
+        if (b.right <= r.left || b.left >= r.right) continue;
+        const d = Math.abs(x - (b.left + b.right) / 2);
+        if (d < distance) { distance = d; card = c; }
+      }
+    }
+    if (card && card !== g.card) {
+      const value = api.describe(card);
+      if (value) {
+        g.card.classList.remove('is-held'); g.card = card; g.value = value;
+        card.classList.add('is-held'); preview(g); api.haptic();
+      }
+    } else if (g.dragging) preview(g);
+    return true;
+  }
   function down(e) {
     if (e.button !== 0 || !e.isPrimary || !api.enabled()) return;
     const card = e.target.closest('[data-db-hand], [data-db-slot], [data-db-hidden]');
@@ -23,9 +60,7 @@ export function bindTableTouch(root, api) {
       if (gesture !== g || !api.enabled()) return clear();
       try { root.setPointerCapture(g.pointer); } catch (_) {}
       g.held = true; card.classList.add('is-held');
-      const peek = g.preview = document.createElement('div');
-      peek.className = 'db-peek'; peek.innerHTML = api.preview(value);
-      peek.setAttribute('aria-hidden', 'true'); root.append(peek);
+      preview(g);
       api.haptic();
     }, 320);
   }
@@ -45,6 +80,7 @@ export function bindTableTouch(root, api) {
       return;
     }
     e.preventDefault();
+    if (browse(g, e.clientX, e.clientY)) return;
     if (!g.value.draggable || distance < 12) return;
     if (!g.dragging) {
       g.dragging = true; g.preview?.remove();

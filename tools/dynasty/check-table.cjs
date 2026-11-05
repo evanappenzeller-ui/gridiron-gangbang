@@ -83,11 +83,21 @@ async function browserTest(url) {
     await page.locator('[data-db-skip]').click();await page.screenshot({path:path.join(out,'before-drag.png')});
     const snapshot=()=>page.evaluate(async()=>{const x=(await import('/js/core/dynasty-solo.js')).get('cputable');return JSON.parse(JSON.stringify(x.G));});
     const client=await ctx.newCDPSession(page);
-    async function drag(from,to,{outside=false,cancel=false}={}) {
+    async function drag(from,to,{outside=false,cancel=false,browseFrom=null}={}) {
       const a=await page.locator(from).boundingBox(), b=to?await page.locator(to).first().boundingBox():null;
       assert.ok(a,from); const x=a.x+a.width*.5,y=a.y+a.height*.35;
-      await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]}); await page.waitForTimeout(400);
+      const start=browseFrom?await page.locator(browseFrom).boundingBox():a;
+      await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:start.x+start.width*.5,y:start.y+start.height*.35}]}); await page.waitForTimeout(400);
       assert.equal(await page.locator('.db-peek').count(),1,'holding inspects');
+      if(browseFrom) {
+        const original=await page.locator('.db-peek-in > b').innerText(), before=await snapshot();
+        await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y}]});
+        assert.equal(await page.locator(from).evaluate(el=>el.classList.contains('is-held')),true,'sliding selects the card under the finger');
+        assert.notEqual(await page.locator('.db-peek-in > b').innerText(),original,'sliding updates the large preview');
+        assert.equal(await page.locator('.db-drag-ghost').count(),0,'browsing stays a preview');
+        assert.deepEqual(await snapshot(),before,'browsing never plays a card');
+        await page.screenshot({path:path.join(out,'hand-browse.png')});
+      }
       if(cancel){await client.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});return;}
       const tx=outside?6:b.x+b.width/2,ty=outside?6:b.y+b.height/2;
       for(let step=1;step<=8;step++)await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+(tx-x)*step/8,y:y+(ty-y)*step/8}]});
@@ -95,7 +105,12 @@ async function browserTest(url) {
       if(!outside)assert.equal(await page.locator('.is-drop-over').count(),1,'legal destination glows');
       await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]}); await page.waitForTimeout(600);
     }
-    await drag(`[data-db-hand="${fixture.players[0]}"]`,'[data-db-drop="active"]');
+    for(const height of [812,667]) {
+      await page.setViewportSize({width:375,height});
+      await drag(`[data-db-hand="${fixture.players[0]}"]`,'[data-db-drop="active"]',{browseFrom:`[data-db-hand="${fixture.charge}"]`,cancel:true});
+      assert.equal(await page.locator('.db-peek,.db-drag-ghost,.is-held').count(),0,'cancel clears browsing');
+    }
+    await drag(`[data-db-hand="${fixture.players[0]}"]`,'[data-db-drop="active"]',{browseFrom:`[data-db-hand="${fixture.charge}"]`});
     assert.equal(await page.locator('.is-me .is-active [data-db-slot]').count(),1);
     await drag(`[data-db-hand="${fixture.players[1]}"]`,'[data-db-drop="bench"]',{cancel:true});
     assert.equal(await page.locator('.db-peek,.db-drag-ghost').count(),0);
