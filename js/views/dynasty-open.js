@@ -31,6 +31,7 @@
 import {bindCardFoil} from './dynasty-foil.js';
 import * as ui from '../core/ui.js';
 import * as D from '../core/dynasty.js';
+import * as data from '../core/data.js';
 import {packHTML} from './dynasty-packs.js';
 
 const RM = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -124,7 +125,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   const order = dealOrder(r.cards.map(D.anyCard));
   const N = order.length, fresh = order.filter(c => !r.dup[c.id]).length;
   const ov = document.createElement('div');
-  ov.className = 'pk-open';
+  ov.className = 'pk-open' + (data.isOwner() ? ' is-owner-reveal' : '');
   ov.dataset.phase = 'pick'; ov.dataset.tier = '';
   ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', `Opening a ${P.name}`);
   ov.style.setProperty('--pc', P.color);

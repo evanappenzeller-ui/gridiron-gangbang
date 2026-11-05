@@ -6,7 +6,8 @@
 // Local only: the app is served from this folder with Firebase disabled, so nothing reaches the live board.
 // Then a tap after an Epic's flip moves on at once (no dead tap). One card a player (Nov 2 2026): the mark, so the reveal,
 // is the rarity's (◆ Common, ◆◆◆ Epic, ◆◆◆◆ Legendary, ★ Mythic) and ♛ a Legend's; Rare and the ★★ series stamp are retired.
-// Usage: node tools/dynasty/check-reveal.cjs [--shots=<dir>]
+// Arrival checks cover the back before the reveal starts and the owner-only fix (AGENTS.md).
+// Usage: node tools/dynasty/check-reveal.cjs [--shots=<dir>] [--arrival-only]
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
@@ -34,23 +35,23 @@ function server() {
 }
 const snap = (page, name) => (shots ? page.screenshot({path: path.join(shots, name + '.png')}) : Promise.resolve());
 
-/** Opens a pack of one card a tier on the page; returns the reveals in the order they'll come (openScene deals the best last). */
-async function openAll(page) {
-  return page.evaluate(async () => {
+/** Opens one card per tier, optionally starting face down; returns the order (openScene deals the best last). */
+async function openAll(page, firstTier = 0) {
+  return page.evaluate(async firstTier => {
     const D = await import('/js/core/dynasty.js'), V = await import('/js/views/dynasty.js'), O = await import('/js/views/dynasty-open.js');
     await D.load();
     const pick = f => D.CARDS.find(f);
     const cards = [pick(c => c.r === 'common' && c.s === 'L'), pick(c => c.r === 'epic' && c.s === 'L'), pick(c => c.r === 'legendary' && c.s === 'L'),
-      pick(c => c.r === 'mythic' && c.s !== 'X'), pick(c => c.s === 'X')];
+      pick(c => c.r === 'mythic' && c.s !== 'X'), pick(c => c.s === 'X')].filter(c => O.revealOf(c).tier >= firstTier);
     window.__closed = false;
     // (every burst of confetti noted as its canvas lands, over the overlay or not: the frames take longer than it falls)
     window.__bursts = 0;
     new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('confetti-canvas') && parseInt(getComputedStyle(n).zIndex, 10) > 200) window.__bursts++; }))).observe(document.body, {childList: true});
     O.openScene({kind: 'leg', cards: cards.map(c => c.id), dup: {[cards[0].id]: true}, cardHTML: V.anyHTML, onClose: () => { window.__closed = true; }});
     return O.dealOrder(cards).map(c => ({id: c.id, name: c.name, ...O.revealOf(c)}));
-  });
+  }, firstTier);
 }
-async function rip(page) {
+async function rip(page, phase = 'deal') {
   // (the carousel first: Enter takes the pack in front)
   await page.locator('[data-dy-carousel]').waitFor({timeout: 10000});
   await page.locator('[data-dy-carousel]').focus();
@@ -59,7 +60,7 @@ async function rip(page) {
   await page.locator('[data-dy-tear]').focus();
   await page.keyboard.press('Enter');
   // (the pack torn, the first card risen out of it and settled: the deal)
-  await page.locator('div.pk-open[data-phase="deal"]').waitFor({timeout: 10000});
+  await page.locator(`div.pk-open[data-phase="${phase}"]`).waitFor({timeout: 10000});
 }
 const dealState = page => page.evaluate(() => {
   const el = document.querySelector('.dy-dc.is-top .pk-deal-c');
@@ -81,6 +82,62 @@ const dealState = page => page.evaluate(() => {
 const tapDeal = page => page.locator('.dy-deck').click({position: {x: 100, y: 100}});
 // (Next, then ⏭ past the grand total and the card dex)
 const done = async page => { await page.locator('.pk-results.is-ready [data-dy-done]').click(); await page.locator('[data-dy-end]').click(); };
+
+// The first non-Common must have a readable back while it rises, before is-go starts its reveal.
+// Also cover the next card exposed by a partial swipe, and the owner-only rollout boundary.
+const backPose = (page, selector = '.dy-dc.is-top') => page.locator(selector).evaluate(el => {
+  const back = getComputedStyle(el.querySelector('.pk-flip-back'));
+  const front = getComputedStyle(el.querySelector('.pk-flip-front'));
+  return {x: new DOMMatrixReadOnly(back.transform === 'none' ? undefined : back.transform).m11,
+    backVisible: back.visibility === 'visible' && back.display !== 'none', frontVisible: front.visibility === 'visible'};
+});
+async function arrivalPass(page) {
+  const close = async () => {
+    await page.locator('[data-dy-skip]').click();
+    await done(page);
+    await page.waitForFunction(() => window.__closed);
+    await page.locator('div.pk-open').waitFor({state: 'detached'});
+  };
+  for (const tier of [2, 3, 4, 6]) {
+    await openAll(page, tier);
+    await rip(page, 'rise');
+    for (let frame = 0; frame < 3; frame++) {
+      const pose = await backPose(page);
+      assert(pose.backVisible && !pose.frontVisible, `tier ${tier}: only the back shows during arrival`);
+      assert(Math.abs(pose.x - 1) < .001, `tier ${tier}: arrival back must not be mirrored (${pose.x})`);
+      await page.waitForTimeout(70);
+    }
+    if (tier === 2) await snap(page, 'arrival-epic');
+    // Enter during the rise settles early. The hold must keep exactly the same back orientation.
+    await page.keyboard.press('Enter');
+    await page.locator('div.pk-open[data-phase="deal"]').waitFor();
+    const held = await backPose(page);
+    assert(held.backVisible && !held.frontVisible && Math.abs(held.x - 1) < .001, `tier ${tier}: no snap as the reveal starts`);
+    await close();
+  }
+  await openAll(page);
+  await rip(page);
+  const box = await page.locator('.dy-deck').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 35, box.y + box.height / 2, {steps: 5});
+  const waiting = await backPose(page, '.dy-dc:not(.is-top)');
+  assert(waiting.backVisible && !waiting.frontVisible && Math.abs(waiting.x - 1) < .001, 'the waiting card exposed during a swipe has a readable back');
+  await page.mouse.up();
+  await close();
+  for (const profile of [{me: 'none', guest: 'Ryan Stewart'}, {me: 'mason'}, {me: 'none', guest: 'Evan Appenzeller'}, {me: null}]) {
+    await page.evaluate(async profile => {
+      const data = await import('/js/core/data.js');
+      data.setMe(profile.me); data.setGuest(profile.guest || '');
+    }, profile);
+    await openAll(page, 2);
+    await rip(page, 'rise');
+    assert.equal((await backPose(page)).x, -1, `${JSON.stringify(profile)}: existing non-owner pose stays unchanged`);
+    await page.keyboard.press('Enter');
+    await close();
+  }
+  console.log('arrival: every face-down tier, early settle, swipe preview and profile boundaries');
+}
 
 async function timedPass(page, order) {
   for (let i = 0; i < order.length; i++) {
@@ -193,7 +250,7 @@ async function run(url) {
   const {chromium} = require('playwright');
   const browser = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || undefined});
   try {
-    for (const pass of ['timed', 'skip', 'deadtap', 'reduced']) {
+    for (const pass of process.argv.includes('--arrival-only') ? ['arrival'] : ['arrival', 'timed', 'skip', 'deadtap', 'reduced']) {
       const context = await browser.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2, serviceWorkers: 'block', reducedMotion: pass === 'reduced' ? 'reduce' : 'no-preference'});
       await context.route('https://**/*', route => route.abort());
       await context.addInitScript(() => {
@@ -209,6 +266,12 @@ async function run(url) {
       assert.equal(await page.evaluate(async () => (await import('/js/core/fire.js')).canWrite()), false, 'Local test writes must remain disabled');
       await page.evaluate(async () => { const app = await import('/js/app.js'); await app.nav('/puzzles/dynasty'); });
       await page.locator('.pk').waitFor({timeout: 15000});
+      if (pass === 'arrival') {
+        await arrivalPass(page);
+        assert.deepEqual(errors, [], pass + ': unexpected browser exceptions');
+        await context.close();
+        continue;
+      }
       const order = await openAll(page);
       assert.deepEqual(order.map(r => r.tier).slice().sort((a, b) => a - b), [0, 2, 3, 4, 6], 'one card of every tier a player card can have');
       await rip(page);

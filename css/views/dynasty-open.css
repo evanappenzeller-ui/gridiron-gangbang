@@ -249,6 +249,9 @@ div.pk-open:has(.dy-open-pack.is-torn) .dy-dim { transition: opacity .45s ease-o
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-flip-front > .pk-c-new { top: -19px; left: -10px; font-size: 14px; padding: 5px 11px; z-index: 3; } /* (above the name line and a Trainer's word) */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-dc.is-foil .pk-flip-front > .pk-card { box-shadow: 0 16px 36px rgba(40,20,90,.42), 0 0 0 1px rgba(255,255,255,.25); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-flip-back { transform: rotateY(180deg); }
+/* Owner pilot: the back is its own flat sheet. Keep it readable while rising from the pack and waiting
+   under a swipe, before is-go applies the first half-turn; 180deg mirrors it and snaps back at reveal start. */
+div.pk-open.is-owner-reveal .pk-flip-back { transform: none; }
 /* an Epic hovers while it waits; a Mythic, ★★ or Legend drums: a fast shake (a turn about every 60 ms) that builds from
    half a pixel to 6 (★, ★★, the ★★ for longer) or to 10 with a swell (a Legend), still for the flip */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-dc.is-go .pk-deal-c.t-2 .pk-shake { animation: pk-hover var(--hold) ease-in-out both; }
