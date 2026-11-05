@@ -72,7 +72,7 @@ async function homeFlow(page, reduced) {
   }
   await page.setViewportSize({width: 390, height: 844});
   await page.locator('.rh-home-battle').focus(); await page.keyboard.press('Enter');
-  await page.waitForSelector('.pk-mode[data-dy-bv="solo"]');
+  await page.waitForSelector('.rl-ladder');
   assert.equal(await page.locator('.pk-tab.is-on').getAttribute('data-dy-tab'), 'battle');
   await page.locator('[data-dy-bv="solo"]').click(); await page.waitForSelector('.pk-solo');
   await nav('home');
@@ -206,9 +206,10 @@ async function playerFlow(page, p, {reduced}) {
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-stack`);
   // Play: routes to solo, friend challenges, deck editing, rules and collections.
   await page.locator('.pk-tab[data-dy-tab="battle"]').click();
-  await page.waitForSelector('.pk-mode');
-  assert.equal(await page.locator('.pk-mode[data-dy-bv="versus"]').count(), 1, T + ': friend challenges are directly accessible');
-  assert.equal(await page.locator('.pk-mode[data-dy-bv="solo"]').count(), 1, T + ': solo opponents are directly accessible');
+  await page.waitForSelector(owner ? '.rl-ladder' : '.pk-mode');
+  const mode = owner ? '.rl-switch button' : '.pk-mode';
+  assert.equal(await page.locator(`${mode}[data-dy-bv="versus"]`).count(), 1, T + ': friend challenges are directly accessible');
+  assert.equal(await page.locator(`${mode}[data-dy-bv="solo"]`).count(), 1, T + ': solo opponents are directly accessible');
   assert.deepEqual(await page.locator('.pk-mini span:not(.sr-only)').allTextContents(), ['Rules', 'Decks', 'Rankings', 'Collections'], T + ': Guide, Decks, Rankings, Missions');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-battle`);
   // Missions: the collections

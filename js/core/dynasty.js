@@ -528,6 +528,13 @@ export function clean(s) {
   Object.entries(obj(s.bt)).slice(-200).forEach(([k, v]) => { if (['w', 'l', 'd'].includes(v)) out.bt[k] = v; });
   Object.entries(obj(s.so)).slice(0, 80).forEach(([k, v]) => { if (n(v) > 0) out.so[k] = Math.min(9999, n(v)); });
   if (s.table) out.table = TABLE.clean(s.table);
+  // Optional, permanent receipts for the owner boss ladder. Old saves keep all progress and receive no free cards.
+  if (s.bossRewards && typeof s.bossRewards === 'object') {
+    out.bossRewards = {};
+    Object.entries(s.bossRewards).forEach(([id, reward]) => {
+      if (SOLO_BOSSES[id] && typeof reward === 'string') out.bossRewards[id] = reward;
+    });
+  }
   fold(out);
   return out;
 }
@@ -871,9 +878,19 @@ export const SOLO_PAY = {beg: {coins: 150, first: {std: 1}}, int: {coins: 250, f
 // fifth game's first win packs too)
 const LADDER_PACKS = {5: {std: 1}, 10: {std: 2}, 15: {prem: 1}, 20: {prem: 1, std: 1}, 25: {prem: 2}, 30: {prem: 3}};
 export const ladderPay = n => ({coins: 100 + 10 * n, first: LADDER_PACKS[n] || null});
+// Stable player IDs: the boss you fight is the card you earn. Every five games, Epic or higher.
+export const SOLO_BOSSES = Object.freeze({g5: 'L0036322', g10: 'G1-0032764', g15: 'L0036900',
+  g20: 'Xjjwatt', g25: 'Xbarrysanders', g30: 'Xtombrady'});
+export const bossLadderOpen = () => data.isOwner();
+export function soloBoss(id) {
+  if (!bossLadderOpen()) return null;
+  const cid = SOLO_BOSSES[id], c = card(ALIAS.get(cid) || cid);
+  return c && c.o >= SCALE.epic ? c : null;
+}
 /** Pays Solo battle gid (opponent opp at level lv: a ladder game's number, or an earlier opponent's level) its result:
- *  once. {coins, packs, first} or null when already paid. */
-export function paySolo(gid, opp, lv, res, s = mine()) {
+ *  once. A new boss match also supplies its featured card, validated by dynasty-solo.js against its saved lineup.
+ *  Old fifth-stage matches keep their original rewards. {coins, packs, first, card?} or null when already paid. */
+export function paySolo(gid, opp, lv, res, s = mine(), boss = null) {
   const P = typeof lv === 'number' ? ladderPay(lv) : SOLO_PAY[lv];
   if (!P || !['w', 'l', 'd'].includes(res) || s.sl.includes(gid)) return null;
   s.sl = [gid, ...s.sl].slice(0, 20);
@@ -881,6 +898,14 @@ export function paySolo(gid, opp, lv, res, s = mine()) {
   const pay = {coins: res === 'w' ? P.coins * (first && typeof lv === 'number' ? 2 : 1) : res === 'd' ? 50 : 0, packs: first ? P.first : null, first};
   if (res === 'w') s.so[opp] = (s.so[opp] || 0) + 1;
   credit(s, pay.coins); if (pay.packs) addPacks(s, pay.packs);
+  const prize = soloBoss(opp);
+  if (res === 'w' && prize && boss === prize.id && !s.bossRewards?.[opp]) {
+    // Separate from old stage wins: a previously cleared stage can be replayed to beat its new boss once.
+    s.bossRewards = {...s.bossRewards, [opp]: prize.id};
+    if (!s.o[prize.id] && !s.nw.includes(prize.id)) s.nw = [prize.id, ...s.nw].slice(0, 60);
+    addCard(s, prize.id); s.lp = [prize.id, ...s.lp].slice(0, 24);
+    pay.card = prize.id;
+  }
   touch('battle'); return pay;
 }
 

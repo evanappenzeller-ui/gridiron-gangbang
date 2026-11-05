@@ -84,7 +84,7 @@ export function cardHTML(c, o = {}) {
   // Portraits give every series one clear visual language. 
   // Some legacy head values are complete card scans; use a jersey number instead of framing those twice.
   const portrait = portraitOf(c, o.size === 'l' ? 520 : 300);
-  const photo = portrait.url ? `<img class="pk-c-ph${portrait.photo ? ' is-photo' : portrait.action ? ' is-action' : ''}" src="${esc(portrait.url)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
+  const photo = portrait.url ? `<img class="pk-c-ph${portrait.photo ? ' is-photo' : portrait.action ? ' is-action' : ''}" src="${esc(portrait.url)}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async" draggable="false" onerror="this.remove()">` : '';
   const rarity = String(c.r || 'common'), stage = B.stageOf(c.id, o.rulesVersion || B.RULES_VERSION);
   const label = `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const atk = st.attacks.map((a, n) => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}</em></span>`
@@ -776,12 +776,13 @@ function guideSheet() {
     + `<li><b>Tap any card</b>It lifts off the table with what it can do now: your active player’s plays, a bench player’s Send in, a hand card’s play. Put back sets it down.</li>`
     + `<li><b>Attack</b>An attack needs its energy on your active player. Attacking ends your turn. In new matches, the second (signature) attack spends one attached energy; quick plays keep it. Existing matches keep their original rules. Hitting a weakness does +20: Air beats Blitz, Blitz beats Ground, Ground beats Coverage, Coverage beats Air.</li>`
     + `<li><b>Win</b>Knock out a player for a point (a Legend or Prime ex for two). Three points wins.</li>`
-    + `<li><b>Solo ladder</b>Thirty games against the computer, each win unlocking the next. The first ones are gentle; from game 16 the computer counters your deck’s main type and plays every trick. A win pays coins (double the first time), and every fifth game’s first win pays packs.</li>`
+    + `<li><b>Solo ladder</b>Thirty games against the computer, each win unlocking the next. The first ones are gentle; from game 16 the computer counters your deck’s main type and plays every trick. A win pays coins (double the first time), and every fifth game’s first win pays packs.${D.bossLadderOpen() ? ' Every fifth battle also features a boss: defeat it to earn its Epic-or-better card once. Previously won stages stay unlocked; beat their new boss to earn the card.' : ''}</li>`
     + `<li><b>Versus</b>Battles go in turns: play yours when you like, and your opponent gets YOUR MOVE on their Rivals case.</li></ol>`;
   ui.openSheet({title: 'Guide', body, cls: 'pk-sheet', detents: ['large']});
 }
 // Solo: your battle in play, then the ladder by tier: each game won, the next one to play, or locked, with what it pays.
 function soloHTML() {
+  if (D.bossLadderOpen()) return soloLadderHTML();
   const s = D.mine(), dk = D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), cur = SOLO.current(), at = SOLO.ladderAt(s);
   let h = `<button type="button" class="pk-backrow" data-dy-bv="">${ui.icon('chevron-left', {size: 16})} Play</button>`;
   if (!dk.ok) h += `<button type="button" class="pk-alert is-gold" data-dy-tab="decks">${ui.icon('info', {size: 18})}<span>Your deck isn’t ready: ${esc(dk.why)}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
@@ -801,6 +802,43 @@ function soloHTML() {
   });
   return h;
 }
+
+// Owner ladder: Pocket-like card rows, with the actual boss and first-defeat card reward clearly visible.
+function soloLadderHTML() {
+  const s = D.mine(), dk = D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), cur = SOLO.current();
+  const at = SOLO.ladderAt(s), yours = SOLO.mainType(dk.ids), done = SOLO.STAGES.filter(g => s.so[g.id]).length;
+  const bossIds = Object.keys(D.SOLO_BOSSES), prizes = bossIds.filter(id => !s.bossRewards?.[id]);
+  const showcase = (prizes.length ? prizes : bossIds).slice(0, 3).map(D.soloBoss).filter(Boolean);
+  const nextBoss = D.soloBoss(bossIds.find(id => Number(id.slice(1)) >= at)) || D.soloBoss('g30');
+  const colors = ['#5cbf70', '#39b3cf', '#648ee1', '#a275d3', '#d4a23c', '#db77ae'];
+  let h = `<section class="rl-ladder" aria-label="Solo battle ladder"><div class="rl-switch" aria-label="Battle mode"><button type="button" class="is-on" data-dy-bv="solo" aria-pressed="true">${MODE_IC.solo}Solo ladder</button><button type="button" data-dy-bv="versus" aria-pressed="false">${MODE_IC.versus}Versus</button></div>`
+    + `<div class="rl-hero"><div class="rl-showcase" aria-hidden="true">${showcase.map(c => `<div>${cardHTML(c, {tag: false, noCount: true, eager: true})}</div>`).join('')}</div>`
+    + `<div class="rl-hero-plate"><small>30 BATTLES · 6 BOSSES</small><h2>Road to Glory</h2><p>Beat the boss. Keep the card.</p></div></div>`
+    + `<div class="rl-progress"><div><b>${done}<small> / ${SOLO.LADDER} won</small></b><span>${at > SOLO.LADDER ? 'Ladder complete · Replay for coins' : 'Win each battle to unlock the next'}</span></div><button type="button" data-dy-ladder-next>${at > SOLO.LADDER ? 'Final boss' : `Battle ${at}`}${ui.icon('chevron-down', {size: 16})}</button></div>`
+    + `<div class="rl-progress-track" role="progressbar" aria-label="Solo battles won" aria-valuemin="0" aria-valuemax="30" aria-valuenow="${done}"><i style="width:${done / SOLO.LADDER * 100}%"></i></div>`;
+  if (cur) h += `<button type="button" class="rl-resume" data-dy-go="${esc(cur.mid)}">${ui.icon('play-fill', {size: 20})}<span><b>Continue your battle</b><small>${esc(cur.opp.name)}</small></span>${ui.icon('chevron-right', {size: 20})}</button>`;
+  if (!dk.ok) h += `<button type="button" class="pk-alert is-gold" data-dy-tab="${s.pk.start ? 'packs' : 'decks'}">${ui.icon('info', {size: 18})}<span>${s.pk.start ? 'Open your Starter Pack to build your first deck.' : `Prepare your deck: ${esc(dk.why)}`}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
+  h += `<p class="rl-reward-note">${ui.icon('trophy', {size: 16})}<span>${prizes.length ? `Boss rewards are earned once.${nextBoss ? ` Next up: ${esc(nextBoss.name)}.` : ''}` : 'All six boss cards earned. Keep playing for coins.'}</span></p>`;
+  SOLO.TIERS.forEach((tier, i) => {
+    h += `<section class="rl-tier" style="--rl-accent:${colors[i]}"><h3><span>${esc(tier.name)}</span><small>BATTLES ${tier.from}–${tier.from + 4}</small></h3><ol start="${tier.from}" class="rl-matches pk-solo">`;
+    SOLO.STAGES.filter(g => g.n >= tier.from && g.n < tier.from + 5).forEach(g => {
+      const boss = D.soloBoss(g.id), c = SOLO.previewCard(g.id, yours), won = !!s.so[g.id], unlocked = SOLO.unlocked(g.id, s), paid = !!s.bossRewards?.[g.id];
+      const P = D.ladderPay(g.n), playable = unlocked && dk.ok;
+      const action = !unlocked ? 'Locked' : !dk.ok ? 'Deck needed' : won ? 'Replay' : 'Battle';
+      const title = boss ? `${boss.name}’s team` : g.name;
+      const reward = boss ? (paid ? 'Boss card earned' : `Win ${boss.name} · ${D.RARITY_NAME[boss.r]}`) : `${nf(P.coins * (won ? 1 : 2))} coins${won ? ' per win' : ' on first win'}`;
+      const extra = !unlocked ? `Win battle ${g.n - 1} to unlock` : boss && paid ? 'Replay for coins' : boss && won ? 'Defeat this new boss for its card' : won ? 'Complete · Play again anytime' : boss ? 'First defeat adds this card to your collection' : 'Victory unlocks the next battle';
+      h += `<li class="rl-match${boss ? ' is-boss' : ''}${won ? ' is-won' : ''}${g.n === at ? ' is-next' : ''}${unlocked ? '' : ' is-locked'}" data-ladder-stage="${g.id}"><button type="button" data-dy-solo="${g.id}"${playable ? '' : ' disabled'} aria-label="${esc(`Battle ${g.n}${boss ? ', boss' : ''}: ${title}. ${reward}. ${extra}. ${action}`)}">`
+        + `<span class="rl-card" aria-hidden="true">${c ? cardHTML(c, {tag: false, noCount: true}) : ''}<span class="rl-cpu">AI</span></span>`
+        + `<span class="rl-match-copy"><span class="rl-match-top"><span class="rl-number">${String(g.n).padStart(2, '0')}</span><span class="rl-level">${boss ? `${D.RARITY_NAME[boss.r]} boss` : esc(tier.name)}</span>${won ? ui.icon('check-circle', {size: 17}) : !unlocked ? ui.icon('lock', {size: 16}) : '<i class="rl-ready-dot"></i>'}</span>`
+        + `<strong>${esc(title)}</strong><span class="rl-match-reward">${boss ? ui.icon(paid ? 'check' : 'trophy', {size: 14}) : ui.icon('sparkle', {size: 14})}${esc(reward)}</span>`
+        + `<small>${esc(extra)}</small><span class="rl-match-action">${boss && !paid ? '<em>WIN THIS CARD</em>' : '<em>SOLO BATTLE</em>'}<b>${action}${playable ? ui.icon('chevron-right', {size: 15}) : ''}</b></span></span></button></li>`;
+    });
+    h += '</ol></section>';
+  });
+  h += `<div class="pk-row-s rl-tools"><button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Rules</span></button><button type="button" class="pk-mini" data-dy-tab="decks">${TILE.decks}<span>Decks</span></button><button type="button" class="pk-mini" data-dy-bv="rank">${MODE_IC.rank}<span>Rankings</span></button><button type="button" class="pk-mini" data-dy-goto="cols">${MODE_IC.missions}<span>Collections</span></button></div></section>`;
+  return h;
+}
 function startSolo(st, id) {
   const go = () => { const r = SOLO.start(id); if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; } ui.haptic('success'); st.ctx.nav(`/puzzles/dynasty/battle/${r.mid}`); };
   const cur = SOLO.current();
@@ -808,7 +846,7 @@ function startSolo(st, id) {
   ui.actionSheet({title: 'Start a new battle?', message: `Your battle against ${cur.opp.name} ends unplayed.`, cls: 'pk-sheet', actions: [{label: 'Start the new one', role: 'primary', value: 'y'}]})
     .then(v => { if (v === 'y') { SOLO.resign(cur.mid); go(); } });
 }
-function battleHTML2(st) { return st.bv === 'versus' ? versusHTML(st) : st.bv === 'rank' ? rankHTML() : st.bv === 'solo' ? soloHTML() : battleHome(st); }
+function battleHTML2(st) { return st.bv === 'versus' ? versusHTML(st) : st.bv === 'rank' ? rankHTML() : st.bv === 'solo' || D.bossLadderOpen() ? soloHTML() : battleHome(st); }
 
 // ---------------------------------------------------------------------------------------------------- opening a pack
 function openHere(st) {
@@ -964,6 +1002,7 @@ function updateChrome(st) {
   }
   if (st.tab === 'home' && !owner) st.tab = 'battle';
   shell.classList.toggle('is-home', owner && st.tab === 'home');
+  shell.classList.toggle('is-ladder', D.bossLadderOpen() && st.tab === 'battle' && !['versus', 'rank'].includes(st.bv));
   if (hud !== st.hud) { el.querySelector('[data-dy-hud]').innerHTML = hud; st.hud = hud; }
   el.querySelector('[data-pk-title]').textContent = (tabsOf().find(t => t.id === st.tab) || TABS[0]).title;
   el.querySelectorAll('.pk-tab[data-dy-tab]').forEach(b => { const on = b.dataset.dyTab === st.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
@@ -1086,6 +1125,12 @@ export default {
       if (q('[data-dy-earn]')) { earnSheet(); return; }
       if ((b = q('[data-dy-odds]'))) { oddsSheet(b.dataset.dyOdds); return; }
       if ((b = q('[data-dy-bv]'))) { st.bv = b.dataset.dyBv; refresh(st); el.querySelector('[data-dy-pane]').scrollTop = 0; return; }
+      if (D.bossLadderOpen() && q('[data-dy-ladder-next]')) {
+        const id = `g${Math.min(SOLO.ladderAt(), SOLO.LADDER)}`, row = el.querySelector(`[data-ladder-stage="${id}"]`);
+        const pane = el.querySelector('[data-dy-pane]');
+        if (row) pane.scrollTo({top: pane.scrollTop + row.getBoundingClientRect().top - pane.getBoundingClientRect().top - Math.max(0, (pane.clientHeight - row.offsetHeight) / 2), behavior: RM() ? 'instant' : 'smooth'});
+        return;
+      }
       if (q('[data-dy-guide]')) { guideSheet(); return; }
       if ((b = q('[data-dy-card]'))) { cardSheet(st, b.dataset.dyCard); return; }
       if (q('[data-dy-more]')) { drawGrid(st, true); return; }

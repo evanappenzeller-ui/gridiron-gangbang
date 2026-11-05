@@ -95,8 +95,9 @@ function ladderTypes(n, yours) {
 const ovrOf = n => (n <= 15 ? [48 + Math.round((n - 1) * 1.2), 56 + Math.round((n - 1) * 1.2)]
   : n <= 20 ? [70 + (n - 16), 82 + (n - 16)] : [76 + (n - 21), Math.min(99, 88 + (n - 21))]);
 const kitOf = n => (n <= 8 ? {'I-water': 1} : n <= 15 ? KIT.beg : n <= 23 ? KIT.adv : KIT.exp);
-function ladderDeck(n, yours) {
-  const types = ladderTypes(n, yours), [lo, hi] = ovrOf(n), R = D.rng(`ladder|${n}|${types.join('')}`), owned = {...kitOf(n)};
+function ladderDeck(n, yours, focus = null) {
+  const types = focus ? [focus, ...ladderTypes(n, yours).filter(t => t !== focus).slice(0, 1)] : ladderTypes(n, yours);
+  const [lo, hi] = ovrOf(n), R = D.rng(`ladder|${n}|${types.join('')}`), owned = {...kitOf(n)};
   if (n >= 16) owned[STADIUM[types[0]]] = 1;
   // (the range widened, a step at a time, until each type has seven players in it: the low ratings are thin)
   const basics = D.CARDS.filter(c => c.s !== 'X' && B.isBasic(c.id) && c.pos !== 'K' && types.includes(B.POS_TYPE[c.pos]));
@@ -143,6 +144,26 @@ export function deckFor(id, yours = 'A') {
   const deck = D.autoDeck(owned);
   DECKS.set(id, deck);
   return deck.slice();
+}
+
+/** The owner boss's 40-card deck. Legacy deckFor stays identical for other profiles and existing matches. */
+export function bossDeckFor(id, yours = 'A') {
+  const boss = D.soloBoss(id), n = ladderN(id);
+  if (!boss || !n || D.status !== 'ready') return [];
+  const base = ladderDeck(n, yours, B.POS_TYPE[boss.pos]);
+  const deck = TABLE.cpuDeck(base, D.CARDS.map(c => c.id));
+  // Replace the weakest reserves; never enlarge a deck or allow more than two of one card.
+  while (deck.filter(cid => cid === boss.id).length < 2) {
+    const slots = deck.map((cid, i) => ({i, c: D.card(cid)})).filter(x => x.c && x.c.id !== boss.id)
+      .sort((a, b) => a.c.o - b.c.o || b.i - a.i);
+    if (!slots.length) return [];
+    deck[slots[0].i] = boss.id;
+  }
+  return deck;
+}
+/** Representative card for each ladder row; boss rows always show the exact earned card. */
+export function previewCard(id, yours = 'A') {
+  return D.soloBoss(id) || deckFor(id, yours).map(D.card).filter(Boolean).sort((a, b) => b.o - a.o)[0] || null;
 }
 
 // ---------------------------------------------------------------------------------------------------- how it plays
@@ -278,13 +299,15 @@ function game(r) {
 }
 function matchOf(r) {
   const o = opponent(r.opp), G = game(r);
-  const base = {mid: r.id, solo: true, opp: {key: 'cpu', name: o.name, member: null, guest: false, cpu: o}, you: 0, G, at: r.at};
+  const boss = r.boss?.v === 1 && D.soloBoss(r.opp)?.id === r.boss.card
+    && r.decks[1].includes(r.boss.card) && r.log.some(([w, m]) => w === 1 && m.a === 'setup' && m.act === r.boss.card) ? D.card(r.boss.card) : null;
+  const base = {mid: r.id, solo: true, opp: {key: 'cpu', name: boss ? `${boss.name} · Boss` : o.name, member: null, guest: false, cpu: o}, boss: boss?.id || null, you: 0, G, at: r.at};
   let result = null, why = G.over && G.over.why;
   if (r.z === 'resign') { result = 'l'; why = 'resign'; }
   else if (G.phase === 'over') result = G.over.win === -1 ? 'd' : G.over.win === 0 ? 'w' : 'l';
   if (result) {
     // (paid once: core/dynasty.js paySolo)
-    if (!r.paid && D.status === 'ready' && D.mayPlay()) { r.pay = D.paySolo(r.id, o.id, o.lv, result) || null; r.paid = 1; write(); }
+    if (!r.paid && D.status === 'ready' && D.mayPlay()) { r.pay = D.paySolo(r.id, o.id, o.lv, result, D.mine(), boss?.id || null) || null; r.paid = 1; write(); }
     return {...base, state: 'over', result, why, pay: r.pay || null};
   }
   const state = G.phase === 'setup' ? (G.p[0].set ? 'theirs' : 'setup') : B.toMove(G) === 0 ? 'yours' : 'theirs';
@@ -309,10 +332,28 @@ export function start(id) {
   if (!dk.ok) return {ok: false, why: `Your deck isn’t ready: ${dk.why}`};
   rec();
   const mid = 'cpu' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
-  REC = {id: mid, opp: o.id, seed: mid, v: table ? TABLE.VERSION : B.RULES_VERSION, decks: [dk.ids.slice(), table ? TABLE.cpuDeck(deckFor(o.id, mainType(dk.ids)), D.CARDS.map(c => c.id)) : deckFor(o.id, mainType(dk.ids))], log: [], at: Date.now(), z: '', paid: 0, pay: null};
+  const boss = table ? D.soloBoss(id) : null, theirs = boss ? bossDeckFor(id, mainType(dk.ids))
+    : table ? TABLE.cpuDeck(deckFor(o.id, mainType(dk.ids)), D.CARDS.map(c => c.id)) : deckFor(o.id, mainType(dk.ids));
+  if (!theirs.length) return {ok: false, why: 'This opponent’s cards aren’t ready. Try again.'};
+  const candidate = {id: mid, opp: o.id, seed: mid, v: table ? TABLE.VERSION : B.RULES_VERSION, decks: [dk.ids.slice(), theirs], log: [], at: Date.now(), z: '', paid: 0, pay: null};
+  if (boss) {
+    candidate.boss = {v: 1, card: boss.id};
+    // Pick an opening shuffle that deals the boss. The stored seed replays using the unchanged rules engine.
+    let ready = false;
+    for (let i = 0; i < 256; i++) {
+      candidate.seed = `${mid}|boss|${i}`;
+      if (B.newGame(candidate.seed, candidate.decks, candidate.v).p[1].hand.includes(boss.id)) { ready = true; break; }
+    }
+    if (!ready) return {ok: false, why: 'The boss couldn’t set its lineup. Try again.'};
+  }
+  REC = candidate;
   CACHE = null; clearTimeout(timer); timer = 0;
   // (the computer sets up at once)
   const G = game(REC), m = nextMove(G, 1, o.lv);
+  if (boss) {
+    const rest = G.p[1].hand.slice(); rest.splice(rest.indexOf(boss.id), 1);
+    m.act = boss.id; m.bench = rest.filter(cid => B.basicIn(cid, G.v)).slice(0, Math.min(B.BENCH_MAX, skillOf(o.lv).bench));
+  }
   if (B.play(G, 1, m).ok) { REC.log.push([1, m]); CACHE.n = REC.log.length; }
   write(); emit('start');
   return {ok: true, mid};

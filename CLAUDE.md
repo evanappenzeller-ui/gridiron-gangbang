@@ -375,3 +375,19 @@ challenge 10, and five/twenty successful pack openings; equipment lives on the s
 Decks tab's Solo table panel or the finish button on the table. Use `node tools/dynasty/check-table.cjs` for pure
 rules, offline real-touch browser interactions, full-match simulations, save round trips and profile boundaries;
 keep the existing rules, decks, scope, start and reveal checks passing before deployment.
+
+## Rivals solo boss ladder (November 5, 2026)
+
+Current AGENTS.md scope: `data.isOwner()` / `dynasty.bossLadderOpen()` enables the card-led Solo ladder as
+Evan's Battle landing screen. Ryan keeps the deployed Play hub and original Solo list/decks/rewards.
+Keep `g1`–`g30`, existing wins and in-progress matches. A win unlocks the next stage; old cleared stages stay replayable.
+`core/dynasty.js` `SOLO_BOSSES` selects Epic+ cards at 5, 10, 15, 20, 25 and 30. New owner boss matches save
+`boss: {v: 1, card}` in their existing `gg-dys-<profile>` record. Their 40-card CPU deck contains two copies;
+a stored opening seed deals the boss and its recorded setup fields that card. Rules v6 and replay stay unchanged.
+Only a winning, verified boss match earns its featured card. Optional `bossRewards[stage]` receipts on the existing
+Dynasty save prevent repeat grants, including after selling a reward or aging beyond the recent-match ledger.
+Old fifth-stage matches retain their original rewards; previously cleared stages can be replayed against their new
+boss for the card. No automatic grants, balance resets, deck changes or progress reset during loading.
+`css/views/dynasty-ladder.css` scopes the presentation; the existing card artwork is reused. Run
+`node tools/dynasty/check-ladder.cjs` for all six bosses, deck legality, actual winning logs, reward/save round trips,
+unlocking, phone/tablet layouts, resume and profile boundaries, alongside the existing rules/decks/scope/start/reveal/table checks.

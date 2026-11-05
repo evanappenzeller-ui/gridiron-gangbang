@@ -418,7 +418,8 @@ function barHTML(st, x, G, me, myMove, over, canAttack) {
     const p = x.pay || {coins: 0}, cpu = x.opp.cpu;
     const packs = p.packs ? Object.entries(p.packs).map(([k, n]) => `${n > 1 ? n + ' ' : ''}${D.PACKS[k].name}${n > 1 ? 's' : ''}`).join(', ') : '';
     const next = cpu.n && x.result === 'w' && cpu.n < SOLO.LADDER && SOLO.unlocked('g' + (cpu.n + 1));
-    return `<span class="db-pay">${p.coins ? `+${nf(p.coins)} coins` : 'No coins this time'}${packs ? ` · First win: ${esc(packs)}` : ''}</span>`
+    const prize = D.bossLadderOpen() && p.card ? D.card(p.card) : null;
+    return `<span class="db-pay">${prize ? `<b class="db-boss-prize">${ui.icon('trophy', {size: 16})}Boss card earned: ${esc(prize.name)} · ${D.RARITY_NAME[prize.r]}</b>` : ''}${p.coins ? `+${nf(p.coins)} coins` : 'No coins this time'}${packs ? ` · First win: ${esc(packs)}` : ''}</span>`
       + ui.button({label: x.result === 'w' ? 'Play again' : 'Try again', kind: next ? 'secondary' : 'primary', size: 's', attrs: {'data-db-again': ''}})
       + (next ? ui.button({label: `Game ${cpu.n + 1}`, kind: 'primary', size: 's', attrs: {'data-db-next': ''}}) : ui.button({label: 'Done', kind: 'secondary', size: 's', attrs: 'data-back'}));
   }
