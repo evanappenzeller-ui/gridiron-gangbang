@@ -2,6 +2,7 @@
 import * as B from './dynasty-battle.js';
 
 export const VERSION = 6, SIZE = 40;
+export const DECK_LIMIT = 30;
 // A reusable match playbook, not collectible cards or a change to pack odds.
 export const PLAYBOOK = {'I-charge': 2, 'I-draw': 2, 'I-recover': 2, 'I-focus': 2};
 export const FINISHES = [
@@ -12,9 +13,17 @@ export const FINISHES = [
   {id: 'gold', name: 'Champions Club', color: '#71602d', away: '#4c3b67', rule: 'Open 20 packs', goal: 20, kind: 'packs'}
 ];
 export function clean(raw = {}) {
-  return {deck: Array.isArray(raw?.deck) ? raw.deck.filter(id => typeof id === 'string').slice(0, SIZE) : [],
+  const ids = value => Array.isArray(value) ? value.filter(id => typeof id === 'string').slice(0, SIZE) : [];
+  const out = {deck: ids(raw?.deck),
     packs: Math.max(0, Math.min(100000, Math.floor(Number(raw?.packs) || 0))),
     finish: FINISHES.some(f => f.id === raw?.finish) ? raw.finish : 'club'};
+  if (Array.isArray(raw?.decks)) {
+    const seen = new Set();
+    out.decks = raw.decks.filter(d => d && typeof d.id === 'string' && /^[a-z0-9-]{1,64}$/.test(d.id) && !seen.has(d.id) && seen.add(d.id))
+      .slice(0, DECK_LIMIT).map(d => ({id: d.id, name: String(d.name || 'My deck').trim().slice(0, 32) || 'My deck', ids: ids(d.ids)}));
+    out.active = out.decks.some(d => d.id === raw.active) ? raw.active : '';
+  }
+  return out;
 }
 export function finishes(s) {
   const wins = Object.values(s.so || {}).reduce((a, n) => a + n, 0), packs = clean(s.table).packs;
@@ -43,9 +52,16 @@ export function build(s) {
   return out;
 }
 export function deck(s) {
-  const saved = clean(s.table).deck, ids = check(saved, s).ok ? saved : build(s);
+  const table = clean(s.table), selected = table.decks?.find(d => d.id === table.active);
+  const saved = table.deck, ids = selected ? selected.ids : check(saved, s).ok ? saved : build(s);
   return {ids, ...check(ids, s)};
 }
+/** Reading old saves never migrates or replaces a deck. The first explicit edit saves this existing slot. */
+export function loadouts(s) {
+  const table = clean(s.table);
+  return table.decks?.length ? table.decks : [{id: 'original', name: s.nm || 'My first deck', ids: deck(s).ids.slice()}];
+}
+export const activeId = s => clean(s.table).active || loadouts(s)[0].id;
 export function cpuDeck(ids, reserveIds = []) {
   const base = ids.slice(), counts = {}, types = B.deckTypes(ids);
   base.forEach(id => { counts[id] = (counts[id] || 0) + 1; });

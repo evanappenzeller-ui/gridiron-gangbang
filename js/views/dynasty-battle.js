@@ -63,6 +63,7 @@ function evText(ev, you, opp) {
       if (ev.heal) x += ` Heals ${ev.heal}.`;
       if (ev.spent) x += ` Spends 1 ${B.ENERGY[ev.spent]} energy.`;
       if (ev.jukeReduced) x += ` Juke blocks ${ev.jukeReduced}.`;
+      if (ev.chemistry) x += ` Team chemistry adds ${ev.chemistry}.`;
       return x;
     }
     case 'ko': if (ev.players) return `${short(ev.id)} is knocked out. ${ev.who === you ? 'You have' : `${opp} has`} lost a player.`; return `${short(ev.id)} is knocked out! ${ev.who === you ? opp : 'You'} score${ev.who === you ? 's' : ''} ${ev.pts === 2 ? '2 touchdowns' : 'a touchdown'}.`;

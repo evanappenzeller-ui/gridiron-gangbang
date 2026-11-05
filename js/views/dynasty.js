@@ -1,4 +1,5 @@
 import {tableOptions, tableDeckSheet} from './dynasty-table-options.js';
+import {deckShelfHTML, handleDeckShelf} from './dynasty-decks.js';
 // Gridiron Rivals (legacy route/save identifiers remain dynasty). The four labeled tabs are
 // Play, Cards, Decks and Packs. Play opens first with a resume/solo action and the active deck.
 // The header menu holds settings/rules; the title screen and pack-opening flow remain available.
@@ -609,6 +610,7 @@ function claimIt(st, id) {
 
 // ---------------------------------------------------------------------------------------------------- Decks
 function decksHTML(st) {
+  if (D.tableOpen() && !st.friendDeck) return deckShelfHTML(cardHTML);
   const s = D.mine(), dk = D.deckOf(s);
   const counts = {};
   dk.ids.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
@@ -627,11 +629,7 @@ function decksHTML(st) {
     return `<article class="rh-strategy"><div><h3>${esc(plan.name)}</h3><p>${esc(plan.description)}</p><small>${esc(plan.weakness)}</small></div><button type="button" class="pk-btn is-go" data-dy-strategy="${plan.id}"${candidate.ok ? '' : ' disabled'}>Use deck</button>${candidate.ok ? '' : `<p class="rh-strategy-missing">${esc(candidate.why)}</p>`}</article>`;
   }).join('')}</section>`;
   h += `<div class="pk-grid">${uniq.map(id => anyHTML(id, {size: 's', count: counts[id]})).join('')}</div>`;
-  if (D.tableOpen()) {
-    const table = D.tableDeck(s);
-    h = `<section class="rt-hub"><small>SOLO TABLE</small><h2>Your 40-card playbook</h2><p>Players, instant abilities and three knockouts to win. ${table.ids.length}/40 cards ready.</p><button type="button" class="pk-btn is-go" data-dy-table-deck>Edit solo deck</button><button type="button" class="pk-btn" data-dy-table>Table finishes</button></section>` + h;
-  }
-  return h;
+  return (D.tableOpen() ? '<button type="button" class="pk-pill" data-rd-back>← My Decks</button>' : '') + h;
 }
 function addSheet(st) {
   const s = D.mine();
@@ -983,7 +981,7 @@ function matchesOf(st) {
   return st.matches;
 }
 const waitingOf = st => matchesOf(st).filter(x => ['invite', 'setup', 'yours'].includes(x.state)).length;
-const paneKey = st => JSON.stringify([st.tab, st.tab === 'cards' ? st.f : st.tab === 'battle' ? st.bv : st.tab === 'packs' ? [st.pack, st.art] : null]);
+const paneKey = st => JSON.stringify([st.tab, st.tab === 'cards' ? st.f : st.tab === 'battle' ? st.bv : st.tab === 'packs' ? [st.pack, st.art] : st.tab === 'decks' ? !!st.friendDeck : null]);
 // Pack countdowns and battle idle times age even without a save event. Reusing nodes must not reset their age.
 const paneFresh = (tab, at) => !(tab === 'packs' || tab === 'battle' || tab === 'home') || Date.now() - at < 15000;
 function invalidatePanes(st, matches = false) {
@@ -1122,13 +1120,16 @@ export default {
       const t = e.target;
       const q = sel => t.closest(sel);
       let b;
+      if (handleDeckShelf(e, () => scheduleRefresh(st), cardHTML)) return;
+      if (D.tableOpen() && q('[data-rd-friends]')) { st.friendDeck = true; refresh(st); return; }
+      if (D.tableOpen() && q('[data-rd-back]')) { st.friendDeck = false; refresh(st); return; }
       if (D.tableOpen() && e.target.closest('[data-dy-table-deck]')) { tableDeckSheet(() => scheduleRefresh(st)); return; }
       if (D.tableOpen() && e.target.closest('[data-dy-table]')) { tableOptions(() => scheduleRefresh(st)); return; }
       if (q('[data-dy-exit]')) { ui.confirmExit({game: 'Gridiron Rivals', cls: 'pk-sheet'}).then(home => { if (home && !st.dead) ctx.back(); }); return; }
       if (q('[data-dy-menu]')) { menuSheet(st); return; }
       if (q('[data-dy-retry]')) { D.load().then(() => refresh(st), () => refresh(st)); refresh(st); return; }
       if (homeOpen() && q('[data-dy-home-versus]')) { st.bv = 'versus'; go(st, 'battle', {keep: true}); return; }
-      if ((b = q('[data-dy-tab]'))) { go(st, b.dataset.dyTab); return; }
+      if ((b = q('[data-dy-tab]'))) { if (b.dataset.dyTab === 'decks') st.friendDeck = false; go(st, b.dataset.dyTab); return; }
       if ((b = q('[data-dy-goto]'))) { st.f.view = 'cols'; go(st, 'cards'); return; }
       if ((b = q('[data-dy-cv]'))) { st.f.view = b.dataset.dyCv; refresh(st); return; }
       if (q('[data-dy-all]')) { st.f.view = st.f.view === 'all' ? 'mine' : 'all'; ui.haptic('selection'); refresh(st); return; }

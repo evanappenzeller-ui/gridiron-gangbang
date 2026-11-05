@@ -82,7 +82,7 @@ async function homeFlow(page, reduced) {
   await nav('home');
   await page.locator('.rh-home .is-collection').click(); await page.waitForSelector('.pk-binder');
   await nav('home');
-  await page.locator('.rh-home-tools [data-dy-tab="decks"]').click(); await page.waitForSelector('.pk-deckbox');
+  await page.locator('.rh-home-tools [data-dy-tab="decks"]').click(); await page.waitForSelector('.rd-shelf');
   await nav('home');
   await page.locator('.rh-home [data-dy-guide]').click(); await page.waitForSelector('.sheet.pk-sheet');
   await page.locator('.sheet.pk-sheet .sheet-close').click();

@@ -1,5 +1,24 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals deck shelf (November 5, 2026)
+
+Owner-only under the current AGENTS.md rule (`data.isOwner()`): Decks shows a Build New slot and up to 30 saved
+40-card solo decks, followed by NFL team recipes. The original solo deck is retained; reading the shelf never
+changes a save. The first explicit save stores `table.decks [{id, name, ids}]` and `table.active`, with `table.deck`
+kept in sync for compatibility. Drafts can be saved but cannot be selected for battle. Existing friend decks,
+collections, balances, table finishes and in-progress matches remain intact. Quick-sell protects the maximum copies
+used in any saved deck. Non-owner profiles keep their existing deck screen and rules.
+
+A deck with at least 12 player cards, at least 6 distinct players, and every player from one team qualifies for
+chemistry. New owner solo matches snapshot `chemistry: {v: 1, team}` into the existing match record. Starting with
+that side's second turn, a successful attack adds 5 damage only while a different teammate is benched. This bonus
+does not stack, grant energy, or rescue a failed All or Nothing attack. Preview and resolution share the calculation.
+Old matches and friend matches omit the option and replay unchanged; the base table rules remain v6.
+
+Implementation: `views/dynasty-decks.js`, `css/views/dynasty-decks.css`, `core/dynasty-table.js` and the existing
+Dynasty save/battle/solo modules. Verify `check-deck-shelf.cjs`, `check-deck-shelf-browser.cjs`, `check-rivals-rules.cjs`,
+`check-rivals-decks.cjs`, `check-table.cjs`, `check-start-browser.cjs` and `check-scope.cjs` in `tools/dynasty`.
+
 ## All new changes are for every user
 
 Standing owner instruction (October 25, 2026, Evan: "Push all changes to every user. This is the standard from here on

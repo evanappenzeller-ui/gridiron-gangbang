@@ -287,7 +287,7 @@ function write() { try { if (REC) localStorage.setItem(KEY(), JSON.stringify(REC
 function game(r) {
   if (CACHE && CACHE.id === r.id && CACHE.n === r.log.length) return CACHE.G;
   // Older solo saves had no version and always used v2. Never reinterpret their recorded moves.
-  const G = B.newGame(r.seed, r.decks, r.v >= 6 ? 6 : r.v >= 5 ? 5 : r.v >= 4 ? 4 : r.v >= 3 ? 3 : 2);
+  const G = B.newGame(r.seed, r.decks, r.v >= 6 ? 6 : r.v >= 5 ? 5 : r.v >= 4 ? 4 : r.v >= 3 ? 3 : 2, r.chemistry);
   for (const [w, m] of r.log) { if (!B.play(G, w, m).ok) break; }
   CACHE = {id: r.id, n: r.log.length, G};
   return G;
@@ -331,6 +331,8 @@ export function start(id) {
     : table ? TABLE.cpuDeck(deckFor(o.id, mainType(dk.ids)), D.CARDS.map(c => c.id)) : deckFor(o.id, mainType(dk.ids));
   if (!theirs.length) return {ok: false, why: 'This opponent’s cards aren’t ready. Try again.'};
   const candidate = {id: mid, opp: o.id, seed: mid, v: table ? TABLE.VERSION : B.RULES_VERSION, decks: [dk.ids.slice(), theirs], log: [], at: Date.now(), z: '', paid: 0, pay: null};
+  const chemistry = table && B.teamChemistry(dk.ids);
+  if (chemistry) candidate.chemistry = {v: 1, team: chemistry};
   if (boss) {
     candidate.boss = {v: 2, card: boss.id};
     // Pick an opening shuffle that deals the boss. The stored seed replays using the unchanged rules engine.

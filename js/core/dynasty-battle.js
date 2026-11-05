@@ -238,7 +238,7 @@ function shuffle(G, a) { for (let i = a.length - 1; i > 0; i--) { const j = Math
 // slot: {u (id), id (the card on top), under (what it evolved from), dmg, en [energy], stun, inj, shield, at (the turn it
 //  came into play)}
 /** A new game: seed (the match id), decks [[ids], [ids]]. */
-export function newGame(seed, decks, v = 1) {
+export function newGame(seed, decks, v = 1, chemistry = null) {
   const G = {seed: String(seed), v: v >= 6 ? 6 : v >= 5 ? 5 : v >= 4 ? 4 : v >= 3 ? 3 : v >= 2 ? 2 : 1, rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
   G.first = coin(G) ? 0 : 1; G.cur = G.first;
   for (let i = 0; i < 2; i++) {
@@ -251,6 +251,8 @@ export function newGame(seed, decks, v = 1) {
     }
     G.p.push({deck, hand: deck.splice(0, HAND_START), disc: [], active: null, bench: [], pts: 0, types: deckTypes(decks[i]), en: null, next: null, n: 0, set: false,
       used: {}, promote: false, plan: 0, cleats: 0});
+    // Optional owner solo rule, captured at match creation. Old matches and friend matches omit it.
+    if (G.v === 6 && chemistry?.v === 1 && i === 0 && chemistry.team === teamChemistry(decks[i])) G.p[i].chemistry = chemistry.team;
   }
   return G;
 }
@@ -259,6 +261,17 @@ const other = who => 1 - who;
 export const hpOf = slot => (stats(slot.id) ? stats(slot.id).hp : 0);
 export const slots = side => [side.active, ...side.bench].filter(Boolean);
 const findSlot = (side, u) => slots(side).find(s => s.u === u) || null;
+/** One team, at least twelve player cards and six different players. Trainers are neutral. */
+export function teamChemistry(ids) {
+  const players = (ids || []).map(CARD).filter(Boolean), team = players[0]?.team;
+  return team && players.length >= 12 && players.every(c => c.team === team)
+    && new Set(players.map(c => c.p || c.id)).size >= 6 ? team : null;
+}
+export function chemistryBonus(G, who) {
+  const me = G.p[who], active = me?.active && CARD(me.active.id), team = me?.chemistry;
+  return G.v === 6 && team && me.n >= 2 && active?.team === team
+    && me.bench.some(s => { const c = CARD(s.id); return c?.team === team && (c.p || c.id) !== (active.p || active.id); }) ? 5 : 0;
+}
 const takeFromHand = (side, id) => { const i = side.hand.indexOf(id); if (i < 0) return false; side.hand.splice(i, 1); return true; };
 function newSlot(G, id) { return {u: G.uid++, id, under: [], dmg: 0, en: [], stun: false, inj: false, shield: 0, at: G.turn}; }
 /** Whether an attack's cost is paid by the energy on a slot. */
@@ -515,14 +528,15 @@ function attackDamage(G, who, n, heads = false) {
   if (a.flat && G.stadium && TRAINERS[G.stadium.id].boost && TRAINERS[G.stadium.id].boost.S) dmg += TRAINERS[G.stadium.id].boost.S;
   if (sa.type === 'A' && slots(me).some(s => s !== A && stats(s.id).ability === 'boost')) dmg += 10;
   if (sa.ability === 'clutch') dmg += 30;
-  dmg += me.plan;
+  const chemistry = chemistryBonus(G, who);
+  dmg += me.plan + chemistry;
   const weak = !a.flat && sd.weak === sa.type;
   if (weak) dmg += WEAK_BONUS;
   if (sd.ability === 'tough') dmg -= 20;
   dmg -= D.shield;
   const jukeReduced = G.v >= 3 && sd.ability === 'juke' && n === 1 ? Math.min(30, Math.max(0, dmg)) : 0;
   dmg -= jukeReduced;
-  return {dmg: Math.max(0, dmg), weak, jukeReduced};
+  return {dmg: Math.max(0, dmg), weak, jukeReduced, chemistry};
 }
 
 /** Public, non-mutating damage range. It includes board modifiers, never reveals the seeded coin result. */
@@ -537,6 +551,7 @@ export function attackPreview(G, who, n) {
   const juke = stats(D.id).ability === 'juke';
   const min = G.v < 3 && juke ? 0 : low.dmg, max = high.dmg;
   if (low.weak) notes.push(`Weakness +${WEAK_BONUS}`);
+  if (high.chemistry) notes.push(`Team chemistry +${high.chemistry} on a successful attack`);
   if (G.v >= 3 && juke && n === 1) notes.push('Juke reduces signature damage by 30');
   if (G.v < 3 && juke) notes.push('Juke may cancel this attack');
   if (a.fx === 'coin') notes.push('Damage range includes the coin flip');
@@ -555,6 +570,7 @@ function attack(G, who, n) {
   let dmg = hit.dmg;
   if (hit.weak) o.weak = true;
   if (hit.jukeReduced) o.jukeReduced = hit.jukeReduced;
+  if (hit.chemistry) o.chemistry = hit.chemistry;
   if (G.v < 3 && sd.ability === 'juke') { o.juke = coin(G); if (o.juke) { dmg = 0; o.missed = true; } }
   dmg = Math.max(0, dmg);
   D.dmg += dmg; o.dmg = dmg;

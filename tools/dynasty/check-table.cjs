@@ -190,7 +190,7 @@ async function browserTest(url) {
     assert.equal(simulations.count,60);console.log('PASS complete ladder matches and deterministic replays:',simulations);
     await page.evaluate(async()=>{const app=await import('/js/app.js');await app.nav('/puzzles/dynasty');});
     if(await page.locator('.pk-start').count())await page.locator('.pk-start').click();
-    await page.locator('.pk-tab[data-dy-tab="decks"]').click();await page.locator('[data-dy-table-deck]').click();
+    await page.locator('.pk-tab[data-dy-tab="decks"]').click();await page.locator('.rd-tile.is-active').click();await page.locator('[data-rd-edit]').click();
     await page.waitForSelector('[data-rt-save]');assert.equal(await page.locator('[data-rt-save]').isDisabled(),false);await page.locator('[data-rt-save]').click();
     await page.waitForTimeout(500);
     const savedDeck=await page.evaluate(async()=>{const D=await import('/js/core/dynasty.js');const s=D.mine();return {saved:s.table.deck,clean:D.clean(s).table.deck};});

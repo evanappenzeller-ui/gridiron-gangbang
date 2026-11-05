@@ -820,7 +820,7 @@ export function buyOpen(kind, {team = null} = {}, s = mine()) {
 /** Quick-sells copies of a card (the copies in your deck are kept). {ok, coins}. */
 export function sell(id, n = 1, s = mine()) {
   const c = anyCard(id), have = s.o[id] || 0;
-  const keep = s.dk.filter(x => x === id).length;
+  const keep = deckCopies(id, s);
   n = Math.min(n, have - keep);
   if (!c || n <= 0) return {ok: false, coins: 0};
   s.o[id] = have - n; if (!s.o[id]) { delete s.o[id]; s.nw = s.nw.filter(x => x !== id); }
@@ -829,7 +829,7 @@ export function sell(id, n = 1, s = mine()) {
 /** Every spare copy (beyond the first) of every card: [{id, n, coins}] and the total. */
 export function spares(s = mine()) {
   // (spares: beyond the first, or beyond as many as your deck uses)
-  const list = Object.entries(s.o).map(([id, n]) => ({id, n: n - Math.max(1, s.dk.filter(x => x === id).length)})).filter(x => x.n > 0 && anyCard(x.id))
+  const list = Object.entries(s.o).map(([id, n]) => ({id, n: n - Math.max(1, deckCopies(id, s))})).filter(x => x.n > 0 && anyCard(x.id))
     .map(x => ({...x, coins: sellValue(anyCard(x.id)) * x.n}));
   return {list, coins: list.reduce((t, x) => t + x.coins, 0)};
 }
@@ -956,10 +956,55 @@ export function others(docs = daily.LB.raw || [], {withMe = false} = {}) {
 // Owner-only solo table loadout and cosmetics. Collection and friend deck stay intact.
 export const tableOpen = () => data.isOwner();
 export const tableDeck = (s = mine()) => TABLE.deck(s);
+export const savedDecks = (s = mine()) => tableOpen() ? TABLE.loadouts(s) : [];
+export const activeDeckId = (s = mine()) => TABLE.activeId(s);
+function deckCopies(id, s) {
+  return Math.max(s.dk.filter(x => x === id).length, ...(tableOpen() ? TABLE.loadouts(s).map(d => d.ids.filter(x => x === id).length) : [0]));
+}
+export function saveDeckSlot({id, name, ids}, s = mine()) {
+  if (!tableOpen()) return {ok: false, why: 'Deck slots are not available on this profile.'};
+  const decks = TABLE.loadouts(s), found = decks.find(d => d.id === id);
+  if (!found && decks.length >= TABLE.DECK_LIMIT) return {ok: false, why: 'All 30 deck slots are filled.'};
+  const pool = TABLE.available(s), counts = {};
+  if (!Array.isArray(ids) || ids.length > TABLE.SIZE || ids.some(cid => !anyCard(cid) || (counts[cid] = (counts[cid] || 0) + 1) > Math.min(2, pool[cid] || 0)))
+    return {ok: false, why: 'Use up to two copies of cards in your collection or match playbook.'};
+  const slot = {id: found?.id || 'd-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8), name: String(name || 'My deck').trim().slice(0, 32) || 'My deck', ids: ids.slice()};
+  const active = TABLE.activeId(s);
+  s.table = {...TABLE.clean(s.table), decks: found ? decks.map(d => d.id === id ? slot : d) : [...decks, slot], active};
+  if (slot.id === active) s.table.deck = slot.ids.slice();
+  touch('decks'); return {ok: true, id: slot.id};
+}
+export function useDeckSlot(id, s = mine()) {
+  if (!tableOpen()) return {ok: false, why: 'Deck slots are not available on this profile.'};
+  const decks = TABLE.loadouts(s), slot = decks.find(d => d.id === id);
+  const result = slot ? TABLE.check(slot.ids, s) : {ok: false, why: 'That deck is no longer saved.'};
+  if (result.ok) { s.table = {...TABLE.clean(s.table), decks, active: id, deck: slot.ids.slice()}; touch('decks'); }
+  return result;
+}
+export function deleteDeckSlot(id, s = mine()) {
+  if (!tableOpen() || TABLE.activeId(s) === id) return false;
+  s.table = {...TABLE.clean(s.table), decks: TABLE.loadouts(s).filter(d => d.id !== id), active: TABLE.activeId(s)};
+  touch('decks'); return true;
+}
+/** Team recipes use only owned cards plus the reusable playbook; missing cards are never granted. */
+export function themedDeck(team, s = mine()) {
+  const pool = TABLE.available(s), ids = [];
+  const players = Object.keys(pool).map(card).filter(c => c?.team === team && pool[c.id] > 0).sort((a, b) => b.o - a.o || a.id.localeCompare(b.id));
+  const add = id => { for (let n = 0; n < Math.min(2, pool[id] || 0) && ids.length < TABLE.SIZE; n++) ids.push(id); };
+  // Up to 24 players first, then support; remaining teammates fill any empty spaces.
+  const first = players.slice(0, 12); first.forEach(c => add(c.id));
+  Object.keys(pool).filter(id => B.TRAINERS[id]).sort((a, b) => (TABLE.PLAYBOOK[b] || 0) - (TABLE.PLAYBOOK[a] || 0) || a.localeCompare(b)).forEach(add);
+  players.slice(12).forEach(c => add(c.id));
+  const check = TABLE.check(ids, s), chemistry = B.teamChemistry(ids);
+  return {ids, team, ok: check.ok && chemistry === team, why: chemistry !== team ? 'Collect at least 12 team player cards, including 6 different players.' : check.why};
+}
 export function setTableDeck(ids, s = mine()) {
   if (!tableOpen()) return {ok: false, why: 'This table is not available on this profile.'};
   const result = TABLE.check(ids, s);
-  if (result.ok) { s.table = {...TABLE.clean(s.table), deck: ids.slice()}; touch('table'); }
+  if (result.ok) {
+    if (s.table?.decks?.length) return saveDeckSlot({id: TABLE.activeId(s), name: TABLE.loadouts(s).find(d => d.id === TABLE.activeId(s)).name, ids}, s);
+    s.table = {...TABLE.clean(s.table), deck: ids.slice()}; touch('table');
+  }
   return result;
 }
 export const tableFinishes = (s = mine()) => TABLE.finishes(s);
