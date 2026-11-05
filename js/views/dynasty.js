@@ -1,6 +1,5 @@
 import {tableOptions, tableDeckSheet} from './dynasty-table-options.js';
-import * as music from '../core/dynasty-music.js';
-import {musicSheet} from './dynasty-music.js';
+import {musicSheet, attachMusic} from './dynasty-music.js';
 import {deckShelfHTML, handleDeckShelf} from './dynasty-decks.js';
 // Gridiron Rivals (legacy route/save identifiers remain dynasty). The four labeled tabs are
 // Play, Cards, Decks and Packs. Play opens first with a resume/solo action and the active deck.
@@ -1110,7 +1109,7 @@ export default {
   mount(el, ctx) {
     const st = {el, ctx, tab: homeOpen() ? 'home' : 'battle', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: '', sort: sortLoad()}, shown: PAGE, dead: false, starting: false, stops: [], panes: new Map(), revision: 0, refreshFrame: 0, hidden: false};
     ST.set(ctx, st);
-    st.music = music.attach(el, ctx.visible);
+    st.music = attachMusic(el, ctx.visible);
     st.stops.push(() => st.music.stop());
     fullScreen(st, ctx.visible);
     ctx.setBackTitle('Rivals');

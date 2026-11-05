@@ -369,3 +369,7 @@ html.is-dynasty-battle { --col-w: 640px; }
 @media (min-width: 600px) {
   .v-dynasty-battle .db, .v-dynasty-battle .db.is-owner-table { --db-hand: clamp(54px, calc(var(--db-vh) * .1), 112px); --db-bench-max: 96px; --db-active-max: 124px; }
 }
+
+/* Leave a touch-sized space beside the battle actions for the sound toggle. */
+.v-dynasty-battle .has-rivals-sound .db-bar { padding-right: 72px; min-height: 64px; }
+.v-dynasty-battle .pk-sound { z-index: 65; right: max(12px, calc((100% - 640px) / 2 + 12px)); }

@@ -1,6 +1,5 @@
 import {bindTableTouch} from './dynasty-table-touch.js';
-import * as music from '../core/dynasty-music.js';
-import {musicSheet} from './dynasty-music.js';
+import {musicSheet, attachMusic} from './dynasty-music.js';
 import {tableOptions} from './dynasty-table-options.js';
 // Gridiron Rivals match (/puzzles/dynasty/battle/<match id>). Rules and saved turns live in the core modules.
 // A card table (the owner, Oct 30 2026: "The gameplay is far too confusing. I want it to include the cards that are in
@@ -687,7 +686,7 @@ export default {
   mount(el, ctx) {
     const st = {el, ctx, mid: String((ctx.params && ctx.params.id) || ''), mode: null, focus: null, scenes: [], scene: null, hidden: false, setup: {act: null, actI: -1, bench: [], benchI: []}, dead: false, stops: [], evAt: null};
     ST.set(ctx, st);
-    st.music = music.attach(el, ctx.visible);
+    st.music = attachMusic(el, ctx.visible);
     st.stops.push(() => st.music.stop());
     fullScreen(st, ctx.visible);
     st.touch = tableGestures(st);

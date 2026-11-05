@@ -75,7 +75,28 @@ async function main() {
     await nav('/puzzles/dynasty'); await page.waitForSelector('.pk-start.is-ready');
     assert.equal(await page.evaluate(() => audioProbes.length), 0, 'no audio context or autoplay before interaction');
     assert.equal(trackRequests.length, 0, 'no MP3 download before interaction');
+    await page.locator('[data-dy-sound]').click();
+    assert.equal((await state()).enabled, false, 'corner mute saves the same preference as Settings');
+    assert.equal(trackRequests.length, 0, 'muting on the title never briefly starts the track');
+    assert.equal(await page.locator('.pk-start').count(), 1, 'speaker does not start the game');
+    await page.locator('[data-dy-sound]').focus(); await page.keyboard.press('Enter'); await playing();
+    assert.equal(await page.locator('[data-dy-sound]').getAttribute('aria-label'), 'Mute sound');
     await page.locator('.pk-start').focus(); await page.keyboard.press('Enter'); await playing();
+    for (const [width, height] of [[320,568], [390,844], [768,1024], [1280,800]]) {
+      await page.setViewportSize({width,height});
+      const button = await page.locator('[data-dy-sound]').boundingBox();
+      assert(button.width >= 44 && button.height >= 44 && button.x >= 0 && button.x + button.width <= width);
+      assert(button.y >= 0 && button.y + button.height <= height);
+      for (const tab of await page.locator('.pk-nav button').all()) {
+        const box = await tab.boundingBox();
+        assert(box.x + box.width <= button.x, 'speaker clears bottom navigation');
+      }
+    }
+    await page.setViewportSize({width:390,height:844});
+    if (process.env.SOUND_SHOTS) { fs.mkdirSync(process.env.SOUND_SHOTS,{recursive:true}); await page.screenshot({path:path.join(process.env.SOUND_SHOTS,'hub.png')}); }
+    await page.locator('[data-dy-sound]').click(); await silent();
+    assert.equal(await page.locator('[data-dy-sound]').getAttribute('aria-label'), 'Unmute sound');
+    await page.locator('[data-dy-sound]').focus(); await page.keyboard.press('Space'); await playing();
     await page.waitForFunction(() => navigator.mediaSession.playbackState === 'playing');
     assert.equal(await page.evaluate(() => navigator.audioSession.type), 'playback');
     assert.deepEqual(await page.evaluate(() => ({title:navigator.mediaSession.metadata.title, artist:navigator.mediaSession.metadata.artist, state:navigator.mediaSession.playbackState})), {title:'Sundress',artist:'A$AP Rocky',state:'playing'});
@@ -163,6 +184,21 @@ async function main() {
     });
     await nav('/puzzles/dynasty/battle/' + mid); await playing();
     await page.waitForFunction(() => !document.querySelector('[data-db-skip]'), null, {timeout: 15000});
+    const battleSound = page.locator('.v-dynasty-battle [data-dy-sound]');
+    for (const [width,height] of [[320,568],[390,844],[768,1024]]) {
+      await page.setViewportSize({width,height});
+      const sound = await battleSound.boundingBox();
+      assert(sound.y >= 0 && sound.y + sound.height <= height && sound.x + sound.width <= width);
+      const bar = page.locator('.db-bar');
+      for (const action of await bar.locator('button').all()) {
+        const b = await action.boundingBox();
+        assert(!b || b.x + b.width <= sound.x || b.y + b.height <= sound.y || b.y >= sound.y + sound.height, 'sound does not cover battle actions');
+      }
+    }
+    await page.setViewportSize({width:390,height:844});
+    if (process.env.SOUND_SHOTS) await page.screenshot({path:path.join(process.env.SOUND_SHOTS,'battle.png')});
+    await battleSound.click(); await silent();
+    await battleSound.click(); await playing();
     await page.locator('[data-db-more]').click(); await page.getByRole('button', {name: 'Settings', exact: true}).click();
     await page.waitForSelector('[data-dy-music-toggle]'); await close();
     await page.goBack(); await page.waitForSelector('.pk-hdr'); await playing();
@@ -174,6 +210,7 @@ async function main() {
     await settings(); await playing();
     await page.evaluate(async () => (await import('/js/core/data.js')).setGuest('Ryan Stewart'));
     await silent(); await page.waitForFunction(() => !document.querySelector('[data-dy-music-toggle]'));
+    assert.equal(await page.locator('[data-dy-sound]').count(), 0, 'profile change removes every corner control');
     assert.equal(await page.evaluate(() => navigator.audioSession.type),'ambient');
     assert.equal(await page.evaluate(() => Object.values(mediaHandlers).every(fn => fn === null)),true,'profile change clears native actions');
     await page.evaluate(async () => { const m = await import('/js/core/dynasty-music.js'); m.setEnabled(true); m.start(); });
@@ -197,7 +234,7 @@ async function main() {
       await p.goto(url+'/#/puzzles'); await p.waitForFunction(() => window.__ggBooted);
       await p.evaluate(async () => (await import('/js/app.js')).nav('/puzzles/dynasty'));
       if (await p.locator('.pk-start').count()) { await p.waitForSelector('.pk-start.is-ready'); await p.locator('.pk-start').click({position:{x:170,y:420}}); await p.locator('.pk-hdr [data-dy-menu]').click(); }
-      assert.equal(await p.locator('[data-dy-m="music"], .pk-music').count(), 0);
+      assert.equal(await p.locator('[data-dy-m="music"], .pk-music, [data-dy-sound]').count(), 0);
       await p.evaluate(async () => { const m = await import('/js/core/dynasty-music.js'); m.start(); m.setVolume(100); (await import('/js/views/dynasty-music.js')).musicSheet(); });
       assert.equal(await p.evaluate(() => audioCount), 0); assert.equal(await p.locator('.pk-music').count(), 0);
       assert.equal(downloads.length, 0, 'other profiles never request the MP3');

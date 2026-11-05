@@ -3,6 +3,45 @@ import * as ui from '../core/ui.js';
 import * as music from '../core/dynasty-music.js';
 const time = seconds => { const n = Math.max(0, Math.floor(seconds || 0)); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
 
+// Keep the corner control outside panes that are replaced during navigation/battle updates.
+export function attachMusic(el, isVisible = true) {
+  const transport = music.attach(el, isVisible);
+  let button = null, visible = isVisible;
+  const draw = () => {
+    if (!data.isOwner()) {
+      button?.remove(); button = null; el.classList.remove('has-rivals-sound'); return;
+    }
+    if (!button) {
+      button = document.createElement('button');
+      button.type = 'button'; button.className = 'pk-sound'; button.dataset.dySound = '';
+      button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4 6 8H3v8h3l5 4z"/><g data-sound-waves><path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></g><path data-sound-off d="m16 9 6 6m0-6-6 6"/></svg>';
+      button.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!visible || !data.isOwner()) return;
+        const s = music.state(), on = s.enabled && s.volume > 0;
+        if (!on && !s.volume) music.setVolume(35);
+        music.setEnabled(!on);
+      });
+      el.append(button); el.classList.add('has-rivals-sound');
+    }
+    const s = music.state(), on = s.enabled && s.volume > 0;
+    const label = !s.supported ? 'Sound unavailable' : on ? 'Mute sound' : 'Unmute sound';
+    button.hidden = !visible;
+    button.disabled = !s.supported;
+    button.setAttribute('aria-label', label); button.title = label;
+    button.setAttribute('aria-pressed', String(on));
+    button.querySelector('[data-sound-waves]').style.display = on ? '' : 'none';
+    button.querySelector('[data-sound-off]').style.display = on ? 'none' : '';
+  };
+  const offMusic = music.subscribe(draw);
+  const offProfile = data.subscribe(type => { if (type === 'me') draw(); });
+  draw();
+  return {
+    visible(value) { visible = !!value; transport.visible(value); draw(); },
+    stop() { offMusic(); offProfile(); button?.remove(); el.classList.remove('has-rivals-sound'); transport.stop(); }
+  };
+}
+
 export function musicSheet() {
   if (!data.isOwner()) return;
   let offMusic, offProfile, scrubbing = false;

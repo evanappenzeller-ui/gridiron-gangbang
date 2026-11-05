@@ -762,3 +762,20 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 .pk-sheet .pk-juke-note { font-size: 24px; color: var(--tint); }
 .pk-sheet .pk-juke-selected { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--tint); }
 .pk-sheet .pk-music .pk-music-phone { margin-top: -6px; font-size: 12px; }
+
+/* Corner sound control shares the jukebox preference and stays clear of navigation. */
+:where(.v-dynasty, .v-dynasty-battle) .pk-sound {
+  position: absolute; z-index: 35; right: max(12px, var(--sa-r, 0px));
+  bottom: max(10px, var(--sa-b, 0px)); width: 44px; height: 44px; padding: 10px;
+  display: grid; place-items: center; border: 1px solid #ffffff70; border-radius: 50%;
+  background: #163b46; color: #fff; box-shadow: 0 3px 12px #102a3833;
+  cursor: pointer; touch-action: manipulation;
+}
+:where(.v-dynasty, .v-dynasty-battle) .pk-sound[hidden] { display: none; }
+:where(.v-dynasty, .v-dynasty-battle) .pk-sound svg { width: 24px; height: 24px; pointer-events: none; }
+:where(.v-dynasty, .v-dynasty-battle) .pk-sound[aria-pressed="false"] { background: #46555f; }
+:where(.v-dynasty, .v-dynasty-battle) .pk-sound:focus-visible { outline: 3px solid #13c6df; outline-offset: 3px; }
+:where(.v-dynasty, .v-dynasty-battle) .pk-sound:active { transform: scale(.94); }
+:where(.v-dynasty, .v-dynasty-battle) .pk-sound:disabled { opacity: .55; cursor: default; }
+.v-dynasty .has-rivals-sound .pk-nav { padding-right: 64px; }
+.v-dynasty .has-rivals-sound:has(.pk-start) > .pk-sound { bottom: max(12px, var(--sa-b, 0px)); }

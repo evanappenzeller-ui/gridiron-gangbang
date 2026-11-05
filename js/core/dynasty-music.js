@@ -173,7 +173,7 @@ export function attach(el, isVisible = true) {
   }
   const gesture = e => {
     if (!client.visible || !e.isTrusted || (e.type === 'keydown' && !['Enter', ' '].includes(e.key))) return;
-    if (e.target.closest('[data-dy-exit], [data-back]')) return;
+    if (e.target.closest('[data-dy-exit], [data-back], [data-dy-sound]')) return;
     start();
   };
   el.addEventListener('click', gesture, true); el.addEventListener('keydown', gesture, true);

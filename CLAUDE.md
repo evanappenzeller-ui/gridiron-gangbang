@@ -7,6 +7,8 @@ Owner-only under AGENTS.md: `data.isOwner()` enables Evan's uploaded Sundress MP
 `core/dynasty-music.js` owns one looping media element with Web Audio volume for the hub and battle views; it starts only after
 a gesture, pauses when the view or document is hidden, and stops immediately on profile changes. Menu → Settings
 and Battle options → Settings include a named jukebox, play/pause/restart, music-level and song-position sliders.
+The bottom-right speaker in the hub and battle uses the same saved on/off preference; its icon and accessible
+label stay in sync with Settings. Muting on the title screen does not start playback or dismiss the title.
 Phone buttons remain device media volume; the music slider controls only the in-game gain. Request the optional
 Audio Session `playback` type and publish Media Session song metadata, play/pause and seek controls; restore the
 prior session type and remove native handlers on hide, exit or profile change. Unsupported system APIs must not
