@@ -905,6 +905,7 @@ async function startFirebase() {
       if (entryFor(mine)) DS.posted = true;
       lbChanged('snapshot', prev);
       maybeAutoPost();
+      regradeGrids();
     }, err => { LB.err = err.code; LB.ready = true; lbChanged('error'); });
   } catch (_) { LB.off = true; LB.ready = true; lbChanged('off'); }
 }
@@ -1011,6 +1012,69 @@ export async function postScore(nick) {
     if (LB.status === 'failed') scheduleRetry();
   }
   LB.posting = false; lbChanged('status');
+}
+
+// Grid re-grading (Nov 5 2026, the owner: John's Earl Campbell for Titans x Texas on Nov 4 was right). The puzzle file
+// had no college for most players who began before 1985 (Earl Campbell's Texas among them), so a right answer could
+// be marked wrong; the colleges are now filled in from nflverse. Each phone re-judges the Grid squares it answered
+// wrong over the last two weeks against the current data (its own saved progress, never another phone's): a square
+// that now fits both its row and column turns right, and when that day's posted board entry has fewer grid squares
+// than the progress now does, the entry gains the squares and their points. Only ever adds; a right square never
+// turns wrong. The rules let a phone write only its own row, so each player's points arrive from their own phone
+// the next time it opens the app.
+export const REGRADE_DAYS = 14;
+let regrading = false;
+/** Re-judges a saved progress object's wrong Grid squares (in place) against the current player data. Returns how many
+ *  squares turned right. */
+export function regradeDS(ds, day) {
+  if (!ds || !ds.grid || !Array.isArray(ds.grid.cells) || !day || !hasStep('grid', day)) return 0;
+  let n = 0;
+  for (let k = 0; k < gridShape(day).n; k++) {
+    const cell = ds.grid.cells[k], sq = gridSquare(k, day);
+    if (!cell || cell.ok || !sq || !PP[cell.p]) continue;
+    if (critOk(sq.row, PP[cell.p]) && critOk(sq.col, PP[cell.p])) { cell.ok = true; cell.re = 1; n++; }
+  }
+  return n;
+}
+/** The board entry for day `pnum` with the grid squares a re-graded progress adds (and their points), or null when the
+ *  entry already has them (or has no grid). */
+export function regradedEntry(entry, ds, day) {
+  if (!entry || entry.g == null || !ds || !day) return null;
+  const g = gridScore(ds);
+  if (!(g > (Number(entry.g) || 0))) return null;
+  return Object.assign({}, entry, {g, p: (Number(entry.p) || 0) + (g - (Number(entry.g) || 0)) * ptsTable(day).grid});
+}
+export async function regradeGrids() {
+  if (status !== 'ready' || !PZ || regrading || !LB.save || !LB.synced || LB.posting || !LB.uid) return;
+  regrading = true;
+  try {
+    const me = (LB.all || []).find(p => p.id === LB.uid), fixes = {};
+    for (let n = Math.max(SCORE_FROM, PNUM - REGRADE_DAYS); n <= PNUM; n++) {
+      const day = dayFor(n);
+      if (!day || !hasStep('grid', day)) continue;
+      const live = n === PNUM && !TEST, key = 'gg-v3-daily-' + n;
+      let ds = live ? DS : null;
+      if (!ds) {
+        let raw = null;
+        try { raw = JSON.parse(localStorage.getItem(key)); } catch (_) { raw = null; }
+        if (!raw || typeof raw !== 'object') continue;
+        ds = loadDS(raw, day, n);
+      }
+      if (regradeDS(ds, day)) {
+        if (live) { saveDS(); emit('progress', {action: 'regrade'}); }
+        else { try { localStorage.setItem(key, JSON.stringify(ds)); } catch (_) {} }
+      }
+      const e = regradedEntry(entryFor(me, n, day), ds, day);
+      if (e) fixes[n] = e;
+    }
+    if (!Object.keys(fixes).length || LB.posting) return;
+    const days = Object.assign({}, me.days, fixes), vals = Object.values(days);
+    const body = {nick: (postName() || me.nick || '').trim().slice(0, 24), g: asGuest(), days,
+      total: vals.reduce((s, d) => s + (Number(d.p) || 0), 0), played: vals.length, last: Math.max(Number(me.last) || 0, ...Object.keys(days).map(Number))};
+    LB.posting = true;
+    try { await LB.save(body); } catch (_) { /* the next board snapshot tries again */ }
+    LB.posting = false;
+  } finally { regrading = false; }
 }
 
 // ---------------------------------------------------------------------------

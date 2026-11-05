@@ -1200,6 +1200,36 @@ export async function runChecks() {
   });
 
   // Day 3 (Wed Sep 30) is the one v3 day: from day 4 (Thu Oct 1) on the file is v4 (checked below).
+  check('Grid re-grading: Earl Campbell fits Titans x Texas (Nov 4), a wrong square that now fits turns right and its posted entry gains the points', () => {
+    needDaily();
+    const PZ = daily.PZ, PP = daily.PP, bad = [];
+    const ec = PP.findIndex(p => p[0] === 'Earl Campbell' && p[4] === 1978);
+    const day = daily.dayFor(38), sq = k => daily.gridSquare(k, day);
+    if (ec < 0) bad.push('Earl Campbell missing');
+    else {
+      const k = [0, 1].find(i => sq(i) && /Texas/.test(daily.critLabel(sq(i).col)));
+      if (k == null || daily.critLabel(sq(k).row) !== 'Titans') bad.push('Nov 4 grid is not Titans x Texas');
+      else {
+        if (!(daily.critOk(sq(k).row, PP[ec]) && daily.critOk(sq(k).col, PP[ec]))) bad.push('Earl Campbell does not fit');
+        const ds = {v: 4, grid: {cells: k ? [null, {p: ec, ok: false}] : [{p: ec, ok: false}, null], over: true}};
+        if (daily.regradeDS(ds, day) !== 1 || !ds.grid.cells[k].ok) bad.push('not re-graded');
+        if (daily.regradeDS(ds, day) !== 0) bad.push('re-graded twice');
+        // the test progress has one right square: an entry that already has one gains nothing
+        if (daily.regradedEntry({v: 4, p: 400, c: 2, s: 1, g: 1, t: 1}, ds, day)) bad.push('entry changed with nothing new');
+        const e2 = daily.regradedEntry({v: 4, p: 300, c: 2, s: 1, g: 0, t: 1}, ds, day);
+        if (!e2 || e2.g !== 1 || e2.p !== 400 || e2.c !== 2 || e2.t !== 1) bad.push('entry not raised by one square');
+        // a square whose answer still doesn't fit stays wrong
+        const no = PP.findIndex(p => p[0] === 'Tom Brady');
+        const ds2 = {v: 4, grid: {cells: [{p: no, ok: false}, {p: no, ok: false}], over: true}};
+        if (daily.regradeDS(ds2, day)) bad.push('a wrong answer turned right');
+      }
+    }
+    // the backfilled colleges (nflverse) kept every college already in the file
+    const n = PP.filter(p => p[4] < 1985 && p[6]).length;
+    if (n < 900) bad.push(`only ${n} pre-1985 players have a college`);
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `Earl Campbell fits; ${n} pre-1985 players have a college; re-grading adds only`};
+  });
+
   check('puzzles-v4.json: day 3 is v3 and well-formed', () => {
     needDaily();
     const PZ = daily.PZ, bad = [];
