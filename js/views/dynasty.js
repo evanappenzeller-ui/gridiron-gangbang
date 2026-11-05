@@ -14,6 +14,7 @@ import * as MT from '../core/dynasty-match.js';
 import * as SOLO from '../core/dynasty-solo.js';
 import {profileKey} from '../core/realm-active.js';
 import {packHTML, designsOf} from './dynasty-packs.js';
+import {packShelfHTML, mountPackShelf} from './dynasty-pack-shelf.js';
 import {openScene} from './dynasty-open.js';
 import {bindCardFoil} from './dynasty-foil.js';
 import {teamSceneStyle, teamSceneHTML} from './dynasty-team-scenes.js';
@@ -260,6 +261,7 @@ function packsHTML(st) {
   // (the Starter Pack first while it waits; once opened, back to the Standard Pack)
   if (s.pk.start && !st.startShown) { st.pack = 'start'; st.startShown = true; }
   if (!D.PACKS[st.pack] || (D.PACKS[st.pack].starter && !s.pk[st.pack])) st.pack = D.DAILY_PACK;
+  if (data.isOwner()) return packShelfHTML(packKinds(s), st.pack, kind => artAt(st, kind));
   const kind = st.pack, P = D.PACKS[kind], have = s.pk[kind] || 0, free = D.dailyReady(s) && kind === D.DAILY_PACK;
   const wait = waitingOf(st), ready = D.claimable(s);
   const best = packBest(kind);
@@ -866,7 +868,7 @@ function openPack(st, kind, team = null) {
   const r = D.open(kind, {team});
   if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
   refresh(st);
-  openScene({kind, design: artAt(st, kind), cards: r.cards, dup: r.dup, cardHTML: anyHTML, onClose: () => refresh(st), focusBack: '.pk-actions [data-dy-openhere]'});
+  openScene({kind, design: artAt(st, kind), cards: r.cards, dup: r.dup, cardHTML: anyHTML, onClose: () => refresh(st), focusBack: '.pk-pack-buy, .pk-actions [data-dy-openhere]'});
 }
 function teamPicker(done) {
   const teams = Object.values(D.TEAMS).sort((a, b) => a.name.localeCompare(b.name));
@@ -1002,6 +1004,7 @@ function updateChrome(st) {
   }
   if (st.tab === 'home' && !owner) st.tab = 'battle';
   shell.classList.toggle('is-home', owner && st.tab === 'home');
+  shell.classList.toggle('is-pack-shop', data.isOwner() && st.tab === 'packs');
   shell.classList.toggle('is-ladder', D.bossLadderOpen() && st.tab === 'battle' && !['versus', 'rank'].includes(st.bv));
   if (hud !== st.hud) { el.querySelector('[data-dy-hud]').innerHTML = hud; st.hud = hud; }
   el.querySelector('[data-pk-title]').textContent = (tabsOf().find(t => t.id === st.tab) || TABS[0]).title;
@@ -1015,12 +1018,25 @@ function updateChrome(st) {
 function fullScreen(st, on) {
   document.documentElement.classList.toggle('is-dynasty-playing', !!on && !st.dead && D.mayPlay());
 }
+function stopPackShelf(st) {
+  if (st.packShelf) st.packShelf.destroy();
+  st.packShelf = null;
+}
+function startPackShelf(st) {
+  if (!data.isOwner() || st.tab !== 'packs') return;
+  const root = st.el.querySelector('.pk-pack-shop');
+  if (root) st.packShelf = mountPackShelf(root, st.pack, {
+    onSelect: kind => { st.pack = kind; },
+    onRest: () => { if (st.dirty) { st.dirty = false; scheduleRefresh(st); } }
+  });
+}
 function refresh(st) {
   if (st.dead || st.hidden) return;
   if (st.refreshFrame) { cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; }
   const el = st.el;
   // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
   if (!D.mayPlay()) {
+    stopPackShelf(st);
     fullScreen(st, false); el.querySelector('[data-dy-pane]').innerHTML = '';
     const sc = el.querySelector('[data-dy-start]'); if (sc) sc.remove(); drawStart(st);
     if (!st.left) { st.left = true; st.ctx.back(); }
@@ -1036,11 +1052,13 @@ function refresh(st) {
   const input = pane.querySelector('input[name="dy-q"]');
   const selection = input && input === document.activeElement ? [input.selectionStart, input.selectionEnd] : null;
   // (a finger on the big pack mid-swipe: the redraw waits till it's let go, swEnd)
-  if (st.tab === 'packs' && st.sw && st.sw.on) { st.dirty = true; return; }
+  if (st.tab === 'packs' && ((st.sw && st.sw.on) || st.packShelf?.busy)) { st.dirty = true; return; }
   // (the pack, an arrow or a dot focused: the same one after the redraw)
-  const had = document.activeElement, fk = had && pane.contains(had) ? (had.matches('[data-dy-art]') ? `[data-dy-art="${had.dataset.dyArt}"]` : had.matches('[data-dy-artat]') ? `[data-dy-artat="${had.dataset.dyArtat}"]` : had.matches('.pk-bigpack') ? '.pk-bigpack' : had.matches('[data-dy-to]') ? '.pk-car-bk' : '') : '';
+  const had = document.activeElement, fk = had && pane.contains(had) ? (had.matches('[data-dy-art]') ? `[data-dy-art="${had.dataset.dyArt}"]` : had.matches('[data-dy-artat]') ? `[data-dy-artat="${had.dataset.dyArtat}"]` : had.matches('.pk-bigpack') ? '.pk-bigpack' : had.matches('[data-dy-to]') ? '.pk-car-bk' : had.matches('.pk-pack-buy') ? '.pk-pack-buy' : had.closest('.pk-pack-shelf') ? '.pk-pack-shelf' : '') : '';
+  stopPackShelf(st);
   pane.innerHTML = PANES[st.tab](st);
   ui.hydrate(pane);
+  startPackShelf(st);
   if (fk) { const again = pane.querySelector(fk); if (again) try { again.focus({preventScroll: true}); } catch (_) {} }
   if (st.tab === 'cards' && st.f.view !== 'cols') drawGrid(st);
   if (selection && st.tab === 'cards') {
@@ -1054,6 +1072,7 @@ function go(st, tab, {keep = false} = {}) {
   clearTimeout(st.qT);
   if (st.refreshFrame) { cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; }
   const pane = st.el.querySelector('[data-dy-pane]'), previous = st.tab;
+  if (previous !== tab) stopPackShelf(st);
   // Detached nodes retain decoded images, hydrated controls and pagination without painting hidden tabs.
   if (previous !== tab && st.renderedTab === previous && st.renderedRevision === st.revision) {
     const fragment = document.createDocumentFragment(), top = pane.scrollTop;
@@ -1072,6 +1091,7 @@ function go(st, tab, {keep = false} = {}) {
     pane.replaceChildren(cached.fragment); st.shown = cached.shown; st.gridKey = cached.gridKey;
     st.renderedTab = tab; st.renderedKey = cached.key; st.renderedRevision = st.revision; st.renderedAt = cached.at;
     pane.scrollTop = cached.top;
+    startPackShelf(st);
     return;
   }
   refresh(st);
@@ -1229,13 +1249,14 @@ export default {
   // (back from a battle: the matches as they stand now; the title screen doesn't come again)
   onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; invalidatePanes(st, true); fullScreen(st, true); refresh(st); } },
 
-  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; clearTimeout(st.qT); cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; fullScreen(st, false); } },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; stopPackShelf(st); clearTimeout(st.qT); cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; fullScreen(st, false); } },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);
     if (!st) return;
     fullScreen(st, false);
     st.dead = true;
+    stopPackShelf(st);
     clearTimeout(st.qT); cancelAnimationFrame(st.refreshFrame); st.panes.clear();
     st.stops.forEach(f => { try { f(); } catch (_) {} });
     D.flush(); MT.flush();

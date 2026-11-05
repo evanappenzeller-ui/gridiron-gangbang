@@ -5,7 +5,8 @@
 // counters, the Packs stage (the clock pill, the tags, the round Open), the Play tab (Versus, Solo, Guide,
 // Decks, Rankings, Missions), the Menu sheet and its Title screen item, back from a Solo battle without the title screen
 // again, and every kit check in checks-dynasty.js. For a member who isn't theirs and a visitor: the link lands on the list.
-// Usage: node tools/dynasty/check-start-browser.cjs [--shots=<dir>]   (Playwright's Chromium; screenshots when --shots)
+// Usage: node tools/dynasty/check-start-browser.cjs [--shots=<dir>] [--packs-only]
+// (Playwright's Chromium; --packs-only checks the owner's new shelf with normal and reduced motion.)
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
@@ -13,6 +14,7 @@ const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '../..');
 const mime = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webp': 'image/webp', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json'};
 const shots = (process.argv.find(a => a.startsWith('--shots=')) || '').slice(8);
+const packsOnly = process.argv.includes('--packs-only');
 if (shots) fs.mkdirSync(shots, {recursive: true});
 
 function server() {
@@ -103,6 +105,77 @@ async function homeFlow(page, reduced) {
   console.log('PASS owner Home: responsive layout, keyboard, destinations, saved progress and profile switching');
 }
 
+async function ownerPacksFlow(page, reduced) {
+  const front = () => page.locator('.pk-pack-buy').getAttribute('aria-label');
+  const settle = () => page.waitForTimeout(reduced ? 300 : 650);
+  const save = () => page.evaluate(async () => JSON.stringify((await import('/js/core/dynasty.js')).mine()));
+  const before = await save();
+  assert.equal(await page.locator('.pk-free, .pk-show, .pk-tags, .pk-pts, .pk-actions, .pk-car-dots, .pk-pack-shop .pk-sec').count(), 0, 'Owner Packs only shows the packs and Purchase');
+  assert.equal(await page.locator('.pk-pack-buy').count(), 1);
+  for (const [width, height] of [[390, 844], [320, 568], [430, 932], [768, 1024], [390, 667]]) {
+    await page.setViewportSize({width, height});
+    await page.evaluate(notch => {
+      document.documentElement.style.setProperty('--sa-t', notch ? '59px' : '0px');
+      document.documentElement.style.setProperty('--sa-b', notch ? '34px' : '0px');
+    }, height === 667);
+    await settle();
+    assert.match(await front(), /Starter Pack/, 'Resizing preserves the selected pack');
+    const fit = await page.evaluate(() => {
+      const pane = document.querySelector('.pk-pane'), nav = document.querySelector('.pk-nav').getBoundingClientRect();
+      const stage = document.querySelector('.pk-pack-stage').getBoundingClientRect();
+      const pack = document.querySelector('.pk-pack-slot.is-cur .pk-pack').getBoundingClientRect();
+      const buy = document.querySelector('.pk-pack-buy').getBoundingClientRect();
+      return {fits: pane.scrollHeight <= pane.clientHeight + 1 && pane.scrollWidth <= pane.clientWidth + 1,
+        pack: pack.top >= stage.top && pack.bottom <= stage.bottom,
+        buy: buy.top >= stage.bottom && buy.bottom <= nav.top && buy.height >= 44};
+    });
+    assert.deepEqual(fit, {fits: true, pack: true, buy: true}, `Owner Packs fits ${width}x${height}`);
+    await snap(page, `evan-packs-${width}-${height}${reduced ? '-rm' : ''}`);
+  }
+  await page.evaluate(() => { document.documentElement.style.removeProperty('--sa-t'); document.documentElement.style.removeProperty('--sa-b'); });
+  await page.setViewportSize({width: 390, height: 844}); await settle();
+  const shelf = page.locator('.pk-pack-shelf');
+  await shelf.focus();
+  for (const name of ['Standard', 'Team', 'Epic', 'Starter', 'Standard']) {
+    await page.keyboard.press('ArrowRight'); await settle();
+    assert.match(await front(), new RegExp(name + ' Pack'), `Right arrow selects ${name}: ` + JSON.stringify(await shelf.evaluate(el => ({left: el.scrollLeft, current: [...el.children].findIndex(s => s.classList.contains('is-cur')), focus: document.activeElement.className}))));
+  }
+  for (const name of ['Starter', 'Epic', 'Team', 'Standard', 'Starter']) {
+    await page.keyboard.press('ArrowLeft'); await settle();
+    assert.match(await front(), new RegExp(name + ' Pack'), 'Left arrow loops through every pack');
+  }
+  const bb = await shelf.boundingBox();
+  await page.mouse.move(bb.x + bb.width * .65, bb.y + bb.height / 2); await page.mouse.down();
+  await page.mouse.move(bb.x + bb.width * .16, bb.y + bb.height / 2, {steps: 12}); await page.mouse.up(); await settle();
+  assert.match(await front(), /Standard Pack/, 'Mouse drag brings the next pack forward');
+  // A real native touch pan has momentum and pointer cancellation, unlike a scripted scrollLeft change.
+  const cdp = await page.context().newCDPSession(page);
+  const y = bb.y + bb.height / 2;
+  await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 300, y}]});
+  for (let x = 280; x >= 110; x -= 17) {
+    await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y}]});
+    await page.waitForTimeout(25);
+  }
+  await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []}); await settle();
+  assert.match(await front(), /Team Pack/, 'Touch swipe brings the next pack forward');
+  await cdp.detach();
+  await shelf.focus(); await page.keyboard.press('ArrowRight'); await settle();
+  assert.match(await front(), /Epic Pack/);
+  const nav = tab => page.locator(`.pk-nav [data-dy-tab="${tab}"]`).click();
+  await nav('home'); await nav('packs'); await settle();
+  assert.match(await front(), /Epic Pack/, 'Tab restoration keeps the selected pack');
+  assert.equal(await save(), before, 'Browsing packs never changes cards, currency or progress');
+  assert.equal(await page.locator('div.pk-open').count(), 0, 'Swipes and selections open nothing');
+  await page.locator('.pk-pack-buy').click();
+  await page.waitForSelector('div.pk-open');
+  assert.notEqual(await save(), before, 'Purchase opens the selected pack through the existing economy');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('div.pk-open'));
+  await settle();
+  assert.equal(await page.evaluate(() => document.activeElement?.className), 'pk-pack-buy', 'Opening returns focus to Purchase');
+  console.log('PASS owner Packs: responsive layout, both loop directions, mouse/touch, tab restore, purchase and focus');
+}
+
 async function playerFlow(page, p, {reduced}) {
   const T = p.tag + (reduced ? ' (reduced motion)' : '');
   await page.waitForSelector('.pk-start', {timeout: 15000});
@@ -127,7 +200,7 @@ async function playerFlow(page, p, {reduced}) {
   assert.equal(await page.locator('.pk-tab.is-on').getAttribute('data-dy-tab'), owner ? 'home' : 'battle', T + ': the right entry destination');
   assert.equal(await page.locator('[data-pk-title]').textContent(), owner ? 'Home' : 'Play', T + ': the current page');
   assert.equal(await page.locator('.rh-home-enabled, .rh-home').count(), owner ? 2 : 0, T + ': Home belongs only to the owner');
-  if (owner) await homeFlow(page, reduced);
+  if (owner && !packsOnly) await homeFlow(page, reduced);
   assert.equal(await page.locator('.pk-hdr [data-dy-menu]').count(), 1, T + ': Menu is in the header');
   const labels = await page.locator('.pk-tab span:not(.pk-dot)').evaluateAll(nodes => nodes.map(n => {
     const s = getComputedStyle(n), r = n.getBoundingClientRect();
@@ -137,6 +210,9 @@ async function playerFlow(page, p, {reduced}) {
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-play`);
   assert.match((await page.locator('[data-dy-hud]').innerText()).replace(/\s+/g, ' '), /∞ MAX [\d,]+ coins/, T + ': the header’s counters (unlimited packs, coins)');
   await page.locator('.pk-tab[data-dy-tab="packs"]').click();
+  if (owner) await ownerPacksFlow(page, reduced);
+  else {
+  assert.equal(await page.locator('.pk-pack-shop, .is-pack-shop').count(), 0, T + ': the new Packs screen stays owner-only');
   for (const sel of ['.pk-packs', '.pk-clock', '.pk-show-tip', '.pk-tags > b', '.pk-round[data-dy-goto="cols"]', '.pk-round[data-dy-earn]', 'button.pk-open.is-round', '.pk-actions .pk-pill[data-dy-odds]', '.pk-actions .pk-pill[data-dy-packs]', '.pk-pts'])
     assert.equal(await page.locator(sel).count(), 1, T + ': the Packs stage has ' + sel);
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-packs`);
@@ -204,6 +280,8 @@ async function playerFlow(page, p, {reduced}) {
   assert.equal(await front(), 'Team', T + ': the pack list brings a pack to the front');
   assert.deepEqual(await page.locator('.pk-car-bk').evaluateAll(l => l.map(b => b.dataset.dyTo)), ['prem', 'start'], T + ': the Epic and Starter Packs behind it');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-stack`);
+  }
+  if (packsOnly) return;
   // Play: routes to solo, friend challenges, deck editing, rules and collections.
   await page.locator('.pk-tab[data-dy-tab="battle"]').click();
   await page.waitForSelector(owner ? '.rl-ladder' : '.pk-mode');
@@ -303,7 +381,7 @@ async function run(url) {
   const {chromium} = require('playwright');
   const browser = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || undefined});
   try {
-    for (const p of PROFILES) for (const reduced of (p.plays && p.tag === 'evan' ? [false, true] : [false])) {
+    for (const p of PROFILES.filter(p => !packsOnly || p.tag === 'evan')) for (const reduced of (p.plays && p.tag === 'evan' ? [false, true] : [false])) {
       const context = await browser.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2, serviceWorkers: 'block', reducedMotion: reduced ? 'reduce' : 'no-preference'});
       await context.route('https://**/*', route => route.abort());
       await context.addInitScript(p => {
@@ -334,7 +412,7 @@ async function run(url) {
       await context.close();
     }
   } finally { await browser.close(); }
-  console.log('PASS: Rivals title screen, play-first navigation, collections and access boundaries');
+  console.log(packsOnly ? 'PASS: owner Packs shelf in normal and reduced motion' : 'PASS: Rivals title screen, play-first navigation, collections and access boundaries');
 }
 
 (async () => {
