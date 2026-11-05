@@ -1,0 +1,7 @@
+Blake Cashman owner-profile photo, resumed November 4, 2026.
+Source: tools/dynasty/photos/0035276.jpg, copied from player-photos/Blake Cashman.jpg in the owner's local collection.
+Tool: built-in image_gen, transparent_background=true.
+Output: img/dynasty/owner/0035276-v1.webp (600 x 660, alpha preserved).
+This asset is kept outside the shared action_photos.py output directory so a shared photo rebuild preserves it.
+
+Edit target: the attached local photograph of Blake Cashman wearing Minnesota Vikings purple jersey 51, with his right side arm raised. Create a precise transparent-background cutout for an existing football card UI. Remove only the stadium/crowd background, including the space between his arm and body. Preserve the exact original player photograph: same face, pose, helmet, gloves, tattoos, jersey number 51, clothing folds, lighting, proportions and colors. Do not repaint, restyle, enhance or invent any body parts; do not extend the original waist crop. Keep all existing visible pixels of the player and clean natural edges without halos. Fit the existing whole visible figure centered on a transparent 600:660 portrait canvas, leaving slight transparent space above the helmet and raised glove, waist meeting the bottom edge. No added text, logos, borders, shadows or background.

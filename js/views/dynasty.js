@@ -65,6 +65,16 @@ const typeHTML = t => pipHTML(B.TYPES[t] ? B.TYPES[t].e : '*');
 export const isPhoto = h => /^w:/.test(String(h || ''));
 /** Whether a head is an Epic or better card's action photo (a cut-out of him in uniform). */
 export const isAction = h => /^a:/.test(String(h || ''));
+// New photo previews follow the current owner-only rollout rule, evaluated when rendering so switching profiles
+// never leaves the owner's photo on another player's card. Keep these outside action_photos.py's shared rebuild.
+const ownerActionUrl = c => data.isOwner() && c?.p === '0035276' && c.r !== 'common'
+  ? 'img/dynasty/owner/0035276-v1.webp' : '';
+/** The portrait for this viewer, shared by collection cards and battle pieces. */
+export function portraitOf(c, w = 300) {
+  const owner = ownerActionUrl(c), h = c?.head;
+  return {url: owner || (h && !/^https?:/.test(h) ? headUrl(h, w) : ''),
+    photo: !owner && isPhoto(h), action: !!owner || isAction(h)};
+}
 /** A player card, laid out as a Pokémon card. o: {size: 's'|'m'|'l', count (copies held), ghost (not held), isNew, tag
  *  (a button: data-dy-card), cls}. */
 export function cardHTML(c, o = {}) {
@@ -72,8 +82,8 @@ export function cardHTML(c, o = {}) {
   const st = B.stats(c.id), T = D.teamOf(c.team), m = D.markOf(c), S = D.SERIES[c.s];
   // Portraits give every series one clear visual language. 
   // Some legacy head values are complete card scans; use a jersey number instead of framing those twice.
-  const head = c.head && !/^https?:/.test(c.head) ? headUrl(c.head, o.size === 'l' ? 520 : 300) : '';
-  const photo = head ? `<img class="pk-c-ph${isPhoto(c.head) ? ' is-photo' : isAction(c.head) ? ' is-action' : ''}" src="${esc(head)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
+  const portrait = portraitOf(c, o.size === 'l' ? 520 : 300);
+  const photo = portrait.url ? `<img class="pk-c-ph${portrait.photo ? ' is-photo' : portrait.action ? ' is-action' : ''}" src="${esc(portrait.url)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
   const rarity = String(c.r || 'common'), stage = B.stageOf(c.id, o.rulesVersion || B.RULES_VERSION);
   const label = `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const atk = st.attacks.map((a, n) => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}</em></span>`
@@ -144,6 +154,7 @@ export function battleHTML(id, game = {v: B.RULES_VERSION}) {
 /** A photo's credit (author, licence, its Wikimedia Commons page), for his card up close: the playing-days photo the card
  *  wears, else a Legend's photo. */
 export function creditHTML(c) {
+  if (ownerActionUrl(c)) return '';
   const r = String(c.head).startsWith('a:') ? actionCredit(c.p) : String(c.head).startsWith('w:') ? legendCredit(c.p) : null;
   if (!r || r.own) return '';
   if (r.card) return `<p class="pk-credit">Photo: from his ${esc(realName(r.card))} card</p>`;
