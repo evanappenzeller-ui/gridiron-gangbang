@@ -40,7 +40,7 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The version mark css/views/return.css carries (--rm-css): an older cached stylesheet gets the new one linked.
-const CSS_V = '7';
+const CSS_V = '8';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim() === CSS_V) return;
@@ -81,11 +81,13 @@ function keysHTML(hard) {
     + k('is-up', '↑', hard ? 'Jump a barricade or a pothole, or onto a low one' : 'Jump a barricade, or onto a low one')
     + k('is-dn', '↓', 'Slide under a banner')
     + k('is-ramp', '◢', hard ? 'Run up a ramp onto the roofs. Head on into a bus: down' : 'Run up a ramp onto the roofs')
+    + (data.isOwner() ? k('is-train', '↔', 'Incoming trains: change lanes to dodge') : '')
     + k('is-chase', '!', hard ? 'The linebacker starts close. After a stumble, your next unprotected hit tackles you—even after a clean stretch' : 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
     + pw('salts', 'Smelling salts', hard ? '10-second speed burst + extra life' : 'Speed burst + extra life')
     + pw('pills', 'Painkillers', hard ? 'Hit anything, no stumble' : 'Feel nothing')
     + pw('booze', 'Booze', hard ? 'Double yards, but blurry' : 'Double yards')
+    + (data.isOwner() ? pw('jetpack', 'Jetpack', 'Fly over traffic for 8 seconds. Swipe sideways to steer') : '')
     + `</ul>`;
 }
 // Return Man is in beta (open to the league while the owner works on it, Oct 2026): a BETA tag on the cards before a
@@ -243,6 +245,7 @@ function bodyHTML(st) {
     + `<div class="rm-stage" data-rm-stage data-hscroll aria-label="Return Man: swipe left or right to juke, up to jump, down to slide">`
     + `<div class="rm-layers" data-rm-layers><canvas class="rm-cv" data-rm-cv></canvas><div class="rm-gl" data-rm-gl></div><canvas class="rm-fx" data-rm-fx></canvas></div>${hudHTML()}`
     + `<div class="rm-pop" data-rm-pop aria-hidden="true"></div>`
+    + `<div class="rm-flight-note" data-rm-flight-note hidden></div>`
     + `<div class="rm-card" data-rm-card role="group" aria-live="polite"${autoGoes(st) ? ' hidden' : ''}>${cardHTML(st)}</div></div>`
     + `<div class="rm-fill" data-rm-fill></div>`
     + `<div class="rm-board-w" data-rm-board>${boardHTML(st)}</div>`
@@ -371,7 +374,8 @@ function runnerAnim(st, now) {
     const k = Math.min(1, (e - 140) / 380);
     return {f: 'rb.dive', flip: dir < 0, dz: .9 * smooth(k), ex: {lift: .2 * Math.sin(Math.PI * k)}};
   }
-  const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), h = run.y - g, ph = run.z / 1.5 * Math.PI;
+  if (R.flying(run)) return {f: 'rb.r_b0', ex: {rot: .035 * Math.sin(run.t * 3)}};
+  const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), h = run.y - g, ph = (run.co.enhanced ? run.steps : run.z) / 1.5 * Math.PI;
   // (a stumble: he staggers, side to side, as he gets going again)
   const wob = run.slow > 0 ? Math.sin(run.slow * 22) * .7 * run.slow / R.CHASE.slow : 0;
   const mo = {ph, t, land: st.landAt ? (now - st.landAt) / 1000 : null, lean: (R.xOf(run, run.lane) - run.x) / 1.2 + wob};
@@ -398,7 +402,7 @@ function runnerAnim(st, now) {
     const f = (dir > 0 ? 'rb.r_r' : 'rb.r_l') + (Math.floor(run.steps / 1.5) & 1), back = run.jFrom - run.x;
     return {f, mo, ghosts: run.jt < 1 ? [{f, dx: back * .35, a: .3}, {f, dx: back * .7, a: .14}] : []};
   }
-  return {f: strideOf(run.steps), mo};
+  return {f: strideOf(run.steps), mo, ...(run.co.enhanced ? {ex: {lift: .13 * Math.sin(ph) ** 2}} : {})};
 }
 /** The linebacker now (z: where he is): running him down (set while the kick's in the air); when he gets there, up
  *  off his feet and flat out through the air, down on top of him. */
@@ -478,6 +482,7 @@ function runner3(st, now) {
     return {move: 'idle', t, catch: Math.min(1, p / .3) * (1 - q), ball: false};
   }
   const o = {move: 'run', phase: run.steps / D3.STRIDE, t, ball: false};
+  if (R.flying(run) && !run.over) return {...o, move: 'idle', jetpack: true, pitch: .1, roll: -.06 * (R.xOf(run, run.lane) - run.x), lift: .06 * Math.sin(run.t * 4)};
   const fl = fallOf(st, now);
   if (run.over) {
     const k = Math.min(1, (now - st.downAt) / 420);
@@ -503,6 +508,11 @@ function runner3(st, now) {
   const lean = dir * leanOf(js), sp = st.spinAt ? (now - st.spinAt) / SPIN_MS : 1;
   o.turn = .38 * lean + (sp < 1 ? st.spinDir * Math.PI * 2 * smooth(sp) : 0);
   o.roll = (D3.leans() ? 0 : .2 * lean) + stum * .16 * Math.sin(run.slow * 22) + .45 * edgeBounce(st, now);
+  if (run.co.enhanced && o.move === 'run' && !stum && he >= HIT_MS) {
+    const bounce = Math.sin(o.phase * Math.PI * 2) ** 2;
+    o.lift = .17 * bounce;
+    o.pitch += .025 * Math.sin(o.phase * Math.PI * 4);
+  }
   return o;
 }
 /** The linebacker's 3D pose (z: where he is): running him down; set while the kick's in the air; the dive. */
@@ -542,7 +552,11 @@ function drawLanes(st, c, now) {
   if (run) {
     const lag = st.lag || 0, A = R.ahead(run, 120, PAST + 2 + lag); // (further back while he's held back in a pothole)
     A.sets.forEach(({set}) => set.plats.forEach(p => { const X = R.xOf(run, p.lane), w = p.hi ? 1.25 : 1.15; list.push({z: p.z1, veh: {x0: X - w, x1: X + w, z0: p.z0 - (p.ramp || 0), z1: p.z1}, x0: X - w, x1: X + w, draw: () => W.vehicle(st, c, p)}); }));
-    A.items.forEach(({item}) => { if (!st.got.has(item.i)) { const X = R.xOf(run, item.lane); list.push({z: item.z, x0: X - .4, x1: X + .4, draw: () => W.item(st, c, item, t)}); } });
+    if (run.co.enhanced && data.isOwner()) (run.trains || []).forEach(p => {
+      const X = R.xOf(run, p.lane);
+      list.push({z: p.z1, veh: {x0: X - 1.25, x1: X + 1.25, z0: p.z0, z1: p.z1}, x0: X - 1.25, x1: X + 1.25, draw: () => W.vehicle(st, c, p)});
+    });
+    A.items.forEach(({item}) => { if (!st.got.has(item.i) && (item.kind !== 'jetpack' || data.isOwner())) { const X = R.xOf(run, item.lane); list.push({z: item.z, x0: X - .4, x1: X + .4, draw: () => W.item(st, c, item, t)}); } });
     // the coins (the owner's first run of the day: core COIN), till he runs through them
     if (coinsShown(st)) A.coins.forEach(({coin}) => { if (!st.coinGot.has(coin.i)) { const X = R.xOf(run, coin.lane); list.push({z: coin.z, x0: X - .35, x1: X + .35, draw: () => W.coin(st, c, coin, t)}); } });
     A.rows.forEach(({row, d}) => row.lanes.forEach((type, l) => {
@@ -563,7 +577,7 @@ function drawLanes(st, c, now) {
       }});
     }));
     // the gates into the places ahead
-    for (let g = Math.ceil((rz - st.back) / R.ZONE) * R.ZONE; g < rz + 140; g += R.ZONE) if (g > 0) list.push({z: g, draw: () => W.gate(st, c, g, R.zoneAt(run.co, g).theme, t)});
+    for (let g = Math.ceil((rz - st.back) / R.ZONE) * R.ZONE; g < rz + 140; g += R.ZONE) if (g > 0 && !(R.flying(run) && Math.abs(g - rz) < 16)) list.push({z: g, draw: () => W.gate(st, c, g, R.zoneAt(run.co, g).theme, t)});
   } else {
     list.push({z: R.ZONE, draw: () => W.gate(st, c, R.ZONE, R.zoneAt(st.co, R.ZONE).theme, t)});
   }
@@ -596,6 +610,10 @@ function drawLanes(st, c, now) {
     // back up after the salts: he flickers while nothing can touch him
     const blink = run && !run.over && run.shield > 0 && !run.pills && Math.floor(now / 70) % 2;
     me(bx, az, blink ? .35 : 1);
+    if (R.flying(run)) {
+      const q = P(st, bx, ry + 1.05, az - .15);
+      c.save(); c.translate(q.x, q.y); c.scale(q.s * 1.4, q.s * 1.4); W.ICONS.jetpack(c, t); c.restore();
+    }
     c.restore();
     runnerFx(st, c, now, bx, g, az);
     coinFx(st, c, now, bx, az);
@@ -799,7 +817,7 @@ function draw(st, now = performance.now()) {
   if (!c || !st.W) return;
   c.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
   const run = st.run, dt = st.dt || .016;
-  st.co = run ? run.co : R.course(st.n, 0, features.available());
+  st.co = run ? run.co : R.course(st.n, 0, features.available(), data.isOwner());
   // the camera: behind him, following him across part of the way a beat behind (a spring, critically damped: it sets
   // off easy and settles without swinging past); up when he's up top; a jolt off a vehicle's side, a stumble's
   const bump = run && run.t - run.bump < .22 ? Math.sin((run.t - run.bump) * 60) * .25 * (1 - (run.t - run.bump) / .22) : 0;
@@ -808,7 +826,7 @@ function draw(st, now = performance.now()) {
   if (st.camF == null) { st.camF = tx; st.camV = 0; }
   else { st.camV += (CAM_W * CAM_W * (tx - st.camF) - 2 * CAM_W * st.camV) * dt; st.camF += st.camV * dt; }
   st.camX = st.camF + .2 * bump + .35 * shake;
-  const lift = run && !run.over ? R.groundAt(run.co, R.laneOf(run), run.z, run.y) * .8 : st.lift || 0;
+  const lift = run && !run.over ? (R.flying(run) ? run.y * .88 : R.groundAt(run.co, R.laneOf(run), run.z, run.y) * .8) : st.lift || 0;
   st.lift = (st.lift || 0) + (lift - (st.lift || 0)) * Math.min(1, dt * 3.5);
   // (down into a pothole with him: the picture's held back with him (core fallAt: a moment, a yard or two), the camera
   // too, and it dips, down quick and back up easier; with reduced motion it does neither: it stays on where he is)
@@ -951,16 +969,24 @@ function patchHud(st) {
   }
   // the power-ups he's carrying: the salts, and what's left of the painkillers and the booze
   const on = live && !run.over, x2 = on && run.booze > 0;
+  const flightNote = el.querySelector('[data-rm-flight-note]');
+  if (flightNote) {
+    const message = on && data.isOwner() && run.co.enhanced
+      ? R.flying(run) ? (run.jetpack < R.JETPACK.descend ? 'LANDING…' : 'JETPACK · SWIPE TO STEER')
+        : run.t < st.trafficUntil ? `INCOMING TRAIN · ${st.trafficLane || 'DODGE'}` : '' : '';
+    flightNote.hidden = !message;
+    if (flightNote.textContent !== message) flightNote.textContent = message;
+  }
   const chip = el.querySelector('[data-rm-ychip]'); if (chip) chip.classList.toggle('is-x2', !!x2);
   const yu = el.querySelector('[data-rm-yu]'); if (yu && yu.textContent !== (x2 ? 'yds ×2' : 'yds')) yu.textContent = x2 ? 'yds ×2' : 'yds';
   const pw = el.querySelector('[data-rm-pows]');
   if (pw) {
     // (the salts: how many he's got, and the burst's time left while he's bursting)
-    const list = on ? [(run.salts > 0 || run.burst > 0) && 'salts', run.pills > 0 && 'pills', run.booze > 0 && 'booze'].filter(Boolean) : [];
+    const list = on ? [(run.salts > 0 || run.burst > 0) && 'salts', run.pills > 0 && 'pills', run.booze > 0 && 'booze', R.flying(run) && 'jetpack'].filter(Boolean) : [];
     const key = list.join() + (on ? run.salts + (run.burst > 0 ? 'b' : '') : '');
     if (pw.dataset.key !== key) {
       pw.dataset.key = key;
-      pw.innerHTML = list.map(k => `<span class="rm-chip rm-pw is-${k}">${iconHTML(k, 22)}${k === 'salts' ? (run.salts > 0 ? `<b>×${run.salts}</b>` : '') + (run.burst > 0 ? '<i class="rm-bar"><b data-rm-bar="burst"></b></i>' : '') : `<i class="rm-bar"><b data-rm-bar="${k}"></b></i>`}</span>`).join('');
+      pw.innerHTML = list.map(k => `<span class="rm-chip rm-pw is-${k}">${iconHTML(k, 22)}${k === 'jetpack' ? '<b>JETPACK</b>' : ''}${k === 'salts' ? (run.salts > 0 ? `<b>×${run.salts}</b>` : '') + (run.burst > 0 ? '<i class="rm-bar"><b data-rm-bar="burst"></b></i>' : '') : `<i class="rm-bar"><b data-rm-bar="${k}"></b></i>`}</span>`).join('');
     }
     if (on) pw.querySelectorAll('[data-rm-bar]').forEach(b => { const k = b.dataset.rmBar, of = k === 'burst' ? R.burstSecs(run) : R.POWER[k].s; b.style.transform = `scaleX(${Math.max(0, Math.min(1, run[k] / of)).toFixed(3)})`; });
   }
@@ -995,7 +1021,7 @@ function go(st) {
   if (R.live(st.n)) { R.settle(st.n); if (!R.testing()) R.autoPost(); setDay(st, st.n); }
   // (the owner's: the hard course; the coins on the day's first run alone, core coinsOpen)
   const own = features.available(), k = st.day.next, coins = own && R.coinsOpen(st.n, k, own);
-  st.run = R.startRun(st.n, k, own, coins);
+  st.run = R.startRun(st.n, k, own, coins, data.isOwner());
   // (his first run here, but the board shows another of his phones ran the day's first: the end card says so)
   if (own && !coins && !k && !R.testing() && R.ranElsewhere(st.n)) st.run.elsewhere = true;
   st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0; st.edgeAt = 0; st.fall = null; st.splash = null; st.lagOut = null; st.dip = 0;
@@ -1016,8 +1042,9 @@ function tackled(st) {
   st.mode = 'tackled'; st.downAt = performance.now();
   ungot(st); clearPickupPop(st);
   ui.haptic('error');
-  st.day = R.record(st.n, st.run.k, st.run.yards, st.run.z, runCoins(st)) || R.dayState(st.n);
-  R.autoPost();
+  const ownerChanged = st.run.co.enhanced && !data.isOwner();
+  st.day = ownerChanged ? R.dayState(st.n) : R.record(st.n, st.run.k, st.run.yards, st.run.z, runCoins(st)) || R.dayState(st.n);
+  if (!ownerChanged) R.autoPost();
   patchHud(st);
   st.later = setTimeout(() => {
     if (st.dead) return;
@@ -1047,7 +1074,7 @@ function ungot(st) {
 // owner's ask, Oct 2026: "only catch phrases when something is picked up ... when the smelling salts are picked up the
 // screen says, Woooo"): no place names, move calls, hit words or the pickup's card. The haptics, the red edges and the
 // screen reader's words stay.
-const CATCHPHRASE = {salts: 'WOOOO!', pills: 'CAN’T FEEL A THING!', booze: 'HOLD MY BEER!'};
+const CATCHPHRASE = {salts: 'WOOOO!', pills: 'CAN’T FEEL A THING!', booze: 'HOLD MY BEER!', jetpack: 'CLEARED FOR TAKEOFF!'};
 // The owner's chosen catchphrases; rotate when a pickup has more than one line.
 const PICKUP_LINES = {
   salts: ['YEAH BUDDY'],
@@ -1084,6 +1111,13 @@ function onEvents(st, evs) {
   const now = performance.now();
   const quiet = !!(st.run && st.run.co && st.run.co.hard), say = (...a) => { if (!quiet) pop(st, ...a); };
   evs.forEach(e => {
+    if (e.type === 'traffic') {
+      st.trafficUntil = st.run.t + 2.4;
+      const open = [0, 1, 2].filter(l => !e.lanes.includes(l));
+      st.trafficLane = open.length === 1 ? ['GO LEFT', 'GO MIDDLE', 'GO RIGHT'][open[0]] : 'SWIPE TO DODGE';
+      ui.announce('Incoming train. Swipe to an open lane.'); ui.haptic('warning');
+    }
+    if (e.type === 'jetlanded') { st.landAt = now; ui.announce('Jetpack landing. Back on the ground.'); }
     // a juke off the edge of the road (a hit): he bounces off it
     if (e.edge) { st.edgeAt = now; st.edgeDir = e.edge === 'right' ? 1 : -1; }
     // a touchdown is the way into the next place: no pop for it (the owner's ask, Oct 2026), just the crowd and the call
@@ -1138,6 +1172,7 @@ function frame(st, now) {
   if (st.mode === 'catch' && now - st.catchAt >= CATCH_MS) st.mode = 'run';
   // (the hard course is the owner's alone: off his profile, even from another tab, a return on it ends where it is)
   if ((st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused') && st.run.co.hard && !features.available()) { R.stop(st.run); tackled(st); }
+  if ((st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused') && st.run.co.enhanced && !data.isOwner()) { R.stop(st.run); tackled(st); }
   if (st.mode === 'run') {
     const bumped = st.run.bump;
     onEvents(st, R.step(st.run, dt));
@@ -1345,7 +1380,15 @@ export function mount(el, ctx) {
   });
   // Profile changes also arrive from other tabs. Refresh existing HUD/card images immediately.
   st.iconOwner = features.available();
+  st.pilotOwner = data.isOwner();
   st.unsubIcons = data.subscribe(type => {
+    if (type === 'me' && !st.dead && st.pilotOwner !== data.isOwner()) {
+      st.pilotOwner = data.isOwner();
+      if (st.run?.co.enhanced && !st.run.over && !st.pilotOwner) { R.stop(st.run); tackled(st); }
+      const card = el.querySelector('[data-rm-card]');
+      if (card && !card.hidden) { card.innerHTML = cardHTML(st); ui.hydrate(card); }
+      patchHud(st); draw(st);
+    }
     if (type !== 'me' || st.dead || st.iconOwner === features.available()) return;
     st.iconOwner = features.available();
     clearPickupPop(st); st.pickupLines = null;

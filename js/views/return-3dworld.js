@@ -1,4 +1,5 @@
 import * as features from '../core/features.js';
+import {makeJetpack, animateJetpack} from './return-jetpack.js';
 // Return Man's world in real 3D (the owner's ask, Oct 2026): the places a return runs through (core/return.js THEMES),
 // built in three.js around the players (views/return-3d.js, the same scene): each place's ground (the field with its
 // yard lines and numbers; a parking lot; a city street; packed snow; the desert's rails; cobbles; a boardwalk by the
@@ -966,7 +967,7 @@ function itemOf(kind, big = false) {
 }
 // Evan's floating collectibles: modelled at their display size, with readable fronts and a warm runner-game burst.
 // These procedural textures are created only after the profile gate above; no new artwork is fetched or precached.
-const PICKUP_COLOR = {salts: 0x54E8FF, pills: 0xFF8740, booze: 0x8AE53F};
+const PICKUP_COLOR = {salts: 0x54E8FF, pills: 0xFF8740, booze: 0x8AE53F, jetpack: 0x65EEFF};
 function pickupLabel(kind) {
   return texOf('arcade-pickup-label:' + kind, () => canvasTex(512, 512, (c, w, h) => {
     c.fillStyle = '#FFF9DF'; c.fillRect(0, 0, w, h);
@@ -1025,7 +1026,10 @@ function arcadeItemOf(kind) {
     mesh.castShadow = true; model.add(mesh); return mesh;
   };
   const label = new T.MeshBasicMaterial({map: pickupLabel(kind), toneMapped: false});
-  if (kind === 'booze') {
+  if (kind === 'jetpack') {
+    const pack = makeJetpack(T); pack.scale.setScalar(1.35); model.add(pack);
+    trim.add('box', '#F4BE36', 0, .3, 0, .05, .05, .05);
+  } else if (kind === 'booze') {
     lathe([[0, -.92], [.23, -.92], [.31, -.88], [.34, -.79], [.34, .15], [.32, .27], [.23, .4], [.13, .49], [.12, .78], [.14, .81], [.14, .87], [0, .87]], solid(0x32932F, .24));
     trim.cyl('#255C25', 0, -.91, -.83, 0, .305); trim.cyl('#FFDA54', 0, .84, .96, 0, .16);
     trim.cyl('#FFED98', 0, .94, .98, 0, .15); trim.cyl('#F6D966', 0, .61, .74, 0, .123);
@@ -1075,6 +1079,8 @@ function arcadeItemOf(kind) {
   OBJ.set(key, g); return g;
 }
 function animateArcadeItem(o, t, phase, camX, distance) {
+  const pack = o.children[0]?.getObjectByName('jetpack');
+  if (pack) animateJetpack(pack, t);
   const bob = Math.sin(t * 3 + phase) * .16, pulse = .5 + .5 * Math.sin(t * 4 + phase), y = 1.65 + bob;
   const [model, glow, ring, burst, sparks] = o.children;
   model.position.y = y;
@@ -1199,6 +1205,22 @@ function vehicleOf(p, th) {
     // Keep the original wheel geometry, placement, ramp and collision footprint.
     [z0 + 1.8, z1 - 2.2].forEach(z => [x0 + .1, x1 - .1].forEach(x => wheel(b, x, z, .55, .35)));
   }
+  else if (p.kind === 'express') {
+    // A bright cab, dark windscreen, headlamps and a second carriage: readable head-on.
+    b.box('#153B59', x0, x1, .35, y1 - .25, z0, z1);
+    b.box('#F5C143', x0, x1, .7, 1.65, z0 - .01, z1);
+    b.box('#FFF0C9', x0 + .08, x1 - .08, y1 - .25, y1, z0, z1);
+    b.box('#F5C143', x0, x1, .6, y1 - .3, z0, z0 + .3);
+    b.box('#0C2237', x0 + .16, x1 - .16, 1.85, y1 - .5, z0 - .04, z0);
+    b.box('#153B59', X - .04, X + .04, 1.85, y1 - .5, z0 - .06, z0);
+    [-.78, .78].forEach(dx => lit.box('#D9FFFF', X + dx - .16, X + dx + .16, 1, 1.23, z0 - .08, z0));
+    for (let z = z0 + 2; z < z1 - 1; z += 2.2) {
+      [x0, x1].forEach(x => b.box('#9EE6E8', x - .015, x + .015, 2, 2.95, z, z + 1.5));
+    }
+    b.box('#071623', x0 - .02, x1 + .02, .45, y1 - .15, z0 + 10, z0 + 10.5);
+    [z0 + 1.8, z0 + 8.2, z1 - 7.5, z1 - 1.8].forEach(z => [x0 + .1, x1 - .1].forEach(x => wheel(b, x, z, .44, .3)));
+    g.add(frontSign('EXPRESS', X, 1.54, z0 - .06, 1.65));
+  }
   else if (models.vehicle(b, lit, {x0, x1, y0, y1, z0, z1, X, w}, p, th.id)) { /* (the place's models, in its box) */ }
   else if (f) f(b, lit, {x0, x1, y0, y1, z0, z1, X, w}, p, g);
   else if (TALL[p.kind]) tallOne(b, lit, {x0, x1, y0, y1, z0, z1, X, w}, p, TALL[p.kind], g);
@@ -1307,7 +1329,7 @@ export function update(st, now) {
   cityBus.sync();
   fieldLogo.sync();
   FRAME++;
-  const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}${st.co.hard ? 'h' : ''}`;
+  const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}${st.co.hard ? 'h' : ''}${st.co.enhanced ? '|flight' : ''}`;
   // the places' models (return-models.js): this one's and the next two's asked for in time; what was built before its
   // place's came in, built again with them while it's still off in the haze
   for (let z = cz; z <= cz + 2 * R.ZONE; z += R.ZONE) models.want(R.zoneAt(st.co, z).theme.id);
@@ -1332,13 +1354,15 @@ export function update(st, now) {
   for (let z = Math.ceil((cz - 4) / R.ZONE) * R.ZONE; z < cz + AHEAD; z += R.ZONE) {
     if (z <= 0) continue;
     const th = R.zoneAt(st.co, z + .01).theme;
-    keep(`g:${key}|${z}`, () => {
+    const gate = keep(`g:${key}|${z}`, () => {
       const g = gateOf(th).clone(); g.position.set(0, 0, -z);
       const b = new Batch(); pylons(b, z, th.id);
       const m = b.mesh(mats().vcs);
       if (m) { m.userData.own = true; g.add(m); } // (the pylons are this gate's own: the gate itself is shared)
       return g;
     });
+    // At flying height the welcome board would cover the runner and the road.
+    if (gate) gate.visible = !(R.flying(run) && Math.abs(z - run.z) < 16);
   }
   if (run) {
     const A = R.ahead(run, 120, 4 + (st.lag || 0)); // (and further back while he's held back in a pothole: views/return.js)
@@ -1368,8 +1392,13 @@ export function update(st, now) {
     }));
     // the vehicles
     A.sets.forEach(({set}) => set.plats.forEach((p, j) => keep(`v:${key}|${set.i}|${j}`, () => vehicleOf(p, R.zoneAt(st.co, p.z0).theme))));
+    if (st.co.enhanced && data.isOwner()) (run.trains || []).forEach(p => {
+      const o = keep(`v:traffic:${key}|${p.i}`, () => vehicleOf({...p, z0: 0, z1: R.TRAFFIC.length}, {id: 'city'}));
+      if (o) o.position.z = -p.z0;
+    });
     // the power-ups (gone once picked up)
     A.items.forEach(({item}) => {
+      if (item.kind === 'jetpack' && !data.isOwner()) return;
       const big = !!st.co.hard, k = big ? BIG : 1, o = keep(`i:${key}|${item.i}`, () => itemOf(item.kind, big).clone());
       if (!o) return;
       const g = R.groundAt(st.co, item.lane, item.z), bob = Math.sin(t * 3 + item.i) * .12, pulse = .5 + .5 * Math.sin(t * 5 + item.i);

@@ -1,4 +1,5 @@
 import * as features from '../core/features.js';
+import {jetpackIcon} from './return-jetpack.js';
 // Return Man's world (views/return.js draws with it): the places a return runs through (core/return.js THEMES), drawn
 // on its canvas from behind the returner. Each place has its sky and far skyline (drawn once into a canvas of its own
 // and copied in each frame; the next place's fades in as you come to its gate), its ground (the field; a parking lot;
@@ -1829,6 +1830,22 @@ export function vehicle(st, c, p) {
   const zn = nearOf(st, p.z0 - (p.ramp || 0), p.z1);
   if (zn == null) return;
   if (!p.b) fill(c, gnd(st, b.x0 - .25, b.x1 + .35, Math.max(zn, p.z0 - .2), p.z1 + .9), 'rgba(0,0,0,.26)');
+  if (p.kind === 'express') {
+    box(st, c, b, {front: '#F5C143', side: '#153B59', top: '#FFF0C9',
+      sideDeco: (sx, za, zb) => {
+        fill(c, sideQ(st, sx, .7, 1.65, za, zb), '#F5C143');
+        windows(st, c, sx, 2, 2.95, p.z0 + 2, p.z1 - 1, 2.2, .7, za, zb, '#9EE6E8');
+        wheels(st, c, sx, [p.z0 + 1.8, p.z0 + 8.2, p.z1 - 7.5, p.z1 - 1.8], .44, za, zb);
+      },
+      frontDeco: (w, h) => {
+        c.fillStyle = '#0C2237'; c.fillRect(-w / 2 + .16, -h + .5, w - .32, 1.25);
+        c.fillStyle = '#FFF0C9'; c.fillRect(-w / 2, -h, w, .25);
+        c.fillStyle = '#153B59'; c.fillRect(-w / 2, -.7, w, .7);
+        lights(w, h, 1.1, '#D9FFFF')(c);
+        c.fillStyle = '#0C2237'; c.font = `800 .25px ${DISPLAY}`; c.textAlign = 'center'; c.fillText('EXPRESS', 0, -1.5);
+      }});
+    return;
+  }
   const draw = KIND_DRAW[p.kind] || VEHICLES[th.id][p.hi ? 'hi' : 'lo'];
   draw(st, c, b, p);
   if (p.ramp) ramp(st, c, p, RAMP_OF[p.kind] || RAMPS[th.id]);
@@ -2031,9 +2048,11 @@ const OWNER_ICONS = {
   }
 };
 export const ICONS = Object.fromEntries(Object.keys(LEGACY_ICONS).map(kind => [kind, (c, t) => (features.available() ? OWNER_ICONS : LEGACY_ICONS)[kind](c, t)]));
+ICONS.jetpack = jetpackIcon;
+OWNER_ICONS.jetpack = jetpackIcon;
 const HALO = {salts: '150,225,255', pills: '255,165,60', booze: '255,214,90'};
 // (the hard course's, the owner's: bigger, and each its own colour: return-3dworld.js HALO_BIG)
-const HALO_BIG = {salts: '92,225,255', pills: '255,64,64', booze: '110,240,90'};
+const HALO_BIG = {salts: '92,225,255', pills: '255,64,64', booze: '110,240,90', jetpack: '101,238,255'};
 function ownerItem(st, c, it, t, X, g) {
   const bob = Math.sin(t * 3 + it.i) * .16, p = P(st, X, g + 1.65 + bob, it.z), base = P(st, X, g + .025, it.z), s = p.s;
   if (s < 1.2) return;

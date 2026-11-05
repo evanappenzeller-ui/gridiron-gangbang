@@ -107,6 +107,11 @@ export const tdsAt = z => Math.max(0, Math.floor(z / TD));
 export const GRAV = 30, JUMP_V = 9, DROP_V = -18, BUFFER = .25, STEP = .45;
 // (his stride, run.steps: a yard a yard run up to STRIDE_V yards a second, the regular course's top speed)
 export const STRIDE_V = 19;
+// Evan's longer, springier stride: distance per cycle grows as the run accelerates.
+export const strideRate = v => Math.min(v * .58, 10.5);
+export const JETPACK = {s: 8, height: 6.2, rise: .65, descend: 1.2, landing: .9};
+export const TRAFFIC = {lead: 76, length: 20, speed: 12, height: 3.6, first: 155};
+export const flying = run => !!(run?.co.enhanced && data.isOwner() && run.jetpack > 0);
 // The moves, seconds: a juke takes you a lane over (eased out: most of the way at once, settling in; snappier, the
 // owner's ask, Oct 2026); a slide keeps you low (SLIDE_BODY yards, not BODY) for slide s.
 export const MOVE = {juke: .13, slide: .7};
@@ -168,6 +173,7 @@ export const THEMES = [
 const tall = (r, L, rampP) => [{at: RAMP, len: 12 + r() * (9 + 13 * L), h: HIGH_H, ramp: r() < rampP ? RAMP : 0}];
 const low = (r, len, h = LOW_H) => [{at: 0, len, h}];
 export const KINDS = {
+  express: {name: 'oncoming train'},
   teambus: {name: 'team bus', build: (r, L) => tall(r, L, .65)},
   bench: {name: 'bench', build: r => low(r, 6 + r() * 5)},
   rv: {name: 'RV', build: (r, L) => tall(r, L, .65)},
@@ -217,7 +223,8 @@ function pickKind(th, r, hard = false) {
 export const POWER = {
   salts: {name: 'Smelling salts', says: 'A burst of speed and an extra life', is: 'One sniff and you’re wide awake', does: 'A 4-second burst of speed, and an extra life: shake off the next tackle'},
   pills: {name: 'Painkillers', says: 'Nothing can stop you', s: 6, is: 'You can’t feel a thing', does: 'For 6 seconds, run straight through whatever’s in your way'},
-  booze: {name: 'Booze', says: 'Double yards', s: 8, is: 'Liquid courage (the world gets wobbly)', does: 'For 8 seconds, every yard counts double'}
+  booze: {name: 'Booze', says: 'Double yards', s: 8, is: 'Liquid courage (the world gets wobbly)', does: 'For 8 seconds, every yard counts double'},
+  jetpack: {name: 'Jetpack', says: 'Fly above the traffic', s: JETPACK.s, is: 'Cleared for takeoff', does: 'Fly over hazards for 8 seconds. Swipe sideways to steer; land automatically'}
 };
 // On the hard course (the owner's, for now) the power-ups as he asked for them (Oct 2026): the salts' burst lasts
 // HARD_BURST_S seconds; their words (HARD_POWER over POWER's: powerOf).
@@ -331,14 +338,16 @@ export const GAP = {first: 22, cars: 45, max: 1.3, min: .62, by: 1000, jitter: .
 export const HARD_GAP = {first: 20, cars: 35, max: 1.1, min: .32, by: 650, late: [.06, 3000], jitter: .2, in: .6, after: [.25, .1], mix: 700, sets: [.22, .38], two: .6, hole: 120, sled: 220};
 const COURSES = new Map();
 /** Day n's kickoff k: the same on every phone. It's worked out as it's needed (fill). */
-export function course(n, k, hard = false) {
+export function course(n, k, hard = false, enhanced = false) {
   hard = !!hard;
-  const key = `${n}|${k}|${hard ? 'h' : ''}`;
+  enhanced = !!enhanced && data.isOwner();
+  const key = `${n}|${k}|${hard ? 'h' : ''}${enhanced ? '|flight' : ''}`;
   if (COURSES.has(key)) return COURSES.get(key);
   // the places after the stadium: the day's order, each kickoff starting one further on
   const others = shuffle(THEMES.map((_, i) => i).slice(1), rng(hashStr(`return-man-places-${n}`))), m = others.length;
   const order = [0, ...others.slice(k % m), ...others.slice(0, k % m)];
   const c = {n, k, hard, order, rows: [], sets: [], items: [], r: rng(hashStr(`return-man-${n}-${k}${hard ? '-hard' : ''}`)), z: (hard ? HARD_GAP : GAP).first, itemAt: 100, done: 0, first: {}};
+  if (enhanced) Object.assign(c, {enhanced: true, traffic: [], trafficAt: TRAFFIC.first});
   if (COURSES.size > 12) COURSES.clear();
   COURSES.set(key, c);
   return c;
@@ -356,7 +365,13 @@ function gapAt(co, L, z) {
 }
 const speedOn = (co, z) => speedAt(z, co.hard);
 function addItem(co, z, lane, top) {
-  const u = co.r(), kind = u < .25 ? 'salts' : u < .6 ? 'pills' : 'booze';
+  const u = co.r(), kind = co.enhanced && co.items.length % 3 === 0 ? 'jetpack' : u < .25 ? 'salts' : u < .6 ? 'pills' : 'booze';
+  if (kind === 'jetpack' && top) {
+    // Put the pack in the open lane at the start of the set, never on an unreachable roof.
+    const set = co.sets[co.sets.length - 1];
+    lane = [1, 0, 2].find(l => !set.plats.some(p => p.lane === l));
+    z = set.zs + 1.8; top = false;
+  }
   co.items.push({i: co.items.length, z: round2(z), lane, top: !!top, kind});
   co.itemAt = z + 180 + co.r() * 180;
 }
@@ -419,6 +434,14 @@ function addSet(co, z, L) {
 export function fill(co, z) {
   while (co.z <= z + 2) {
     const r = co.r, at = co.z, H = HARD_GAP, L = Math.min(1, at / (co.hard ? H.mix : GAP.by));
+    if (co.enhanced && at >= co.trafficAt) {
+      // Reserve the whole encounter: no stationary obstacles can close its escape lane.
+      const lanes = shuffle([0, 1, 2], r), count = co.traffic.length > 1 ? 2 : 1;
+      co.traffic.push({i: co.traffic.length, trigger: at, lanes: lanes.slice(0, count)});
+      co.z = at + TRAFFIC.lead + TRAFFIC.length + 12;
+      co.trafficAt = co.z + 175 + r() * 75;
+      continue;
+    }
     if (at > (co.hard ? H.cars : GAP.cars) && r() < (co.hard ? H.sets[0] + (H.sets[1] - H.sets[0]) * L : .2 + .18 * L) && addSet(co, at, L)) continue;
     addRow(co, at, [0, 1, 2]);
     const next = at + gapAt(co, L, at) * speedOn(co, at);
@@ -578,8 +601,9 @@ export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
 /** A new return: day n's run k (on the day's course: every run the same), you in the middle lane where you field it.
  *  coins: the run has the coins (COIN: only on the hard course; views/return.js asks coinsOpen, the day's first run);
  *  run.c counts the ones he's run through. */
-export function startRun(n, k, hard = false, coins = false) {
-  return {n, k, co: course(n, 0, hard), t: 0, steps: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
+export function startRun(n, k, hard = false, coins = false, enhanced = false) {
+  return {n, k, co: course(n, 0, hard, enhanced), t: 0, steps: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
+    jetpack: 0, jetAge: 0, jetFrom: 0, landing: 0, trains: [], nextTrain: 0,
     slide: 0, lastJuke: -9, bump: -9, next: 0, nextCone: 0, nextItem: 0, zone: 0, tds: 0,
     salts: 0, pills: 0, booze: 0, shield: 0, burst: 0, over: false, why: null, by: null,
     hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null,
@@ -601,14 +625,16 @@ const grounded = run => run.vy <= 0 && run.y <= groundAt(run.co, laneOf(run), ru
  *  step counts it), the return's over. */
 export function move(run, dir) {
   if (run.over) return false;
+  if (run.co.enhanced && !data.isOwner()) return false;
   if (dir === 'left' || dir === 'right') {
     const to = run.lane + (dir === 'left' ? -1 : 1);
-    if (to < 0 || to >= LANES) { run.bump = run.t; run.sideHit = {edge: dir, lane: run.lane, side: true}; return false; } // (a hit: step counts it)
-    const side = blockAt(run.co, to, run.z, run.y);
+    if (to < 0 || to >= LANES) { if (!flying(run)) { run.bump = run.t; run.sideHit = {edge: dir, lane: run.lane, side: true}; } return false; } // (a hit: step counts it)
+    const side = flying(run) ? null : blockAt(run.co, to, run.z, run.y) || trainAt(run, to);
     if (side) { run.bump = run.t; run.sideHit = {plat: side, lane: to, side: true}; return false; } // (a hit: step counts it)
     run.jFrom = run.x; run.lane = to; run.jt = 0; run.lastJuke = run.t;
     return true;
   }
+  if (flying(run)) return false; // Automatic altitude; swipes still steer left and right.
   if (dir === 'up') {
     if (grounded(run)) { run.vy = JUMP_V; run.slide = 0; run.jumpQ = -9; } else run.jumpQ = run.t;
     return true;
@@ -650,6 +676,7 @@ function clearStumble(run) {
 // On the hard course, head on into a tall one's front (what.wall: more than a man's height over you) is the end of the
 // return whether he's on you or not (the owner's ask, Oct 2026: Subway Surfers' train); the salts shake that off too.
 function hit(run, out, what) {
+  if (run.co.enhanced && (flying(run) || run.landing > 0)) return 'pass';
   if (run.pills > 0 || (!run.co.hard && run.shield > 0)) { if (!what.side) out.push(Object.assign({type: what.ob ? 'trucked' : 'vaulted', z: run.z}, what)); return 'pass'; }
   if (run.grace > 0 && (!run.co.hard || sameCollision(run.lastHit, what))) {
     out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass';
@@ -695,7 +722,8 @@ function sub(run, dt, out) {
   const co = run.co, v0 = speedAt(run.z, co.hard), v = v0 * (1 - CHASE.slowBy * run.slow / CHASE.slow) * (1 + burstOf(run));
   run.t += dt; run.z += v * dt; run.yards += v * dt * (run.booze > 0 ? 2 : 1);
   // (his strides: a yard a yard up to STRIDE_V, longer past it, so his legs never spin faster than they do at a sprint)
-  run.steps += v * dt * Math.min(1, STRIDE_V / v0);
+  run.steps += run.co.enhanced ? (flying(run) ? 0 : strideRate(v) * dt) : v * dt * Math.min(1, STRIDE_V / v0);
+  if (co.enhanced) advanceTrains(run, dt, out);
   if (run.jt < 1) { run.jt = Math.min(1, run.jt + dt / MOVE.juke); const e = 1 - (1 - run.jt) ** 3; run.x = run.jFrom + (xOf(run, run.lane) - run.jFrom) * e; }
   else run.x = xOf(run, run.lane);
   // a juke into a vehicle's side or off the edge of the road (refused by move) is a hit
@@ -703,6 +731,12 @@ function sub(run, dt, out) {
   // (knocked off a vehicle's front, you're in the lane you're headed for)
   const body = run.slide > 0 ? SLIDE_BODY : BODY;
   const lane = run.knock > 0 ? run.lane : laneOf(run), blk = blockAt(co, lane, run.z, run.y, body);
+  const train = co.enhanced && trainAt(run, lane);
+  if (train) {
+    const result = hit(run, out, {plat: train, lane, wall: true});
+    if (!result) return;
+    train.cleared = true; // One impact per passing train, including a salts revival.
+  }
   // something in your way: a pad you've jumped up into from under stops you; a front (or a side, mid-juke) is a hit
   if (blk && blk.b > run.y + .8 && run.vy > 0) { run.vy = 0; run.y = Math.max(0, blk.b - BODY - 1e-3); }
   else if (blk) {
@@ -717,7 +751,14 @@ function sub(run, dt, out) {
   }
   const g = groundAt(co, lane, run.z, run.y);
   let landed = false;
-  if (run.vy > 0 || run.y > g + 1e-3) {
+  if (flying(run)) {
+    run.jetAge += dt;
+    const ease = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+    const floor = groundAt(co, lane, run.z), rise = ease(run.jetAge / JETPACK.rise);
+    const high = Math.max(JETPACK.height, run.jetFrom);
+    run.y = run.jetpack < JETPACK.descend ? floor + (high - floor) * ease(run.jetpack / JETPACK.descend) : run.jetFrom + (high - run.jetFrom) * rise;
+    run.vy = 0; run.slide = 0; run.jumpQ = -9;
+  } else if (run.vy > 0 || run.y > g + 1e-3) {
     run.vy -= GRAV * dt; run.y += run.vy * dt;
     if (run.y <= g) { landed = run.vy < -1; run.y = g; run.vy = 0; if (landed) out.push({type: 'landed', z: run.z, on: g > 0}); }
   } else { run.y = g; run.vy = 0; }
@@ -750,7 +791,11 @@ function sub(run, dt, out) {
   while (run.nextItem < items.length && items[run.nextItem].z <= run.z) {
     const it = items[run.nextItem++];
     if (it.lane !== lane || Math.abs(run.y - groundAt(co, it.lane, it.z)) > 1.4) continue;
-    if (it.kind === 'salts') { run.salts = Math.min(SALTS_MAX, run.salts + 1); run.burst = burstSecs(run); }
+    if (it.kind === 'jetpack') {
+      if (!co.enhanced || !data.isOwner()) continue;
+      run.jetpack = JETPACK.s; run.jetAge = 0; run.jetFrom = run.y; run.slide = 0; run.vy = 0; run.jumpQ = -9; run.sideHit = null;
+    }
+    else if (it.kind === 'salts') { run.salts = Math.min(SALTS_MAX, run.salts + 1); run.burst = burstSecs(run); }
     else run[it.kind] = POWER[it.kind].s;
     out.push({type: 'pickup', kind: it.kind, item: it, z: run.z});
   }
@@ -775,6 +820,27 @@ function sub(run, dt, out) {
   run.slow = Math.max(0, run.slow - dt);
   run.grace = Math.max(0, run.grace - dt);
   run.knock = Math.max(0, run.knock - dt);
+  run.landing = Math.max(0, run.landing - dt);
+  if (run.jetpack > 0) {
+    run.jetpack = Math.max(0, run.jetpack - dt);
+    if (!run.jetpack) { run.landing = JETPACK.landing; out.push({type: 'jetlanded', z: run.z}); }
+  }
+}
+// Mutable traffic belongs to the run, never the cached daily course. Pausing stops it too.
+function advanceTrains(run, dt, out) {
+  const defs = run.co.traffic || [];
+  while (run.nextTrain < defs.length && defs[run.nextTrain].trigger <= run.z) {
+    const def = defs[run.nextTrain++];
+    def.lanes.forEach(lane => run.trains.push({i: `${def.i}:${lane}`, lane, kind: 'express', part: 0,
+      z0: def.trigger + TRAFFIC.lead, z1: def.trigger + TRAFFIC.lead + TRAFFIC.length,
+      h: TRAFFIC.height, b: 0, ramp: 0, hi: true, cleared: false}));
+    out.push({type: 'traffic', lanes: def.lanes, z: run.z});
+  }
+  for (const p of run.trains) { p.z0 -= TRAFFIC.speed * dt; p.z1 -= TRAFFIC.speed * dt; }
+  run.trains = run.trains.filter(p => p.z1 > run.z - 30);
+}
+function trainAt(run, lane) {
+  return run.trains?.find(p => !p.cleared && p.lane === lane && p.z0 <= run.z + .35 && p.z1 >= run.z - .35 && run.y < p.h);
 }
 /** Moves a return on dt seconds. Returns what happened: [{type: 'td' | 'zone' | 'juked' | 'hurdled' | 'slid' | 'over' |
  *  'passed' | 'landed' | 'pickup' | 'coin' | 'coned' | 'trucked' | 'vaulted' | 'stumbled' | 'shoved' | 'revived' | 'tackled' | 'crashed', z, ...}]
@@ -786,6 +852,7 @@ function sub(run, dt, out) {
  *  he ran you down; 'crashed': head on into a tall one's front, on the hard course). */
 export function step(run, dt) {
   if (run.over || !(dt > 0)) return [];
+  if (run.co.enhanced && !data.isOwner()) { stop(run); return []; }
   const out = [];
   fill(run.co, run.z + 120);
   if (run.coins) coinsTo(run.co, run.z + 120);

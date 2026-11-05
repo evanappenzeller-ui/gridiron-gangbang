@@ -1,4 +1,5 @@
 import * as features from '../core/features.js';
+import {makeJetpack, animateJetpack} from './return-jetpack.js';
 // Return Man's players in real 3D (the owner's ask, Oct 2026: smooth, at the screen's frame rate, not pictures): a
 // rigged, animated football player (models/return-player.glb: "American Football Player" by blakeallen25 on Sketchfab,
 // CC-BY-4.0, https://sketchfab.com/3d-models/american-football-player-10bf41a1c05a4c9cb74676b7dd8cb18e; slimmed by
@@ -470,6 +471,16 @@ function pose(P, s, dt) {
   P.wrap.getWorldQuaternion(P.q);
   P.model.updateMatrixWorld(true);
   const t = s.t || 0;
+  if (s.jetpack && data.isOwner()) {
+    if (!P.jetpack) { P.jetpack = makeJetpack(T); P.jetpack.scale.setScalar(.85); P.jetpack.position.set(0, 1.25, .4); P.root.add(P.jetpack); }
+    // Relaxed flying pose, with both knees trailing instead of cycling in midair.
+    leg(P, 'Left', [.12, -.95, -.2], [.05, -.8, -.6]);
+    leg(P, 'Right', [-.12, -.98, -.1], [-.05, -.85, -.5]);
+    limb(P, 'Left', [.55, -.8, .15], [.15, -.55, .8]);
+    limb(P, 'Right', [-.55, -.8, .15], [-.15, -.55, .8]);
+    animateJetpack(P.jetpack, t);
+  }
+  if (P.jetpack) P.jetpack.visible = !!s.jetpack && data.isOwner();
   // a stumble: the trunk forward (not down in a slide), his free arm flailing
   if (s.stumble > 0) {
     if (want !== 'slide') trunk(P, [0, .78, .62], s.stumble * .8);

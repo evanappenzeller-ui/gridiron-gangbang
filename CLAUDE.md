@@ -19,6 +19,13 @@ Do not restore legacy score or Keepfall save fields into the v3 save namespaces.
 
 ## Return Man art direction
 
+November 4, 2026 owner pilot (current AGENTS.md scope): Evan's stable profile gets a longer, bouncier stride,
+oncoming express trains and an eight-second jetpack. The view passes `data.isOwner()` to the optional fifth
+`startRun` argument; `course` keeps its enhanced cache separate. Traffic belongs to each run and uses reserved
+clear corridors. Flight steers sideways, descends automatically and has a short landing buffer. Other profiles
+retain the deployed course and cadence. `node tools/return/check-motion.cjs` checks movement, collisions,
+scope against the deployed baseline, mobile rendering, touch/keyboard input and pause/resume offline.
+
 Evan chose the supplied colorful low-poly runner reference for Return Man's environments: bold silhouettes,
 warm cream trim, saturated accents, faceted foliage, clean roads and clearly visible hazards. Keep each of the
 nine locations distinct. This direction applies to Evan's profile only. `return-style.js` owns the procedural
