@@ -35,6 +35,11 @@ chaser is still visible ends the run; only his leaving the screen clears the pur
 flight clearance, roof landings and duplicate-contact handling keep their protection. The chaser uses the
 runner's run clip, stride rate, bounce and lean.
 
+November 5 salts follow-up (owner-only under AGENTS.md): on Evan's profile (`data.isOwner()`), unused salts
+expire when their speed boost ends and disappear from the HUD. Protection during the active boost stays intact.
+Other profiles keep the shared rollout's stored extra lives. `check-motion.cjs` covers expiry, repeat pickups,
+active/expired collisions, HUD removal, pause/resume and the owner boundary.
+
 The stadium-tunnel title waits for Play, including Practice. `return-intro.js` times the 2.6-second punt,
 two-handed catch and camera orbit into the chase camera. Simulation and scoring freeze until handoff.
 Pause/resume preserves the shot; reduced motion uses a shorter catch with a fixed camera. Canvas fallback remains.

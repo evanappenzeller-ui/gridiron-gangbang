@@ -114,10 +114,10 @@ async function main() {
         const events = tick(a, 1); ok(a.over && events.some(e => e.type === 'crashed'), 'head-on crash');
         const b = empty(); train(b, 1, 12); R.move(b, 'left'); tick(b, 2); ok(!b.over && b.lane === 0, 'lane dodge');
         const c = empty(); train(c, 0, -2); ok(!R.move(c, 'left'), 'cannot juke through train side');
-        c.salts = 1; tick(c, .02); ok(!c.over, 'existing side-hit revival rules');
+        c.salts = 1; c.burst = 10; tick(c, .02); ok(!c.over, 'existing side-hit revival rules while salts are active');
       });
       test('Trains respect pills and salts without repeated impacts', () => {
-        const a = empty(); train(a); a.salts = 1; const ev = tick(a, 2);
+        const a = empty(); train(a); a.salts = 1; a.burst = 10; const ev = tick(a, 2);
         ok(!a.over && a.salts === 0 && ev.filter(e => e.type === 'revived').length === 1, 'one salts revival for one train');
         const b = empty(); train(b); b.pills = 6; tick(b, 2); ok(!b.over && b.hits === 0, 'painkillers protect');
       });
@@ -212,8 +212,42 @@ async function main() {
           const z = r.z, score = r.yards; tick(r, .5);
           ok(Math.abs((r.yards - score) - (r.z - z) * 2) < .001, kind + ' gives 2x');
           r.booze = r.pills = r.burst = r.jetpack = 1; ok(R.multiplierOf(r) === 2, 'overlap never 4x');
-          r.booze = r.pills = r.burst = r.jetpack = 0; ok(R.multiplierOf(r) === 1, 'stored salts alone are not a timed boost');
+          r.booze = r.pills = r.burst = r.jetpack = 0; ok(R.multiplierOf(r) === 1, 'expired boosts do not double yards');
         }
+      });
+      test('Owner salts expire with the speed boost, including repeat pickups; expired salts cannot revive', () => {
+        const collect = r => { r.co.items.push({i:r.co.items.length,kind:'salts',lane:1,z:r.z+.01}); return tick(r,.02); };
+        const hit = r => { r.co.rows.push({i:r.co.rows.length,z:r.z+.01,lanes:[null,'hurdle',null]}); return tick(r,.02); };
+        for (const dt of [1/30,1/60,1/120]) for (const count of [1,2]) {
+          const r=empty(); for(let i=0;i<count;i++) collect(r);
+          ok(r.salts===count && r.burst>9.8,'pickup grants active protection');
+          tick(r,8,dt); ok(hit(r).some(e=>e.type==='stumbled'),'first impact brings the chaser');
+          tick(r,r.burst+.02,dt);
+          ok(r.burst===0 && r.salts===0 && R.multiplierOf(r)===1,'all unused salts expire with speed and double points');
+          ok(R.chasing(r) && R.gapOf(r)<R.CHASE.seen,'chaser still visible after boost expires');
+          ok(hit(r).some(e=>e.type==='tackled') && r.over,'expired salts cannot rescue the next collision');
+        }
+        const refreshed=empty(); collect(refreshed); tick(refreshed,8); collect(refreshed); tick(refreshed,3);
+        ok(refreshed.salts===2 && refreshed.burst>6,'another pickup refreshes the active boost');
+        tick(refreshed,refreshed.burst+.02); ok(refreshed.salts===0,'both unused lives expire with the refreshed boost');
+        for (const wall of [false,true]) {
+          const stale=empty(); stale.hitAt=stale.t; stale.salts=2; stale.burst=0;
+          if(wall) train(stale,1,.01);
+          const ev=wall?tick(stale,.02):hit(stale);
+          ok(stale.over && !ev.some(e=>e.type==='revived'),'an expired balance cannot revive against a '+(wall?'train':'row'));
+        }
+        for (const profile of ['ben','Ryan Stewart','Evan Appenzeller',null]) {
+          D.setMe(profile==='ben'?'ben':'none'); D.setGuest(profile==='ben'?null:profile);
+          const r=R.startRun(70002,0,true,false,true);
+          r.co={...r.co,rows:[],sets:[],items:[],z:1e9,done:1e9}; r.t=10;
+          collect(r); tick(r,11);
+          ok(r.co.enhanced && r.salts===1 && r.burst===0,'other profiles keep their existing stored salts and updated course');
+          r.hitAt=r.t;
+          ok(hit(r).some(e=>e.type==='revived') && !r.over,'stored salts still revive other profiles after boost expiry');
+        }
+        D.setGuest(null); D.setMe('evan');
+        ok(R.powerOf('salts',true,true).does.includes('expire'),'owner pickup announcement explains expiry');
+        ok(!R.powerOf('salts',true).does.includes('expire'),'shared pickup copy unchanged');
       });
       test('A stumble stays lethal until the visible chaser finishes retreating', () => {
         const hit = r => { r.co.rows.push({i: r.co.rows.length, z: r.z + .01, lanes: [null, 'hurdle', null]}); return tick(r, .02); };
@@ -246,16 +280,17 @@ async function main() {
         const r=empty(); rowHit(r); ok(r.grace>0,'inside duplicate-contact grace');
         ok(rowHit(r,'bar').some(e=>e.type==='tackled') && r.over,'a distinct obstacle is never ignored by grace');
       });
-      test('Visible-chaser hits preserve painkillers and stored salts; duplicate contacts still count once', () => {
+      test('Visible-chaser hits preserve painkillers and active salts; duplicate contacts still count once', () => {
         const hit = r => { r.co.rows.push({i:r.co.rows.length,z:r.z+.01,lanes:[null,'hurdle',null]}); return tick(r,.02); };
         for (const elapsed of [.8,4.1]) for (const boost of ['pills','salts','booze','burst','shield','combined']) {
           const r=empty(); hit(r); tick(r,elapsed);
           if(boost==='combined') Object.assign(r,{pills:6,salts:2,booze:6,burst:10,shield:1}); else r[boost]=boost==='salts'?2:6;
+          if(boost==='salts') r.burst=10;
           const salts=r.salts, events=hit(r);
           if (boost==='pills' || boost==='combined') ok(!r.over && r.salts===salts && events.some(e=>e.type==='trucked'),'painkillers keep their protection without spending salts');
           else if (boost==='salts') {
-            ok(!r.over && r.salts===salts-1 && events.some(e=>e.type==='revived'),'one stored life saves the collision');
-            ok(hit(r).some(e=>e.type==='revived') && r.salts===0 && !r.over,'second stored life saves a second collision');
+            ok(!r.over && r.salts===salts-1 && events.some(e=>e.type==='revived'),'one active life saves the collision');
+            ok(hit(r).some(e=>e.type==='revived') && r.salts===0 && !r.over,'second active life saves a second collision');
             ok(hit(r).some(e=>e.type==='tackled') && r.over,'without salts the very next collision tackles');
           } else ok(r.over && events.some(e=>e.type==='tackled'),boost+' is not obstacle protection');
         }
@@ -323,6 +358,17 @@ async function main() {
       return checks;
     });
     console.log('PASS 500-yard 3D gates, ground tiles, sky transitions and canvas fallback');
+    await page.evaluate(() => {
+      const {R,V,st}=window.qa, saved=st.run;
+      const r=R.startRun(70111,0,true,false,true);
+      r.co={...r.co,rows:[],sets:[],items:[],traffic:[],z:1e9,done:1e9}; r.t=10; r.salts=2; r.burst=.02;
+      st.run=r; V.patchHud(st);
+      if(!st.el.querySelector('[data-rm-pows] .is-salts')) throw new Error('Active salts missing from HUD');
+      R.step(r,.05); V.patchHud(st);
+      if(st.el.querySelector('[data-rm-pows] .is-salts') || st.el.querySelector('[data-rm-ychip]').classList.contains('is-x2')) throw new Error('Expired salts remain on HUD');
+      st.run=saved; V.patchHud(st);
+    });
+    console.log('PASS Expired salts disappear from the HUD with the speed boost and double points');
     await page.evaluate(() => { for (let i = 0; i < 12; i++) window.qa.render(); });
     await page.screenshot({path: path.join(output, 'incoming-train.png')});
     report.render = await page.evaluate(async () => {
@@ -406,11 +452,11 @@ async function main() {
     await page.locator('[data-rm-stage]').dispatchEvent('pointermove', {pointerId: 1, isPrimary: true, clientX: 180, clientY: 600});
     await page.locator('[data-rm-stage]').dispatchEvent('pointerup', {pointerId: 1, isPrimary: true, clientX: 180, clientY: 600});
     await page.waitForFunction(() => window.qa.mounted.run.lane === 1);
-    await page.evaluate(() => { window.qa.ctx.visible = false; });
+    await page.evaluate(() => { const r=window.qa.mounted.run; r.salts=1; r.burst=2; window.qa.ctx.visible = false; });
     await page.waitForFunction(() => window.qa.mounted.mode === 'paused');
-    const paused = await page.evaluate(() => [window.qa.mounted.run.t, window.qa.mounted.run.jetpack]);
+    const paused = await page.evaluate(() => { const r=window.qa.mounted.run; return [r.t,r.jetpack,r.burst,r.salts]; });
     await page.waitForTimeout(250);
-    assert.deepEqual(await page.evaluate(() => [window.qa.mounted.run.t, window.qa.mounted.run.jetpack]), paused, 'pause freezes fuel and movement');
+    assert.deepEqual(await page.evaluate(() => { const r=window.qa.mounted.run; return [r.t,r.jetpack,r.burst,r.salts]; }), paused, 'pause freezes fuel, salts and movement');
     await page.evaluate(() => { window.qa.ctx.visible = true; });
     await page.locator('[data-rm-resume]').evaluate(b => b.click());
     await page.waitForFunction(() => window.qa.mounted.mode === 'run');
