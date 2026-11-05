@@ -123,8 +123,9 @@ async function browserTest(url) {
       await page.waitForTimeout(600);
       assert.equal(await page.locator('.db-hand-pop,.db-focus,.is-drop-ready').count(),0,'release returns card without opening details');
       assert.deepEqual(await snapshot(),before,'hold and release do not play a card');
-      await card.tap(); await page.waitForSelector('.db-focus');
-      await page.locator('[data-db-putback]').click();
+      await card.tap(); await page.waitForSelector('.sheet.db-focus .pk-info');
+      assert.equal(await page.locator('[data-db-putback]').count(),0,'no Put back: the details sheet closes');
+      await page.locator('.sheet.db-focus [data-sheet-close]').click(); await page.waitForSelector('.sheet.db-focus',{state:'detached'});
     }
     await drag(`[data-db-hand="${fixture.players[0]}"]`,'[data-db-drop="active"]',{browseFrom:`[data-db-hand="${fixture.charge}"]`});
     assert.equal(await page.locator('.is-me .is-active [data-db-slot]').count(),1);
@@ -147,7 +148,7 @@ async function browserTest(url) {
     await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:bb.x+bb.width/2,y:bb.y+bb.height/2}]});await page.waitForTimeout(400);
     await page.screenshot({path:path.join(out,'inspect.png')});await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     await page.waitForSelector('.db-focus');assert.equal((await snapshot()).ev.length,rev);assert.equal(await page.locator('[data-db-attack]:not(:disabled)').count(),0);
-    await page.waitForTimeout(600);await page.locator('[data-db-putback]').click();
+    await page.waitForTimeout(600);await page.locator('.sheet.db-focus [data-sheet-close]').click();await page.waitForSelector('.sheet.db-focus',{state:'detached'});
     await page.screenshot({path:path.join(out,'table.png')});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'no horizontal page overflow');
     const retained=await snapshot();await page.reload();await page.waitForSelector('.is-owner-table');assert.deepEqual(await snapshot(),retained,'exact saved match replay');

@@ -4,7 +4,7 @@ import {tableOptions} from './dynasty-table-options.js';
 // A card table (the owner, Oct 30 2026: "The gameplay is far too confusing. I want it to include the cards that are in
 // play laid out and the available cards in your hand are spread out at the bottom. Clicking on each card will show the
 // attacks and allow the player to choose which one or put the card back down"): both lineups as cards on the felt, your
-// hand fanned along the foot. Tapping any card lifts it (focusHTML): its plays or what it can do now, and Put back.
+// hand fanned along the foot. Tapping any card opens its details sheet (focusSheetHTML) with what it can do now.
 // Energy goes on by itself in rules v4; earlier matches keep a Give energy action on the lifted card.
 // Collectible card details, the complete log and match options remain available without interrupting ordinary moves.
 import * as ui from '../core/ui.js';
@@ -202,19 +202,21 @@ function suggestLineup(st, hand) {
   basics.slice(1, 1 + B.BENCH_MAX).forEach(c => { S.bench.push(c.id); S.benchI.push(c.i); });
 }
 
-// ---------------------------------------------------------------------------------------------------- the lifted card
-// A tapped card rises off the table: big, with what it can do now. Your active player: his plays, each with its cost,
-// damage and what it still needs (and Switch out); a bench player: Send in; a hand card: its play; theirs: their plays
-// to read. Put back sets it down again.
-function attackButtons(st, x, slot, mine) {
-  const G = x.G, stats = B.stats(slot.id), me = G.p[x.you];
-  const active = mine && slot === me.active;
+// ---------------------------------------------------------------------------------------------------- the card up close
+// A tapped card opens its details sheet (Nov 5 2026, Evan: "Clicking a card in the rivals gameplay should bring up a
+// detailed screen similar to [Card details]. Remove the other screen entirely containing the start with him and put back
+// options"): the card, its state on the table, what it can do now (setup's lineup choices, a hand card's play, a bench
+// player's Send in, your active player's plays with their cost, damage and what's still missing, Switch out), then its
+// battle side. Closing the sheet sets the card down; nothing is played until a button is pressed.
+function attackButtons(st, x, slot) {
+  const G = x.G, me = G.p[x.you];
+  const active = slot === me.active;
   return B.attacksOf(slot.id, G.v).map((a, n) => {
     const p = active ? B.attackPreview(G, x.you, n) : null;
     const missing = B.unpaid(a.cost, slot.en);
     const dmg = p ? p.damageText : `${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}`;
     const can = active && x.state === 'yours' && !st.mode && p.ok;
-    const why = !mine ? '' : !active ? 'Only your active player attacks.' : x.state !== 'yours' ? 'On your turn.'
+    const why = !active ? 'Only your active player attacks.' : x.state !== 'yours' ? 'On your turn.'
       : missing ? `Needs ${missing} more energy.` : p.ok ? '' : p.why;
     const text = [B.fxText(a), B.signatureText(G, n), ...(p ? p.notes || [] : [])].filter(Boolean).join(' ');
     return `<button type="button" class="db-move${n ? ' is-signature' : ''}" data-db-attack="${n}"${can ? '' : ' disabled'}>`
@@ -223,47 +225,37 @@ function attackButtons(st, x, slot, mine) {
       + `<strong>${esc(dmg)}<small>DMG</small></strong></button>`;
   }).join('');
 }
-function focusHTML(st, x, mySlots) {
+function focusSheetHTML(st, x, mySlots) {
   const F = st.focus;
-  if (!F) return '';
+  if (!F) return null;
   const G = x.G, you = x.you, me = G.p[you], op = G.p[1 - you], yours = x.state === 'yours', setup = x.state === 'setup';
-  let id, slot = null, sub = '', moves = '', why = '';
+  let id, slot = null, moves = '', plays = '', why = '';
   const btn = (label, attrs, kind = 'go') => `<button type="button" class="db-act is-${kind}" ${attrs}>${esc(label)}</button>`;
   if (F.kind === 'hand') {
     id = me.hand[F.i];
-    const t = D.trainer(id), stats = B.stats(id);
-    sub = t ? t.text : `${B.TYPES[stats.type].name} · ${B.stageOf(id, G.v) ? `Upgrades ${short(id)}’s Basic card` : 'Basic player'} · ${stats.hp} HP`;
     if (setup) {
       if (!B.basicIn(id, G.v)) why = 'Only Basic players start the game.';
       else moves = btn(st.setup.act ? 'Make him the starter' : 'Start with him', 'data-db-lineup="act"')
         + (st.setup.act && st.setup.bench.length < B.BENCH_MAX ? btn('Put on bench', 'data-db-lineup="bench"', 'soft') : '');
     } else {
       const action = handAction(G, you, id);
-      moves += btn(action.label, `data-db-play-hand${yours && action.ok && !me.promote ? '' : ' disabled'}`);
+      moves = btn(action.label, `data-db-play-hand${yours && action.ok && !me.promote ? '' : ' disabled'}`);
       why = !yours ? 'You can play this on your turn.' : me.promote ? 'Send in a new active player first.' : action.ok ? '' : action.why;
-      if (stats) moves = `<div class="db-moves is-info">${attackPreviewList(stats, G.v)}</div>` + moves;
     }
   } else if (F.kind === 'slot') {
     const side = F.side === 'opp' ? op : null;
     slot = side ? B.slots(op).find(s => s.u === F.u) : [mySlots.active, ...mySlots.bench].filter(Boolean).find(s => s.u === F.u);
-    if (!slot) return '';
+    if (!slot) return null;
     id = slot.id;
-    const stats = B.stats(id), left = Math.max(0, stats.hp - slot.dmg);
-    const ab = stats.ability ? ` · ${B.ABILITY[stats.ability].name}: ${B.abilityText(stats.ability, G.v)}` : '';
-    sub = `${B.TYPES[stats.type].name} · ${left} of ${stats.hp} HP${stats.weak ? ` · Weak to ${B.TYPES[stats.weak].name}` : ''}${ab}`;
     if (setup && (!side || !D.tableOpen())) {
-      const act = F.u === -1;
-      moves = (act ? '' : btn('Make him the starter', 'data-db-lineup="promote"')) + btn('Back to hand', 'data-db-lineup="hand"', 'soft');
-    } else if (side) {
-      moves = `<div class="db-moves">${attackButtons(st, x, slot, false)}</div>`;
-      why = 'Their plays, for reading.';
-    } else {
+      if (!side) moves = (F.u === -1 ? '' : btn('Make him the starter', 'data-db-lineup="promote"')) + btn('Back to hand', 'data-db-lineup="hand"', 'soft');
+    } else if (!side) {
       const isAct = slot === me.active;
-      moves = `<div class="db-moves">${attackButtons(st, x, slot, true)}</div>`;
-      if (yours && me.promote && !isAct) moves = btn('Send him in', `data-db-promote="${slot.u}"`) + moves;
+      if (isAct) plays = `<div class="db-moves">${attackButtons(st, x, slot)}</div>`;
+      if (yours && me.promote && !isAct) moves = btn('Send him in', `data-db-promote="${slot.u}"`);
       else if (yours && !isAct) {
         const r = B.check(G, you, {a: 'retreat', to: slot.u}), cost = me.active ? B.retreatCost(me.active, me) : 0;
-        moves = btn(`Send him in${cost ? ` (costs ${cost} energy)` : ''}`, `data-db-retreat="${slot.u}"${r.ok ? '' : ' disabled'}`, 'soft') + moves;
+        moves = btn(`Send him in${cost ? ` (costs ${cost} energy)` : ''}`, `data-db-retreat="${slot.u}"${r.ok ? '' : ' disabled'}`, 'soft');
         if (!r.ok) why = r.why === 'One switch a turn.' ? 'You’ve switched once this turn.' : r.why;
       }
       if (yours && isAct && me.bench.length && !me.promote) {
@@ -274,13 +266,65 @@ function focusHTML(st, x, mySlots) {
       if (yours && me.en && !me.used.energy && !me.promote && B.check(G, you, {a: 'energy', on: slot.u}).ok) moves = btn(`Give him the ${B.ENERGY[me.en]} energy`, `data-db-energy="${slot.u}"`) + moves;
     }
   }
-  if (!id) return '';
-  return `<div class="db-focus" role="dialog" aria-modal="true" aria-labelledby="db-focus-name"><div class="db-focus-in">`
-    + `<div class="db-focus-card">${faceHTML(id, slot)}</div>`
-    + `<div class="db-focus-copy"><b id="db-focus-name">${esc(nameOf(id))}</b><p>${esc(sub)}</p></div>`
-    + moves + (why ? `<p class="db-focus-why">${esc(why)}</p>` : '')
-    + `<div class="db-focus-foot"><button type="button" class="db-act is-back" data-db-putback>Put back</button><button type="button" class="db-link" data-db-details="${esc(id)}">Card details</button></div>`
-    + '</div></div>';
+  if (!id) return null;
+  const stats = B.stats(id);
+  const state = slot && stats && !setup ? `<p class="pk-own">${Math.max(0, stats.hp - slot.dmg)} of ${stats.hp} HP left${slot.en.length ? ` · energy ${slot.en.map(pipHTML).join('')}` : ' · no energy'}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}${F.side === 'opp' ? ` · ${esc(x.opp.name)}’s` : ''}</p>` : '';
+  const html = `<div class="pk-zoom is-s db-focus-card">${anyHTML(id, {size: 'm', tag: false, rulesVersion: G.v})}</div>${state}`
+    + plays + (moves ? `<div class="db-focus-acts">${moves}</div>` : '') + (why ? `<p class="db-focus-why">${esc(why)}</p>` : '')
+    + battleHTML(id, G, {attacks: !plays});
+  return {id, title: nameOf(id), html};
+}
+// (the open sheet follows the match: refreshed in place, closed when its card is gone or a move is made)
+function closeFocus(st) {
+  const f = st.focusSheet;
+  if (!f) return;
+  st.focusSheet = null; f.stopFoil(); f.sh.close();
+}
+function syncFocus(st, x, mySlots) {
+  const c = st.focus && !st.dead && !st.hidden ? focusSheetHTML(st, x, mySlots) : null;
+  if (!c) { if (st.focus && !st.dead) st.focus = null; closeFocus(st); return; }
+  const f = st.focusSheet;
+  if (f && f.sh.open) {
+    if (f.html === c.html) return;
+    f.stopFoil(); f.html = c.html;
+    const t = f.sh.el.querySelector('.sheet-title');
+    if (t) t.textContent = c.title;
+    f.sh.body.innerHTML = c.html; ui.hydrate(f.sh.body); f.stopFoil = bindCardFoil(f.sh.body);
+    return;
+  }
+  const F = st.focus;
+  const rec = {html: c.html, stopFoil: () => {}};
+  rec.sh = ui.openSheet({title: c.title, body: c.html, cls: 'pk-sheet db-focus', detents: ['large'],
+    returnFocus: () => cardOf(st, F),
+    onClose: () => {
+      rec.stopFoil();
+      if (st.focusSheet !== rec) return;
+      // (closed by its own close button, a swipe or Back: the card goes back down)
+      st.focusSheet = null; st.focus = null;
+      if (!st.dead) draw(st);
+    }});
+  rec.stopFoil = bindCardFoil(rec.sh.body);
+  rec.sh.body.addEventListener('click', e => sheetAction(st, e));
+  st.focusSheet = rec;
+}
+const cardOf = (st, f) => f && st.el.querySelector(f.kind === 'hand' ? `[data-db-hand="${f.i}"]` : `[data-db-slot="${f.u}"][data-side="${f.side || 'me'}"]`);
+// (the sheet's buttons: each one a move, or a place in the setup lineup)
+function sheetAction(st, e) {
+  const q = s => e.target.closest(s);
+  let b;
+  if (!st.x || st.scene || st.dead) return;
+  if ((b = q('[data-db-attack]'))) { if (!b.disabled) send(st, {a: 'attack', n: Number(b.dataset.dbAttack)}); return; }
+  if ((b = q('[data-db-play-hand]'))) { if (!b.disabled) playHand(st); return; }
+  if ((b = q('[data-db-lineup]'))) { lineup(st, b.dataset.dbLineup); return; }
+  if ((b = q('[data-db-promote]'))) { send(st, {a: 'promote', u: Number(b.dataset.dbPromote)}); return; }
+  if ((b = q('[data-db-retreat]'))) { if (!b.disabled) send(st, {a: 'retreat', to: Number(b.dataset.dbRetreat)}); return; }
+  if ((b = q('[data-db-energy]'))) { send(st, {a: 'energy', on: Number(b.dataset.dbEnergy)}); return; }
+  if ((b = q('[data-db-switch]'))) {
+    if (b.disabled) return;
+    const me = st.x.G.p[st.x.you];
+    if (me.bench.length === 1) { send(st, {a: 'retreat', to: me.bench[0].u}); return; }
+    st.focus = null; st.mode = {k: 'retreat'}; draw(st);
+  }
 }
 // (a hand player's plays, to read before he's out)
 function attackPreviewList(stats, v = RV) {
@@ -304,13 +348,14 @@ function draw(st) {
   const host = st.el.querySelector('[data-db]');
   host.classList.toggle('is-owner-table', D.tableOpen());
   // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
-  if (!D.mayPlay()) { clearCinema(st); fullScreen(st, false); host.innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
+  if (!D.mayPlay()) { clearCinema(st); st.focus = null; closeFocus(st); fullScreen(st, false); host.innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
   if (D.status !== 'ready') { host.innerHTML = `<div class="db-msg">${ui.skeleton('rows', 3, {label: 'Loading the battle'})}</div>`; return; }
   const x = src(st).get(st.mid);
   if (D.tableOpen() && st.touch?.active && st.touch.revision === x?.G?.ev.length) return;
   st.touch?.cancel();
   const close = ui.iconButton({icon: 'close', label: 'Back to Rivals', cls: 'db-x', attrs: 'data-back'});
   if (!x || !x.G) {
+    st.focus = null; closeFocus(st);
     const why = !x ? 'This battle isn’t here (yet). It shows once the board has it.' : x.state === 'invite' ? `${x.opp.name} challenged you. Accept it on the Battle tab.`
       : x.state === 'sent' ? `Waiting for ${x.opp.name} to accept your challenge.` : 'This battle was called off.';
     host.innerHTML = `<header class="db-top">${close}</header><div class="db-msg">${ui.empty({icon: 'versus', title: 'Battle', body: why})}</div>`;
@@ -376,14 +421,9 @@ function draw(st) {
     + `<div class="db-mid" data-db-drop="play"><p class="db-status" aria-live="polite">${status}</p>${stadium}<button type="button" class="db-log" data-db-log aria-label="Open battle log">${log.map(l => `<span>${esc(l.t)}</span>`).join('') || (G.v >= 6 ? '<span>Lose three players and the match is over.</span>' : '<span>First to three touchdowns wins.</span>')}</button></div>`
     + `<section class="db-side is-me" aria-label="Your players"><div class="db-row is-active">${mine(mySlots.active, true)}</div><div class="db-row is-bench">${[0, 1, 2].map(i => mine(mySlots.bench[i], false)).join('')}</div></section>${enhanced ? `<div class="db-table-bottom"><button data-db-table type="button">♧ ${esc(finish.name)}</button><button data-db-pile="deck" type="button">▤ ${me.deck.length} in deck</button><button data-db-pile="discard" type="button">${me.disc.length} discarded</button></div>` : ''}</div>`
     + `<section class="db-hand-section" aria-label="Your hand: ${me.hand.length} cards, ${me.deck.length} in your deck"><div class="db-hand"><div class="db-hand-fan" style="--n:${Math.max(1, hand.length)}">${handHTML || `<span class="db-none">${x.state === 'setup' ? 'Every card is in your lineup' : 'No cards in hand'}</span>`}</div></div></section>`
-    + `<footer class="db-bar">${barHTML(st, x, G, me, myMove, over, canAttack)}</footer>`
-    + focusHTML(st, x, mySlots);
-  host.classList.toggle('is-lifting', !!st.focus);
-  if (st.focus) {
-    const f = host.querySelector('.db-focus');
-    (f.querySelector('.db-move:not(:disabled):not(.is-read), .db-act:not(:disabled)') || f.querySelector('[data-db-putback]')).focus({preventScroll: true});
-  }
+    + `<footer class="db-bar">${barHTML(st, x, G, me, myMove, over, canAttack)}</footer>`;
   ui.hydrate(host);
+  syncFocus(st, x, mySlots);
   // (what happened since you last looked: their turn, line by line)
   if (!st.shown) {
     st.shown = true;
@@ -457,13 +497,6 @@ function lift(st, f) {
   st.focus = f; st.mode = null;
   ui.haptic('selection');
   draw(st);
-}
-function putBack(st) {
-  const f = st.focus;
-  st.focus = null; draw(st);
-  const host = st.el.querySelector('[data-db]');
-  const back = f && (f.kind === 'hand' ? host.querySelector(`[data-db-hand="${f.i}"]`) : host.querySelector(`[data-db-slot="${f.u}"][data-side="${f.side || 'me'}"]`));
-  back?.focus({preventScroll: true});
 }
 function playHand(st) {
   const x = st.x, me = x.G.p[x.you], F = st.focus, id = F && me.hand[F.i];
@@ -662,20 +695,6 @@ export default {
       if (D.tableOpen() && q('[data-db-table]')) { tableOptions(() => draw(st)); return; }
       if (D.tableOpen() && (b = q('[data-db-pile]'))) { pileSheet(st, b.dataset.dbPile); return; }
       if (D.tableOpen() && q('[data-db-hidden]')) { hiddenCard(); return; }
-      if (q('[data-db-putback]')) { putBack(st); return; }
-      if ((b = q('[data-db-details]'))) { const f = st.focus, sl = f && f.kind === 'slot' ? [...B.slots(st.x.G.p[0]), ...B.slots(st.x.G.p[1])].find(s => s.u === f.u) : null; detail(st, b.dataset.dbDetails, sl); return; }
-      if ((b = q('[data-db-attack]'))) { if (!b.disabled) send(st, {a: 'attack', n: Number(b.dataset.dbAttack)}); return; }
-      if (q('[data-db-play-hand]')) { playHand(st); return; }
-      if ((b = q('[data-db-lineup]'))) { lineup(st, b.dataset.dbLineup); return; }
-      if ((b = q('[data-db-promote]'))) { send(st, {a: 'promote', u: Number(b.dataset.dbPromote)}); return; }
-      if ((b = q('[data-db-retreat]'))) { if (!b.disabled) send(st, {a: 'retreat', to: Number(b.dataset.dbRetreat)}); return; }
-      if ((b = q('[data-db-energy]'))) { send(st, {a: 'energy', on: Number(b.dataset.dbEnergy)}); return; }
-      if (q('[data-db-switch]')) {
-        const me = st.x.G.p[st.x.you];
-        if (me.bench.length === 1) { send(st, {a: 'retreat', to: me.bench[0].u}); return; }
-        st.focus = null; st.mode = {k: 'retreat'}; draw(st); return;
-      }
-      if (q('.db-focus') && !q('.db-focus-in')) { putBack(st); return; }
       if (q('[data-db-cancel]')) { st.mode = null; draw(st); return; }
       if ((b = q('[data-db-hand]'))) { const i = Number(b.dataset.dbHand); lift(st, {kind: 'hand', i, id: st.x.G.p[st.x.you].hand[i]}); return; }
       if ((b = q('[data-db-slot]'))) { slotTap(st, Number(b.dataset.dbSlot), b.dataset.side); return; }
@@ -693,13 +712,6 @@ export default {
     });
     el.addEventListener('keydown', e => {
       if (st.scene) { if (e.key === 'Escape') { e.preventDefault(); finishCinema(st); } return; }
-      if (D.tableOpen() && st.focus && e.key === 'Tab') {
-        const buttons = [...el.querySelectorAll('.db-focus button:not(:disabled)')];
-        const first = buttons[0], last = buttons.at(-1);
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
-      }
-      if (st.focus && e.key === 'Escape' && !ui.sheetCount()) { e.preventDefault(); putBack(st); }
     });
     // (their moves come in with the board)
     st.stops.push(ctx.on('daily', type => { if (type === 'lb') draw(st); }));
@@ -712,13 +724,14 @@ export default {
 
   onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; fullScreen(st, true); draw(st); } },
 
-  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; st.touch?.cancel(); clearCinema(st); fullScreen(st, false); } },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; st.touch?.cancel(); st.focus = null; closeFocus(st); clearCinema(st); fullScreen(st, false); } },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);
     if (!st) return;
     fullScreen(st, false);
     st.dead = true;
+    closeFocus(st);
     clearCinema(st);
     st.stops.forEach(f => { try { f(); } catch (_) {} });
     MT.flush(); D.flush();

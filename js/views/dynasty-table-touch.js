@@ -123,7 +123,8 @@ export function bindTableTouch(root, api) {
   root.addEventListener('pointercancel', cancel);
   root.addEventListener('lostpointercapture', cancel);
   root.addEventListener('contextmenu', context);
-  root.addEventListener('click', click, true);
+  // (the click that follows a hold lands on whatever opened under the finger, the details sheet's backdrop included)
+  document.addEventListener('click', click, true);
   window.addEventListener('blur', cancel); window.addEventListener('resize', cancel);
   document.addEventListener('visibilitychange', cancel); document.addEventListener('keydown', key);
   return {cancel, get active() { return !!gesture; }, get revision() { return gesture?.value.rev; }, stop() {
@@ -131,7 +132,7 @@ export function bindTableTouch(root, api) {
     root.removeEventListener('pointerdown', down); root.removeEventListener('pointermove', move);
     root.removeEventListener('pointerup', up); root.removeEventListener('pointercancel', cancel);
     root.removeEventListener('lostpointercapture', cancel); root.removeEventListener('contextmenu', context);
-    root.removeEventListener('click', click, true);
+    document.removeEventListener('click', click, true);
     window.removeEventListener('blur', cancel); window.removeEventListener('resize', cancel);
     document.removeEventListener('visibilitychange', cancel); document.removeEventListener('keydown', key);
   }};

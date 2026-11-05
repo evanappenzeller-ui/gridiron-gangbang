@@ -34,6 +34,7 @@ async function main(url) {
       await app.nav('/puzzles/dynasty/battle/' + r.mid);
     });
     await page.waitForSelector('.db-card');
+    const closeFocus = async () => { await page.locator('.sheet.db-focus [data-sheet-close]').click(); await page.waitForSelector('.sheet.db-focus', {state: 'detached'}); };
     const checkScenes = async selector => {
       const scenes = await page.locator(selector).evaluateAll(nodes => nodes.map(node => {
         const art = node.querySelector('.db-face-art');
@@ -49,16 +50,18 @@ async function main(url) {
     assert.equal(await page.locator('.db-hand-fan').count(), 1, 'the hand is spread along the foot');
     const solo = () => page.evaluate(async () => { const x = (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid); return {state: x.state, me: x.G.p[0], v: x.G.v}; });
     assert.equal((await solo()).v, 5, 'new ladder games use rules v5 (automatic energy, one card a player)');
-    // Setup: a lineup is suggested; a lifted card offers its place, and Put back changes nothing.
+    // Setup: a lineup is suggested; a tapped card opens its details sheet with its place, and closing it changes nothing.
     assert.equal(await page.locator('.is-me .is-active .db-slot:not(.is-empty)').count(), 1, 'the suggested lineup has a starter');
     assert.equal(await page.locator('[data-db-ready]').isDisabled(), false, 'Start is ready with the suggestion');
     const handBefore = await page.locator('[data-db-hand]').count();
     await page.locator('.is-me .is-active .db-slot').click();
-    await page.waitForSelector('.db-focus');
-    await checkScenes('.db-focus-card');
-    assert.equal(await page.locator('[data-db-lineup="hand"]').count(), 1, 'the lifted starter can go back to the hand');
-    await page.locator('[data-db-putback]').click();
-    assert.equal(await page.locator('.db-focus').count(), 0, 'Put back sets the card down');
+    await page.waitForSelector('.sheet.db-focus');
+    assert.equal(await page.locator('.sheet.db-focus .pk-zoom .pk-card').count(), 1, 'the tapped card opens its details: the collectible card');
+    assert.equal(await page.locator('.sheet.db-focus .pk-info').count(), 1, 'the details sheet shows its battle side');
+    assert.equal(await page.locator('[data-db-putback], [data-db-details], .db-focus-in').count(), 0, 'no lifted-card screen or Put back');
+    assert.equal(await page.locator('[data-db-lineup="hand"]').count(), 1, 'the starter can go back to the hand from his details');
+    await closeFocus();
+    assert.equal(await page.locator('.db-focus').count(), 0, 'closing the details sets the card down');
     assert.equal(await page.locator('[data-db-hand]').count(), handBefore, 'putting back changes nothing');
     await page.locator('.is-me .is-active .db-slot').click();
     await page.locator('[data-db-lineup="hand"]').click();
@@ -93,19 +96,21 @@ async function main(url) {
     if (me.hand.length) {
       await page.locator('[data-db-hand]').first().click();
       await page.waitForSelector('.db-focus [data-db-play-hand]');
-      await page.locator('[data-db-putback]').click();
+      await closeFocus();
       const after = await solo();
       assert.deepEqual(after.me.hand, me.hand, 'lifting a hand card does not play it');
     }
     // The active player lifts with his plays: the quick play is ready, the signature says what it needs.
     await page.locator('.is-me .db-slot.is-ready').click();
     await page.waitForSelector('.db-focus [data-db-attack]');
-    assert.equal(await page.locator('.db-focus [data-db-attack]').count(), 2, 'both plays show on the lifted card');
+    assert.equal(await page.locator('.db-focus [data-db-attack]').count(), 2, 'both plays show on the card’s details');
+    assert.equal(await page.locator('.db-focus .pk-atk').count(), 0, 'the plays show once, as buttons');
     assert.equal(await page.locator('.db-focus [data-db-attack="0"]').isEnabled(), true);
     assert.match(await page.locator('.db-focus [data-db-attack="1"]').innerText(), /Spend 1 energy|Needs \d more energy/);
     fs.mkdirSync(path.join(root, 'output'), {recursive: true});
+    await page.waitForTimeout(400);
     await page.screenshot({path: path.join(root, 'output/rivals-lifted.png')});
-    await page.locator('[data-db-putback]').click();
+    await closeFocus();
     await page.evaluate(() => { document.querySelector('.v-dynasty-battle').scrollTop = 0; });
     await page.screenshot({path: path.join(root, 'output/rivals-battle.png'), fullPage: true});
     for (const width of [320, 390, 768, 1280]) {
@@ -127,9 +132,9 @@ async function main(url) {
     const before = (await ownAttacks()).length;
     await page.evaluate(async () => {
       const ui = await import('/js/core/ui.js');
-      window.battleTestSheet = ui.openSheet({title: 'Battle details', body: '<p>Keep this sheet open during a match update.</p>', detents: ['fit']});
-      // Exercise the view's submission handler while a sheet owns pointer focus.
+      // Play from the card's details, then another sheet opens before the scene can start.
       document.querySelector('[data-db-attack="0"]').click();
+      window.battleTestSheet = ui.openSheet({title: 'Battle details', body: '<p>Keep this sheet open during a match update.</p>', detents: ['fit']});
     });
     await page.waitForTimeout(400);
     assert.equal(await page.locator('.db-cinema').count(), 0, 'an attack received under a sheet waits instead of opening an inert dialog');
@@ -159,7 +164,7 @@ async function main(url) {
       assert.equal(await page.locator('.db-cinema, .db-hand-fan').count(), 0, profile + ' cannot see a battle presentation');
     }
     assert.deepEqual(errors, []);
-    console.log('PASS Rivals table: ladder lock, suggested lineup, lifting and putting back cards, automatic energy, attacks from the lifted card, scene and skip, repeat-action guard, responsive widths, profile boundaries.');
+    console.log('PASS Rivals table: ladder lock, suggested lineup, a tapped card's details sheet (no Put back), automatic energy, attacks from the details sheet, scene and skip, repeat-action guard, responsive widths, profile boundaries.');
     await ctx.close();
   } finally { await browser.close(); }
 }

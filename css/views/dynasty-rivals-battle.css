@@ -132,14 +132,7 @@ html.is-dynasty-battle { --col-w: 640px; }
 .v-dynasty-battle .db-pay { flex-basis: 100%; color: #CBDFCC; font: 700 12px/1.3 var(--font-text); }
 .v-dynasty-battle .db-bar .db-go { flex: 1; }
 
-/* A lifted card: it rises over the table with what it can do, and Put back sets it down. */
-.v-dynasty-battle .db-focus { position: fixed; inset: 0; z-index: 60; display: flex; justify-content: center; align-items: flex-end; overflow-y: auto; padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom)); background: #071417C7; backdrop-filter: blur(2px); animation: db-focus-in .16s ease-out both; }
-.v-dynasty-battle .db-focus-in { display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: min(100%, 420px); margin: auto 0 0; }
-.v-dynasty-battle .db-focus-card { align-self: center; width: min(52vw, 210px); border-radius: 10px; box-shadow: 0 18px 36px #000A; animation: db-lift .24s cubic-bezier(.2, .9, .3, 1.2) both; }
-.v-dynasty-battle .db-focus-card .db-face { border-width: 3px; border-radius: 10px; }
-.v-dynasty-battle .db-focus-copy { text-align: center; }
-.v-dynasty-battle .db-focus-copy b { display: block; font: 800 18px/1.2 var(--font-text); }
-.v-dynasty-battle .db-focus-copy p { margin: 4px 0 0; color: #C5D6CF; font: 500 12.5px/1.4 var(--font-text); }
+/* A card's plays (a held card's preview on the owner table uses the read-only rows). */
 .v-dynasty-battle .db-moves { display: flex; flex-direction: column; gap: 7px; }
 .v-dynasty-battle .db-move { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; border: 1.5px solid #ADD9B1; border-radius: 12px; background: #E4EFDD; color: #183B2B; text-align: left; cursor: pointer; }
 .v-dynasty-battle .db-move.is-signature { border-color: #E7CA81; background: #F4E8C6; color: #533B14; }
@@ -160,11 +153,27 @@ html.is-dynasty-battle { --col-w: 640px; }
 .v-dynasty-battle .db-act.is-soft { background: #FFFFFF14; color: #F4F4E9; box-shadow: inset 0 0 0 1.5px #FFFFFF40; }
 .v-dynasty-battle .db-act.is-back { background: #E8E2C9; color: #203F34; }
 .v-dynasty-battle .db-act:disabled { background: #FFFFFF10; color: #9DB3AE; box-shadow: none; cursor: default; }
-.v-dynasty-battle .db-focus-why { margin: 0; text-align: center; color: #F4CA78; font: 700 12px/1.35 var(--font-text); }
-.v-dynasty-battle .db-focus-foot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.v-dynasty-battle .db-focus-foot .db-link { color: #BFE3C8; font-size: 12px; }
-@keyframes db-focus-in { from { opacity: 0; } }
+
 @keyframes db-lift { from { transform: translateY(60px) scale(.6) rotate(-4deg); opacity: .4; } }
+
+/* A tapped card's details sheet (Nov 5 2026): the card, what it can do now, then its battle side, on the light sheet. */
+.pk-sheet.db-focus .db-focus-acts { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
+.pk-sheet.db-focus .db-act { width: 100%; min-height: 50px; padding: 12px 16px; border: 0; border-radius: 14px; font: 800 16px/1.2 var(--font-text); text-align: left; cursor: pointer; }
+.pk-sheet.db-focus .db-act.is-go { background: #2E7D4F; color: #F3FAEC; box-shadow: 0 3px 0 #1C5233; }
+.pk-sheet.db-focus .db-act.is-soft { background: #FFFFFF; color: #1F5A3C; box-shadow: inset 0 0 0 1.5px #2E7D4F66; }
+.pk-sheet.db-focus .db-act:disabled { background: #EEF0EC; color: #8C9A94; box-shadow: none; cursor: default; }
+.pk-sheet.db-focus .db-focus-why { margin: -4px 0 12px; text-align: center; color: #9A5A06; font: 700 13px/1.35 var(--font-text); }
+.pk-sheet.db-focus .db-moves { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
+.pk-sheet.db-focus .db-move { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border: 1.5px solid #ADD9B1; border-radius: 14px; background: #E4EFDD; color: #183B2B; text-align: left; cursor: pointer; }
+.pk-sheet.db-focus .db-move.is-signature { border-color: #E7CA81; background: #F4E8C6; color: #533B14; }
+.pk-sheet.db-focus .db-move:disabled { cursor: default; border-color: #E3E6E1; background: #FFFFFF; color: #34443E; }
+.pk-sheet.db-focus .db-move-cost { display: flex; flex-wrap: wrap; gap: 2px; width: 50px; flex: none; font-size: 16px; }
+.pk-sheet.db-focus .db-move-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pk-sheet.db-focus .db-move-name b { font: 800 16px/1.2 var(--font-text); }
+.pk-sheet.db-focus .db-move-name small { font: 500 12px/1.35 var(--font-text); opacity: .85; }
+.pk-sheet.db-focus .db-move-name small.db-move-why { font-weight: 700; color: #9A5A06; opacity: 1; }
+.pk-sheet.db-focus .db-move strong { display: flex; flex-direction: column; align-items: flex-end; flex: none; font: 900 26px/1 var(--font-text); }
+.pk-sheet.db-focus .db-move strong small { margin-top: 2px; font: 800 8px/1 var(--font-text); letter-spacing: .5px; }
 
 @media (min-width: 600px) {
   .v-dynasty-battle { --db-bench: max(44px, min(96px, calc(var(--db-room) / 8.3))); --db-active: max(58px, min(124px, calc(var(--db-room) / 6.25))); --db-hand: max(56px, min(112px, calc(var(--db-room) / 6.9))); }
@@ -172,8 +181,6 @@ html.is-dynasty-battle { --col-w: 640px; }
   .v-dynasty-battle .db-top, .v-dynasty-battle .db-bar { margin-inline: -20px; padding-inline: 20px; }
   .v-dynasty-battle .db-table { padding: 12px; border-width: 6px; border-radius: 30px; gap: 8px; }
   .v-dynasty-battle .db-row { gap: 12px; }
-  .v-dynasty-battle .db-focus { align-items: center; }
-  .v-dynasty-battle .db-focus-in { margin: auto; }
 }
 @media (max-width: 359px) {
   .v-dynasty-battle .db { padding-inline: 8px; }
@@ -193,7 +200,7 @@ html.is-dynasty-battle { --col-w: 640px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .v-dynasty-battle .db-hand-fan .db-card, .v-dynasty-battle .db-slot { transition: none; }
-  .v-dynasty-battle .db-slot.is-ready, .v-dynasty-battle .db-slot.is-pick, .v-dynasty-battle .db-focus, .v-dynasty-battle .db-focus-card { animation: none; }
+  .v-dynasty-battle .db-slot.is-ready, .v-dynasty-battle .db-slot.is-pick { animation: none; }
 }
 
 /* A committed play turns the table into a short stadium scene. Only the presentation moves. */

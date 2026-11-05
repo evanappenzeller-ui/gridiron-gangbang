@@ -137,8 +137,9 @@ export function trainerHTML(t, o = {}) {
 export const lockedHTML = (o = {}) => `<div class="pk-card pk-locked sz-${o.size || 'm'}" role="img" aria-label="A card not in your collection yet"><span class="pk-l-face" aria-hidden="true">${ui.icon('lock')}</span></div>`;
 /** Any card by id: a player's or a Trainer card. */
 export const anyHTML = (id, o = {}) => (D.card(id) ? cardHTML(D.card(id), o) : trainerHTML(D.trainer(id), o));
-/** A card's battle side in words: type, HP, weakness and retreat, its Ability, its attacks. */
-export function battleHTML(id, game = {v: B.RULES_VERSION}) {
+/** A card's battle side in words: type, HP, weakness and retreat, its Ability, its attacks (o.attacks false: left out,
+ *  where a battle's sheet shows them as buttons). */
+export function battleHTML(id, game = {v: B.RULES_VERSION}, o = {}) {
   const t = D.trainer(id);
   if (t) return `<div class="pk-info"><p class="pk-info-k">${TRAINER_KIND[t.kind]} · ${TRAINER_RULE[t.kind]}</p><p>${esc(t.text)}</p></div>`;
   const st = B.stats(id), c = D.card(id);
@@ -149,7 +150,7 @@ export function battleHTML(id, game = {v: B.RULES_VERSION}) {
     + `${B.fxText(a) ? `<small>${esc(B.fxText(a))}</small>` : ''}${a.note ? `<small>${esc(a.note)}</small>` : ''}${a.flat ? '<small>Ignores weakness.</small>' : ''}${B.signatureText(game, n) ? `<small class="pk-signature-note">${esc(B.signatureText(game, n))}</small>` : ''}</span><em>${a.dmg}</em></li>`).join('');
   const stage = B.stageOf(id, game.v) ? `Stage 1: evolves from ${esc(c.name)}’s Basic card` : 'Basic';
   return `<div class="pk-info"><div class="pk-info-h">${typeHTML(st.type)}<span>${esc(T.name)} · ${stage}${st.ex && game.v < 6 ? ' · ex: worth 2 points' : ''}</span><b>${st.hp} HP</b></div>`
-    + ab + `<ul class="pk-atk">${atk}</ul>`
+    + ab + (o.attacks === false ? '' : `<ul class="pk-atk">${atk}</ul>`)
     + `<p class="pk-foot">Weakness ${st.weak ? `${typeHTML(st.weak)} +${B.WEAK_BONUS}` : 'none'} · Retreat ${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : 'free'}</p></div>`;
 }
 /** A photo's credit (author, licence, its Wikimedia Commons page), for his card up close: the playing-days photo the card
@@ -774,7 +775,7 @@ function guideSheet() {
     + `<li><b>Build a deck</b>20 cards: players and Trainers, at most 2 of any one, with at least one Basic player.</li>`
     + `<li><b>Set up</b>Start with 5 cards. Put a Basic player out as your active player and up to 3 on your bench.</li>`
     + `<li><b>Each turn</b>Draw a card. The turn’s energy goes on by itself: your active player while his plays need it, else the bench player it helps most. Put Basics on your bench, evolve, play Items (as many as you like), one Coach card and a Stadium, and switch out your active player once.</li>`
-    + `<li><b>Tap any card</b>It lifts off the table with what it can do now: your active player’s plays, a bench player’s Send in, a hand card’s play. Put back sets it down.</li>`
+    + `<li><b>Tap any card</b>Its details open with what it can do now: your active player’s plays, a bench player’s Send in, a hand card’s play. Close them to set it down.</li>`
     + `<li><b>Attack</b>An attack needs its energy on your active player. Attacking ends your turn. In new matches, the second (signature) attack spends one attached energy; quick plays keep it. Existing matches keep their original rules. Hitting a weakness does +20: Air beats Blitz, Blitz beats Ground, Ground beats Coverage, Coverage beats Air.</li>`
     + `<li><b>Win</b>Knock out a player for a point (a Legend or Prime ex for two). Three points wins.</li>`
     + `<li><b>Solo ladder</b>Thirty games against the computer, each win unlocking the next. The first ones are gentle; from game 16 the computer counters your deck’s main type and plays every trick. A win pays coins (double the first time).${D.bossLadderOpen() ? ' Every fifth battle features an Epic-or-better boss. First-defeat rewards alternate: one pack at battles 5, 15 and 25; the featured player card at 10, 20 and 30. Each boss reward is earned once. Previously won stages and earned rewards are preserved.' : ' Every fifth game’s first win pays packs.'}</li>`

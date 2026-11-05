@@ -265,9 +265,14 @@ Card-table battles (Oct 30 2026, the owner: "The gameplay is far too confusing. 
 in play laid out and the available cards in your hand are spread out at the bottom. Clicking on each card will show the
 attacks and allow the player to choose which one or put the card back down. Energy is automatically added to the cards
 each round"; everyone who has Rivals gets it): `views/dynasty-battle.js` lays both lineups out as cards on the felt and
-fans the whole hand along the foot (sized by screen height so felt, hand and bar fit a phone). Tapping any card lifts
-it (`focusHTML`): your active player's plays (cost, damage, what's still missing), Send in / Switch out, a hand card's
-play, setup's lineup choices (a lineup is suggested), the other side's plays to read; Put back sets it down. Hand
+fans the whole hand along the foot (sized by screen height so felt, hand and bar fit a phone). Tapping any card opens
+its details sheet (Nov 5 2026, Evan: "Clicking a card in the rivals gameplay should bring up a detailed screen similar to
+[Card details]. Remove the other screen entirely containing the start with him and put back options"; everyone):
+`focusSheetHTML`/`syncFocus` in `views/dynasty-battle.js`, the white `pk-sheet db-focus`: the collectible card, its
+HP/energy on the table, then what it can do now (your active player's plays as buttons with cost, damage and what's still
+missing, Send in / Switch out, a hand card's play, setup's lineup choices; a lineup is suggested), then its battle side
+(`battleHTML`). No lifted-card overlay, no Put back: closing the sheet (X, swipe, Back) sets the card down; a move closes
+it; it refreshes in place as the match changes. Hand
 indexes stay the cards' identity, so duplicates stay apart. New matches (solo and friend) use rules v4
 (`B.RULES_VERSION`): the turn's energy attaches itself as the turn starts (`autoEnergy`: the active player while it
 helps his signature play, else the bench player it brings nearest his; after a knockout, the one sent in). A v1-v3
