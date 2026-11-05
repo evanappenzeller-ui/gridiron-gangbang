@@ -30,6 +30,7 @@ import * as daily from '../core/daily.js';
 import * as R from '../core/return.js';
 import * as SP from './drill-sprites.js';
 import * as D3 from './return-3d.js';
+import * as intro from './return-intro.js';
 import * as W from './return-world.js';
 import * as life from './return-life.js';
 import {drawHazard, drawFlightRunner} from './return-air-world.js';
@@ -42,7 +43,7 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The version mark css/views/return.css carries (--rm-css): an older cached stylesheet gets the new one linked.
-const CSS_V = '10';
+const CSS_V = '11';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim() === CSS_V) return;
@@ -139,14 +140,16 @@ function cardHTML(st) {
       + sb() + nextKick() + `</div>`;
   }
   if (data.isOwner() && st.mode === 'ready') {
-    return `<div class="rm-card-in rm-start"><p class="rm-card-o">${esc(R.dayLabel(st.n))}${R.testing() ? ' · Practice' : ' · Daily kickoff'}</p>`
-      + '<h2 class="rm-card-t">Return Man</h2><p class="rm-card-s">Find the gap. Keep running.</p>'
-      + '<ul class="rm-start-controls"><li><b>← →</b> Change lanes</li><li><b>↑</b> Jump onto roofs</li><li><b>↓</b> Slide under obstacles</li></ul>'
-      + '<p class="rm-card-s">Jetpack: barrel roll to dodge, then land on the roofs below.</p>'
-      + `<div class="rm-start-powers">${['salts', 'pills', 'booze', 'jetpack'].map(k => iconHTML(k, 30)).join('')}<strong>ALL BOOSTS · 2× POINTS</strong></div>`
-      + '<p class="rm-card-s">Stumble once and the chaser follows for 4 seconds. Stay clean to outrun him.</p>'
-      + again(st.goOn3D ? 'Getting the field ready…' : 'Start run')
-      + (R.testing() ? '<p class="rm-card-s rm-beta-l">Practice runs do not count on the scoreboard.</p>' : '') + '</div>';
+    return `<div class="rm-card-in rm-start"><p class="rm-start-eyebrow">GRIDIRON ARCADE · ${R.testing() ? 'PRACTICE' : 'DAILY KICKOFF'}</p>`
+      + '<h2 class="rm-start-title"><span>RETURN</span><span>MAN</span></h2>'
+      + '<div class="rm-start-tunnel" aria-hidden="true"><i class="rm-start-light"></i><i class="rm-start-ball"></i></div>'
+      + '<p class="rm-start-dare">FIELD THE PUNT.<br>TAKE IT TO THE HOUSE.</p>'
+      + `<button type="button" class="rm-start-play" data-rm-go${st.goOn3D ? ' disabled aria-busy="true"' : ''}>${st.goOn3D ? 'GETTING READY…' : 'PLAY!'}<span>${R.testing() ? 'Practice · unlimited runs' : 'One return. Make it count.'}</span></button>`
+      + '<div class="rm-start-menu"><details class="rm-start-help"><summary>HOW TO PLAY</summary>'
+      + '<ul class="rm-start-controls"><li><b>← →</b> Swipe to change lanes</li><li><b>↑</b> Jump onto roofs</li><li><b>↓</b> Slide under obstacles</li></ul>'
+      + '<p>All boosts give 2× points. With a jetpack, swipe to barrel roll through coins. After a stumble, stay clean for 4 seconds to outrun the chaser.</p></details>'
+      + '<button type="button" data-rm-sb>SCOREBOARD</button></div>'
+      + `<p class="rm-start-date">${esc(R.dayLabel(st.n))}${R.testing() ? ' · Scores are not posted' : ''}</p></div>`;
   }
   if (k > 0) {
     // back for another: today's best to beat, and when the course changes
@@ -259,6 +262,7 @@ function bodyHTML(st) {
     + `<div class="rm-stage" data-rm-stage data-hscroll aria-label="Return Man: swipe left or right to juke, up to jump, down to slide">`
     + `<div class="rm-layers" data-rm-layers><canvas class="rm-cv" data-rm-cv></canvas><div class="rm-gl" data-rm-gl></div><canvas class="rm-fx" data-rm-fx></canvas></div>${hudHTML()}`
     + `<div class="rm-pop" data-rm-pop aria-hidden="true"></div>`
+    + `<div class="rm-intro-caption" data-rm-intro hidden role="status"></div>`
     + `<div class="rm-card" data-rm-card role="group" aria-live="polite"${autoGoes(st) ? ' hidden' : ''}>${cardHTML(st)}</div></div>`
     + `<div class="rm-fill" data-rm-fill></div>`
     + `<div class="rm-board-w" data-rm-board>${boardHTML(st)}</div>`
@@ -376,7 +380,9 @@ function runnerAnim(st, now) {
   const run = st.run, t = now / 1000;
   if (!run || st.mode === 'ready') return {f: 'wr.r_b1', mo: {t}};
   if (st.mode === 'catch') {
-    const p = (now - st.catchAt) / CATCH_MS;
+    const p = (now - st.catchAt) / intro.duration(st);
+    const shot = intro.shot(st, now);
+    if (shot) return {f: shot.hands > .35 ? 'wr.high' : 'wr.r_b1', mo: {t}};
     return p < CATCH_HANDS ? {f: 'wr.r_b1', mo: {t}} : {f: 'wr.high', ex: {lift: .04 * Math.sin(Math.PI * Math.min(1, (p - CATCH_HANDS) / (1 - CATCH_HANDS)))}};
   }
   const fl = fallOf(st, now);
@@ -488,6 +494,8 @@ function fallOf(st, now) {
 function runner3(st, now) {
   const run = st.run, t = now / 1000;
   if (!run || st.mode === 'ready') return {move: 'idle', t};
+  const shot = intro.shot(st, now);
+  if (shot) return {move: 'idle', t: (st.mode === 'paused' ? st.pausedAt : now) / 1000, catch: shot.hands, punt: true, ball: false};
   if (st.mode === 'catch') {
     // reaching up for it as it comes down, his hands coming down once it's there. No ball in his hand and no arm
     // tucked after (the owner's ask, Nov 1 2026: "Take the football out of the players hand so they don't have one
@@ -665,6 +673,16 @@ function drawLanes(st, c, now) {
 }
 /** The kick coming down into his hands (up over his head: from there his picture, or his 3D hands, have it). */
 function kickBall(st, c, now) {
+  const shot = intro.shot(st, now);
+  if (shot && in3D(st)) return; // The punt is a real 3D ball through the camera orbit.
+  if (shot) {
+    const p = shot.flight, q = P(st, st.run.x, TALL_YD * 1.1 + (1 - p) ** 2 * 10, st.run.z + .05 + (1 - p) * 3);
+    if (!shot.ball) return;
+    c.save(); c.translate(q.x, q.y); c.rotate(p * 9); c.scale(shot.ball, shot.ball);
+    const sz = Math.max(4, q.s * .32);
+    c.fillStyle = '#9C5027'; c.beginPath(); c.ellipse(0, 0, sz, sz * .6, 0, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#FFF4DB'; c.lineWidth = Math.max(1, sz * .15); c.beginPath(); c.moveTo(-sz * .4, 0); c.lineTo(sz * .4, 0); c.stroke(); c.restore(); return;
+  }
   if (st.mode !== 'catch' || now - st.catchAt >= CATCH_MS * CATCH_HANDS) return;
   const run = st.run, rz = run ? run.z : 0, rx = run ? run.x : 0;
   const p = Math.min(1, (now - st.catchAt) / CATCH_MS / CATCH_HANDS), y = TALL_YD * 1.1 + (1 - p) * (1 - p) * 26, z = rz + .05 + (1 - p) * 6;
@@ -801,8 +819,9 @@ function draw3(st, c, now) {
   // booze: he's seeing double
   if (run && !run.over && run.booze > 0) who.ghost = {spec: us, x: bx + .45 * Math.sin(now / 430), y: ry, z: az + .2, alpha: .32 * Math.min(1, run.booze / .8)};
   const ch = chaserAt(st);
-  if (ch) { const a = chaser3(st, now, ch.cz); who.them = {spec: a, x: ch.cx, y: 0, z: ch.cz + (a.dz || 0)}; }
+  if (ch && !intro.shot(st, now)) { const a = chaser3(st, now, ch.cz); who.them = {spec: a, x: ch.cx, y: 0, z: ch.cz + (a.dz || 0)}; }
   showGL(st, D3.render(st, now, who));
+  if (intro.shot(st, now)) return; // Screen-space gameplay effects use the chase camera's projection.
   // down in a pothole: the pit's shadow on him, darkest at the road where it cuts him off
   const fl = run ? fallOf(st, now) : null;
   if (fl && fl.k > .05) {
@@ -990,6 +1009,12 @@ function setDay(st, n) {
   st.day = R.dayState(n);
 }
 function patchHud(st) {
+  const shot = intro.shot(st, performance.now()), root = st.el.querySelector('[data-rm]');
+  root?.classList.toggle('is-punt-intro', !!shot && st.mode === 'catch');
+  root?.classList.toggle('is-title', data.isOwner() && st.mode === 'ready' && !doneToday(st));
+  if (st.mode !== 'ready' || !data.isOwner()) root?.classList.remove('is-browsing-board');
+  const caption = st.el.querySelector('[data-rm-intro]');
+  if (caption) { caption.hidden = !shot || st.mode !== 'catch'; if (shot && caption.textContent !== shot.label) caption.textContent = shot.label; }
   const el = st.el, run = st.run, live = run && st.mode !== 'ready', y = live ? Math.floor(run.yards) : 0;
   const yd = el.querySelector('[data-rm-yds]'); if (yd && yd.textContent !== String(y)) yd.textContent = String(y);
   const tot = el.querySelector('[data-rm-tot]'), t = nf(Math.max(st.day.best, run && !run.over && st.mode !== 'ready' ? y : 0));
@@ -1067,6 +1092,7 @@ function go(st) {
   // (the painted skies only show without the 3D: built ahead for that alone, each a screen-sized canvas)
   if (!in3D(st)) W.warm(skyView(st), 0);
   st.mode = 'catch'; st.catchAt = performance.now();
+  st.intro = data.isOwner(); st.introReduced = ui.RM; st.pausedMode = null;
   setCard(st, false);
   patchHud(st);
   ui.haptic('light');
@@ -1210,7 +1236,7 @@ function frame(st, now) {
   st.last = now; st.dt = dt;
   // off screen (another tab, a sheet over it): the return waits
   if ((st.mode === 'run' || st.mode === 'catch') && !st.ctx.visible) { pause(st); return; }
-  if (st.mode === 'catch' && now - st.catchAt >= CATCH_MS) st.mode = 'run';
+  if (st.mode === 'catch' && now - st.catchAt >= intro.duration(st)) st.mode = 'run';
   // (the hard course is the owner's alone: off his profile, even from another tab, a return on it ends where it is)
   if ((st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused') && st.run.co.hard && !features.available()) { R.stop(st.run); tackled(st); }
   if ((st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused') && st.run.co.enhanced && !data.isOwner()) { R.stop(st.run); tackled(st); }
@@ -1247,14 +1273,18 @@ function loop(st) {
 }
 function pause(st) {
   if (st.mode !== 'run' && st.mode !== 'catch') return;
+  if (intro.enabled(st)) { st.pausedMode = st.mode; st.pausedAt = performance.now(); }
   st.mode = 'paused';
   if (st.raf) { cancelAnimationFrame(st.raf); st.raf = 0; }
   keep(st);
   setCard(st, true);
+  patchHud(st);
 }
 function resume(st) {
   if (st.mode !== 'paused') return;
-  st.mode = 'run';
+  st.mode = intro.enabled(st) && st.pausedMode === 'catch' ? 'catch' : 'run';
+  if (st.mode === 'catch') st.catchAt += performance.now() - st.pausedAt;
+  st.pausedMode = null;
   setCard(st, false);
   fitScreen(st, true);
   loop(st);
@@ -1342,7 +1372,10 @@ function onClick(st, e) {
   if (!t || !st.el.contains(t)) return;
   if (t.hasAttribute('data-rm-go')) { if (st.mode === 'tackled') { st.mode = 'ready'; st.run = null; } go(st); return; }
   if (t.hasAttribute('data-rm-resume')) { resume(st); return; }
-  if (t.hasAttribute('data-rm-sb')) { const b = st.el.querySelector('[data-rm-board]'); if (b) b.scrollIntoView({behavior: ui.RM ? 'auto' : 'smooth', block: 'start'}); return; }
+  if (t.hasAttribute('data-rm-sb')) {
+    if (data.isOwner() && st.mode === 'ready') st.el.querySelector('[data-rm]')?.classList.add('is-browsing-board');
+    const b = st.el.querySelector('[data-rm-board]'); if (b) b.scrollIntoView({behavior: ui.RM ? 'auto' : 'smooth', block: 'start'}); return;
+  }
   if (t.hasAttribute('data-rm-test')) testPlay(st, t.dataset.rmTest === 'on');
 }
 /** A run paused here, ended where it got to (as leaving the page ends one) before it's put aside for Test play or a new

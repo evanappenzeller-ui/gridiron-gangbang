@@ -19,6 +19,7 @@ import {makeJetpack, animateJetpack} from './return-jetpack.js';
 // Exports: load(), ready(), render(st, now, who), leans(), STRIDE, MOVES.
 import * as W3 from './return-3dworld.js';
 import * as data from '../core/data.js';
+import * as intro from './return-intro.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 const MODEL = new URL('../../models/return-runner-v1.glb', import.meta.url).href;
 /** Yards a full run cycle (two strides) covers: the clip's legs keep pace with the ground. (The pack's run plants
@@ -82,6 +83,7 @@ export function prepare(st) {
     const {renderer, scene, players} = GL, warm = W3.warmObjects(), target = new T.WebGLRenderTarget(64, 64);
     const visibility = Object.values(players).map(P => [P, P.root.visible, P.root.position.clone()]);
     const gear = flightGear(players.us), wasGear = gear.visible;
+    GL.punt.visible = true; GL.punt.position.set(0, 2, -(st.camZ + 8));
     warm.position.z = -st.camZ;
     scene.add(warm); visibility.forEach(([P], i) => { P.root.visible = true; P.root.position.set((i - 1) * 1.4, 0, -(st.camZ + 8)); }); gear.visible = true;
     try {
@@ -91,6 +93,7 @@ export function prepare(st) {
     } finally {
       renderer.setRenderTarget(null); target.dispose(); scene.remove(warm); W3.releaseWarmObjects(warm);
       visibility.forEach(([P, visible, position]) => { P.root.visible = visible; P.root.position.copy(position); }); gear.visible = wasGear;
+      GL.punt.visible = false;
     }
   })().catch(e => { PREPARED = null; console.warn('Return Man preparation:', e); });
   return PREPARED;
@@ -332,9 +335,12 @@ function build(gltf, SK, RoomEnvironment) {
   const ghost = ghostMaterials(players.ghost);
   [players.us, players.them].forEach(P => P.root.traverse(o => { if (o.isMesh) o.castShadow = true; }));
   scene.add(W3.bend(players.us.root), W3.bend(players.them.root), W3.bend(players.ghost.root));
+  // Reuse the existing football geometry/materials. The opening ball follows both gloves,
+  // then disappears before the run so both arms keep their free running stride.
+  const punt = players.us.ball.clone(); punt.visible = false; punt.rotation.set(0, 0, 0); scene.add(punt);
   const camera = new T.PerspectiveCamera();
   camera.matrixAutoUpdate = true;
-  return {renderer, canvas, scene, camera, players, ghost, gltf, SK, clips, hemi, sun, rim, w: 0, h: 0};
+  return {renderer, canvas, scene, camera, players, ghost, punt, gltf, SK, clips, hemi, sun, rim, w: 0, h: 0};
 }
 
 // ---------------------------------------------------------------------------- Posing him
@@ -530,7 +536,14 @@ function pose(P, s, dt) {
     limb(P, 'Left', [.92, .25 + .35 * w, .22], [.62, .72 + .2 * w, .25], s.stumble);
   }
   // the catch: both hands up; the ball tucked in his right
-  if (s.catch > 0) { limb(P, 'Left', [.3, .85, .42], [.06, .9, .45], s.catch); limb(P, 'Right', [-.3, .85, .42], [-.06, .9, .45], s.catch); }
+  if (s.catch > 0) {
+    if (s.punt) {
+      // The cartoon helmet is large: reach ahead of it so the gloves and caught ball stay visible.
+      limb(P, 'Left', [.12, -.35, 1], [-.55, -.2, 1], s.catch);
+      limb(P, 'Right', [-.12, -.35, 1], [.55, -.2, 1], s.catch);
+      aim(P, 'Neck', 'Head', [0, 1, -.2], s.catch * .5);
+    } else { limb(P, 'Left', [.3, .85, .42], [.06, .9, .45], s.catch); limb(P, 'Right', [-.3, .85, .42], [-.06, .9, .45], s.catch); }
+  }
   // the carry: the ball out at his right side, his forearm ahead (a short arm can't tuck it across him), swinging a little
   if (s.carry > 0) { const sw = .12 * Math.sin((s.phase || 0) * Math.PI * 2); limb(P, 'Right', [-.38, -.88, -.12 + sw], [-.28, -.12 + sw * .5, .95], s.carry); }
   if (P.ball) P.ball.visible = !!s.ball;
@@ -539,21 +552,28 @@ function pose(P, s, dt) {
 // ---------------------------------------------------------------------------- Drawing it all
 /** The camera, matched to the scene's (views/return-world.js P: a pinhole at (camX, camH, camZ) looking ahead, f px
  *  to the screen, its middle at (W / 2, y0)); and the canvas, the stage's size (at most twice its CSS pixels). */
-function camera(st) {
+function camera(st, now = performance.now()) {
   const k = Math.min(2, st.dpr || 1), cw = Math.round(st.W * k), ch = Math.round(st.H * k);
   if (GL.w !== cw || GL.h !== ch) { GL.renderer.setSize(cw, ch, false); GL.w = cw; GL.h = ch; }
   const cam = GL.camera, n = .1, f = 400;
   cam.position.set(st.camX, st.camH, -st.camZ);
   cam.rotation.set(0, 0, 0);
+  const shot = intro.shot(st, now), q = shot ? shot.orbit : 1;
+  if (q < 1) {
+    const angle = Math.PI * .88 * (1 - q), radius = mix(4.4, st.back, q);
+    cam.position.set(mix(st.run.x, st.camX, q) + Math.sin(angle) * radius, mix(2.55, st.camH, q), -st.run.z + Math.cos(angle) * radius);
+    cam.lookAt(mix(st.run.x, st.camX, q), mix(1.3, st.camH, q), -st.run.z);
+  }
   cam.updateMatrixWorld(true);
-  cam.projectionMatrix.makePerspective(-st.W / 2 / st.f * n, st.W / 2 / st.f * n, st.y0 / st.f * n, -(st.H - st.y0) / st.f * n, n, f);
+  const y0 = mix(st.H * .5, st.y0, q);
+  cam.projectionMatrix.makePerspective(-st.W / 2 / st.f * n, st.W / 2 / st.f * n, y0 / st.f * n, -(st.H - y0) / st.f * n, n, f);
   cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
-  W3.BEND_U.value = st.bend || 0;
+  W3.BEND_U.value = (st.bend || 0) * q;
 }
 /** Renders the world and the players as they are now; who: {us, them, ghost} (each {spec (pose's), x, y, z (his
  *  feet), show} or null: not there). Returns the canvas it's on (transparent where the sky shows through). */
 export function render(st, now, who) {
-  camera(st);
+  camera(st, now);
   W3.update(st, now);
   // the place's light where he is (the next place's coming in at its gate)
   const L = W3.look(st, st.camZ + st.back);
@@ -572,6 +592,19 @@ export function render(st, now, who) {
     P.last = now;
     if (k === 'ghost') GL.ghost.forEach(m => { m.opacity = w.alpha; });
   });
+  const shot = intro.shot(st, now);
+  GL.punt.visible = !!shot && shot.ball > 0;
+  if (GL.punt.visible) {
+    const P = GL.players.us, {a, b} = tmp();
+    P.root.updateMatrixWorld(true);
+    P.B.LeftHand.getWorldPosition(a); P.B.RightHand.getWorldPosition(b); a.lerp(b, .5);
+    const fall = 1 - shot.flight;
+    GL.punt.position.copy(a); GL.punt.position.y += fall * fall * 5.5;
+    // The glove bones sit inside the oversized gloves; put the ball against their front surfaces.
+    GL.punt.position.z -= .16 + fall * 2.5;
+    GL.punt.rotation.set(fall * 9, Math.PI, .15);
+    GL.punt.scale.setScalar(BALL * SCALE * 1.2 * shot.ball);
+  }
   const R = GL.renderer;
   R.setScissorTest(false);
   R.setViewport(0, 0, GL.w, GL.h);

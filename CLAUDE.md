@@ -57,6 +57,15 @@ Painkillers, beer and salts each rotate through Evan's three chosen lines (`OWNE
 consecutive repeats. Jetpack pickups show no text popup. Start-screen controls and screen-reader announcements
 remain; other profiles keep their existing hints and pickup lines.
 
+November 5 punt opening (owner-only, current AGENTS.md): the stadium-tunnel title screen waits for Play.
+`return-intro.js` times the 2.6-second punt, two-handed catch and camera orbit into the existing chase camera;
+the simulation, score and obstacles stay frozen until the handoff. `return-3d.js` reuses the football geometry,
+following the gloves at contact and clearing it before the run so both arms stay free. Pause/resume preserves
+the shot. Reduced motion uses a shorter catch with a fixed camera; the canvas fallback remains playable.
+Other profiles retain the existing 750ms kickoff and launch behavior. `node tools/return/check-intro.cjs`
+checks the title on phones/tablets, Play/Help/Scoreboard, ball contact, camera continuity, score freeze,
+pause/resume, reduced motion, fallback and profile boundaries offline.
+
 Evan chose the supplied colorful low-poly runner reference for Return Man's environments: bold silhouettes,
 warm cream trim, saturated accents, faceted foliage, clean roads and clearly visible hazards. Keep each of the
 nine locations distinct. This direction applies to Evan's profile only. `return-style.js` owns the procedural
