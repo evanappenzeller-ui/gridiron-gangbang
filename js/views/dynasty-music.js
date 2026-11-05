@@ -6,7 +6,7 @@ export function musicSheet() {
   if (!data.isOwner()) return;
   let offMusic, offProfile;
   const sh = ui.openSheet({title: 'Music', cls: 'pk-sheet', detents: ['fit'],
-    body: `<div class="pk-music"><p class="pk-note">Fourth Quarter · Original instrumental</p>
+    body: `<div class="pk-music"><p class="pk-note">${data.esc(music.TRACK.title)} · ${data.esc(music.TRACK.artist)}</p>
       <button type="button" class="pk-btn" data-dy-music-toggle aria-pressed="false">Music</button>
       <label class="pk-music-volume">Volume <output data-dy-music-value></output>
         <input data-dy-music-volume type="range" min="0" max="100" step="1" aria-label="Music volume">
@@ -20,7 +20,7 @@ export function musicSheet() {
     range.value = s.volume; range.disabled = !s.supported;
     sh.body.querySelector('[data-dy-music-value]').textContent = s.volume + '%';
     sh.body.querySelector('[data-dy-music-status]').textContent = !s.supported ? 'Music is unavailable in this browser.'
-      : s.failure || (!s.enabled ? 'Music is off.' : !s.volume ? 'Volume is muted.' : s.playing ? 'Playing · pauses when you leave Rivals.' : 'Ready · starts with your next tap in Rivals.');
+      : s.failure || (!s.enabled ? 'Music is off.' : !s.volume ? 'Volume is muted.' : s.playing ? 'Playing · pauses when you leave Rivals.' : s.loading ? 'Loading track…' : 'Ready · starts with your next tap in Rivals.');
   };
   sh.body.addEventListener('click', e => { if (e.target.closest('[data-dy-music-toggle]')) music.setEnabled(!music.state().enabled); });
   sh.body.addEventListener('input', e => { if (e.target.matches('[data-dy-music-volume]')) music.setVolume(e.target.value); });

@@ -2,7 +2,7 @@
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), assert = require('node:assert/strict');
 let pw; try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.env.USERPROFILE, '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright')); }
 const root = path.resolve(__dirname, '../..');
-const mime = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2'};
+const mime = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2','.mp3':'audio/mpeg'};
 const server = http.createServer((req, res) => {
   const file = path.resolve(root, '.' + decodeURIComponent(new URL(req.url, 'http://localhost').pathname).replace(/\/$/, '/index.html'));
   if (!file.startsWith(root + path.sep)) return res.writeHead(403).end();
@@ -25,6 +25,8 @@ async function main() {
       localStorage.setItem('gg-welcome', '1'); sessionStorage.setItem('gg-skip-title', '1');
       ['evan','mason','user%3Aryan-stewart','visitor'].forEach(k => localStorage.setItem('gg-release-3.0:' + k, '1'));
       window.audioProbes = [];
+      window.mediaProbes = []; const OriginalAudio = window.Audio;
+      window.Audio = class extends OriginalAudio { constructor(...args) { super(...args); window.mediaProbes.push(this); } };
       const AC = window.AudioContext;
       window.AudioContext = class extends AC {
         constructor(...args) {
@@ -40,12 +42,13 @@ async function main() {
         }
       };
     });
-    const page = await context.newPage(), errors = [];
+    const page = await context.newPage(), errors = [], trackRequests = [];
     page.on('pageerror', e => errors.push(String(e)));
+    page.on('request', r => { if (/\.mp3$/.test(r.url())) trackRequests.push(r.url()); });
     const nav = route => page.evaluate(async route => (await import('/js/app.js')).nav(route), route);
     const state = () => page.evaluate(async () => (await import('/js/core/dynasty-music.js')).state());
     const playing = () => page.waitForFunction(async () => (await import('/js/core/dynasty-music.js')).state().playing);
-    const silent = () => page.waitForFunction(() => audioProbes.every(p => p.ctx.state !== 'running'));
+    const silent = () => page.waitForFunction(() => audioProbes.every(p => p.ctx.state !== 'running') && mediaProbes.every(m => m.paused));
     const close = async () => { await page.locator('.sheet-close').last().click(); await page.waitForFunction(() => !document.querySelector('.sheet')); };
     const settings = async () => {
       await page.locator('.pk-hdr [data-dy-menu]').click();
@@ -56,13 +59,20 @@ async function main() {
     assert.equal(await page.evaluate(async () => (await import('/js/core/fire.js')).canWrite()), false);
     await nav('/puzzles/dynasty'); await page.waitForSelector('.pk-start.is-ready');
     assert.equal(await page.evaluate(() => audioProbes.length), 0, 'no audio context or autoplay before interaction');
+    assert.equal(trackRequests.length, 0, 'no MP3 download before interaction');
     await page.locator('.pk-start').focus(); await page.keyboard.press('Enter'); await playing();
     await page.waitForFunction(() => audioProbes.some(p => {
       const samples = new Float32Array(p.analyser.fftSize); p.analyser.getFloatTimeDomainData(samples);
       return samples.some(n => Math.abs(n) > .0001);
     }));
-    console.log('PASS: keyboard start produces actual non-silent Web Audio output');
+    const track = await page.evaluate(() => ({duration: mediaProbes[0].duration, loop: mediaProbes[0].loop, src: mediaProbes[0].currentSrc}));
+    assert(track.duration > 158 && track.duration < 159, 'the supplied full-length MP3 decoded');
+    assert.equal(track.loop, true); assert.match(track.src, /\/audio\/rivals\/sundress-v1\.mp3$/);
+    await page.evaluate(() => { mediaProbes[0].currentTime = mediaProbes[0].duration - .15; });
+    await page.waitForFunction(() => mediaProbes[0].currentTime < 2 && !mediaProbes[0].paused);
+    console.log('PASS: uploaded MP3 decodes, produces actual audio, and loops from the end');
     await settings();
+    assert.match(await page.locator('.pk-music').innerText(), /Sundress · A\$AP Rocky/);
     await page.locator('[data-dy-music-volume]').fill('62');
     assert.equal((await state()).volume, 62);
     for (const width of [320, 390, 768]) {
@@ -73,6 +83,12 @@ async function main() {
     await page.setViewportSize({width: 390, height: 844});
     fs.mkdirSync(path.join(root, 'output/rivals-music'), {recursive: true});
     await page.screenshot({path: path.join(root, 'output/rivals-music/settings-390.png')});
+    await page.locator('[data-dy-music-toggle]').click(); await silent();
+    const pausedAt = await page.evaluate(() => mediaProbes[0].currentTime);
+    await page.waitForTimeout(250);
+    assert(Math.abs(await page.evaluate(() => mediaProbes[0].currentTime) - pausedAt) < .02, 'mute pauses track position');
+    await page.locator('[data-dy-music-toggle]').click(); await playing();
+    assert(await page.evaluate(() => mediaProbes[0].currentTime) >= pausedAt - .05, 'unmute resumes from the paused position');
     await page.locator('[data-dy-music-toggle]').click(); await silent();
     assert.deepEqual(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), KEY), {enabled: false, volume: 62});
     await page.reload(); await page.waitForFunction(() => window.__ggBooted); await page.waitForSelector('.pk-start.is-ready');
@@ -128,28 +144,39 @@ async function main() {
         window.audioCount = 0; const AC = window.AudioContext;
         window.AudioContext = class extends AC { constructor(...args) { super(...args); window.audioCount++; } };
       }, profile);
-      const p = await ctx.newPage(); await p.goto(url+'/#/puzzles'); await p.waitForFunction(() => window.__ggBooted);
+      const p = await ctx.newPage(), downloads = [];
+      p.on('request', r => { if (/\.mp3$/.test(r.url())) downloads.push(r.url()); });
+      await p.goto(url+'/#/puzzles'); await p.waitForFunction(() => window.__ggBooted);
       await p.evaluate(async () => (await import('/js/app.js')).nav('/puzzles/dynasty'));
       if (await p.locator('.pk-start').count()) { await p.waitForSelector('.pk-start.is-ready'); await p.locator('.pk-start').click({position:{x:170,y:420}}); await p.locator('.pk-hdr [data-dy-menu]').click(); }
       assert.equal(await p.locator('[data-dy-m="music"], .pk-music').count(), 0);
       await p.evaluate(async () => { const m = await import('/js/core/dynasty-music.js'); m.start(); m.setVolume(100); (await import('/js/views/dynasty-music.js')).musicSheet(); });
       assert.equal(await p.evaluate(() => audioCount), 0); assert.equal(await p.locator('.pk-music').count(), 0);
+      assert.equal(downloads.length, 0, 'other profiles never request the MP3');
       await ctx.close();
     }
     console.log('PASS: Ryan Stewart, another member, visitor and owner-name guest retain existing silent behavior');
-    for (const mode of ['unavailable', 'blocked-resume', 'storage-denied', 'webkit']) {
+    for (const mode of ['unavailable', 'blocked-resume', 'blocked-media', 'track-failed', 'slow-download', 'storage-denied', 'webkit']) {
       const ctx = await browser.newContext({serviceWorkers:'block', reducedMotion:'reduce'});
       await ctx.route('**/*', r => r.request().url().startsWith(url) ? r.continue() : r.abort());
+      if (mode === 'track-failed') await ctx.route('**/audio/rivals/*.mp3', r => r.abort());
+      if (mode === 'slow-download') await ctx.route('**/audio/rivals/*.mp3', async r => { await new Promise(resolve => setTimeout(resolve,1500)); await r.continue(); });
       await ctx.addInitScript(mode => {
         localStorage.setItem('gg-me','evan'); localStorage.setItem('gg-welcome','1');
         localStorage.setItem('gg-release-3.0:evan','1'); sessionStorage.setItem('gg-skip-title','1');
         localStorage.setItem('gg-rivals-music:m_evan:v1', '{broken');
+        const NativeAudio = window.Audio;
+        window.Audio = class extends NativeAudio { constructor(...args) { super(...args); window.lastMusicMedia = this; } };
         if (mode === 'unavailable') { window.AudioContext = undefined; window.webkitAudioContext = undefined; }
         if (mode === 'blocked-resume') {
           const AC = window.AudioContext;
           window.AudioContext = class extends AC { constructor() { super(); this.suspend(); } resume() { return Promise.reject(new Error('Playback blocked')); } };
         }
         if (mode === 'webkit') { window.webkitAudioContext = window.AudioContext; window.AudioContext = undefined; }
+        if (mode === 'blocked-media') {
+          window.mediaAttempts = 0;
+          HTMLMediaElement.prototype.play = () => { window.mediaAttempts++; return Promise.reject(new DOMException('Playback blocked', 'NotAllowedError')); };
+        }
         if (mode === 'storage-denied') {
           const get = Storage.prototype.getItem, set = Storage.prototype.setItem;
           Storage.prototype.getItem = function(key) { if (key.startsWith('gg-rivals-music:')) throw Error('Storage denied'); return get.call(this,key); };
@@ -164,11 +191,22 @@ async function main() {
       await p.waitForSelector('[data-dy-music-toggle]');
       assert.equal(await p.locator('[data-dy-music-volume]').inputValue(), '35', mode + ': safe default');
       if (mode === 'unavailable') assert.equal(await p.locator('[data-dy-music-toggle]').isDisabled(), true);
-      else if (mode === 'blocked-resume') assert.match(await p.locator('[data-dy-music-status]').innerText(), /try playback again/);
+      else if (mode === 'blocked-resume' || mode === 'blocked-media') assert.match(await p.locator('[data-dy-music-status]').innerText(), /try playback again/);
+      else if (mode === 'track-failed') assert.match(await p.locator('[data-dy-music-status]').innerText(), /couldn’t load/);
+      else if (mode === 'slow-download') {
+        await p.evaluate(async () => (await import('/js/core/data.js')).setGuest('Ryan Stewart'));
+        await p.waitForTimeout(1800);
+        assert.equal(await p.evaluate(() => lastMusicMedia.paused),true,'late download cannot start after changing profiles');
+        assert.equal(await p.evaluate(async () => (await import('/js/core/dynasty-music.js')).state().playing),false);
+      }
       else await p.waitForFunction(async () => (await import('/js/core/dynasty-music.js')).state().playing);
+      if (mode === 'blocked-media') {
+        const attempts = await p.evaluate(() => mediaAttempts); await p.waitForTimeout(300);
+        assert.equal(await p.evaluate(() => mediaAttempts), attempts, 'blocked media does not enter an automatic retry loop');
+      }
       assert.deepEqual(failures, [], mode + ': gameplay survives audio/storage failure'); await ctx.close();
     }
-    console.log('PASS: missing audio API, blocked playback, malformed/denied storage and WebKit API fallback');
+    console.log('PASS: missing audio API, blocked media/context, failed/delayed download, malformed/denied storage and WebKit API fallback');
   } finally { await browser.close(); }
 }
 main().catch(e => { console.error(e); process.exitCode = 1; }).finally(() => server.close());

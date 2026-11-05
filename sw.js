@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v625';
+const CACHE = 'gg-v626';
 const CORE = ['ui', 'home-navigation', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'fantasy-live', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-layout', 'realm-battle', 'checks-realm', 'dynasty', 'dynasty-battle', 'dynasty-match', 'dynasty-table', 'dynasty-solo', 'dynasty-real', 'dynasty-legends', 'dynasty-action', 'checks-dynasty'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and live (Live). Keepfall opens from Daily Games.
 const VIEWS = ['dynasty-pack-shelf', 'welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -103,7 +103,8 @@ self.addEventListener('activate', e => {
 });
 
 // (jpg: Keepfall's land and building textures, models/realm/world-v1/textures, which its models load beside them)
-const isCacheFirst = url => /\.(woff2|png|webp|jpe?g|ico|glb)$/.test(url.pathname);
+const isRivalsMusic = url => /\/audio\/rivals\/[^/]+\.mp3$/.test(url.pathname);
+const isCacheFirst = url => /\.(woff2|png|webp|jpe?g|ico|glb)$/.test(url.pathname) || isRivalsMusic(url);
 const isVendor = url => url.origin === self.location.origin && url.pathname.includes('/js/vendor/');
 const isNetworkFirst = (req, url) => req.mode === 'navigate' || url.pathname.endsWith('/') || /\.(html|json|js|css|webmanifest)$/.test(url.pathname);
 
@@ -148,11 +149,39 @@ async function cacheFirst(req) {
   return res;
 }
 
+// Cache a full track only on first use. Media players (especially Safari) request byte ranges;
+// a cached 200 must be sliced into a proper 206, never cache a partial response as the song.
+async function musicFirst(req, event) {
+  const url = new URL(req.url), key = url.origin + url.pathname;
+  let res = await caches.match(key);
+  if (!res) {
+    res = await fetch(key, {credentials: 'same-origin'});
+    if (res.status === 200) {
+      const copy = res.clone();
+      event.waitUntil(caches.open(CACHE).then(c => c.put(key, copy)).catch(() => {}));
+    }
+  }
+  const range = req.headers.get('range');
+  if (!range || res.status !== 200) return res;
+  const bytes = await res.arrayBuffer(), size = bytes.byteLength;
+  const parts = /^bytes=(\d*)-(\d*)$/.exec(range);
+  let start = parts?.[1] ? Number(parts[1]) : 0, end = parts?.[2] ? Number(parts[2]) : size - 1;
+  if (parts && !parts[1] && parts[2]) { start = Math.max(0, size - Number(parts[2])); end = size - 1; }
+  if (!parts || (!parts[1] && !parts[2]) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start >= size || start > end || (!parts[1] && Number(parts[2]) === 0))
+    return new Response(null, {status: 416, headers: {'Content-Range': `bytes */${size}`}});
+  end = Math.min(end, size - 1);
+  return new Response(bytes.slice(start, end + 1), {status: 206, headers: {
+    'Content-Type': 'audio/mpeg', 'Accept-Ranges': 'bytes',
+    'Content-Length': String(end - start + 1), 'Content-Range': `bytes ${start}-${end}/${size}`
+  }});
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  if (isRivalsMusic(url)) { e.respondWith(musicFirst(req, e)); return; }
   // v3 artwork is available to everyone and cached after its first use.
   if (isCacheFirst(url)) { e.respondWith(cacheFirst(req)); return; }
   if (isNetworkFirst(req, url)) e.respondWith(networkFirst(req, url));

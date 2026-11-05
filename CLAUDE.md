@@ -2,12 +2,15 @@
 
 ## Rivals music (November 5, 2026)
 
-Owner-only under AGENTS.md: `data.isOwner()` enables the original synthesized Fourth Quarter instrumental.
-`core/dynasty-music.js` owns one shared Web Audio transport for the hub and battle views; it starts only after
+Owner-only under AGENTS.md: `data.isOwner()` enables Evan's uploaded Sundress MP3 by A$AP Rocky
+(`audio/rivals/sundress-v1.mp3`, original file, November 5). It replaces the synthesized Fourth Quarter theme.
+`core/dynasty-music.js` owns one looping media element with Web Audio volume for the hub and battle views; it starts only after
 a gesture, pauses when the view or document is hidden, and stops immediately on profile changes. Menu → Music
 and Battle options → Music share saved on/off and volume settings in `gg-rivals-music:m_evan:v1`, separate from
-game progress. No external tracks or samples. Other profiles keep their existing silent game and menus.
-Verify `node tools/dynasty/check-music.cjs`, the title-screen browser check and the stylesheet scope check.
+game progress. The track downloads only when played and caches on demand, with proper byte-range responses
+for offline playback. Other profiles keep their existing silent game and menus and never request the MP3.
+Verify `node tools/dynasty/check-music.cjs`, `node tools/dynasty/check-music-cache.cjs --browser`, the title-screen browser
+check and the stylesheet scope check.
 
 ## Rivals deck shelf (November 5, 2026)
 
