@@ -158,6 +158,15 @@ How it's enforced, and what to keep doing:
 
 ## Keepfall asset refresh: preserve current progress
 
+Keepfall daily attack limit (November 5, 2026; owner-profile pilot per AGENTS.md):
+`core/realm.js` `dailyAttackLimited()` uses `data.isOwner()`. One attack total per local calendar day,
+across computer and player realms. The first valid troop or hero deployment spends the attempt;
+scouting and leaving before deployment are free. Quitting, losing or reloading after deployment counts.
+Existing `bt` raid-day entries persist immediately and merge across saved copies of the same profile;
+no new save schema or progress reset. A battle crossing midnight counts on the day it started.
+Other profiles retain their existing attack behavior. Run `node tools/realm/check-daily-attacks.cjs`
+and `node tools/realm/check-pvp.cjs` for the limit, persistence, profile boundaries and raid flow.
+
 Evan approved upgrading the existing Keepfall in phases using the Unity assets
 in D:\Unity\My project\Assets. Preserve every player's current progress.
 Art imports must keep existing building IDs, footprints, levels, balances,

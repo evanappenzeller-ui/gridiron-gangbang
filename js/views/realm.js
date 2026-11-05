@@ -1044,13 +1044,14 @@ export function targets(now = Date.now(), mine = F.mine()) {
  *  before Castle level 3, the lock (raids open there) and the way to the Castle; a realm more than a level above your
  *  Castle, locked till it's high enough. */
 function raidHTML(s, now) {
+  const dailyWhy = F.dailyAttackWhy(s, now);
   const th = F.keepOf(s), rows = (open, army) => targets(now, s).map(x => {
     const bot = F.BOTS.find(b => b.k === x.k), ok = open && F.canTarget(s, bot);
     return `<div class="rl-tg${ok ? '' : ' is-locked'}"><span class="rl-tg-lv">${x.th}</span><span class="rl-tg-n"><b>${esc(x.name)}</b>`
       + `<small>${x.loot.gold || x.loot.grain ? `${curHTML('gold', x.loot.gold)} ${curHTML('grain', x.loot.grain)}` : 'Raided today: nothing left to take'}</small></span>`
       // (from Castle 3 every realm can be scouted, the ones out of reach too: core/realm.js realmOf's scout)
       + (open ? `<button type="button" class="rl-act rl-tg-go" data-rl-scout="${esc(x.k)}">Scout</button>` : '')
-      + (ok ? `<button type="button" class="rl-act is-go rl-tg-go" data-rl-go="${esc(x.k)}" ${army ? '' : 'disabled'}>Attack</button>`
+      + (ok ? `<button type="button" class="rl-act is-go rl-tg-go" data-rl-go="${esc(x.k)}" ${army && !dailyWhy ? '' : 'disabled'}>Attack</button>`
         : `<span class="rl-tg-lock" role="img" aria-label="Locked: attack it from Castle level ${F.targetAt(bot || x.k)}">${ui.icon('lock')}<span aria-hidden="true">Castle ${F.targetAt(bot || x.k)}</span></span>`) + `</div>`;
   }).join('');
   if (!F.attackOpen(s)) {
@@ -1071,6 +1072,7 @@ function raidHTML(s, now) {
   return (army ? `<p class="rl-sh-lead">Ready to march: ${march.join(', ')}. Send them round the edge of a realm; they carry off what its treasuries, cellars, mines and breweries hold. Each realm’s stores fill again every morning.</p>`
       : th < F.HEROES.knight.at ? `<p class="rl-sh-lead">Open Army to train troops before attacking. The Knight Hero and your first dragon come at Castle level ${F.HEROES.knight.at}.</p>`
       : `<p class="rl-sh-lead">Open Army to recruit the Knight Hero or train troops, or choose a dragon and build its hatchery, before attacking.</p>`)
+    + (F.dailyAttackLimited() ? `<p class="rl-sh-note" role="status">${dailyWhy || 'One attack per day, against a player or computer realm. Your attack counts when you deploy the first troop or hero. Resets at midnight.'}</p>` : '')
     + `<h3 class="rl-sh-h">Players’ realms <span>what you take comes off theirs</span></h3>${players}`
     + `<h3 class="rl-sh-h">The computer’s realms</h3>${rows(true, army)}`
     + `<p class="rl-sh-note">Scout a realm to look round it first: where its towers reach, where its walls run, where its gold and ale are kept. You can attack realms up to a level above your Castle; a player’s, no more than ${F.PVP_BELOW} below it, once a day, and not while they’re in a truce (${F.PVP_TRUCE_H} hours after losing a star).</p>`;

@@ -1013,7 +1013,7 @@ export function finishRaid(s, rec, used, now = Date.now(), B = null) {
   });
   Object.entries(used || {}).forEach(([t, n]) => { if (!TROOP_ORDER.includes(t)) return; s.ar[t] = Math.max(0, (s.ar[t] || 0) - n); if (!s.ar[t]) delete s.ar[t]; });
   s.tp = Math.max(0, s.tp + (rec.ta || 0));
-  s.bt[rec.vs] = dayKey(now);
+  s.bt[rec.vs] = dayKey(B?.attackAt || now);
   s.rd.push(rec);
   s.rd = keepReplays(s.rd.slice(-40), s);
   gcLots(s);
@@ -1040,6 +1040,41 @@ export function takeRaid(s, rec) {
   gcLots(s);
 }
 export const dayKey = (t = Date.now()) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+// One attack across all targets per local calendar day. Reuse the existing saved raid days;
+// no migration or reset, and attacks made earlier on release day already count.
+export const dailyAttackLimited = () => data.isOwner();
+export const DAILY_ATTACK_USED = 'Daily attack used. Attack again tomorrow.';
+export const dailyAttackWhy = (s, now = Date.now()) => dailyAttackLimited()
+  && Object.values(s?.bt || {}).includes(dayKey(now)) ? DAILY_ATTACK_USED : '';
+/** Deploy through the live attack rules. Invalid placements and scouting never spend the day.
+ * Replays and demonstrations use the simulation's deploy directly and spend nothing. */
+export function deployRaid(s, key, B, troop, x, y, now = Date.now()) {
+  if (!dailyAttackLimited()) return B.deploy(troop, x, y);
+  const first = !B.drops.length;
+  if (first && attackWhy(s, key, {now})) return null;
+  const unit = B.deploy(troop, x, y);
+  if (unit && first) {
+    B.attackAt = now;
+    s.bt[key] = dayKey(now);
+  }
+  return unit;
+}
+/** Keep attack days even when another phone's newer save wins the rest of the realm. */
+function keepAttackDays(into, from) {
+  if (!dailyAttackLimited() || !into || !from) return false;
+  const stamp = day => {
+    if (typeof day !== 'string' || !/^\d{4}-\d{1,2}-\d{1,2}$/.test(day)) return 0;
+    const [y, m, d] = day.split('-').map(Number);
+    return m >= 1 && m <= 12 && d >= 1 && d <= 31 ? y * 10000 + m * 100 + d : 0;
+  };
+  let changed = false;
+  for (const [key, day] of Object.entries(from.bt || {})) {
+    if ((botOf(key) || isPvp(key)) && stamp(day) > stamp(into.bt?.[key])) {
+      (into.bt ||= {})[key] = day; changed = true;
+    }
+  }
+  return changed;
+}
 
 // ---- the computer's realms: one at each Castle level, the same lot every day, full again every morning
 export const BOTS = [
@@ -1110,11 +1145,12 @@ export const targetAt = bot => { const b = isPvp(bot) ? visitOf(bot.slice(PVP.le
 export const canTarget = (s, bot) => { const b = botOf(bot); return !!b && attackOpen(s) && b.th <= keepOf(s) + 1; };
 /** Why s can't attack that realm ('' when it can): "Raids open at Castle level 3" before then, "Castle level N" for a
  *  realm too strong yet (N: targetAt), or that it isn't there. For scouting (scout: true), only the first. */
-export function attackWhy(s, bot, {scout = false} = {}) {
-  if (isPvp(bot)) { const T = playerRealm(bot, s, Date.now(), {scout}); return T.why || ''; }
+export function attackWhy(s, bot, {scout = false, now = Date.now()} = {}) {
+  if (isPvp(bot)) { const T = playerRealm(bot, s, now, {scout}); return T.why || ''; }
   const b = botOf(bot);
   if (!b) return 'That realm isn’t there.';
   if (!attackOpen(s)) return `Raids open at Castle level ${ATTACK_AT}`;
+  if (!scout && dailyAttackWhy(s, now)) return DAILY_ATTACK_USED;
   if (!scout && !canTarget(s, b)) return `Castle level ${targetAt(b)}`;
   return '';
 }
@@ -1127,7 +1163,7 @@ export function realmOf(key, mine, now = Date.now(), {scout = false} = {}) {
   if (isPvp(key)) return playerRealm(key, mine, now, {scout});
   const bot = BOTS.find(b => b.k === key);
   if (!bot) return {why: 'That realm isn’t there.'};
-  if (mine && Array.isArray(mine.b)) { const why = attackWhy(mine, bot, {scout}); if (why) return {why, locked: true}; }
+  if (mine && Array.isArray(mine.b)) { const why = attackWhy(mine, bot, {scout, now}); if (why) return {why, locked: true}; }
   const base = botBase(bot.th);
   return {key, name: bot.name, th: bot.th, base, loot: botLoot(bot, base, mine, now)};
 }
@@ -1531,12 +1567,16 @@ const current = state => state && state.rs === TEST_RESET ? state : null;
 const allDocs = () => daily.LB.all || daily.LB.raw || [];
 function currentRemote() {
   let best = null;
+  const copies = [];
   for (const p of allDocs()) {
     if (PROFILE.startsWith('g_') && p.id !== daily.LB.uid) continue;
     const state = current(p && p.fr3 && p.fr3[PROFILE]);
+    if (state) copies.push(state);
     if (state && (!best || Number(state.at) > Number(best.at))) best = state;
   }
-  return clean(best);
+  const remote = clean(best);
+  copies.forEach(state => keepAttackDays(remote, state));
+  return remote;
 }
 function legacyRemote() {
   if (!PROFILE || data.isOwner()) return null; // Evan explicitly requested a complete restart.
@@ -1557,6 +1597,7 @@ export function mine(now = Date.now()) {
     PROVISIONAL = !!(MINE && MINE._provisional);
     if (MINE === local && local && (!remote || local.at > remote.at)) dirty = true;
     if (MINE === remote && local && !local._provisional && keepMine(remote, local)) dirty = true;
+    if (keepAttackDays(MINE, MINE === local ? remote : local)) dirty = true;
     if (!MINE) {
       MINE = legacyRemote() || testRealm(null, now);
       PROVISIONAL = !boardKnown(); dirty = !!PROFILE;
@@ -1571,8 +1612,11 @@ export function mine(now = Date.now()) {
 export function sync(now = Date.now()) {
   const state = mine(now), remote = currentRemote();
   let changed = false, kept = false;
+  const localDaysKept = keepAttackDays(state, readLocal());
+  const daysKept = keepAttackDays(state, remote) || localDaysKept;
   if (remote && (PROVISIONAL || remote.at > state.at + 1000)) {
     kept = !PROVISIONAL && keepMine(remote, state);
+    kept = keepAttackDays(remote, state) || kept;
     MINE = remote; tick(MINE, now); changed = true; writeLocal(MINE);
   }
   if (boardKnown()) {
@@ -1582,7 +1626,7 @@ export function sync(now = Date.now()) {
   }
   if (changed) emit('sync');
   takeMine();
-  if (kept) touch();
+  if (kept || daysKept) touch();
   else if (dirty && !PROVISIONAL) { clearTimeout(saveT); saveT = setTimeout(flush, 1500); }
   return changed;
 }
@@ -1719,6 +1763,7 @@ export const truceOf = s => Math.max(0, ...(Array.isArray(s.df) ? s.df : []).fil
 function playerWhy(mine, T, now, scout) {
   if (!attackOpen(mine)) return `Raids open at Castle level ${ATTACK_AT}`;
   if (scout) return '';
+  if (dailyAttackWhy(mine, now)) return DAILY_ATTACK_USED;
   const th = keepOf(mine);
   if (T.th < ATTACK_AT) return `Safe till their Castle reaches level ${ATTACK_AT}`;
   if (T.th > th + 1) return `Castle level ${T.th - 1}`;

@@ -32,6 +32,7 @@ function speedBtn(st) {
  *  2026), and a realm more than a level above your Castle waits for it. */
 export function lockedWhy(s, key) {
   if (!F.attackOpen(s)) return `Raids open at Castle level ${F.ATTACK_AT}.`;
+  if (F.dailyAttackWhy(s)) return F.DAILY_ATTACK_USED;
   // (another player's realm: in reach, not raided by you today, not in a truce: core/realm.js playerRealm)
   if (F.isPvp(key)) { const why = F.attackWhy(s, key); return why ? (/[.!]$/.test(why) ? why : `${why}.`) : ''; }
   const bot = F.BOTS.find(b => b.k === key);
@@ -101,15 +102,23 @@ export function floatText(st, x, y, text, c) {
 
 function send(st, tile) {
   const B = st.B;
-  if (!F.mayPlay() || st.dead || !tile || B.over || st.done) return false;
+  if (!F.mayPlay() || st.profile !== F.profileKey() || st.dead || !tile || B.over || st.done) return false;
   if (!B.left[st.pick]) {
     const next = DEPLOY_ORDER.find(t => B.left[t] > 0);
     if (!next) return false;
     st.pick = next;
   }
-  const u = B.deploy(st.pick, tile.x, tile.y);
+  if (!st.t0 && F.dailyAttackLimited()) {
+    F.sync();
+    const why = F.attackWhy(F.mine(), st.key);
+    if (why) { ui.toast(why, {icon: 'lock'}); return false; }
+  }
+  const u = F.deployRaid(F.mine(), st.key, B, st.pick, tile.x, tile.y);
   if (!u) { st.v.showZone(true); return false; }
-  if (!st.t0) { st.t0 = performance.now(); st.el.querySelector('[data-rlr-quit]').textContent = 'End'; }
+  if (!st.t0) {
+    st.t0 = performance.now(); st.el.querySelector('[data-rlr-quit]').textContent = 'End';
+    if (F.dailyAttackLimited()) { F.touch(); F.flush(); }
+  }
   ui.haptic('selection');
   st.el.querySelector('[data-rlr-troops]').innerHTML = troopsHTML(st);
   return true;

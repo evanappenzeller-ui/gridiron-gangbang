@@ -60,7 +60,7 @@ function goHTML(key) {
   const s = F.mine(), army = F.roomOf(s.ar) || Object.keys(F.heroArmy(s)).length;
   // (a realm more than a level above your Castle can be looked round, not attacked yet: core/realm.js attackWhy; a
   // player's, for its own reasons too: a truce, raided today, too far below)
-  const why = F.isPvp(key) ? F.attackWhy(s, key) : '';
+  const why = F.dailyAttackWhy(s) || (F.isPvp(key) ? F.attackWhy(s, key) : '');
   if (why) return `<button type="button" class="rl-btn is-raid is-locked" disabled><span class="rl-bi" aria-hidden="true">${ui.icon('lock')}</span><span>Attack</span><em>${esc(why)}</em></button>`;
   if (F.attackWhy(s, key)) return `<button type="button" class="rl-btn is-raid is-locked" disabled><span class="rl-bi" aria-hidden="true">${ui.icon('lock')}</span><span>Attack</span><em>Opens at Castle level ${F.targetAt(key)}</em></button>`;
   return army ? `<button type="button" class="rl-btn is-raid" data-rls-attack><span class="rl-bi" aria-hidden="true">${ui.icon('versus')}</span><span>Attack</span></button>`

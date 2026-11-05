@@ -114,7 +114,8 @@ export async function realmChecks(check) {
     const rec = F.finishPlayerRaid(att, T, B, {id: 'a1', vs: key, nm: 'House D', at: T0, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ta: F.gloryFor(r.stars, T.th), hr: r.heroes, by: 'House A', bw: 'A'}, r.used, T0);
     const sum = c => rec.ls[c] + Object.values(rec.lb).reduce((a, v) => a + v[c], 0);
     const posted = r.stars >= 1 && rec.vs === key && sum(0) === r.got.gold && sum(1) === r.got.grain && r.got.gold > 0 && !!rec.rp && att.r.gold + att.xo.gold === gold0 + r.got.gold
-      && att.bt[key] === F.dayKey(T0) && (F.clean(att).rd.find(x => x.id === 'a1') || {}).vs === key && /Raided today/.test(P(att).why || '');
+      && att.bt[key] === F.dayKey(T0) && (F.clean(att).rd.find(x => x.id === 'a1') || {}).vs === key
+      && (F.dailyAttackLimited() ? P(att).why === F.DAILY_ATTACK_USED : /Raided today/.test(P(att).why || ''));
     // (another raider sees it taken off already, and the truce)
     const seen = P(v3(5));
     const truce = /Truce/.test(seen.why || '') && seen.T.base.r.gold === def.r.gold - rec.ls[0] && !P(v3(5), {scout: true}).why;
@@ -968,7 +969,8 @@ export async function realmChecks(check) {
 
   // (an attack as views/realm-raid.js plays it: drops at fractions of a tile, the clock run between them, then End)
   const attack = (s, key, army, heroes, endAt) => {
-    const T = F.realmOf(key, s, T0), B = makeBattle(T.base, T.loot, army, {heroes}), box = F.boxOf(T.base);
+    // Replay fixtures intentionally simulate multiple historical battles without spending live daily attempts.
+    const T = F.realmOf(key, s, T0, {scout: true}), B = makeBattle(T.base, T.loot, army, {heroes}), box = F.boxOf(T.base);
     const send = (t, n, side) => { for (let i = 0; i < n; i++) B.deploy(t, side ? box.x1 + 1.37 : box.x0 - 1.63, box.y0 + .29 + i * .73); };
     send('footman', Math.min(6, army.footman || 0), 0);
     B.run(2.35);
