@@ -182,7 +182,7 @@ async function fixture(browser, legacy = false) {
         if (!W3.sceneryReady(theme.id)) return false;
         W3.renewScenery(); frame();
         // (and the stadium's painted midfield logo, decoded after the network's gone quiet)
-        if (theme.id === 'stadium' && scene.getObjectByName('toreadors-midfield-logo')) throw new Error('Midfield logo must stay removed');
+        if (!legacy && theme.id === 'stadium' && !scene.getObjectByName('toreadors-midfield-logo')) return false;
         return theme.id !== 'city' || !!scene.getObjectByName('city-bus-pilot-body');
       },
       status() {
@@ -237,6 +237,10 @@ async function fixture(browser, legacy = false) {
         st.lifeTime = 1.234; st.reducedMotion = false; render();
         return {animated: first !== second, windAdvances: windA !== windB, reducedStable: reduced === stable};
       },
+      logoPreview() {
+        st.co.rows = []; st.co.sets = []; st.co.items = [];
+        st.run.z = 35; st.camZ = 28; camera.position.z = -st.camZ; render();
+      },
       fallbackImage() { return fallback.toDataURL('image/png'); }
     };
   }, legacy).catch(error => { error.message += '\nFixture diagnostics: ' + JSON.stringify({legacy, errors, failed, external}); throw error; });
@@ -290,7 +294,8 @@ function unchanged(actual, expected, label) {
       for (const theme of themes) {
         const s = await current.snapshot(theme); report.themes[theme].public = s;
         rendered(s, 'public ' + theme);
-        compare(s, report.themes[theme].baseline, theme + ': public scenery matches deployed owner art');
+        if (theme === 'stadium') assert(s.logo, 'original midfield logo restored');
+        else compare(s, report.themes[theme].baseline, theme + ': public scenery matches deployed owner art');
       }
       assert(current.imageRequests.length > 0, 'public profiles load v3 art');
       // (the Unity-pack scenery: every place but the stadium has its models, asked for once each, for everyone)
@@ -304,7 +309,7 @@ function unchanged(actual, expected, label) {
         assert(s.living && (s.wind || theme === 'space'), theme + ': detailed scenery');
         assert(s.shadows || theme === 'space', theme + ': ground contact shadows');
         assert(s.drawCalls < 230, theme + ': bounded draw calls');
-        if (theme === 'stadium') assert(!s.logo, 'owner midfield logo removed');
+        if (theme === 'stadium') assert(s.logo, 'original midfield logo visible for every profile');
         const motion = await current.page.evaluate(() => window.environmentCheck.motion());
         assert(motion.reducedStable && motion.windAdvances, theme + ': reduced motion and wind');
         if (!['stadium', 'tundra'].includes(theme)) assert(motion.animated, theme + ': moving ambient objects');
@@ -336,6 +341,12 @@ function unchanged(actual, expected, label) {
         report.crossTab = await current.snapshot('city');
         compare(report.crossTab, report.themes.city.public, 'cross-tab shared world');
       } finally { await sibling.close(); }
+      assert.equal(current.imageRequests.filter(url => url.includes('return-toreadors-painted-v1.png')).length, 1, 'logo loads once across profile changes');
+      await current.snapshot('stadium');
+      await current.page.evaluate(() => window.environmentCheck.logoPreview());
+      await current.page.screenshot({path: path.join(output, 'restored-midfield-logo.png')});
+      const logoFlat = await current.page.evaluate(() => window.environmentCheck.fallbackImage());
+      fs.writeFileSync(path.join(output, 'restored-midfield-logo-2d.png'), Buffer.from(logoFlat.split(',')[1], 'base64'));
       current.clean('current'); assert.equal(report.failures.length, 0, report.failures.join('\n')); report.passed = true;
     } finally { await current.close(); }
   } finally {

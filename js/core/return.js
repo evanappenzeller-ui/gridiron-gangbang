@@ -1,5 +1,6 @@
 import * as features from './features.js';
 import * as data from './data.js';
+import {RETURN_REPLAY} from './score-release.js';
 // Return Man core: the Daily Games' endless runner, after Subway Surfers (the owner's ask, Oct 2026). You field a
 // kickoff in the stadium and run it back as far as you can, and the run goes on out of the stadium into a new place
 // every 500 yards on the shared enhanced course, otherwise 100 in legacy fixtures (zoneLength): the tailgate, city, frozen tundra,
@@ -55,7 +56,7 @@ import * as data from './data.js';
 //   dayCoins(docs, n), coinsWithin(n, y)        what a person's day's coins are on the board (for The Keep's pay),
 //                                               never more than the course lays out within their yards
 //   payOf(c)                                    what a day pays Keepfall: the base and the first run's coins (capped)
-//   dayState(n, real), record(n, k, yards, dist, coins), score(list), totals()   localStorage 'gg-v3-ret1'
+//   dayState(n, real), record(n, k, yards, dist, coins), score(list), totals()   localStorage RETURN_REPLAY.key
 //   keepLive(n, k, yards, dist, coins), settle(n), live(n)   a return under way: kept as it goes, counted if it's left
 //                                               behind
 //   setTest(on, n), testing()                   test play (the owner's sandbox; his way to play it again)
@@ -1008,11 +1009,11 @@ export function ahead(run, dist = 90, behind = 6) {
 }
 
 // ---------------------------------------------------------------------------------------------- memory
-// 'gg-v3-ret1': {days: {n: {r: [{y (yards), d (how far you ran)}, ...] (every run that day, in order), at (when the best
+// RETURN_REPLAY.key: {days: {n: {r: [{y (yards), d (how far you ran)}, ...] (every run that day, in order), at (when the best
 // one ended)}}, played (runs, all time)}. (A return kept as a plain number, before power-ups, is its yards and its
 // distance.) The day's first run, when it had the coins (COIN: the owner's), keeps them too: c (how many he ran
 // through); no other run ever has a c, and nobody else's runs do.
-const KEY = 'gg-v3-ret1', KEEP = 60, MAX_YARDS = 99999;
+const KEY = RETURN_REPLAY.key, KEEP = 60, MAX_YARDS = 99999;
 // Test play (the owner's: views/testplay.js): the day's game again in a sandbox, whenever he needs to test it. While
 // it's on, play reads and writes a store of its own (KEY + '-test', the day started fresh each time), never posted and
 // never counted; the posts and the all-time totals read the real one (real), and ending it brings the real day back as
@@ -1026,10 +1027,17 @@ export function setTest(on, n = todayNumber()) {
 }
 const keyOf = real => (TEST && !real ? KEY + '-test' : KEY);
 function read(real) {
+  const saved = lsGet(keyOf(real)), migrate = saved == null;
   let v = null;
-  try { v = JSON.parse(lsGet(keyOf(real)) || 'null'); } catch (_) { v = null; }
-  if (!v || typeof v !== 'object' || !v.days || typeof v.days !== 'object') v = {days: {}};
+  try { v = JSON.parse((migrate ? lsGet(RETURN_REPLAY.previousKey + (TEST && !real ? '-test' : '')) : saved) || 'null'); } catch (_) { v = null; }
+  if (!v || typeof v !== 'object' || !v.days || typeof v.days !== 'object' || Array.isArray(v.days)) v = {days: {}};
   if (!Number.isInteger(v.played)) v.played = 0;
+  if (migrate) {
+    // Copy every other day unchanged. Retain the old store as an archive; never read it again once this exists.
+    v.played = Math.max(0, v.played - cleanList(v.days[RETURN_REPLAY.day]?.r).length);
+    delete v.days[RETURN_REPLAY.day];
+    lsSet(keyOf(real), JSON.stringify(v));
+  }
   return v;
 }
 function write(v, real) {

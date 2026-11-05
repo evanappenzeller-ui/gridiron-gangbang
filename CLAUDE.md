@@ -50,7 +50,7 @@ No obstacle hint arrows or train/flight instruction banners appear during gamepl
 rotate through the three chosen lines (`UPDATED_PICKUP_LINES`) without consecutive repeats; jetpack has no text
 popup. Start-screen help and screen-reader announcements remain.
 
-Every scenery lasts 500 physical yards (`zoneLength`), including the opening stadium, which has no logo and never
+Every scenery lasts 500 physical yards (`zoneLength`), including the opening stadium, which never
 recurs. Touchdowns remain every 100 physical yards; render tiles and markings stay at 100 for bounded batch sizes.
 Gates, sky/light blends, model preloading, zone events and vehicle boundary clearance use the scenery length.
 All nine places use the colorful low-poly art, batched living details, contact/sun shadows, shader wind and ambient
@@ -63,6 +63,16 @@ Before publishing, run `node tools/return/check-motion.cjs`, `check-intro.cjs`, 
 profile's course and movement against the deployed owner pilot (c90656a); environment checks compare all nine
 shared scenes with that art, including guests, account transitions, reduced motion and canvas fallback.
 Intro checks exercise actual Play, preloading, camera/catch and pickup rotation across profiles.
+
+November 5 replay reset (everyone, explicitly requested): November 5 is Return Man day 17. `RETURN_REPLAY` in
+`score-release.js` redirects only that day's cloud result from `scoresV3.rm2.17` to `scoresV3.rm2.17r1` and projects
+it back to day 17 for all board/reward consumers. Old clients can only write the retired slot, so stale scores cannot
+return or overwrite a replacement score. `return.js` migrates `gg-v3-ret1` to `gg-v3-ret2` once, retaining every
+other day and removing day 17's results/live attempt; the original store remains archived. One new counted attempt
+is allowed, with the normal cross-device lock afterward. Other games, identities and resource saves stay intact.
+The original Toreadors midfield artwork is restored for everyone in 3D and canvas. The stadium still never recurs.
+`node tools/return/check-reset.cjs` checks all-profile migration, posting, old-client writes and cross-device limits;
+the environment check verifies the logo and its shared loading across profile changes.
 
 The player (November 4, 2026, Evan: a cartoony runner, Subway Surfers' style; shipped to everyone):
 `models/return-runner-v1.glb`, from KayKit's Adventurers (Kay Lousberg, CC0): the Barbarian's body for both players, the

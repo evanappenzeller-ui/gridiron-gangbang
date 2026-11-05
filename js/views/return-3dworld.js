@@ -401,7 +401,7 @@ const GROUND_EXTRA = {
       const n = yd <= 50 ? yd : 100 - yd;
       // (read from the sideline, the tops toward it)
       [-1, 1].forEach(s => g.add(decal(numberMat(n), 3.2, 2.2, s * 18.8, z, -s * Math.PI / 2)));
-      if (yd === 50 && !features.returnManUpdated()) g.add(midfieldLogo(z));
+      if (yd === 50) g.add(midfieldLogo(z));
     }
     // the wall round the field, padded, an ad strip along it; the stands climbing behind it, full
     [-1, 1].forEach(s => {

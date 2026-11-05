@@ -340,7 +340,6 @@ const fieldYard = z => ((z % 100) + 100) % 100;
 const inEndZone = z => z < 0 || (z >= 100 && fieldYard(z) < 10);
 /** Paint the logo in thin screen rows; return.js sets bend=0 for this 2D fallback. */
 function midfieldLogo(st, c, za, zb) {
-  if (features.returnManUpdated()) return;
   const image = fieldLogo.image();
   if (!image) return;
   const width = fieldLogo.WIDTH, depth = width * image.height / image.width;

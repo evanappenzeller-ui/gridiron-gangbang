@@ -1,5 +1,5 @@
 import * as features from '../core/features.js';
-// Evan's midfield artwork. Importing this module never requests the owner-only image.
+// The original midfield artwork, shared by every player. Load only when a field is drawn.
 import * as data from '../core/data.js';
 
 export const WIDTH = 12;
@@ -7,7 +7,7 @@ export const OPACITY = .88; // Let the turf and mowing stripes show through the 
 const listeners = new Set();
 let bitmap = null, attempt = null, tried = false, subscribed = false;
 const changed = () => listeners.forEach(fn => fn());
-const enabled = () => features.available() && !features.returnManUpdated();
+const enabled = () => features.available();
 const current = load => attempt === load && !load.signal.aborted && enabled();
 
 function watchProfile() {
