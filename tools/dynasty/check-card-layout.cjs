@@ -131,7 +131,7 @@ async function run(url) {
       D.mine().o[c.id] = 1; // Isolated browser save; Firebase remains disabled.
       return c.id;
     });
-    await detail.locator('[data-dy-tab="cards"]').click();
+    await detail.locator('.pk-nav [data-dy-tab="cards"]').click();
     await detail.locator(`[data-dy-card="${id}"]`).click();
     await detail.waitForSelector('.pk-zoom .pk-card');
     await detail.waitForFunction(() => {

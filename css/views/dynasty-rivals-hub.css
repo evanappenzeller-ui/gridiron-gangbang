@@ -76,6 +76,8 @@
 @media (min-width: 700px) {
   .v-dynasty .pk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+/* Evan's Collection tab keeps three cards per row at every screen width. */
+.v-dynasty .rh-home-enabled [data-dy-grid] .pk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 /* The Solo ladder: each game's number (a check once won, a lock until reached), the next one picked out. */
 .v-dynasty .pk-h small { margin-left: 6px; color: var(--ink-3); font: 600 12px/1 var(--font-text); }
 .v-dynasty .pk-solo .pk-solo-n { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #E3F4E6; color: #1F7A45; font: 800 13px/1 var(--font-text); }
