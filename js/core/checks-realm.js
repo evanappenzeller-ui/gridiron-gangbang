@@ -1,6 +1,6 @@
 // Keepfall's checks for the dev gallery (#/_kit) (the game was the Realm till Oct 21 2026: its ids and saves keep that
 // name): that it's the owner's alone (the case, the screens, the save, his
-// own docs only, the computer's realms the only ones to attack or scout), scouting a realm, what the games pay (the old
+// own docs only; the computer's realms and, from Nov 5 2026, other players' to attack or scout), scouting a realm, what the games pay (the old
 // pay kept for the days before NEW_PAY; from then, Ale by place on three boards and Gold from Kick It and Return Man),
 // storage and the coffers (never below nothing, and what their sheet says), mines and breweries, builders and the Castle's limits, training, an attack played out (the same every time), a dragon over walls,
 // the computer's raids on the owner's realm, the cannon and the dragon hatchery, the Dragon Hero (Oct 22 2026: hatched at the
@@ -29,7 +29,7 @@ export async function realmChecks(check) {
   const [kk, rm, sv, dr] = await Promise.all([import('./kick.js'), import('./return.js'), import('./seventeen.js').then(async m => { await m.load(); return m; }),
     import('./drill.js').then(async m => { await m.load(); return m; })]);
 
-  check('Keepfall v3: shared routes, selected profiles, isolated saves and computer-only raids', async () => {
+  check('Keepfall v3: shared routes, selected profiles, isolated saves; the computer’s realms listed, a player’s raided only by its p: key', async () => {
     const eligible = !!(data.me() || data.guest());
     const [app, view, games] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/games.js')]);
     const route = app.parseRoute('/puzzles/keep');
@@ -38,7 +38,7 @@ export async function realmChecks(check) {
     const scoped = src.includes('key !== profileKey()') && src.includes("fields = ['fr3.' + key]") && src.includes("PROFILE.startsWith('g_') && p.id !== daily.LB.uid");
     const tg = view.targets(T0, F.fresh(T0));
     const bots = tg.length === F.BOTS.length && tg.every(x => x.k.startsWith('bot:')) && !!F.realmOf('mason', F.fresh(T0)).why;
-    return {pass: F.mayPlay() === eligible && routed && scoped && bots, detail: 'Shared access, profile save guards and computer-only opponents'};
+    return {pass: F.mayPlay() === eligible && routed && scoped && bots, detail: 'Shared access, profile save guards; the computer’s realms listed, a bare profile key never a target'};
   });
 
   check('Keepfall: scouting (views/realm-scout.js, #/realm/scout/<realm>): each of the computer’s realms can be looked round before it’s attacked, the same lot and take the attack meets, its defenses counted, a building’s card saying what it does and holds (a Dragon Hatchery there has no Dragon Hero defending it, nor a keeper: Oct 23 2026), a defense’s reach drawn round it; looking changes nothing', async () => {
@@ -66,7 +66,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `route ${routed}; every realm the attack’s own ${same}; ${R4.name}: ${def.map(d => `${d.n} ${d.t}`).join(', ')} (${counted}); a cannon: ${facts}; ${nests.length} of their hatcheries: ${nestFacts[0] || 'none'} (${hatch}); an unknown realm refused ${missing}; nothing changed ${untouched}`};
   });
 
-  check('Keepfall: visiting (views/realm-visit.js, #/realm/visit/<profile>; Visit by Lore, Oct 23 2026): other players’ realms can be looked round, the freshest copy of each, by the scoreboards’ rule (Oct 24 2026: everyone to everyone, the members, Ryan D, Ryan S and the guests; never your own, never an unsaved v3 realm); looking changes nothing and no player can be raided', async () => {
+  check('Keepfall: visiting (views/realm-visit.js, #/realm/visit/<profile>; Visit by Lore, Oct 23 2026): other players’ realms can be looked round, the freshest copy of each, by the scoreboards’ rule (Oct 24 2026: everyone to everyone, the members, Ryan D, Ryan S and the guests; never your own, never an unsaved v3 realm); looking changes nothing and visiting raids no one (a raid takes the realm’s p: key, from Attack)', async () => {
     const [app, view, visit] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-visit.js')]);
     const r = app.__dev.parseRoute('/realm/visit/m_x'), routed = !data.DATA ? true : !!r && r.view === 'realm-visit' && r.open === 'cover' && r.params.key === 'm_x';
     const member = Object.keys(data.M).find(id => 'm_' + id !== F.profileKey());
@@ -87,6 +87,51 @@ export async function realmChecks(check) {
     const raid = list.every(x => !!F.realmOf(x.key, F.fresh(T0), T0).why), untouched = JSON.stringify(docs) === before;
     const ok = routed && keys === want && freshest && named && guest && buttons && cardOk && raid && untouched;
     return {pass: ok, detail: `route ${routed}; listed ${keys || 'none'} (want ${want}); freshest ${freshest}; Ryan D ${named}; guest ${guest}; buttons ${buttons}; card ${cardOk}; none raidable ${raid}; nothing changed ${untouched}`};
+  });
+
+  check('Keepfall: raiding other players (the owner, Nov 5 2026: “Players should have the option to attack other player’s bases in Keepfall, not just cpu bases”; everyone’s): Attack lists the other players’ realms; both Castles at 3 or more, theirs at most a level above yours and two below; the raid posts what it took building by building on the raider’s own save (rd, vs p:<profile>) with its replay; the raided realm takes it off itself once (storage capped by its Castle, the piles, glory, the Chronicle, the same battle to watch), a forged take capped; a raider sees the raids posted already taken off; one raid a day each, a 12-hour truce after a lost star', async () => {
+    const [view] = await Promise.all([import('../views/realm.js')]);
+    const ids = Object.keys(data.M).filter(id => 'm_' + id !== F.profileKey());
+    if (ids.length < 3) return {pass: true, detail: 'fewer than three other members here'};
+    const [A, D, C] = ids.slice(0, 3).map(id => 'm_' + id);
+    const v3 = l => { const s = F.fresh(T0 - 3 * DAY); s.rs = F.TEST_RESET; s.at = T0 - DAY; s.b.find(b => b.t === 'keep').l = l; return s; };
+    const att = Object.assign(v3(5), {ar: {footman: 40, archer: 20}}), def = Object.assign(v3(5), {r: {gold: 50000, grain: 40000}, tp: 300});
+    const docs = [{id: 'pa', nick: 'a', fr3: {[A]: att}}, {id: 'pd', nick: 'd', fr3: {[D]: def}}, {id: 'pc', nick: 'c', fr3: {[C]: v3(5)}}];
+    const key = F.PVP + D, P = (mine, o = {}) => F.playerRealm(key, mine, T0, o, docs);
+    // (who may attack whom)
+    const whys = {two: P(v3(2)).why, three: P(v3(3)).why, eight: P(v3(8)).why, scout8: P(v3(8), {scout: true}).why || '', low: F.playerRealm(F.PVP + C, att, T0, {}, [{id: 'pc', nick: 'c', fr3: {[C]: v3(2)}}]).why};
+    const rules = /Castle level 3/.test(whys.two) && whys.three === 'Castle level 4' && /Too far below/.test(whys.eight) && whys.scout8 === '' && /Safe till/.test(whys.low)
+      && !!F.realmOf(D, att, T0).why && !F.isPvp(D) && F.isPvp(key);
+    const list = F.playerTargets(att, T0, docs).filter(x => x.profile !== A), row = list.find(x => x.profile === D);
+    const html = view.playersHTML(att, T0, 1, list), listed = !!row && !row.why && row.loot.gold > 0 && html.includes(`data-rl-go="${key}"`) && html.includes(`data-rl-scout="${key}"`)
+      && JSON.stringify(view.houseOf(key)) !== JSON.stringify(view.MY_HOUSE);
+    // (the raid, as views/realm-raid.js plays it: footmen round the lot till it's down)
+    const T = P(att), B = makeBattle(T.base, T.loot, {footman: 40, archer: 20}, {heroes: {}}), box = F.boxOf(T.base);
+    for (let i = 0; i < 40; i++) B.deploy('footman', i % 2 ? box.x1 + 1.4 : box.x0 - 1.6, box.y0 + (i % 20) * .7);
+    B.run(F.RAID_S);
+    if (!B.over) B.end();
+    const r = B.result(), gold0 = att.r.gold + att.xo.gold;
+    const rec = F.finishPlayerRaid(att, T, B, {id: 'a1', vs: key, nm: 'House D', at: T0, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ta: F.gloryFor(r.stars, T.th), hr: r.heroes, by: 'House A', bw: 'A'}, r.used, T0);
+    const sum = c => rec.ls[c] + Object.values(rec.lb).reduce((a, v) => a + v[c], 0);
+    const posted = r.stars >= 1 && rec.vs === key && sum(0) === r.got.gold && sum(1) === r.got.grain && r.got.gold > 0 && !!rec.rp && att.r.gold + att.xo.gold === gold0 + r.got.gold
+      && att.bt[key] === F.dayKey(T0) && (F.clean(att).rd.find(x => x.id === 'a1') || {}).vs === key && /Raided today/.test(P(att).why || '');
+    // (another raider sees it taken off already, and the truce)
+    const seen = P(v3(5));
+    const truce = /Truce/.test(seen.why || '') && seen.T.base.r.gold === def.r.gold - rec.ls[0] && !P(v3(5), {scout: true}).why;
+    // (the raided realm takes it off itself, once; its replay plays the same battle)
+    const home = F.clean(def), got = F.takeIncoming(home, D, docs), d = got[0];
+    const taken = got.length === 1 && home.r.gold === def.r.gold - rec.ls[0] && home.r.grain === def.r.grain - rec.ls[1] && d.pk === A && d.by === 'House A' && d.bw === 'A'
+      && home.df[home.df.length - 1] === d && home.tp === def.tp + d.td && d.td < 0 && home.pw[A] === T0;
+    const P2 = d.rp ? F.decodeReplay(d.rp, home) : null, B2 = replayBattle(P2);
+    if (B2) B2.play(F.RAID_S + 1);
+    const watch = !!B2 && B2.stars() === r.stars && B2.pct() === r.pct && B2.got.gold === r.got.gold;
+    const kept = F.clean(JSON.parse(JSON.stringify(home))), once = !F.takeIncoming(home, D, docs).length && !F.takeIncoming(kept, D, docs).length && !!F.hasReplay(kept.df[kept.df.length - 1], kept);
+    // (a forged take: no more than the raided Castle's cap)
+    const forged = Object.assign(F.clean(def), {r: {gold: 2e5, grain: 2e5}}), cap = F.LOOT_CAP[F.keepOf(forged) - 1];
+    F.takeIncoming(forged, D, [{id: 'pf', nick: 'f', fr3: {[C]: Object.assign(v3(5), {rd: [{id: 'z', vs: key, at: T0, st: 3, pc: 100, lt: [1e9, 1e9], ls: [1e9, 1e9], lb: {}}]})}}]);
+    const capped = forged.r.gold === 2e5 - cap && forged.r.grain === 2e5 - cap;
+    const ok = rules && listed && posted && truce && taken && watch && once && capped;
+    return {pass: ok, detail: `rules ${rules} ${JSON.stringify(whys)}; listed ${listed}; raid ${r.stars}★ ${r.pct}% took ${r.got.gold}/${r.got.grain}, posted ${posted}; another raider sees it and the truce ${truce}; taken once ${taken} (gold ${def.r.gold} → ${home.r.gold}, glory ${d && d.td}); replay ${watch}; never again ${once}; forged take capped ${capped}`};
   });
 
   check('Keepfall: base layouts (core/realm-layout.js, Buildings › Base layouts; the owner’s ask, Oct 28 2026: “Create default layouts that the player can use for each castle level… have their whole base sorted automatically”): a layout for every Castle level fits the lot with nothing overlapping; sorting moves buildings only (ids, levels, timers, dragons, stores and the army kept) and Undo puts them back; the sheet offers your level and the ones before it, the ones after to look at', async () => {
@@ -899,7 +944,7 @@ export async function realmChecks(check) {
     return {pass: open && targets && words && realms && heroes && stays && raided, detail: `open from Castle 3 ${open}; in reach at Castle 2/3/4/5/7: ${reach(2) || 'none'}/${reach(3)}/${reach(4)}/${reach(5)}/${reach(7)} ${targets}; why ${JSON.stringify(whys)} ${words}; realmOf refuses ${realms}; heroes at ${F.HEROES.knight.at}/${F.HEROES.dragon.at}, the Knight Hero at Castle 3: ${k3.why}, at 4: ${k4.ok || k4.why}, the Dragon Hero for Gold: ${w3.why} ${heroes}; one recruited at Castle 2 stays ${stays}; never raided ${raided}`};
   });
 
-  check('Keepfall: no screen promises raids on him (none since Nov 1 2026): the Chronicle, Attack’s lock and the welcome never say the computer’s realms will raid him, nor a truce, nor what keeps raiders out; the example raids aren’t held to it (a Castle 2 realm still gets its three to watch, on his phone); Attack says how each hero comes (the Knight Hero joins at Castle 4, the Dragon Hero once a Dragon Hatchery is built; at Castle 3, where raids open, train troops)', async () => {
+  check('Keepfall: no screen promises raids on him (none since Nov 1 2026): the Chronicle, Attack’s lock and the welcome never say the computer’s realms will raid him, nor what keeps raiders out (a player’s truce, Nov 5 2026, is the players’ own); the example raids aren’t held to it (a Castle 2 realm still gets its three to watch, on his phone); Attack says how each hero comes (the Knight Hero joins at Castle 4, the Dragon Hero once a Dragon Hatchery is built; at Castle 3, where raids open, train troops)', async () => {
     const view = await import('../views/realm.js');
     const at = l => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = l; return s; };
     const words = (s, w) => { const t = document.createElement('template'); t.innerHTML = ((view._screens(s, T0) || []).find(p => p.where === w) || {}).html || ''; return t.content.textContent.replace(/\s+/g, ' '); };
@@ -912,7 +957,8 @@ export async function realmChecks(check) {
       && atk3.includes('Open Army to train troops before attacking. The Knight Hero and your first dragon come at Castle level 4')
       && atk4.includes('recruit the Knight Hero or train troops, or choose a dragon and build its hatchery');
     const all = log2 + log3 + atk + atk3 + atk4 + hi + words(at(3), 'The coffers');
-    const said = all.length > 200 && !/raids? on you\b|raid you too|raided you|start raiding|truce|keep them out|Raiders can|safe from raiders|yours and theirs|Defend:/i.test(all);
+    // (other players may raid him since Nov 5 2026, and a truce follows a lost star: the computer's realms still never do)
+    const said = all.length > 200 && !/raids? on you\b|raid you too|computer[^.]*raided you|start raiding|keep them out|Raiders can|safe from raiders|yours and theirs|Defend:/i.test(all);
     const gate = !defend(at(5), T0).length;
     // (the examples: on his phone, three on a Castle 2 realm as on any other; nothing on anyone else's)
     const owner = !!F.mayPlay(), two = at(2), ex = exampleRaids(two, T0);

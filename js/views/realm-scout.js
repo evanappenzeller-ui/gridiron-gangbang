@@ -1,4 +1,5 @@
-// A look round one of the computer's realms before you attack it (core/realm.js realmOf(); views/realm-3d.js draws
+// A look round one of the computer's realms, or another player's (Nov 5 2026: #/realm/scout/p:<profile>), before you
+// attack it (core/realm.js realmOf(); views/realm-3d.js draws
 // it), over The Keep (a cover over Daily Games), the owner's alone. The realm fills the screen: drag to look round, pinch (or the wheel) to
 // zoom, All to see the whole of it again. Its name, Castle level and what it holds today at the top, what
 // defends it under them; tap a building for what it is, what it does and what it holds, a defense's reach drawn round
@@ -6,7 +7,7 @@
 import * as ui from '../core/ui.js';
 import * as F from '../core/realm.js';
 import * as daily from '../core/daily.js';
-import {houseOf, curHTML, factsOf} from './realm.js';
+import {houseOf, houseName, curHTML, factsOf} from './realm.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const nf = n => Math.round(Number(n) || 0).toLocaleString('en-US');
@@ -40,7 +41,7 @@ function selHTML(st) {
   const K = F.KINDS[b.t], held = st.T.loot.by[b.i];
   const take = held && (held.gold || held.grain) ? `<p class="rl-sel-job">To take here: ${held.gold ? curHTML('gold', held.gold) : ''} ${held.grain ? curHTML('grain', held.grain) : ''}</p>` : '';
   return `<div class="rl-sel-h"><div><b>${esc(K.name)}</b><span class="rl-sel-lv">Level ${Math.max(1, b.l)}</span></div>${ui.iconButton({icon: 'close', label: 'Done', cls: 'rl-sel-x', attrs: 'data-rls-unsel'})}</div>`
-    + `<p class="rl-sel-what">${factsOf(b).map(esc).join(' · ')}</p>${take}`
+    + `<p class="rl-sel-what">${(st.T.pvp ? factsOf(b, {own: true, whose: 'their'}) : factsOf(b)).map(esc).join(' · ')}</p>${take}`
     + `<p class="rl-sel-blurb">${esc(K.blurb)}</p>`;
 }
 function select(st, id) {
@@ -57,7 +58,10 @@ function select(st, id) {
 
 function goHTML(key) {
   const s = F.mine(), army = F.roomOf(s.ar) || Object.keys(F.heroArmy(s)).length;
-  // (a realm more than a level above your Castle can be looked round, not attacked yet: core/realm.js attackWhy)
+  // (a realm more than a level above your Castle can be looked round, not attacked yet: core/realm.js attackWhy; a
+  // player's, for its own reasons too: a truce, raided today, too far below)
+  const why = F.isPvp(key) ? F.attackWhy(s, key) : '';
+  if (why) return `<button type="button" class="rl-btn is-raid is-locked" disabled><span class="rl-bi" aria-hidden="true">${ui.icon('lock')}</span><span>Attack</span><em>${esc(why)}</em></button>`;
   if (F.attackWhy(s, key)) return `<button type="button" class="rl-btn is-raid is-locked" disabled><span class="rl-bi" aria-hidden="true">${ui.icon('lock')}</span><span>Attack</span><em>Opens at Castle level ${F.targetAt(key)}</em></button>`;
   return army ? `<button type="button" class="rl-btn is-raid" data-rls-attack><span class="rl-bi" aria-hidden="true">${ui.icon('versus')}</span><span>Attack</span></button>`
     : `<button type="button" class="rl-btn is-raid" disabled><span class="rl-bi" aria-hidden="true">${ui.icon('versus')}</span><span>Attack</span><em>Recruit or hatch a hero, or train troops</em></button>`;
@@ -72,7 +76,7 @@ async function start3d(st) {
   if (!ok) { host.innerHTML = '<div class="rl-loading">This phone can’t show the realm in 3D.</div>'; return; }
   host.innerHTML = '';
   const house = houseOf(st.T.key);
-  st.v = D3.create(host, {house, zoom: 60, onTap: hit => select(st, hit.id == null || hit.id === st.sel ? null : hit.id)});
+  st.v = D3.create(host, {house, zoom: 60, ...(st.T.pvp ? {scenery: st.T.sc} : {}), onTap: hit => select(st, hit.id == null || hit.id === st.sel ? null : hit.id)});
   st.v.setLot(st.T.base, {now: Date.now(), house});
   fitAll(st);
   st.el.querySelector('.rls').__rl = st; // (for the checks' and tests' hands)
@@ -108,7 +112,9 @@ export default {
       if (T.why) { msg.hidden = false; msg.textContent = T.locked && !/[.!]$/.test(T.why) ? `${T.why}.` : T.why; el.querySelector('[data-rls-bar]').hidden = true; return; }
       msg.hidden = true;
       st.T = T;
-      el.querySelector('[data-rls-who]').innerHTML = `<span class="rl-tg-lv">${T.th}</span><span><b>${esc(T.name)}</b><small>${T.loot.total.gold || T.loot.total.grain ? `To take ${curHTML('gold', T.loot.total.gold)} ${curHTML('grain', T.loot.total.grain)}` : 'Sacked today: nothing left to take'}</small></span>`;
+      // (another player's realm: their house's name, and theirs under it)
+      if (T.pvp) T.name = houseName(T.base, T.who);
+      el.querySelector('[data-rls-who]').innerHTML = `<span class="rl-tg-lv">${T.th}</span><span><b>${esc(T.name)}</b>${T.pvp ? `<small>${esc(T.who.name)}’s realm${T.who.guest ? ' · Guest' : ''}</small>` : ''}<small>${T.loot.total.gold || T.loot.total.grain ? `To take ${curHTML('gold', T.loot.total.gold)} ${curHTML('grain', T.loot.total.grain)}` : T.pvp ? 'Nothing stored to take' : 'Sacked today: nothing left to take'}</small></span>`;
       el.querySelector('[data-rls-def]').innerHTML = defensesOf(T.base).map(d => `<span class="rls-chip">${d.n} ${esc(plural(d.t, d.n))}</span>`).join('') || '<span class="rls-chip">No defenses</span>';
       el.querySelector('[data-rls-go]').innerHTML = goHTML(st.key);
       start3d(st);

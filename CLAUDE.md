@@ -121,10 +121,10 @@ How it's enforced, and what to keep doing:
   (`js/core/week.js` `finishRows()`). The kit check "Standings show everyone to everyone…" (`js/core/checks-pickem.js`)
   covers it.
 - Keepfall (formerly "The Keep" and "The Realm"; `js/views/realm.js`, `js/core/realm.js`) is the owner's alone (October 2026): its
-  Daily Games case and links are on his phones only, it raids only the computer's realms, and no one else's scores,
+  Daily Games case and links are on his phones only, it raids the computer's realms (and other players', below), and no one else's scores,
   names or realms appear in it. Exception (Oct 23 2026, the owner: "Users should be able to view other players bases"):
   Visit (`js/views/realm-visit.js`, `core/realm.js` `visitable()`) lets anyone look round other players' realms, read-only
-  and never raidable, by the scoreboard rule above (since Oct 24 2026: everyone's realm to everyone). The kit check
+  (raiding them is Attack's, below), by the scoreboard rule above (since Oct 24 2026: everyone's realm to everyone). The kit check
   "Keepfall: visiting…" covers it. Don't open it to anyone else unless the owner says so. The kit check "Keepfall: the
   owner's alone…" (`js/core/checks-realm.js`) covers it. Its words (Oct 22 2026): the main building is the Castle,
   the second currency is Ale (Breweries, Cellars); internal ids stay keep/grain/farm/granary and the route #/realm.
@@ -170,6 +170,18 @@ player's realm. `core/realm-battle.js` `defend()` plays nothing and the screen n
 players still attack the computer's realms, the example raids stay (nothing taken), and raids already on a realm's record
 (df) stay in the Chronicle with their replays. `playRaids` is the old engine, for the checks alone. The kit check
 "Keepfall: no computer raids…" covers it.
+
+Player raids (Nov 5 2026, Evan: "Players should have the option to attack other player's bases in Keepfall, not just cpu
+bases"; he chose everyone): Attack lists "Players' realms" above the computer's (`core/realm.js` `playerTargets`, by the
+scoreboard rule via `visitable`); Scout and Attack take `p:<profile key>` (`isPvp`, `playerRealm`). A phone writes only its
+own board doc, so a raid is posted, not delivered: the raider's `rd` record (vs `p:<key>`, `ls`/`lb` what it took from
+storage and from each mine/brewery pile, `by`/`bw` house and name, its replay) rides on the raider's save
+(`finishPlayerRaid`); the raided realm takes it off itself on its next sync (`takeIncoming` -> `takeRaid`, into `df`, with
+a toast and the Chronicle's Watch), each once (`pw[raider]`, the newest taken), a forged take capped at `LOOT_CAP`. A raider
+sees posted raids already taken off. Both Castles at 3+, theirs at most a level above yours and `PVP_BELOW` (2) below,
+one raid a day each (`bt`), a `PVP_TRUCE_H` (12h) truce after a lost star; loot is `lootOf`'s, the coffers never raided.
+The computer's realms still never raid anyone. The kit check "Keepfall: raiding other players…" covers it; verify
+`node tools/realm/check-pvp.cjs` (Attack list, Scout, a raid, the defender's take, toast and Chronicle in a real browser).
 
 Keepfall is fully 3D (Evan, Oct 25 2026: "this game should be all 3d from here on out"): terrain and scenery
 (views/realm-world.js), every building (realm-buildings.js, models/realm/world-v1 + buildings-v1), walls, soldiers,

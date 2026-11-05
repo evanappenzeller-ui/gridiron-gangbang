@@ -49,6 +49,8 @@ export function partsOf(rec, s = F.mine()) {
 /** The computer's realm a record is about: {k, name, th} (the one attacked, or the one that raided you). */
 function botOf(rec, kind) {
   if (kind === 'attack') return F.BOTS.find(b => b.k === rec.vs) || {k: rec.vs, name: rec.nm, th: 1};
+  // (another player's raid on your realm: their house's colours, core/realm.js takeIncoming's pk)
+  if (rec.pk) return {k: F.PVP + rec.pk, name: rec.by, th: rec.th || 1};
   return F.BOTS.find(b => b.k === rec.vs) || F.BOTS.find(b => b.name === rec.by) || {k: '', name: rec.by, th: rec.th || 1};
 }
 /** When (for the header): "Today, 5:26 AM", "Yesterday, 5:26 PM", "Tue Oct 20, 5:26 PM". */
