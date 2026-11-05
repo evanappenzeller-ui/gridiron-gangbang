@@ -147,7 +147,7 @@ function skyImage(id, width, height) {
 }
 export function sky(st, c, t, z) {
   if (!enabled()) return false;
-  const zone = R.zoneAt(st.co,z), next = R.zoneAt(st.co,zone.z0+R.ZONE), k = Math.max(0,Math.min(1,(z-zone.z0-R.ZONE+28)/28));
+  const zone = R.zoneAt(st.co,z), end = zone.z0+R.zoneLength(st.co), next = R.zoneAt(st.co,end), k = Math.max(0,Math.min(1,(z-end+28)/28));
   const w = Math.min(1536,Math.ceil(st.W)), h = Math.max(1,Math.ceil(st.y0+2));
   const draw = (id,alpha) => {
     const cv = skyImage(id,w,h); c.globalAlpha=alpha; c.drawImage(cv,0,0,st.W,st.y0+2);

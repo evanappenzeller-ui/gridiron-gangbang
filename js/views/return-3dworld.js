@@ -396,7 +396,7 @@ const GROUND_EXTRA = {
     if (z0 < 0 || (z0 >= 100 && fy(z0) < 10)) g.add(plane(endzoneMat(), -26.67, 26.67, z0, Math.min(z1, z0 < 0 ? 0 : z0 - fy(z0) + 10), .004));
     // the numbers along each side, the logo at midfield
     for (let yd = 10; yd <= 90; yd += 10) {
-      const z = zone.z0 + yd;
+      const z = Math.floor(z0 / R.TD) * R.TD + yd;
       if (z < z0 || z >= z1 || z <= 0) continue;
       const n = yd <= 50 ? yd : 100 - yd;
       // (read from the sideline, the tops toward it)
@@ -1347,7 +1347,7 @@ const LIGHT = {
 const hazeOf = id => { if (style.enabled()) return new T.Color(style.haze(id)); const [r, g, b] = (LOOKS[id] || LOOKS.stadium).haze.split(',').map(Number); return new T.Color(r / 255, g / 255, b / 255); };
 /** The light and haze at z (blending into the next place's as you come to its gate). */
 export function look(st, z) {
-  const zone = R.zoneAt(st.co, z), next = R.zoneAt(st.co, zone.z0 + R.ZONE), k = clamp((z - (zone.z0 + R.ZONE - 28)) / 28, 0, 1);
+  const zone = R.zoneAt(st.co, z), end = zone.z0 + R.zoneLength(st.co), next = R.zoneAt(st.co, end), k = clamp((z - (end - 28)) / 28, 0, 1);
   const a = style.light(zone.theme.id, LIGHT[zone.theme.id]), b = style.light(next.theme.id, LIGHT[next.theme.id]);
   const c = (x, y) => new T.Color(x).lerp(new T.Color(y), k);
   return {sky: c(a.sky, b.sky), ground: c(a.ground, b.ground), hemi: a.hemi + (b.hemi - a.hemi) * k, sun: c(a.sun, b.sun), sunI: a.sunI + (b.sunI - a.sunI) * k,
@@ -1366,7 +1366,8 @@ export function update(st, now) {
   life.TIME.value = st.reducedMotion ? 0 : lifeTime;
   // the places' models (return-models.js): this one's and the next two's asked for in time; what was built before its
   // place's came in, built again with them while it's still off in the haze
-  for (let z = cz; z <= cz + 2 * R.ZONE; z += R.ZONE) models.want(R.zoneAt(st.co, z).theme.id);
+  const length = R.zoneLength(st.co);
+  for (let z = cz; z <= cz + 2 * length; z += length) models.want(R.zoneAt(st.co, z).theme.id);
   if (models.version() !== MODELS_SEEN) { MODELS_SEEN = models.version(); renew(cz + 75); }
   // the ground beyond the last chunk, out to the horizon (all haze by then)
   if (!FAR_GROUND) { FAR_GROUND = new T.Mesh(new T.PlaneGeometry(4000, 3000).rotateX(-Math.PI / 2), new T.MeshLambertMaterial({color: 0x808080})); ROOT.add(bend(FAR_GROUND)); }
@@ -1388,7 +1389,7 @@ export function update(st, now) {
     }
   }
   // the gates (and their goal lines' pylons)
-  for (let z = Math.ceil((cz - 4) / R.ZONE) * R.ZONE; z < cz + AHEAD; z += R.ZONE) {
+  for (let z = Math.ceil((cz - 4) / length) * length; z < cz + AHEAD; z += length) {
     if (z <= 0) continue;
     const th = R.zoneAt(st.co, z + .01).theme;
     const gate = keep(`g:${key}|${z}`, () => {

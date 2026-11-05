@@ -1,7 +1,7 @@
 import * as features from './features.js';
 // Return Man core: the Daily Games' endless runner, after Subway Surfers (the owner's ask, Oct 2026). You field a
 // kickoff in the stadium and run it back as far as you can, and the run goes on out of the stadium into a new place
-// every 100 yards (ZONE: each one a field, a touchdown at its far end): the tailgate, the city, the frozen tundra, the
+// every 500 yards on the owner's enhanced course, otherwise 100 (zoneLength): the tailgate, city, frozen tundra,
 // desert, the farmers market, the beach, outer space and the farm, in an order of the kickoff's own, and round again.
 // Three lanes, and in them, a row at a time, the things to get past (OBST; the owner's ask, Oct 2026: no coverage men
 // running at you, more to jump and slide): a barricade to jump, a banner to slide under. Swipe left or right to juke
@@ -30,7 +30,7 @@ import * as features from './features.js';
 //                                               (sets: [{i, zs, ze, plats: [{lane, kind, part, z0 (the front), z1, h, b,
 //                                               ramp, hi}]}]: KINDS)
 //                                               and its power-ups [{i, z, lane, top, kind}]
-//   THEMES, ZONE, zoneAt(course, z)             the places, and which one z yards is in ({i, theme, z0})
+//   THEMES, ZONE, zoneLength(co), zoneAt(co,z)  the places, their length, and which one z yards is in ({i, theme, z0})
 //   groundAt(course, lane, z, y), blockAt(...)  how high the ground is there for him at height y (a ramp, a roof, a
 //                                               pad; 0 on the road); what's in his way there
 //   speedAt(z, hard), tdsAt(z), LANE            your speed (yards a second) at z yards; touchdowns by z yards; the
@@ -159,10 +159,13 @@ export const fallsIn = e => !!e && e.ob === 'hole' && FALL_IN.includes(e.type);
 // its front or not. You stand on a part you're up level with (STEP); you pass under one whose bottom is over your head
 // (BODY); anything else in your way is a crash, and a pad you jump up into from below stops you short.
 export const HIGH_H = 3, LOW_H = .95, RAMP = 8, BODY = 2, SLIDE_BODY = .9;
-// The places, one after another, ZONE yards each (a field each: you score as you go into the next): the stadium first,
+// The places, one after another, zoneLength(co) yards each: the stadium first,
 // then the other eight in the kickoff's own order, and round again. A vehicle never sits across the line between two
 // (its gate stands on it).
 export const ZONE = 100;
+// ZONE also stays the size of a scenery/field-marking tile; extending a place does not enlarge render batches.
+// Only course() can create an enhanced course, using the existing stable owner profile gate.
+export const zoneLength = co => co.enhanced ? 500 : ZONE;
 export const THEMES = [
   {id: 'stadium', name: 'The Stadium', kinds: [['teambus', 1], ['bench', 1.2]]},
   {id: 'tailgate', name: 'The Tailgate', kinds: [['rv', 1], ['pong', 1.2]]},
@@ -363,12 +366,12 @@ export function course(n, k, hard = false, enhanced = false) {
 }
 /** The place z yards is in: {i (the how-many-th), theme, z0 (where it starts)}. */
 export function zoneAt(co, z) {
-  const i = Math.max(0, Math.floor(z / ZONE));
+  const length = zoneLength(co), i = Math.max(0, Math.floor(z / length));
   if (co.enhanced && i > 0) {
     const onward = co.order.filter(n => n !== 0);
-    return {i, theme: THEMES[onward[(i - 1) % onward.length] ?? 1], z0: i * ZONE};
+    return {i, theme: THEMES[onward[(i - 1) % onward.length] ?? 1], z0: i * length};
   }
-  return {i, theme: THEMES[co.order[i % co.order.length]], z0: i * ZONE};
+  return {i, theme: THEMES[co.order[i % co.order.length]], z0: i * length};
 }
 /** Seconds to the next beat at z yards (L: how far into the course, 0 to 1). */
 function gapAt(co, L, z) {
@@ -426,7 +429,7 @@ function addSet(co, z, L) {
       plats.push({lane, kind, part: i, z0: round2(z0), z1: round2(z0 + q.len), h: q.h, b: q.b || 0, ramp: q.ramp || 0, hi: q.h >= 2});
     });
   });
-  const ze = Math.max(...plats.map(p => p.z1)), edge = (Math.floor(z / ZONE) + 1) * ZONE;
+  const ze = Math.max(...plats.map(p => p.z1)), edge = zoneAt(co, z).z0 + zoneLength(co);
   if (ze > edge - 10) return false;
   const set = {i: co.sets.length, zs: round2(z), ze, plats};
   co.sets.push(set);
@@ -802,7 +805,7 @@ function sub(run, dt, out) {
   } else { run.y = g; run.vy = 0; }
   if (run.y <= g + 1e-3 && run.vy === 0 && run.t - run.jumpQ < BUFFER) { run.vy = JUMP_V; run.slide = 0; run.jumpQ = -9; }
   // the place, the touchdowns
-  const zone = Math.floor(run.z / ZONE);
+  const zone = zoneAt(co, run.z).i;
   if (zone > run.zone) { run.zone = zone; out.push({type: 'zone', z: run.z, theme: zoneAt(co, run.z).theme}); }
   const tds = tdsAt(run.z);
   if (tds > run.tds) { run.tds = tds; out.push({type: 'td', z: run.z, n: tds}); }

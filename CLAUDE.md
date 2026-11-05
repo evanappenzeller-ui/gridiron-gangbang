@@ -66,6 +66,12 @@ Other profiles retain the existing 750ms kickoff and launch behavior. `node tool
 checks the title on phones/tablets, Play/Help/Scoreboard, ball contact, camera continuity, score freeze,
 pause/resume, reduced motion, fallback and profile boundaries offline.
 
+November 5 longer scenery (owner-only): `core/return.js` `zoneLength(co)` is 500 yards for the enhanced
+course, including the opening stadium. Other profiles retain 100-yard places. Gates, sky/light blends,
+model preloading, zone events and vehicle boundary clearance use that length; touchdown scoring stays
+every 100 physical yards. Scenery/render tiles and field markings remain 100 yards so detail density and
+batch sizes stay bounded. `check-motion.cjs` covers 500-yard boundaries, course generation and unchanged scoring.
+
 Evan chose the supplied colorful low-poly runner reference for Return Man's environments: bold silhouettes,
 warm cream trim, saturated accents, faceted foliage, clean roads and clearly visible hazards. Keep each of the
 nine locations distinct. This direction applies to Evan's profile only. `return-style.js` owns the procedural

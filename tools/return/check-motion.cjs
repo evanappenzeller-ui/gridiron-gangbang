@@ -32,6 +32,7 @@ async function main() {
           body = fs.readFileSync(file);
           if (url.pathname === '/js/views/return.js') body += '\nexport {runner3, runnerAnim, chaser3, draw, patchHud, frame, onEvents};';
           if (url.pathname === '/js/views/return-3d.js') body += '\nexport {GL};';
+          if (url.pathname === '/js/views/return-3dworld.js') body += '\nexport {LIVE};';
         }
         return route.fulfill({contentType: mime[path.extname(url.pathname)] || 'application/octet-stream', body});
       } catch (e) { errors.push(e.message); return route.fulfill({status: 404, body: e.message}); }
@@ -167,8 +168,29 @@ async function main() {
       });
       test('The owner leaves the stadium once; other profiles retain their route', () => {
         const c = empty().co; ok(R.zoneAt(c, 0).theme.id === 'stadium', 'opening field');
-        for (let z = 100; z < 20000; z += 100) ok(R.zoneAt(c, z).theme.id !== 'stadium', 'no later football field');
+        for (let z = 500; z < 20000; z += 100) ok(R.zoneAt(c, z).theme.id !== 'stadium', 'no later football field');
         D.setMe('ben'); const old = R.course(9090, 0, true, true); ok(R.zoneAt(old, 900).theme.id === 'stadium', 'public cycle unchanged'); D.setMe('evan');
+      });
+      test('Owner scenery lasts 500 physical yards, with 100-yard touchdowns and clear boundaries', () => {
+        for (let n = 1; n <= 12; n++) {
+          const co = R.fill(R.course(80000 + n, 0, true, true), 10000);
+          ok(R.zoneLength(co) === 500, 'owner length');
+          for (let i = 0; i < 20; i++) {
+            const start = R.zoneAt(co, i * 500), end = R.zoneAt(co, i * 500 + 499.99);
+            ok(start.i === i && start.z0 === i * 500 && end.theme === start.theme && end.i === i, 'full 500 yards per place');
+            ok(R.zoneAt(co, (i + 1) * 500).theme !== start.theme, 'new theme at the boundary');
+          }
+          for (const s of co.sets) ok(s.ze <= R.zoneAt(co, s.zs).z0 + 490, 'vehicles leave room before each gate');
+          ok(co.rows.every(row => row.th === R.zoneAt(co, row.z).theme.id), 'obstacle themes follow the longer scenery');
+        }
+        for (const boost of [false, true]) {
+          const r = empty(); if (boost) r.pills = 1000;
+          const events = []; while (r.z < 1001) events.push(...R.step(r, 1 / 60));
+          eq(events.filter(e => e.type === 'zone').map(e => Math.floor(e.z)), [500, 1000], 'zone events only at 500-yard boundaries');
+          ok(r.tds === 10 && Math.abs(r.yards - r.z * (boost ? 2 : 1)) < .001, 'touchdowns and boost scoring unchanged');
+        }
+        for (const id of ['ben', 'none']) { D.setMe(id); const co = R.course(80050, 0, true, true); ok(R.zoneLength(co) === 100 && R.zoneAt(co, 100).i === 1, 'public length unchanged'); }
+        D.setMe('evan');
       });
       test('Every active power-up doubles points, overlaps stay 2x, and expiry restores 1x', () => {
         for (const kind of ['salts', 'pills', 'booze', 'jetpack']) {
@@ -227,6 +249,29 @@ async function main() {
       await D3.prepare(st);
     });
     await page.waitForTimeout(1200);
+    report.scenery = await page.evaluate(async () => {
+      const {R,V,st} = window.qa, W = await import('/js/views/return-world.js'), W3 = await import('/js/views/return-3dworld.js');
+      const original = {co:st.run.co,z:st.run.z,yards:st.run.yards,trains:st.run.trains};
+      const co = {...R.course(80061,0,true,true),rows:[],sets:[],items:[],traffic:[],z:1e9,done:1e9};
+      st.run.co=co; st.run.trains=[];
+      const checks=[];
+      for (const z of [100,250,490,500,750,990,1000]) {
+        st.run.z=st.run.yards=z;
+        for(let i=0;i<12;i++) V.draw(st,12000);
+        const gates=[...W3.LIVE].filter(([key])=>key.startsWith('g:')).map(([,v])=>-v.obj.position.z);
+        if(gates.some(g=>g%500!==0) || (z===490 && !gates.includes(500)) || (z===990 && !gates.includes(1000))) throw new Error('Wrong scenery gate at '+z);
+        const chunks=[...W3.LIVE].filter(([key])=>key.startsWith('c:')).map(([,v])=>v.obj);
+        if(chunks.some(c=>c.userData.theme!==R.zoneAt(co,c.userData.z0+.01).theme.id)) throw new Error('Wrong ground theme at '+z);
+        const a=W.blendAt(st,z), zone=R.zoneAt(co,z);
+        if(a.now.id!==zone.theme.id || a.next.id!==R.zoneAt(co,zone.z0+500).theme.id || (z===250 && a.k!==0) || (z===490 && a.k===0)) throw new Error('Wrong sky transition');
+        // Exercise the actual canvas fallback at both ends of a long scenery stretch.
+        st.flat=true; V.draw(st,12000); st.flat=false;
+        checks.push({z,theme:zone.theme.id,gates,tiles:chunks.length});
+      }
+      Object.assign(st.run,original); for(let i=0;i<12;i++) V.draw(st,12000);
+      return checks;
+    });
+    console.log('PASS 500-yard 3D gates, ground tiles, sky transitions and canvas fallback');
     await page.evaluate(() => { for (let i = 0; i < 12; i++) window.qa.render(); });
     await page.screenshot({path: path.join(output, 'incoming-train.png')});
     report.render = await page.evaluate(async () => {

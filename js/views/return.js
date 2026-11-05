@@ -1,6 +1,6 @@
 import * as features from '../core/features.js';
 // Return Man (Daily Games, its own page /puzzles/return; core/return.js): the endless kick return, after Subway Surfers.
-// The camera rides behind the returner as he runs out of the stadium and on into a new place every 100 yards (the
+// The camera rides behind the returner as he runs out of the stadium into a new place every zoneLength yards (the
 // tailgate, the city, the frozen tundra, the desert, the farmers market, the beach, outer space, the farm: a touchdown
 // under the gate into each), the barricades and banners across the lanes a row at a time (no coverage men: the
 // owner's ask, Oct 2026) and the vehicles parked in them. A swipe on the stage (or the arrow keys) jukes a lane over,
@@ -609,9 +609,11 @@ function drawLanes(st, c, now) {
       }});
     }));
     // the gates into the places ahead
-    for (let g = Math.ceil((rz - st.back) / R.ZONE) * R.ZONE; g < rz + 140; g += R.ZONE) if (g > 0 && !(R.flying(run) && Math.abs(g - rz) < 16)) list.push({z: g, draw: () => W.gate(st, c, g, R.zoneAt(run.co, g).theme, t)});
+    const length = R.zoneLength(run.co);
+    for (let g = Math.ceil((rz - st.back) / length) * length; g < rz + 140; g += length) if (g > 0 && !(R.flying(run) && Math.abs(g - rz) < 16)) list.push({z: g, draw: () => W.gate(st, c, g, R.zoneAt(run.co, g).theme, t)});
   } else {
-    list.push({z: R.ZONE, draw: () => W.gate(st, c, R.ZONE, R.zoneAt(st.co, R.ZONE).theme, t)});
+    const length = R.zoneLength(st.co);
+    list.push({z: length, draw: () => W.gate(st, c, length, R.zoneAt(st.co, length).theme, t)});
   }
   // the linebacker, chasing: just behind him (a step to the side, so he doesn't hide him) after a hit, then dropping away
   // below the screen as he runs on clean; diving at his back when he runs him down

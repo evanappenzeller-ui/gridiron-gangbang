@@ -283,12 +283,12 @@ function skyOf(st, id) {
 /** Readies the skies of the place z yards is in and the next (so a gate never waits on one being drawn). */
 export function warm(st, z) {
   const zone = R.zoneAt(st.co, z);
-  skyOf(st, zone.theme.id); skyOf(st, R.zoneAt(st.co, zone.z0 + R.ZONE).theme.id);
+  skyOf(st, zone.theme.id); skyOf(st, R.zoneAt(st.co, zone.z0 + R.zoneLength(st.co)).theme.id);
 }
 /** How far into the next place's sky we are (0..1), and the two places. */
 export function blendAt(st, z) {
-  const zone = R.zoneAt(st.co, z), next = R.zoneAt(st.co, zone.z0 + R.ZONE);
-  return {now: zone.theme, next: next.theme, k: clamp((z - (zone.z0 + R.ZONE - FADE)) / FADE, 0, 1)};
+  const zone = R.zoneAt(st.co, z), end = zone.z0 + R.zoneLength(st.co), next = R.zoneAt(st.co, end);
+  return {now: zone.theme, next: next.theme, k: clamp((z - (end - FADE)) / FADE, 0, 1)};
 }
 function skyOne(st, c, id, t, a) {
   const S = skyOf(st, id);
@@ -626,6 +626,7 @@ const DRESSERS = {
 };
 const GOODS_COL = {oranges: ['#F28C28', '#FFB255'], apples: ['#D63B2E', '#F06A55'], greens: ['#4FA845', '#7CCB5E'], corn: ['#F2C94C', '#FFE08A'], flowers: ['#E85AA0', '#FFD23F']};
 function dressOf(st, i) {
+  // Dressing stays in 100-yard tiles, even inside the owner's longer 500-yard places.
   const key = `${st.co.n}|${st.co.k}|${i}`, cacheKey = key + (st.co.enhanced ? '|one-field' : '');
   if (DRESS.has(cacheKey)) return DRESS.get(cacheKey);
   const th = R.zoneAt(st.co, i * R.ZONE).theme, list = [];
