@@ -54,9 +54,6 @@
 .v-dynasty .rl-match-action em { font-style: normal; font-size: 7px; font-weight: 800; letter-spacing: .06em; color: #6c879a; }
 .v-dynasty .rl-match-action b { display: flex; align-items: center; gap: 4px; color: #087fac; font-size: 11px; }
 .v-dynasty .rl-match.is-next { box-shadow: 0 0 0 2px #25b9d4, 3px 7px 16px #3b6b8e26; }
-.v-dynasty .rl-match.is-locked .rl-card { filter: saturate(.65); }
-.v-dynasty .rl-ladder .rl-match.is-locked { opacity: 1; }
-.v-dynasty .rl-match.is-locked .rl-match-action b { color: #718a9b; }
 .v-dynasty .rl-match.is-boss { background: linear-gradient(135deg, #fdfbff, #f0edff); contain-intrinsic-size: auto 134px; }
 .v-dynasty .rl-match.is-boss > button { min-height: 134px; align-items: stretch; }
 .v-dynasty .rl-match.is-boss .rl-card { background: linear-gradient(150deg, #f7c965, #ba83dc 65%, #777be8); }
@@ -64,6 +61,17 @@
 .v-dynasty .rl-match.is-boss .rl-match-reward { color: #8245a0; }
 .v-dynasty .rl-match.is-boss .rl-match-action em { color: #b2478d; }
 .v-dynasty .rl-match.is-won .rl-match-top > svg { color: #2d9877; }
+.v-dynasty .rl-ladder .rl-match.is-locked { opacity: 1; background: #c5d2dc; box-shadow: 0 2px 5px #3b6b8e12; }
+.v-dynasty .rl-match.is-locked > button { border-color: #b2c1ce; }
+.v-dynasty .rl-match.is-locked .rl-step { background: #b4c4d1; color: #294e68; }
+.v-dynasty .rl-match.is-locked .rl-card { filter: saturate(.5) brightness(.9); }
+.v-dynasty .rl-match.is-locked .rl-match-reward,
+.v-dynasty .rl-match.is-locked .rl-match-copy > small,
+.v-dynasty .rl-match.is-locked .rl-number,
+.v-dynasty .rl-match.is-locked .rl-match-status,
+.v-dynasty .rl-match.is-locked .rl-match-top > svg,
+.v-dynasty .rl-match.is-locked .rl-match-action b,
+.v-dynasty .rl-match.is-locked .rl-match-action em { color: #40586c; }
 .v-dynasty .rl-tools { padding: 18px 0 4px; }
 .v-dynasty .rl-ladder button:focus-visible { outline: 3px solid #0476a1; outline-offset: 4px; }
 .v-dynasty-battle .db-boss-prize { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; color: #f3d87d; font-size: 12px; }
