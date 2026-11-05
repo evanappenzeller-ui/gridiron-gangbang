@@ -580,6 +580,11 @@ export async function runChecks() {
     const stew = daily.boardKey(s1) === 'user:ryan-stewart' && daily.boardKey(s2) === 'user:ryan-stewart' && srows.length === 1 && !srows[0].guest;
     daily.LB.raw = all;
     const snames = ['Ryan Stewart', 'ryan s', 'RYSTEW'].map(n => (daily.guestNameProblem(n) ? 'no' : 'ok')).join(' ');
+    // Ryan Younggreen (Nov 5 2026): an app user like the others, by his board name Ryan Y, his names kept for him.
+    const y1 = {id: 'fake-y1', nick: 'ryan  younggreen', g: true, days: {}, total: 0, played: 0, last: 0};
+    const yrows = daily.boardRows('today', players.concat([y1]), P).filter(r => r.name === 'Ryan Y');
+    const young = daily.boardKey(y1) === 'user:ryan-younggreen' && (data.userNamed('Ryan Younggreen') || {}).id === 'ryan-younggreen'
+      && ['Ryan Younggreen', 'ryan y'].every(n => daily.guestNameProblem(n)) && yrows.length <= 1 && yrows.every(r => !r.guest) && daily.boardShows(y1);
     // THE RULE (CLAUDE.md, Oct 24 2026): everyone shows on every phone, the league's or the owner's alike: Ryan S, Ryan D,
     // a guest, a member. A row that is no one's (an old test row) only on the phone that posted it.
     const isRyanS = (data.user() || {}).id === 'ryan-stewart';
@@ -593,8 +598,8 @@ export async function runChecks() {
     daily.LB.raw = raw;
     const pass = once.every(x => x.length === 1) && !!row && !row.guest && row.managerId === null && keys
       && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no ok no' && stew && snames === 'no no no'
-      && solo && owner;
-    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}; Ryan S shown here ${daily.boardShows(s1)} (this phone is him: ${isRyanS}, the owner's: ${data.isOwner()}); everyone on every phone ${solo}, no app user set apart ${owner}`};
+      && young && solo && owner;
+    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}; Ryan Y ${young}; Ryan S shown here ${daily.boardShows(s1)} (this phone is him: ${isRyanS}, the owner's: ${data.isOwner()}); everyone on every phone ${solo}, no app user set apart ${owner}`};
   });
 
   check('pictures: your own picture in place of your initials, for a person on all their phones (the newest counts), and only from a doc that is that person\'s; everyone\'s shows to everyone, a member\'s, an app user\'s, a guest\'s (THE RULE, CLAUDE.md, Oct 24 2026); taking it away brings the initials back; an avatar with a picture draws it, and gets it (or loses it) in place', () => {

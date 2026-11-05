@@ -511,7 +511,9 @@ export function guest() { return me() ? null : guestRead(); }
 // avatars.js pictureShows), an app user's like a member's, and Keepfall's pay ranks among them all. (Ryan Dow's old
 // league: true, the one app user the league saw before that, went with it.)
 export const USERS = [{id: 'ryan-dow', name: 'Ryan Dow', board: 'Ryan D'},
-  {id: 'ryan-stewart', name: 'Ryan Stewart', board: 'Ryan S', aka: ['RyStew']}];
+  {id: 'ryan-stewart', name: 'Ryan Stewart', board: 'Ryan S', aka: ['RyStew']},
+  // Ryan Younggreen (Nov 5 2026, the owner: "Add a guest account for Ryan Younggreen").
+  {id: 'ryan-younggreen', name: 'Ryan Younggreen', board: 'Ryan Y'}];
 // The league's owner (Evan, Oct 2026): his phones see every player on the boards, the Pick'em tables and their
 // pictures (guests, Ryan S, any app user); the rest of the league still sees only members and Ryan D (THE RULE).
 export const OWNER = 'evan';

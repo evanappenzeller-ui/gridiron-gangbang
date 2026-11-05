@@ -100,7 +100,7 @@ No longer shall names be hidden from league members"). It replaces the October 2
 Ryan D to the league:
 
 - **Everyone appears on every phone's scoreboards**: league members, every app user (Ryan Dow "Ryan D", Ryan Stewart
-  "Ryan S", anyone added later) and every guest (tagged Guest). Pick'em standings and Keepfall's Visit list too.
+  "Ryan S", Ryan Younggreen "Ryan Y" (Nov 5 2026), anyone added later) and every guest (tagged Guest). Pick'em standings and Keepfall's Visit list too.
 - Rows that belong to no one (old test rows) stay hidden, except on the phone that posted them; the duplicate rows in
   `daily.js` `HIDDEN` stay hidden.
 - **Profile pictures follow it too**: everyone's picture shows on every phone (the owner, Oct 24 2026).
