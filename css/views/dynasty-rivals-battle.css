@@ -333,3 +333,29 @@ html.is-dynasty-battle { --col-w: 640px; }
 
 .v-dynasty-battle .is-owner-table .db-bar { margin-top: 0; }
 .v-dynasty-battle .is-owner-table .db-hand-fan { height: calc(var(--db-hand) * 1.4 + 32px); }
+
+/* One phone screen, no scrolling (the owner, Nov 4 2026: "i shouldn't have to scroll down to see my cards in the rivals
+   gameplay"). The screen keeps no room for the tab bar (hidden while you play) and the battle is exactly the screen's
+   height: header, felt, hand and bar. The hand is sized from the screen's height less the notch and home bar; the felt
+   takes whatever is left, and its two sides split that, each sizing its cards to its own height and width (cqh/cqw),
+   so a two-line status, a two-row bar or a short phone shrinks the cards on the felt instead of pushing the hand off. */
+.v-dynasty-battle.screen { padding-bottom: 0; }
+.v-dynasty-battle > .screen-body { height: 100%; }
+.v-dynasty-battle .db, .v-dynasty-battle .db.is-owner-table {
+  height: 100%; min-height: 0;
+  --db-vh: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  --db-hand: clamp(54px, calc(var(--db-vh) * .095), 92px);
+  --db-bench-max: 74px; --db-active-max: 110px;
+}
+.v-dynasty-battle .db > * { flex: none; }
+.v-dynasty-battle .db > .db-table { flex: 1 1 0; min-height: 0; }
+.v-dynasty-battle .db-hand-section { margin-top: 0; }
+.v-dynasty-battle .db-bar { position: relative; margin-top: 0; }
+.v-dynasty-battle .db-table > .db-side { flex: 1 1 0; min-height: 0; justify-content: center; container-type: size;
+  /* (a bench card's width from the side's height: bench 1.4w tall, active 1.4 × 1.4w, their gap and the tag's room) */
+  --db-fit: calc((100cqh - 16px) / 3.4); }
+.v-dynasty-battle .db-table > .db-side .db-row.is-bench .db-slot { width: clamp(24px, min(var(--db-fit), calc((100cqw - 16px) / 3)), var(--db-bench-max)); }
+.v-dynasty-battle .db-table > .db-side .db-row.is-active .db-slot { width: clamp(32px, min(calc(var(--db-fit) * 1.4), 100cqw), var(--db-active-max)); }
+@media (min-width: 600px) {
+  .v-dynasty-battle .db, .v-dynasty-battle .db.is-owner-table { --db-hand: clamp(54px, calc(var(--db-vh) * .1), 112px); --db-bench-max: 96px; --db-active-max: 124px; }
+}

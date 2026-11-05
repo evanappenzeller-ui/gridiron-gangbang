@@ -112,6 +112,9 @@ async function main(url) {
       await page.setViewportSize({width, height: width === 320 ? 640 : 844});
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'no horizontal overflow at ' + width);
       assert.equal(await page.evaluate(() => [...document.querySelectorAll('[data-db-hand]')].every(c => { const r = c.getBoundingClientRect(); return r.left >= -4 && r.right <= innerWidth + 4; })), true, 'every hand card is on screen at ' + width);
+      // One screen, no scrolling (Evan, Nov 4 2026): the battle never scrolls and no hand card hides under the bar.
+      assert.deepEqual(await page.evaluate(() => { const s = document.querySelector('.screen.v-dynasty-battle'), bar = document.querySelector('.db-bar').getBoundingClientRect().top;
+        return {scrolls: s.scrollHeight > s.clientHeight + 1, covered: [...document.querySelectorAll('[data-db-hand]')].filter(c => c.getBoundingClientRect().bottom > bar + 1).length}; }), {scrolls: false, covered: 0}, 'the whole battle fits the screen at ' + width);
       if (width === 320) await page.screenshot({path: path.join(root, 'output/rivals-battle-320.png'), fullPage: true});
       if (width === 1280) await page.screenshot({path: path.join(root, 'output/rivals-battle-desktop.png'), fullPage: true});
     }
