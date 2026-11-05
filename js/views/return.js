@@ -87,7 +87,7 @@ function keysHTML(hard) {
     + (features.returnManUpdated() ? k('is-train', '↔', 'Incoming trains: change lanes to dodge') : '')
     + k('is-chase', '!', features.returnManUpdated() ? 'While the chaser is visible, your next unprotected hit ends the run. Stay clean until he leaves the screen' : hard ? 'The linebacker starts close. After a stumble, your next unprotected hit tackles you—even after a clean stretch' : 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
-    + pw('salts', 'Smelling salts', data.isOwner() ? '10-second speed burst. Unused extra lives expire with the boost' : hard ? '10-second speed burst + extra life' : 'Speed burst + extra life')
+    + pw('salts', 'Smelling salts', features.returnManUpdated() ? '10-second speed burst. Unused extra lives expire with the boost' : hard ? '10-second speed burst + extra life' : 'Speed burst + extra life')
     + pw('pills', 'Painkillers', hard ? 'Hit anything, no stumble' : 'Feel nothing')
     + pw('booze', 'Booze', features.returnManUpdated() ? 'Double yards, with a swaying view' : hard ? 'Double yards, but blurry' : 'Double yards')
     + (features.returnManUpdated() ? pw('jetpack', 'Jetpack', 'Fly headfirst for 8 seconds. Swipe left or right to barrel roll through coins and dodge sky hazards. A hit brings you down') : '')
@@ -147,7 +147,7 @@ function cardHTML(st) {
       + `<button type="button" class="rm-start-play" data-rm-go${st.goOn3D ? ' disabled aria-busy="true"' : ''}>${st.goOn3D ? 'GETTING READY…' : 'PLAY!'}<span>${R.testing() ? 'Practice · unlimited runs' : 'One return. Make it count.'}</span></button>`
       + '<div class="rm-start-menu"><details class="rm-start-help"><summary>HOW TO PLAY</summary>'
       + '<ul class="rm-start-controls"><li><b>← →</b> Swipe to change lanes</li><li><b>↑</b> Jump onto roofs</li><li><b>↓</b> Slide under obstacles</li></ul>'
-      + `<p>All boosts give 2× points. ${data.isOwner() ? 'Smelling salts expire when their speed boost ends. ' : ''}With a jetpack, swipe to barrel roll through coins. While the chaser is visible, your next unprotected hit ends the run. Stay clean until he leaves the screen.</p></details>`
+      + `<p>All boosts give 2× points. Smelling salts expire when their speed boost ends. With a jetpack, swipe to barrel roll through coins. While the chaser is visible, your next unprotected hit ends the run. Stay clean until he leaves the screen.</p></details>`
       + '<button type="button" data-rm-sb>SCOREBOARD</button></div>'
       + `<p class="rm-start-date">${esc(R.dayLabel(st.n))}${R.testing() ? ' · Scores are not posted' : ''}</p></div>`;
   }

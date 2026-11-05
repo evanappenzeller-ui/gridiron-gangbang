@@ -14,3 +14,5 @@ Its existing Keepfall, Return Man, game presentation and navigation features are
 The owner explicitly authorized all completed Return Man updates for every player on November 5, 2026.
 Its movement, course/scenery, jetpack, scoring, pursuit, title/intro and pickup presentation are shared baseline
 (`features.returnManUpdated()`). This exception does not open other app pilots or owner tools.
+The November 5 follow-up explicitly includes every Return Man change for all user accounts, including smelling
+salts expiring with their speed boost. Do not keep Return Man gameplay or presentation behind owner-only gates.

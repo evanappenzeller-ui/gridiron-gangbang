@@ -100,16 +100,16 @@ async function main() {
     await page.evaluate(() => { const {D,st,I}=window.qa; D.setMe('ben'); if (st.run.over || !I.enabled(st)) throw new Error('profile change must retain shared intro'); });
     await page.emulateMedia({reducedMotion:'no-preference'});
     await page.waitForFunction(() => !window.qa.V.getRM());
-    for (const profile of ['ben','Ryan Stewart','Evan Appenzeller','Guest Runner',null]) {
+    for (const profile of ['ben','Ryan Dow','Ryan Stewart','Evan Appenzeller','Guest Runner',null]) {
       const state=await page.evaluate(profile => {
         const {D,V,ctx,I,R}=window.qa; V.unmount(document.querySelector('main'),ctx);
         D.setMe(profile==='ben'?'ben':'none'); D.setGuest(profile==='ben'?null:profile);
         R.setTest(true);
         const markup=V.render(ctx), probe={intro:true,mode:'catch',catchAt:0};
         V.mount(document.querySelector('main'),ctx);
-        return {title:markup.includes('rm-start-title'),shot:!!I.shot(probe,500),duration:I.duration(probe)};
+        return {title:markup.includes('rm-start-title'),help:markup.includes('Smelling salts expire when their speed boost ends.'),shot:!!I.shot(probe,500),duration:I.duration(probe)};
       },profile);
-      assert.deepEqual(state,{title:true,shot:true,duration:2600},'shared opening '+profile);
+      assert.deepEqual(state,{title:true,help:true,shot:true,duration:2600},'shared opening and help '+profile);
       await page.waitForFunction(() => document.querySelector('[data-rm-cv]').__rm.warmed);
       assert(await page.evaluate(() => { const st=document.querySelector('[data-rm-cv]').__rm; return st.mode==='ready' && !st.run; }), 'explicit Play required for '+profile);
       await page.locator('[data-rm-go]').click();

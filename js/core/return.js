@@ -1,5 +1,4 @@
 import * as features from './features.js';
-import * as data from './data.js';
 import {RETURN_REPLAY} from './score-release.js';
 // Return Man core: the Daily Games' endless runner, after Subway Surfers (the owner's ask, Oct 2026). You field a
 // kickoff in the stadium and run it back as far as you can, and the run goes on out of the stadium into a new place
@@ -165,7 +164,7 @@ export const HIGH_H = 3, LOW_H = .95, RAMP = 8, BODY = 2, SLIDE_BODY = .9;
 // (its gate stands on it).
 export const ZONE = 100;
 // ZONE also stays the size of a scenery/field-marking tile; extending a place does not enlarge render batches.
-// Only course() can create an enhanced course, using the existing stable owner profile gate.
+// course() enables the updated course through the shared Return Man feature flag.
 export const zoneLength = co => co.enhanced ? 500 : ZONE;
 export const THEMES = [
   {id: 'stadium', name: 'The Stadium', kinds: [['teambus', 1], ['bench', 1.2]]},
@@ -250,7 +249,7 @@ export const HARD_BURST_S = 10;
 /** A power-up's words on the course (hard: the hard course's). */
 export const powerOf = (kind, hard, enhanced = false) => {
   const power = hard ? Object.assign({}, POWER[kind], HARD_POWER[kind]) : POWER[kind];
-  return kind === 'salts' && enhanced && data.isOwner() ? {...power,
+  return kind === 'salts' && enhanced ? {...power,
     says: 'Speed boost + temporary extra life',
     does: `A ${hard ? HARD_BURST_S : BURST.s}-second speed burst. Unused extra lives expire when the speed boost ends`
   } : power;
@@ -720,7 +719,7 @@ function hit(run, out, what) {
   if (run.grace > 0 && (!run.co.hard || sameCollision(run.lastHit, what))) {
     out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass';
   }
-  const salts = run.salts > 0 && (!run.co.enhanced || !data.isOwner() || run.burst > 0);
+  const salts = run.salts > 0 && (!run.co.enhanced || run.burst > 0);
   if (what.wall && run.co.hard) {
     if (salts) {
       run.salts--; run.shield = run.co.hard ? 0 : SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = burstSecs(run);
@@ -869,8 +868,8 @@ function sub(run, dt, out) {
   run.booze = Math.max(0, run.booze - dt);
   run.shield = Math.max(0, run.shield - dt);
   run.burst = Math.max(0, (run.burst || 0) - dt);
-  // Owner salts are usable only during their speed boost, never banked for a later hit.
-  if (co.enhanced && data.isOwner() && !run.burst) run.salts = 0;
+  // Salts are usable only during their speed boost, never banked for a later hit.
+  if (co.enhanced && !run.burst) run.salts = 0;
   run.slow = Math.max(0, run.slow - dt);
   run.grace = Math.max(0, run.grace - dt);
   run.knock = Math.max(0, run.knock - dt);

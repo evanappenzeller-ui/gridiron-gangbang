@@ -44,12 +44,14 @@ async function main() {
     report.gameplay = await page.evaluate(async () => {
       const [D, R, old, V, D3] = await Promise.all([import('/js/core/data.js'), import('/js/core/return.js'), import('/js/core/return-baseline.js'), import('/js/views/return.js'), import('/js/views/return-3d.js')]);
       await D.load();
-      window.qa = {D, R, V, D3};
+      const profiles = [...Object.keys(D.M), ...D.USERS.map(u => u.name), 'Evan Appenzeller', 'Guest Runner', null];
+      window.qa = {D, R, V, D3, profiles};
+      const selectProfile = profile => { D.setMe(D.M[profile] ? profile : 'none'); D.setGuest(D.M[profile] || profile === 'none' ? null : profile); };
       const results = [], ok = (b, s) => { if (!b) throw new Error(s); }, eq = (a, b, s) => ok(JSON.stringify(a) === JSON.stringify(b), s);
       const test = (name, fn) => { fn(); results.push(name); };
       const tick = (r, seconds, dt = 1 / 60) => { const e = []; for (let t = 0; t < seconds - 1e-7 && !r.over; t += dt) e.push(...R.step(r, dt)); return e; };
       function empty(profile = 'evan') {
-        D.setMe(profile); const r = R.startRun(70001, 0, true, false, true);
+        selectProfile(profile); const r = R.startRun(70001, 0, true, false, true);
         r.co = {...r.co, rows: [], sets: [], items: [], traffic: [], z: 1e9, done: 1e9}; r.t = 10;
         return r;
       }
@@ -67,8 +69,8 @@ async function main() {
           if (i % 40 === 0) old.move(b, 'up');
           frames.push({events: JSON.stringify(old.step(b, 1 / 60)), motion: [b.z, b.y, b.steps, b.yards, b.over]});
         }
-        for (const profile of ['evan', 'ben', 'Ryan Stewart', 'Evan Appenzeller', 'Guest Runner', null]) {
-          D.setMe(profile === 'evan' || profile === 'ben' ? profile : 'none'); D.setGuest(['evan', 'ben'].includes(profile) ? null : profile);
+        for (const profile of profiles) {
+          selectProfile(profile);
           for (const [index, n] of [1, 16, 500].entries()) {
             const a = R.fill(R.course(n, 0, true, true), 3000);
             ok(a.enhanced && a.traffic.length && a.items.some(i => i.kind === 'jetpack'), 'complete course for ' + profile);
@@ -218,39 +220,34 @@ async function main() {
           r.booze = r.pills = r.burst = r.jetpack = 0; ok(R.multiplierOf(r) === 1, 'expired boosts do not double yards');
         }
       });
-      test('Owner salts expire with the speed boost, including repeat pickups; expired salts cannot revive', () => {
+      test('Every account shares salts expiry, repeat pickups, active protection and no revival after expiry', () => {
         const collect = r => { r.co.items.push({i:r.co.items.length,kind:'salts',lane:1,z:r.z+.01}); return tick(r,.02); };
         const hit = r => { r.co.rows.push({i:r.co.rows.length,z:r.z+.01,lanes:[null,'hurdle',null]}); return tick(r,.02); };
-        for (const dt of [1/30,1/60,1/120]) for (const count of [1,2]) {
-          const r=empty(); for(let i=0;i<count;i++) collect(r);
-          ok(r.salts===count && r.burst>9.8,'pickup grants active protection');
-          tick(r,8,dt); ok(hit(r).some(e=>e.type==='stumbled'),'first impact brings the chaser');
-          tick(r,r.burst+.02,dt);
-          ok(r.burst===0 && r.salts===0 && R.multiplierOf(r)===1,'all unused salts expire with speed and double points');
-          ok(R.chasing(r) && R.gapOf(r)<R.CHASE.seen,'chaser still visible after boost expires');
-          ok(hit(r).some(e=>e.type==='tackled') && r.over,'expired salts cannot rescue the next collision');
-        }
-        const refreshed=empty(); collect(refreshed); tick(refreshed,8); collect(refreshed); tick(refreshed,3);
-        ok(refreshed.salts===2 && refreshed.burst>6,'another pickup refreshes the active boost');
-        tick(refreshed,refreshed.burst+.02); ok(refreshed.salts===0,'both unused lives expire with the refreshed boost');
-        for (const wall of [false,true]) {
-          const stale=empty(); stale.hitAt=stale.t; stale.salts=2; stale.burst=0;
-          if(wall) train(stale,1,.01);
-          const ev=wall?tick(stale,.02):hit(stale);
-          ok(stale.over && !ev.some(e=>e.type==='revived'),'an expired balance cannot revive against a '+(wall?'train':'row'));
-        }
-        for (const profile of ['ben','Ryan Stewart','Evan Appenzeller',null]) {
-          D.setMe(profile==='ben'?'ben':'none'); D.setGuest(profile==='ben'?null:profile);
-          const r=R.startRun(70002,0,true,false,true);
-          r.co={...r.co,rows:[],sets:[],items:[],z:1e9,done:1e9}; r.t=10;
-          collect(r); tick(r,11);
-          ok(r.co.enhanced && r.salts===1 && r.burst===0,'other profiles keep their existing stored salts and updated course');
-          r.hitAt=r.t;
-          ok(hit(r).some(e=>e.type==='revived') && !r.over,'stored salts still revive other profiles after boost expiry');
+        for (const profile of profiles) {
+          for (const dt of [1/30,1/60,1/120]) for (const count of [1,2]) {
+            const r=empty(profile); for(let i=0;i<count;i++) collect(r);
+            ok(r.salts===count && r.burst>9.8,'pickup grants active protection: '+profile);
+            tick(r,8,dt); ok(hit(r).some(e=>e.type==='stumbled'),'first impact brings the chaser');
+            tick(r,r.burst+.02,dt);
+            ok(r.burst===0 && r.salts===0 && R.multiplierOf(r)===1,'all unused salts expire with speed and double points: '+profile);
+            ok(R.chasing(r) && R.gapOf(r)<R.CHASE.seen,'chaser still visible after boost expires');
+            ok(hit(r).some(e=>e.type==='tackled') && r.over,'expired salts cannot rescue the next collision: '+profile);
+          }
+          const refreshed=empty(profile); collect(refreshed); tick(refreshed,8); collect(refreshed); tick(refreshed,3);
+          ok(refreshed.salts===2 && refreshed.burst>6,'another pickup refreshes the active boost');
+          tick(refreshed,refreshed.burst+.02); ok(refreshed.salts===0,'both unused lives expire with the refreshed boost: '+profile);
+          for (const wall of [false,true]) for (const active of [false,true]) {
+            const r=empty(profile); r.hitAt=r.t; r.salts=2; r.burst=active?5:0;
+            if(wall) train(r,1,.01);
+            const ev=wall?tick(r,.02):hit(r);
+            ok(r.over===!active && ev.some(e=>e.type==='revived')===active,'only active salts revive against '+(wall?'train':'row')+': '+profile);
+          }
+          ok(R.powerOf('salts',true,true).does.includes('expire'),'pickup announcement explains expiry: '+profile);
+          const switching=empty(profile); collect(switching); selectProfile(profile==='evan'?'ben':'evan'); tick(switching,11);
+          ok(switching.salts===0 && switching.burst===0,'switching accounts cannot bank expired salts: '+profile);
         }
         D.setGuest(null); D.setMe('evan');
-        ok(R.powerOf('salts',true,true).does.includes('expire'),'owner pickup announcement explains expiry');
-        ok(!R.powerOf('salts',true).does.includes('expire'),'shared pickup copy unchanged');
+        ok(!R.powerOf('salts',true).does.includes('expire'),'legacy fixture copy unchanged');
       });
       test('A stumble stays lethal until the visible chaser finishes retreating', () => {
         const hit = r => { r.co.rows.push({i: r.co.rows.length, z: r.z + .01, lanes: [null, 'hurdle', null]}); return tick(r, .02); };
@@ -362,16 +359,20 @@ async function main() {
     });
     console.log('PASS 500-yard 3D gates, ground tiles, sky transitions and canvas fallback');
     await page.evaluate(() => {
-      const {R,V,st}=window.qa, saved=st.run;
-      const r=R.startRun(70111,0,true,false,true);
-      r.co={...r.co,rows:[],sets:[],items:[],traffic:[],z:1e9,done:1e9}; r.t=10; r.salts=2; r.burst=.02;
-      st.run=r; V.patchHud(st);
-      if(!st.el.querySelector('[data-rm-pows] .is-salts')) throw new Error('Active salts missing from HUD');
-      R.step(r,.05); V.patchHud(st);
-      if(st.el.querySelector('[data-rm-pows] .is-salts') || st.el.querySelector('[data-rm-ychip]').classList.contains('is-x2')) throw new Error('Expired salts remain on HUD');
+      const {D,R,V,st,profiles}=window.qa, saved=st.run;
+      for (const profile of profiles) {
+        D.setMe(D.M[profile]?profile:'none'); D.setGuest(D.M[profile]?null:profile);
+        const r=R.startRun(70111,0,true,false,true);
+        r.co={...r.co,rows:[],sets:[],items:[],traffic:[],z:1e9,done:1e9}; r.t=10; r.salts=2; r.burst=.02;
+        st.run=r; V.patchHud(st);
+        if(!st.el.querySelector('[data-rm-pows] .is-salts')) throw new Error('Active salts missing from HUD: '+profile);
+        R.step(r,.05); V.patchHud(st);
+        if(st.el.querySelector('[data-rm-pows] .is-salts') || st.el.querySelector('[data-rm-ychip]').classList.contains('is-x2')) throw new Error('Expired salts remain on HUD: '+profile);
+      }
+      D.setGuest(null); D.setMe('evan');
       st.run=saved; V.patchHud(st);
     });
-    console.log('PASS Expired salts disappear from the HUD with the speed boost and double points');
+    console.log('PASS Expired salts disappear from every account’s HUD with the speed boost and double points');
     await page.evaluate(() => { for (let i = 0; i < 12; i++) window.qa.render(); });
     await page.screenshot({path: path.join(output, 'incoming-train.png')});
     report.render = await page.evaluate(async () => {

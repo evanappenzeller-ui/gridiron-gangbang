@@ -30,16 +30,17 @@ after leaving the opening football field (November 5 follow-up); the stadium kee
 Flight is belly down, headfirst, with barrel rolls for lane changes. Each pickup creates a fresh sky course and coin trails; birds,
 balloons, drones and debris leave an open route. A sky hit triggers descent; painkillers protect. Moving bus/train
 roofs are solid landing and running surfaces (`surfaceAt`). Keepfall's first-run reward eligibility and daily caps
-remain. All active boosts give 2x yards, never stacking above 2x; stored salts alone remain an extra life.
+remain. All active boosts give 2x yards, never stacking above 2x; salts' extra lives last only during their boost.
 A first stumble starts a four-second pursuit, followed by a visible retreat. A new unprotected hit while the
 chaser is still visible ends the run; only his leaving the screen clears the pursuit. Painkillers, stored salts,
 flight clearance, roof landings and duplicate-contact handling keep their protection. The chaser uses the
 runner's run clip, stride rate, bounce and lean.
 
-November 5 salts follow-up (owner-only under AGENTS.md): on Evan's profile (`data.isOwner()`), unused salts
-expire when their speed boost ends and disappear from the HUD. Protection during the active boost stays intact.
-Other profiles keep the shared rollout's stored extra lives. `check-motion.cjs` covers expiry, repeat pickups,
-active/expired collisions, HUD removal, pause/resume and the owner boundary.
+November 5 rollout completion (Evan: "Make sure all changes for return man are active for all user accounts"):
+the salts follow-up now applies to everyone. Unused salts expire when their speed boost ends and disappear from
+the HUD. Protection during the active boost stays intact. Gameplay and help text have no remaining owner-only
+rules. `check-motion.cjs` covers every registered member and app user, guests and unselected players, including
+expiry, repeat pickups, active/expired collisions, HUD removal and pause/resume.
 
 The stadium-tunnel title waits for Play, including Practice. `return-intro.js` times the 2.6-second punt,
 two-handed catch and camera orbit into the chase camera. Simulation and scoring freeze until handoff.
