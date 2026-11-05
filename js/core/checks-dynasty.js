@@ -1,4 +1,4 @@
-// Gridiron Dynasty's checks for the dev gallery (#/_kit): Evan, Ryan Stewart and Jayton's access, the cards (every series,
+// Gridiron Dynasty's checks for the dev gallery (#/_kit): Evan, Ryan Stewart, Ryan Younggreen and Jayton's access, the cards (every series,
 // rarity on the real cards' scale; the Coach and Stadium cards), packs (their odds add up, each draws what it says), the pay from the Daily
 // Games (each game's first result a day, from the day the Dynasty began, once), the save (cleaned, a bad one refused,
 // a Starter Pack of 15 Common, 4 Rare and an Epic-or-better player, and a legal deck from it), collections (a reward claimed once), the battles (Pokémon TCG Pocket's rules: decks,
@@ -19,17 +19,17 @@ const started = key => {
 
 export async function dynastyChecks(check) {
   await D.load();
-  check('Gridiron Rivals: Evan, Ryan Stewart and Jayton have access by stable profile ids; only their cases, pages, challenges and board entries are available', async () => {
+  check('Gridiron Rivals: four approved profiles can play; the rest of the league sees a Coming Soon case', async () => {
     const [app, games, data, F] = await Promise.all([import('../app.js'), import('../views/games.js'), import('./data.js'), import('./features.js')]);
     const ryan = data.USERS.find(u => u.id === 'ryan-stewart'), dow = data.USERS.find(u => u.id === 'ryan-dow');
-    const who = [F.dynastyOpen('evan'), F.dynastyOpen('jayton'), F.dynastyOpen('mason'), F.dynastyOpen(null, ryan), F.dynastyOpen(null, dow), F.dynastyOpen(null, null)];
+    const who = [F.dynastyOpen('evan'), F.dynastyOpen('jayton'), F.dynastyOpen('mason'), F.dynastyOpen(null, ryan), F.dynastyOpen(null, dow), F.dynastyOpen(null, null), F.dynastyOpen(null, data.USERS.find(u => u.id === 'ryan-younggreen'))];
     const lists = ['evan', 'jayton', 'mason'].map(w => games.gamesFor(w).some(g => g.id === 'dynasty'));
-    const keys = ['m_evan', 'm_jayton', 'u_ryan-stewart', 'm_mason', 'u_ryan-dow', 'g_72_79'].map(F.dynastyKey);
+    const keys = ['m_evan', 'm_jayton', 'u_ryan-stewart', 'm_mason', 'u_ryan-dow', 'g_72_79', 'u_ryan-younggreen'].map(F.dynastyKey);
     const mine = F.dynastyOpen(), r = app.parseRoute('/puzzles/dynasty'), rb = app.parseRoute('/puzzles/dynasty/battle/b1234abcd');
     const routed = mine ? r.view === 'dynasty' && rb.view === 'dynasty-battle' && rb.open === 'cover' : r.view !== 'dynasty' && rb.view !== 'dynasty-battle';
     const shown = D.others(daily.LB.raw || [], {withMe: true}).every(o => F.dynastyKey(o.key));
-    return {pass: who.join() === 'true,true,false,true,false,false' && lists.join() === 'true,true,false' && keys.join() === 'true,true,true,false,false,false' && routed && D.mayPlay() === mine && shown,
-      detail: `Evan, Jayton, Mason, Ryan S, Ryan D, a guest: ${who.join(', ')}`};
+    return {pass: who.join() === 'true,true,false,true,false,false,true' && lists.join() === 'true,true,true' && keys.join() === 'true,true,true,false,false,false,true' && routed && D.mayPlay() === mine && shown,
+      detail: `Evan, Jayton, Mason, Ryan S, Ryan D, a guest, Ryan Y: ${who.join(', ')}`};
   });
   check('Gridiron Dynasty: the cards: real players in six series, every position, one card a player (the owner, Nov 2 2026: "There should be no two cards for the same player ... common (79 overall or less ...), epic (80-89), legendary (90-95), mythic (96+)"): his best card, the rest aliases of it; rarity by OVR alone; every rarity of active players has cards to draw', () => {
     const series = new Set(D.CARDS.map(c => c.s)), pos = new Set(D.CARDS.filter(c => c.s === 'L').map(c => c.pos));

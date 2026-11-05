@@ -519,3 +519,14 @@ No automatic grants, balance resets, deck changes or progress reset during loadi
 `node tools/dynasty/check-ladder.cjs` covers all six bosses, deck legality, real pack/card victories, v1/v2 saved
 rewards, receipt round trips, unlocking, compact phone/tablet layouts, resume and profile boundaries, alongside
 the existing rules/decks/scope/start/reveal/table checks.
+
+## Rivals league preview (November 5, 2026)
+
+Evan authorized the Gridiron Rivals case for every league member. Only Evan (`evan`), Jayton Hull
+(`jayton`), Ryan Stewart (`ryan-stewart`) and Ryan Younggreen (`ryan-younggreen`) may play.
+Other league members see a Coming Soon sticker and cannot open the game. Unselected profiles,
+ordinary guests and other app users retain their previous shelf. `features.dynastyOpen()` and
+`dynastyKey()` govern routes, saves and opponents; `gamesFor()` separately governs case visibility.
+Profile changes close the case and cancel pending launches. This uses the existing local profile
+selection, not verified per-person authentication. Preserve owner tools, pack/coin privileges and saves.
+Verify `node --experimental-vm-modules tools/dynasty/check-preview.cjs` and the existing access checks.

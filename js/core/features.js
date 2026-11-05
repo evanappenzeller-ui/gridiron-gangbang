@@ -8,9 +8,9 @@ export const available = () => true;
 // This rollout is independent of owner privileges and other games' pilots.
 export const returnManUpdated = () => true;
 
-// Gridiron Rivals (internal name Dynasty): Evan and Ryan Stewart (Oct 28 2026), plus Jayton
-// (owner-approved Nov 5 2026). Access follows stable member/app-user ids, never a typed display name.
-export const DYNASTY = Object.freeze({members: Object.freeze([data.OWNER, 'jayton']), users: Object.freeze(['ryan-stewart'])});
+// Gridiron Rivals preview (Nov 5 2026): Evan, Jayton, Ryan Stewart and Ryan Younggreen.
+// Access follows stable member/app-user ids, never a typed display name.
+export const DYNASTY = Object.freeze({members: Object.freeze([data.OWNER, 'jayton']), users: Object.freeze(['ryan-stewart', 'ryan-younggreen'])});
 /** Whether a profile may play Gridiron Dynasty (member: a league member's id; user: an app user, data.user()). */
 export const dynastyOpen = (member = data.me(), user = member ? null : data.user()) =>
   member ? DYNASTY.members.includes(member) : !!user && DYNASTY.users.includes(user.id);

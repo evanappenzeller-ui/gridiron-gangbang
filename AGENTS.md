@@ -16,3 +16,14 @@ Its movement, course/scenery, jetpack, scoring, pursuit, title/intro and pickup 
 (`features.returnManUpdated()`). This exception does not open other app pilots or owner tools.
 The November 5 follow-up explicitly includes every Return Man change for all user accounts, including smelling
 salts expiring with their speed boost. Do not keep Return Man gameplay or presentation behind owner-only gates.
+
+## Rivals league preview (November 5, 2026)
+
+Evan authorized the Gridiron Rivals case for every league member. Only Evan (`evan`), Jayton Hull
+(`jayton`), Ryan Stewart (`ryan-stewart`) and Ryan Younggreen (`ryan-younggreen`) may play.
+Other league members see a Coming Soon sticker and cannot open the game. Unselected profiles,
+ordinary guests and other app users retain their previous shelf. `features.dynastyOpen()` and
+`dynastyKey()` govern routes, saves and opponents; `gamesFor()` separately governs case visibility.
+Profile changes close the case and cancel pending launches. This uses the existing local profile
+selection, not verified per-person authentication. Preserve owner tools, pack/coin privileges and saves.
+Verify `node --experimental-vm-modules tools/dynasty/check-preview.cjs` and the existing access checks.

@@ -42,11 +42,11 @@ try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.e
       for (const id of data.ids) {
         ok(lay.isAdmin(id) === ['evan','jayton'].includes(id), id + ': admin permission');
         ok(F.dynastyOpen(id) === ['evan','jayton'].includes(id), id + ': Rivals permission');
-        ok(games.gamesFor(id).some(g => g.id === 'dynasty') === F.dynastyOpen(id), id + ': game case');
+        ok(games.gamesFor(id).some(g => g.id === 'dynasty'), id + ': game case');
         ok(F.coinsUnlimited('m_' + id) === (id === 'jayton'), id + ': unlimited coins');
       }
       for (const user of data.USERS) {
-        ok(F.dynastyOpen(null,user) === (user.id === 'ryan-stewart'), user.id + ': access unchanged');
+        ok(F.dynastyOpen(null,user) === ['ryan-stewart','ryan-younggreen'].includes(user.id), user.id + ': access unchanged');
         ok(!F.coinsUnlimited('u_' + user.id) && !lay.isAdmin(user.id), user.id + ': no new privileges');
       }
       for (const id of [null,'','Jayton','Jayton Hull','unknown']) ok(!lay.isAdmin(id), 'No display-name admin: ' + id);

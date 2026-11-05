@@ -46,14 +46,13 @@ export const GAMES = [
 // case, never IN PROGRESS.
 const LASTING = ['keep', 'dynasty'];
 const byId = id => GAMES.find(g => g.id === id);
-// A game kept to some profiles: id -> whether a profile may have it (who: a member's id, else this phone's app user):
-// its case lists and its page opens only there (nobody else's phone loads it or posts it). Gridiron Dynasty is Evan's
-// and Ryan Stewart's (Oct 28 2026: core/features.js dynastyOpen); the other games are everyone's.
+// Game access and shelf visibility are separate: Rivals is playable by the four approved
+// profiles in features.js; every other league member sees its case with Coming Soon.
 const ONLY = {dynasty: who => features.dynastyOpen(who, who ? null : data.user())};
 /** Whether game id is open on this phone (who: the phone's member). */
 export const gameOpen = (id, who = data.me()) => !ONLY[id] || ONLY[id](who);
 /** The games this phone's list shows, in order. */
-export const gamesFor = (who = data.me()) => GAMES.filter(g => gameOpen(g.id, who));
+export const gamesFor = (who = data.me()) => GAMES.filter(g => gameOpen(g.id, who) || (g.id === 'dynasty' && data.ids.includes(who)));
 /** A game's page (pushed over the list): Daily Puzzles' is /puzzles/daily. */
 export const gamePath = id => (id === 'puzzles' ? '/puzzles/daily' : `/puzzles/${id}`);
 
@@ -276,6 +275,7 @@ function dynastyWaiting(key = profileKey(), docs = daily.LB.raw || []) {
   return n;
 }
 function dynastyState() {
+  if (!gameOpen('dynasty')) return {kind: 'coming-soon', sticker: 'COMING SOON'};
   const n = safeN(() => dynastyWaiting());
   return {kind: ui.lsGet('gg-dynasty-seen') === '1' ? 'started' : 'new', sticker: n ? 'YOUR MOVE' : ''};
 }
@@ -400,6 +400,7 @@ function keepBackHTML(g, up = false) {
 }
 const caseLabel = (g, s) => {
   const name = `${g.name}${g.beta ? ' (beta)' : ''}`;
+  if (s.kind === 'coming-soon') return `${name}: Coming Soon`;
   if (s.kind === 'done') return `${name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard`;
   return `${name}${s.kind === 'started' && !LASTING.includes(g.id) ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
 };
@@ -415,7 +416,7 @@ function caseHTML(g, s, i, n, clone) {
   const what = caseLabel(g, s);
   const slot = clone ? 'aria-hidden="true" data-gm-clone' : `role="group" aria-roledescription="slide" aria-label="${i + 1} of ${n}"`;
   return `<div class="gm-slot" ${slot} data-gm-slot="${g.id}">`
-    + `<button type="button" class="gm-case${done ? ' is-done' : s.turns ? ' is-turns' : ''}${isKeepCase(g) ? ' is-swivel' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
+    + `<button type="button" class="gm-case${done ? ' is-done' : s.turns ? ' is-turns' : ''}${isKeepCase(g) ? ' is-swivel' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-disabled="${s.kind === 'coming-soon'}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
     + `<span class="gm-flip">${facesHTML(g, s)}</span><span class="gm-gloss" aria-hidden="true"></span>`
     + GRIP + `</button></div>`; // (views/game-case.js shelfTurner)
 }
@@ -511,7 +512,9 @@ export function mountList(el, ctx, opts = {}) {
     }));
     st.assets = Promise.all([import('./game-launch.js'), ...css]).then(([mod, ...ready]) => ready.every(Boolean) ? mod : null).catch(() => null);
   }
-  const unprofile = data.subscribe(type => { if (type === 'me' && !st.dead) refresh(false); });
+  const unprofile = data.subscribe(type => {
+    if (type === 'me' && !st.dead) { closeZoom(true); refresh(false); }
+  });
   syncOwner();
   const sig = (g, s) => `${isKeepCase(g) ? keepBackHTML(g) : ''}|${s.kind}|${s.test ? 1 : 0}|${s.again ? 1 : 0}|${s.meta || ''}|${s.kind === 'done' ? backHTML(g, s) : frontHTML(g, s)}${s.turns ? '|' + backHTML(g, s) : ''}`; // (Return Man: its front stays, its line under the shelf and its back move)
   // the case in the middle: bigger and lit, the others smaller and turned a little toward it
@@ -778,6 +781,7 @@ export function mountList(el, ctx, opts = {}) {
     const start = async () => {
       const Z = st.zoom;
       if (!Z || Z.el !== z || Z.launching || st.dead || ctx.visible === false) return;
+      if (!gameOpen(id)) { closeZoom(true); return; }
       if (owner && !features.available()) { closeZoom(true); return; }
       ui.haptic('light');
       if (!owner) { closeZoom(true); if (opts.play) opts.play(id); return; }
@@ -788,14 +792,14 @@ export function mountList(el, ctx, opts = {}) {
       lidBtn.disabled = true;
       hint.textContent = `Preparing ${g.name}…`;
       const finish = () => {
-        if (st.zoom !== Z || st.dead || ctx.visible === false || !features.available() || !z.isConnected) return;
+        if (st.zoom !== Z || st.dead || ctx.visible === false || !features.available() || !gameOpen(id) || !z.isConnected) return;
         closeZoom(true);
         if (opts.play) opts.play(id);
       };
       // Artwork/network trouble must never strand the player behind a loading screen.
       const mod = await Promise.race([st.assets, new Promise(resolve => { Z.launchTimer = setTimeout(() => resolve(null), 1500); })]);
       clearTimeout(Z.launchTimer);
-      if (st.zoom !== Z || st.dead || ctx.visible === false || !features.available() || !z.isConnected) return;
+      if (st.zoom !== Z || st.dead || ctx.visible === false || !features.available() || !gameOpen(id) || !z.isConnected) return;
       if (!mod) { finish(); return; }
       try { Z.launch = mod.launchGame({host: z, game: g, reducedMotion: ui.RM, onComplete: finish}); }
       catch (_) { finish(); }
@@ -994,6 +998,7 @@ export function mountList(el, ctx, opts = {}) {
         if (flipNow && animate && ctx.visible && !ui.RM) requestAnimationFrame(() => requestAnimationFrame(() => cs.classList.add('is-done')));
         else cs.classList.toggle('is-done', s.kind === 'done');
         cs.setAttribute('aria-label', caseLabel(g, s));
+        cs.setAttribute('aria-disabled', String(s.kind === 'coming-soon'));
       });
       if (i === st.cur % n()) setCur(i, animate);
     });
