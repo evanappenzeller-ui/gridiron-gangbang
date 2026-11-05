@@ -34,6 +34,14 @@ Keep gameplay dimensions and collisions intact, retain the 2D fallback, and pres
 and its complete loading-failure fallback. Verify `node tools/return/check-environments.cjs`,
 `node tools/return/check-city-bus.cjs`, and `node tools/return/check-city-cache.cjs` before further visual releases.
 
+The player (November 4, 2026, Evan: a cartoony runner, Subway Surfers' style; shipped to everyone):
+`models/return-runner-v1.glb`, from KayKit's Adventurers (Kay Lousberg, CC0): the Barbarian's body for both players, the
+Knight's head on the returner and the Barbarian's on the linebacker, made into one by `tools/return/runner-model.mjs`
+(bones renamed to Mixamo's, with a Spine1 and a Neck put in; the kit's faces moved to swatches the view repaints). His
+clips come from Evan's Endless Runner pack via `tools/return/runner-anims.mjs`. `views/return-3d.js` dresses each side:
+kit colours, helmet, shoulder pads, numbers, the ball in his right glove. A changed model gets a new version number.
+The kit check "the cartoon runner…" (`js/core/checks-return.js`) covers the model.
+
 Unity-pack scenery (October 25, 2026, Evan: "use the assets to create new and improved sceneries in the game"):
 eight places (all but the stadium) also use models from his packs in D:\Unity\My project\Assets (Western, Desert,
 Winter, Tropical Beach/Island, Sci-Fi City, Spaceships, Environment, Playground, Currency).
