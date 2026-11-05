@@ -738,10 +738,27 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-recap .db-lt { list-style: none; margin-left: -20px; font: 800 12px var(--font-text); color: var(--tint); padding-top: 6px; text-transform: uppercase; letter-spacing: .04em; }
 @media (prefers-reduced-motion: reduce) { :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-slot.is-pick, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone-now, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-slot.is-hit { animation: none !important; } }
 /* Rivals music settings are scoped to their sheet, including compact phones. */
-.pk-sheet .pk-music { display: grid; gap: 16px; padding: 4px 4px 12px; }
+.pk-sheet .pk-music { display: grid; gap: 12px; padding: 4px 4px 12px; }
 .pk-sheet .pk-music .pk-note { margin: 0; }
-.pk-sheet .pk-music > button { min-height: 44px; border: 1px solid var(--separator); border-radius: 12px; background: var(--surface-2); }
-.pk-sheet .pk-music > button[aria-pressed="true"] { background: var(--tint); color: var(--on-tint); }
+.pk-sheet .pk-juke-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pk-sheet .pk-juke-controls > button { min-height: 44px; border: 1px solid var(--separator); border-radius: 12px; background: var(--surface-2); }
+.pk-sheet .pk-juke-controls > button[data-dy-music-toggle] { background: var(--tint); color: var(--on-tint); }
 .pk-sheet .pk-music-volume { display: grid; grid-template-columns: 1fr auto; gap: 8px; font-weight: 600; }
 .pk-sheet .pk-music-volume input { grid-column: 1 / -1; width: 100%; min-height: 44px; accent-color: var(--tint); }
 .pk-sheet .pk-music-volume output { font-variant-numeric: tabular-nums; }
+.pk-sheet .pk-juke-now { display: flex; align-items: center; gap: 16px; padding: 18px; border-radius: 18px; color: #fff; background: linear-gradient(115deg, #12314a, #1a5967); }
+.pk-sheet .pk-juke-now h3 { margin: 3px 0; font-size: 24px; line-height: 1.2; }
+.pk-sheet .pk-juke-now p { margin: 0; color: #c5e3e6; }
+.pk-sheet .pk-juke-now small { color: #9fe9e6; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.pk-sheet .pk-juke-disc { display: grid; place-items: center; flex: none; width: 64px; height: 64px; border-radius: 50%; font-size: 28px; color: #b7ffff; background: repeating-radial-gradient(circle, #102838 0 6px, #27525b 7px 8px); border: 2px solid #69959c; }
+.pk-sheet .pk-juke-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.pk-sheet .pk-juke-heading h3 { margin: 0; font-size: 17px; }
+.pk-sheet .pk-juke-heading > span { color: var(--ink-2); font-size: 12px; }
+.pk-sheet .pk-juke ul { list-style: none; padding: 0; margin: 0; }
+.pk-sheet .pk-juke button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 64px; padding: 10px 12px; border: 1px solid var(--separator); border-radius: 12px; text-align: left; color: var(--ink); background: var(--surface-2); }
+.pk-sheet .pk-juke button[aria-pressed="true"] { border-color: var(--tint); }
+.pk-sheet .pk-juke button b, .pk-sheet .pk-juke button small { display: block; }
+.pk-sheet .pk-juke button small { margin-top: 3px; color: var(--ink-2); font-size: 12px; }
+.pk-sheet .pk-juke-note { font-size: 24px; color: var(--tint); }
+.pk-sheet .pk-juke-selected { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--tint); }
+.pk-sheet .pk-music .pk-music-phone { margin-top: -6px; font-size: 12px; }

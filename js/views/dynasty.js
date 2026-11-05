@@ -943,7 +943,7 @@ function showStart(st) {
 function menuSheet(st) {
   const s = D.status === 'ready' ? D.mine() : null, P = D.PACKS[st.pack] || D.PACKS[D.DAILY_PACK];
   const items = [
-    ...(data.isOwner() ? [{id: 'music', ic: 'play-fill', label: 'Music', sub: music.state().enabled ? 'On · volume & playback' : 'Off · volume & playback'}] : []),
+    ...(data.isOwner() ? [{id: 'music', ic: 'gear', label: 'Settings', sub: 'Music, volume & jukebox'}] : []),
     {id: 'guide', ic: 'info', label: 'Guide', sub: 'How to play'},
     {id: 'coins', ic: 'sparkle', label: 'Coins', sub: s ? `${nf(D.balance(s))} · how you earn them` : 'How you earn them'},
     {id: 'rank', ic: 'trophy', label: 'Rankings', sub: s ? `${nf(s.tr)} trophies · ${s.rec.w}–${s.rec.l}` : 'The Rivals board'},

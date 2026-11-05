@@ -4,12 +4,23 @@ let pw; try { pw = require('playwright'); } catch (_) { pw = require(path.join(p
 const root = path.resolve(__dirname, '../..');
 const mime = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2','.mp3':'audio/mpeg'};
 const server = http.createServer((req, res) => {
-  const file = path.resolve(root, '.' + decodeURIComponent(new URL(req.url, 'http://localhost').pathname).replace(/\/$/, '/index.html'));
+  let file = path.resolve(root, '.' + decodeURIComponent(new URL(req.url, 'http://localhost').pathname).replace(/\/$/, '/index.html'));
   if (!file.startsWith(root + path.sep)) return res.writeHead(403).end();
+  if (process.env.RIVALS_ASSET_ROOT && !fs.existsSync(file) && ['img','fonts','icons'].includes(path.relative(root,file).split(path.sep)[0])) file = path.join(process.env.RIVALS_ASSET_ROOT,path.relative(root,file));
   fs.readFile(file, (error, bytes) => {
     if (error) return res.writeHead(404).end();
     if (file.endsWith('index.html')) bytes = Buffer.from(bytes.toString().replace(/(<script id="firebase-config"[^>]*>)[\s\S]*?(<\/script>)/, '$1{}$2'));
-    res.writeHead(200, {'Content-Type': mime[path.extname(file)] || 'application/octet-stream'}).end(bytes);
+    const headers = {'Content-Type': mime[path.extname(file)] || 'application/octet-stream', 'Content-Length':bytes.length};
+    if (file.endsWith('.mp3')) {
+      headers['Accept-Ranges']='bytes';
+      const range=/^bytes=(\d+)-(\d*)$/.exec(req.headers.range || '');
+      if (range) {
+        const start=Number(range[1]),end=Math.min(bytes.length-1,range[2] ? Number(range[2]) : bytes.length-1);
+        if (start>end) return res.writeHead(416,{'Content-Range':`bytes */${bytes.length}`}).end();
+        return res.writeHead(206,{...headers,'Content-Length':end-start+1,'Content-Range':`bytes ${start}-${end}/${bytes.length}`}).end(bytes.subarray(start,end+1));
+      }
+    }
+    res.writeHead(200, headers).end(bytes);
   });
 });
 const KEY = 'gg-rivals-music:m_evan:v1';
@@ -25,6 +36,10 @@ async function main() {
       localStorage.setItem('gg-welcome', '1'); sessionStorage.setItem('gg-skip-title', '1');
       ['evan','mason','user%3Aryan-stewart','visitor'].forEach(k => localStorage.setItem('gg-release-3.0:' + k, '1'));
       window.audioProbes = [];
+      Object.defineProperty(navigator, 'audioSession', {configurable: true, value: {type: 'ambient'}});
+      window.mediaHandlers = {};
+      const setHandler = navigator.mediaSession.setActionHandler.bind(navigator.mediaSession);
+      navigator.mediaSession.setActionHandler = (action, fn) => { mediaHandlers[action] = fn; return setHandler(action, fn); };
       window.mediaProbes = []; const OriginalAudio = window.Audio;
       window.Audio = class extends OriginalAudio { constructor(...args) { super(...args); window.mediaProbes.push(this); } };
       const AC = window.AudioContext;
@@ -32,8 +47,8 @@ async function main() {
         constructor(...args) {
           super(...args);
           const analyser = this.createAnalyser(); analyser.fftSize = 2048;
-          const create = this.createDynamicsCompressor.bind(this);
-          this.createDynamicsCompressor = () => {
+          const create = this.createGain.bind(this);
+          this.createGain = () => {
             const node = create(), connect = node.connect.bind(node);
             node.connect = to => { const result = connect(to); if (to === this.destination) connect(analyser); return result; };
             return node;
@@ -61,6 +76,9 @@ async function main() {
     assert.equal(await page.evaluate(() => audioProbes.length), 0, 'no audio context or autoplay before interaction');
     assert.equal(trackRequests.length, 0, 'no MP3 download before interaction');
     await page.locator('.pk-start').focus(); await page.keyboard.press('Enter'); await playing();
+    await page.waitForFunction(() => navigator.mediaSession.playbackState === 'playing');
+    assert.equal(await page.evaluate(() => navigator.audioSession.type), 'playback');
+    assert.deepEqual(await page.evaluate(() => ({title:navigator.mediaSession.metadata.title, artist:navigator.mediaSession.metadata.artist, state:navigator.mediaSession.playbackState})), {title:'Sundress',artist:'A$AP Rocky',state:'playing'});
     await page.waitForFunction(() => audioProbes.some(p => {
       const samples = new Float32Array(p.analyser.fftSize); p.analyser.getFloatTimeDomainData(samples);
       return samples.some(n => Math.abs(n) > .0001);
@@ -72,7 +90,26 @@ async function main() {
     await page.waitForFunction(() => mediaProbes[0].currentTime < 2 && !mediaProbes[0].paused);
     console.log('PASS: uploaded MP3 decodes, produces actual audio, and loops from the end');
     await settings();
-    assert.match(await page.locator('.pk-music').innerText(), /Sundress · A\$AP Rocky/);
+    assert.equal(await page.getByRole('dialog', {name:'Settings',exact:true}).count(),1);
+    assert.equal(await page.locator('[data-dy-music-title]').innerText(),'Sundress');
+    assert.equal(await page.locator('[data-dy-music-artist]').innerText(),'A$AP Rocky');
+    assert.equal(await page.locator('[data-dy-music-track="sundress"][aria-pressed="true"]').count(),1);
+    assert.equal(await page.locator('.pk-music input[type="range"]').count(),2);
+    await page.locator('[data-dy-music-seek]').fill('60');
+    const sought = await state();
+    assert(sought.position >= 59.9 && sought.position < 62, 'song-position slider seeks: ' + JSON.stringify(sought));
+    await page.locator('[data-dy-music-seek]').focus(); await page.keyboard.press('ArrowRight');
+    assert((await state()).position >= 60.9,'keyboard can scrub');
+    await page.locator('[data-dy-music-restart]').click(); assert((await state()).position < 2,'restart returns to beginning');
+    await page.evaluate(() => mediaHandlers.seekto({seekTime:75})); assert((await state()).position >= 75,'native seek works');
+    await page.evaluate(() => mediaHandlers.pause()); await silent();
+    assert.equal(await page.evaluate(() => navigator.mediaSession.playbackState),'paused');
+    await page.locator('[data-dy-music-seek]').fill('30'); await silent();
+    assert.equal((await state()).enabled,false,'seeking while paused stays paused');
+    await page.evaluate(() => mediaHandlers.play()); await playing();
+    await page.locator('[data-dy-music-toggle]').click(); await silent();
+    await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
+    console.log('PASS: named jukebox, track selection, seek/restart, native play/pause/seek and playback audio-session type');
     await page.locator('[data-dy-music-volume]').fill('62');
     assert.equal((await state()).volume, 62);
     for (const width of [320, 390, 768]) {
@@ -80,8 +117,15 @@ async function main() {
       const fits = await page.locator('.pk-music').evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; });
       assert(fits, `settings fit at ${width}px`);
     }
-    await page.setViewportSize({width: 390, height: 844});
     fs.mkdirSync(path.join(root, 'output/rivals-music'), {recursive: true});
+    await page.setViewportSize({width:320,height:568});
+    for (const selector of ['[data-dy-music-toggle]','[data-dy-music-seek]','[data-dy-music-volume]','[data-dy-music-track]']) {
+      await page.locator(selector).scrollIntoViewIfNeeded();
+      const r=await page.locator(selector).boundingBox(); assert(r.x>=0 && r.x+r.width<=321 && r.y>=0 && r.y+r.height<=569, 'compact phone can reach '+selector);
+    }
+    await page.screenshot({path:path.join(root,'output/rivals-music/settings-320.png')});
+    await page.setViewportSize({width: 390, height: 844});
+    await page.locator('.pk-juke-now').scrollIntoViewIfNeeded();
     await page.screenshot({path: path.join(root, 'output/rivals-music/settings-390.png')});
     await page.locator('[data-dy-music-toggle]').click(); await silent();
     const pausedAt = await page.evaluate(() => mediaProbes[0].currentTime);
@@ -90,7 +134,7 @@ async function main() {
     await page.locator('[data-dy-music-toggle]').click(); await playing();
     assert(await page.evaluate(() => mediaProbes[0].currentTime) >= pausedAt - .05, 'unmute resumes from the paused position');
     await page.locator('[data-dy-music-toggle]').click(); await silent();
-    assert.deepEqual(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), KEY), {enabled: false, volume: 62});
+    assert.deepEqual(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), KEY), {enabled: false, volume: 62, track:'sundress'});
     await page.reload(); await page.waitForFunction(() => window.__ggBooted); await page.waitForSelector('.pk-start.is-ready');
     await page.locator('.pk-start').click({position: {x: 170, y: 420}});
     assert.equal(await page.evaluate(() => audioProbes.length), 0, 'saved mute prevents context creation');
@@ -104,6 +148,8 @@ async function main() {
     await close();
     await page.evaluate(() => { Object.defineProperty(document, 'hidden', {configurable: true, value: true}); document.dispatchEvent(new Event('visibilitychange')); });
     await silent();
+    assert.equal(await page.evaluate(() => navigator.audioSession.type),'ambient','restore previous session type on hide');
+    assert.equal(await page.evaluate(() => navigator.mediaSession.metadata),null,'release native controls on hide');
     await page.evaluate(() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); }); await playing();
     await page.evaluate(() => dispatchEvent(new Event('pagehide'))); await silent();
     await page.evaluate(() => dispatchEvent(new Event('pageshow'))); await playing();
@@ -117,7 +163,7 @@ async function main() {
     });
     await nav('/puzzles/dynasty/battle/' + mid); await playing();
     await page.waitForFunction(() => !document.querySelector('[data-db-skip]'), null, {timeout: 15000});
-    await page.locator('[data-db-more]').click(); await page.getByRole('button', {name: 'Music', exact: true}).click();
+    await page.locator('[data-db-more]').click(); await page.getByRole('button', {name: 'Settings', exact: true}).click();
     await page.waitForSelector('[data-dy-music-toggle]'); await close();
     await page.goBack(); await page.waitForSelector('.pk-hdr'); await playing();
     assert.equal(await page.evaluate(() => audioProbes.length), 1, 'hub/battle/back share transport');
@@ -128,6 +174,8 @@ async function main() {
     await settings(); await playing();
     await page.evaluate(async () => (await import('/js/core/data.js')).setGuest('Ryan Stewart'));
     await silent(); await page.waitForFunction(() => !document.querySelector('[data-dy-music-toggle]'));
+    assert.equal(await page.evaluate(() => navigator.audioSession.type),'ambient');
+    assert.equal(await page.evaluate(() => Object.values(mediaHandlers).every(fn => fn === null)),true,'profile change clears native actions');
     await page.evaluate(async () => { const m = await import('/js/core/dynasty-music.js'); m.setEnabled(true); m.start(); });
     await silent();
     console.log('PASS: battle menu, route/back/exit, one transport, immediate profile-switch silence');
@@ -156,7 +204,7 @@ async function main() {
       await ctx.close();
     }
     console.log('PASS: Ryan Stewart, another member, visitor and owner-name guest retain existing silent behavior');
-    for (const mode of ['unavailable', 'blocked-resume', 'blocked-media', 'track-failed', 'slow-download', 'storage-denied', 'webkit']) {
+    for (const mode of ['unavailable', 'blocked-resume', 'blocked-media', 'track-failed', 'slow-download', 'storage-denied', 'webkit', 'no-system-api', 'system-api-errors']) {
       const ctx = await browser.newContext({serviceWorkers:'block', reducedMotion:'reduce'});
       await ctx.route('**/*', r => r.request().url().startsWith(url) ? r.continue() : r.abort());
       if (mode === 'track-failed') await ctx.route('**/audio/rivals/*.mp3', r => r.abort());
@@ -165,6 +213,13 @@ async function main() {
         localStorage.setItem('gg-me','evan'); localStorage.setItem('gg-welcome','1');
         localStorage.setItem('gg-release-3.0:evan','1'); sessionStorage.setItem('gg-skip-title','1');
         localStorage.setItem('gg-rivals-music:m_evan:v1', '{broken');
+        if (mode === 'no-system-api') {
+          Object.defineProperty(navigator,'audioSession',{value:undefined}); Object.defineProperty(navigator,'mediaSession',{value:undefined});
+        }
+        if (mode === 'system-api-errors') {
+          Object.defineProperty(navigator,'audioSession',{value:{get type(){return 'auto'},set type(v){throw Error('unsupported')}}});
+          Object.defineProperty(navigator,'mediaSession',{value:{setActionHandler(){throw Error('unsupported')},setPositionState(){throw Error('unsupported')},set metadata(v){throw Error('unsupported')},set playbackState(v){throw Error('unsupported')}}});
+        }
         const NativeAudio = window.Audio;
         window.Audio = class extends NativeAudio { constructor(...args) { super(...args); window.lastMusicMedia = this; } };
         if (mode === 'unavailable') { window.AudioContext = undefined; window.webkitAudioContext = undefined; }
@@ -191,7 +246,7 @@ async function main() {
       await p.waitForSelector('[data-dy-music-toggle]');
       assert.equal(await p.locator('[data-dy-music-volume]').inputValue(), '35', mode + ': safe default');
       if (mode === 'unavailable') assert.equal(await p.locator('[data-dy-music-toggle]').isDisabled(), true);
-      else if (mode === 'blocked-resume' || mode === 'blocked-media') assert.match(await p.locator('[data-dy-music-status]').innerText(), /try playback again/);
+      else if (mode === 'blocked-resume' || mode === 'blocked-media') assert.match(await p.locator('[data-dy-music-status]').innerText(), /play to retry/);
       else if (mode === 'track-failed') assert.match(await p.locator('[data-dy-music-status]').innerText(), /couldn’t load/);
       else if (mode === 'slow-download') {
         await p.evaluate(async () => (await import('/js/core/data.js')).setGuest('Ryan Stewart'));

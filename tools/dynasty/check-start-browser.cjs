@@ -24,6 +24,8 @@ function server() {
     try { file = path.resolve(root, '.' + decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname)); }
     catch (_) { res.writeHead(400).end(); return; }
     if (!file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
+    // A sparse test worktree can read shared assets without linking directories into Git's checkout.
+    if (process.env.RIVALS_ASSET_ROOT && !fs.existsSync(file) && ['img','fonts','icons'].includes(path.relative(root,file).split(path.sep)[0])) file = path.join(process.env.RIVALS_ASSET_ROOT,path.relative(root,file));
     fs.readFile(file, (err, bytes) => {
       if (err) { res.writeHead(404).end(); return; }
       // (Firebase stays off: no live reads or writes from a test)
@@ -336,7 +338,7 @@ async function playerFlow(page, p, {reduced}) {
   // the Menu
   await page.locator('.pk-hdr [data-dy-menu]').click();
   await page.waitForSelector('.pk-menu');
-  assert.deepEqual(await page.locator('.pk-menu b').allTextContents(), [...(p.tag === 'evan' ? ['Music'] : []), 'Guide', 'Coins', 'Rankings', 'Offering Rates', 'Title screen', 'Exit Gridiron Rivals'], T + ': the Menu’s items');
+  assert.deepEqual(await page.locator('.pk-menu b').allTextContents(), [...(p.tag === 'evan' ? ['Settings'] : []), 'Guide', 'Coins', 'Rankings', 'Offering Rates', 'Title screen', 'Exit Gridiron Rivals'], T + ': the Menu’s items');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-menu`);
   await page.locator('[data-dy-m="title"]').click();
   await page.waitForSelector('.pk-start.is-ready', {timeout: 5000});
