@@ -1,4 +1,4 @@
-// Pointer gestures for the owner table. Hold and slide along the hand to inspect;
+// Pointer gestures for the owner table. Hold and slide along the hand to lift cards;
 // leave the hand to drag the selected card into play.
 // No game state is changed here. The view revalidates the destination at release.
 export function bindTableTouch(root, api) {
@@ -17,10 +17,19 @@ export function bindTableTouch(root, api) {
     root.querySelectorAll('.is-drop-ready, .is-drop-over').forEach(el => el.classList.remove('is-drop-ready', 'is-drop-over'));
     if (!g.preview?.isConnected) {
       g.preview = document.createElement('div');
-      g.preview.className = 'db-peek';
+      g.preview.className = g.value.kind === 'hand' ? 'db-hand-pop' : 'db-peek';
       g.preview.setAttribute('aria-hidden', 'true'); root.append(g.preview);
     }
-    g.preview.innerHTML = api.preview(g.value);
+    if (g.value.kind === 'hand') {
+      // Lift only the card, above its place in the fan. No modal, dimmer or move list.
+      g.preview.innerHTML = g.card.innerHTML;
+      g.preview.dataset.card = g.value.id;
+      const r = g.card.getBoundingClientRect(), bounds = root.getBoundingClientRect();
+      const w = g.preview.offsetWidth, h = g.preview.offsetHeight;
+      g.preview.style.left = `${Math.max(bounds.left + w / 2 + 8, Math.min(bounds.right - w / 2 - 8, r.left + r.width / 2))}px`;
+      g.preview.style.top = `${Math.max(bounds.top + 8, r.bottom - h - 42)}px`;
+      root.querySelectorAll('[data-db-drop]').forEach(el => { if (api.accepts(g.value, el.dataset.dbDrop)) el.classList.add('is-drop-ready'); });
+    } else g.preview.innerHTML = api.preview(g.value);
   }
   function browse(g, x, y) {
     const hand = g.card.closest('.db-hand');
@@ -103,7 +112,7 @@ export function bindTableTouch(root, api) {
     const drop = target && root.contains(target) ? target.dataset.dbDrop : null;
     clear();
     if (g.dragging) { if (drop && api.accepts(g.value, drop)) api.drop(g.value, drop); else api.invalid(); }
-    else api.inspect(g.value);
+    else if (g.value.kind !== 'hand') api.inspect(g.value);
   }
   function click(e) { if (Date.now() < blockedUntil) { e.preventDefault(); e.stopImmediatePropagation(); } }
   function context(e) { if (api.enabled() && e.target.closest('[data-db-hand], [data-db-slot], [data-db-hidden]')) e.preventDefault(); }

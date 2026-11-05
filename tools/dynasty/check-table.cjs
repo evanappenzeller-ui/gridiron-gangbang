@@ -88,12 +88,13 @@ async function browserTest(url) {
       assert.ok(a,from); const x=a.x+a.width*.5,y=a.y+a.height*.35;
       const start=browseFrom?await page.locator(browseFrom).boundingBox():a;
       await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:start.x+start.width*.5,y:start.y+start.height*.35}]}); await page.waitForTimeout(400);
-      assert.equal(await page.locator('.db-peek').count(),1,'holding inspects');
+      assert.equal(await page.locator('.db-hand-pop').count(),1,'holding lifts just the card');
+      assert.equal(await page.locator('.db-peek,.db-focus').count(),0,'holding a hand card never opens details');
       if(browseFrom) {
-        const original=await page.locator('.db-peek-in > b').innerText(), before=await snapshot();
+        const original=await page.locator('.db-hand-pop').getAttribute('data-card'), before=await snapshot();
         await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y}]});
         assert.equal(await page.locator(from).evaluate(el=>el.classList.contains('is-held')),true,'sliding selects the card under the finger');
-        assert.notEqual(await page.locator('.db-peek-in > b').innerText(),original,'sliding updates the large preview');
+        assert.notEqual(await page.locator('.db-hand-pop').getAttribute('data-card'),original,'sliding updates the large preview');
         assert.equal(await page.locator('.db-drag-ghost').count(),0,'browsing stays a preview');
         assert.deepEqual(await snapshot(),before,'browsing never plays a card');
         await page.screenshot({path:path.join(out,'hand-browse.png')});
@@ -108,12 +109,27 @@ async function browserTest(url) {
     for(const height of [812,667]) {
       await page.setViewportSize({width:375,height});
       await drag(`[data-db-hand="${fixture.players[0]}"]`,'[data-db-drop="active"]',{browseFrom:`[data-db-hand="${fixture.charge}"]`,cancel:true});
-      assert.equal(await page.locator('.db-peek,.db-drag-ghost,.is-held').count(),0,'cancel clears browsing');
+      assert.equal(await page.locator('.db-peek,.db-hand-pop,.db-drag-ghost,.is-held').count(),0,'cancel clears browsing');
+      const card=page.locator(`[data-db-hand="${fixture.players[0]}"]`), bb=await card.boundingBox(), before=await snapshot();
+      await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:bb.x+bb.width/2,y:bb.y+bb.height*.35}]});
+      await page.waitForTimeout(400);
+      assert.equal(await page.locator('.db-hand-pop').count(),1);
+      assert.ok(await page.locator('.is-drop-ready').count(),'legal spaces glow while held');
+      assert.equal(await page.locator('.db-peek,.db-focus').count(),0);
+      const pop=await page.locator('.db-hand-pop').boundingBox();
+      assert.ok(pop.y>=0 && pop.x>=0 && pop.x+pop.width<=375 && pop.y+pop.height<bb.y+bb.height,'lifted card stays on screen and above the hand');
+      await page.screenshot({path:path.join(out,`hand-pop-${height}.png`)});
+      await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      await page.waitForTimeout(600);
+      assert.equal(await page.locator('.db-hand-pop,.db-focus,.is-drop-ready').count(),0,'release returns card without opening details');
+      assert.deepEqual(await snapshot(),before,'hold and release do not play a card');
+      await card.tap(); await page.waitForSelector('.db-focus');
+      await page.locator('[data-db-putback]').click();
     }
     await drag(`[data-db-hand="${fixture.players[0]}"]`,'[data-db-drop="active"]',{browseFrom:`[data-db-hand="${fixture.charge}"]`});
     assert.equal(await page.locator('.is-me .is-active [data-db-slot]').count(),1);
     await drag(`[data-db-hand="${fixture.players[1]}"]`,'[data-db-drop="bench"]',{cancel:true});
-    assert.equal(await page.locator('.db-peek,.db-drag-ghost').count(),0);
+    assert.equal(await page.locator('.db-peek,.db-hand-pop,.db-drag-ghost').count(),0);
     await drag(`[data-db-hand="${fixture.players[1]}"]`,'[data-db-drop="bench"]',{outside:true});
     assert.equal(await page.locator('.is-me .is-bench [data-db-slot]').count(),0);
     await drag(`[data-db-hand="${fixture.players[1]}"]`,'[data-db-drop="bench"]');
