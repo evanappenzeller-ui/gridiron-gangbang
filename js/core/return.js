@@ -457,7 +457,7 @@ function addSet(co, z, L) {
 export function fill(co, z) {
   while (co.z <= z + 2) {
     const r = co.r, at = co.z, H = HARD_GAP, L = Math.min(1, at / (co.hard ? H.mix : GAP.by));
-    if (co.enhanced && at >= co.trafficAt) {
+    if (co.enhanced && at >= co.trafficAt && zoneAt(co, at).theme.id !== 'stadium') {
       // Reserve the whole encounter: no stationary obstacles can close its escape lane.
       const lanes = shuffle([0, 1, 2], r), count = co.traffic.length > 1 ? 2 : 1;
       co.traffic.push({i: co.traffic.length, trigger: at, lanes: lanes.slice(0, count)});

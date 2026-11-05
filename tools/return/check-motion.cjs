@@ -58,9 +58,10 @@ async function main() {
         r.trains.push(p); return p;
       }
       function pickup(r) { r.co.items = [{i: 0, kind: 'jetpack', lane: 1, z: r.z + .01}]; return tick(r, .02); }
-      test('Every profile receives the deployed owner course, movement and power-ups', () => {
+      test('Every profile receives the same course, deployed movement and power-ups', () => {
         D.setMe('evan');
-        const courses = [1, 16, 500].map(n => JSON.stringify(old.fill(old.course(n, 0, true, true), 3000)));
+        // Course encounters now wait until the stadium exit; keep deployed movement parity below.
+        const courses = [1, 16, 500].map(n => JSON.stringify(R.fill(R.course(n, 0, true, true), 3000)));
         const b = old.startRun(12, 0, true, false, true), frames = [];
         for (let i = 0; i < 300; i++) {
           if (i % 40 === 0) old.move(b, 'up');
@@ -72,6 +73,7 @@ async function main() {
             const a = R.fill(R.course(n, 0, true, true), 3000);
             ok(a.enhanced && a.traffic.length && a.items.some(i => i.kind === 'jetpack'), 'complete course for ' + profile);
             ok(JSON.stringify(a) === courses[index], 'same complete owner course for ' + profile);
+            ok(a.traffic.every(t => t.trigger >= R.zoneLength(a) && R.zoneAt(a, t.trigger).theme.id !== 'stadium'), 'no stadium trains for ' + profile);
           }
           const a = R.startRun(12, 0, true, false, true);
           for (let i = 0; i < 300; i++) {
@@ -96,13 +98,14 @@ async function main() {
         const st = {run: a, mode: 'run'}; a.steps = 1.25;
         ok(V.runner3(st, 10000).lift > .16, 'springy visible lift');
       });
-      test('Train corridors always leave an open lane and have no stationary blockers', () => {
+      test('Trains start after the stadium and their corridors leave an open lane without stationary blockers', () => {
         for (let n = 1; n <= 30; n++) {
           const c = R.fill(R.course(n, 0, true, true), 6000);
           ok(c.traffic.length > 8, 'repeated incoming encounters');
           ok(c.items[0].kind === 'jetpack', 'early jetpack');
           for (const p of c.items.filter(p => p.kind === 'jetpack')) ok(!p.top && R.groundAt(c, p.lane, p.z) === 0, 'jetpacks reachable on the road');
           for (const t of c.traffic) {
+            ok(t.trigger >= R.zoneLength(c) && R.zoneAt(c, t.trigger).theme.id !== 'stadium', 'train encounter stays outside the football field');
             ok(t.lanes.length < 3, 'escape lane');
             ok(!c.rows.some(r => r.z >= t.trigger && r.z < t.trigger + 107.99), 'no rows inside encounter');
             ok(!c.sets.some(s => s.ze > t.trigger && s.zs < t.trigger + 107.99), 'no parked vehicles inside encounter');

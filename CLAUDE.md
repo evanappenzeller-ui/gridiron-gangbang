@@ -25,8 +25,9 @@ the complete November 4–5 pilot is now available to members, app users, named 
 app pilots. The view passes it to the optional fifth `startRun` argument; legacy course fixtures remain separate.
 Do not restore profile gates to this shared experience. Existing saves, daily limits and reward eligibility remain.
 
-Everyone gets the longer, bouncier stride, incoming trains and eight-second jetpack. Flight is belly down,
-headfirst, with barrel rolls for lane changes. Each pickup creates a fresh sky course and coin trails; birds,
+Everyone gets the longer, bouncier stride, incoming trains and eight-second jetpack. Incoming trains start only
+after leaving the opening football field (November 5 follow-up); the stadium keeps its regular obstacles.
+Flight is belly down, headfirst, with barrel rolls for lane changes. Each pickup creates a fresh sky course and coin trails; birds,
 balloons, drones and debris leave an open route. A sky hit triggers descent; painkillers protect. Moving bus/train
 roofs are solid landing and running surfaces (`surfaceAt`). Keepfall's first-run reward eligibility and daily caps
 remain. All active boosts give 2x yards, never stacking above 2x; stored salts alone remain an extra life.
@@ -59,9 +60,9 @@ its clock pauses with play and freezes for reduced motion. `return-air-world.js`
 Preserve City bus art, its loading-failure fallback, and shared assets across profile changes.
 
 Before publishing, run `node tools/return/check-motion.cjs`, `check-intro.cjs`, `check-performance.cjs`,
-`check-environments.cjs`, `check-city-bus.cjs` and `check-city-cache.cjs` in tools/return. Motion compares every
-profile's course and movement against the deployed owner pilot (c90656a); environment checks compare all nine
-shared scenes with that art, including guests, account transitions, reduced motion and canvas fallback.
+`check-environments.cjs`, `check-city-bus.cjs` and `check-city-cache.cjs` in tools/return. Motion checks shared
+courses across profiles, no stadium trains, and movement against the deployed owner pilot (c90656a); environment
+checks compare all nine shared scenes with that art, including guests, account transitions, reduced motion and canvas fallback.
 Intro checks exercise actual Play, preloading, camera/catch and pickup rotation across profiles.
 
 November 5 replay reset (everyone, explicitly requested): November 5 is Return Man day 17. `RETURN_REPLAY` in
