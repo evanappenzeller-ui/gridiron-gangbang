@@ -2,6 +2,18 @@
 
 ## Rivals deck shelf (November 5, 2026)
 
+The owner shelf now includes 16 additional recipes: eight position groups and eight attribute themes (Gunslinger
+QBs, Dual Threat QBs, Bell Cow RBs, Deep Threats, Route Technicians, YAC Specialists, Lockdown Defenders and Sack
+Attack). `core/dynasty.js` `deckThemes()` exposes them only through `tableOpen()` / `data.isOwner()`.
+`themedDeck()` filters by position and the card's named attributes, ranks matching cards by those attributes,
+and uses only owned cards plus the reusable playbook. Dual Threat limits legacy legends to selected mobile QBs
+because their old attributes were derived from overall rating. Every new recipe needs 40 total cards, at least
+12 matching player cards and six different players; it never fills gaps with off-theme players. Browsing does
+not mutate a save. The detail sheet shows the qualifying ratings and missing-card counts. Saving/selecting uses
+the existing deck slots. Attribute/position themes introduce no new battle bonuses; NFL team chemistry stays
+unchanged. The deck-shelf checks cover all 48 recipes, trait thresholds, sparse/single-copy collections, save,
+select, reload, solo matches, phone layouts and owner/profile boundaries.
+
 Owner-only under the current AGENTS.md rule (`data.isOwner()`): Decks shows a Build New slot and up to 30 saved
 40-card solo decks, followed by NFL team recipes. The original solo deck is retained; reading the shelf never
 changes a save. The first explicit save stores `table.decks [{id, name, ids}]` and `table.active`, with `table.deck`

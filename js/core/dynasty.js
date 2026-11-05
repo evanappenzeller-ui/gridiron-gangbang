@@ -986,16 +986,52 @@ export function deleteDeckSlot(id, s = mine()) {
   s.table = {...TABLE.clean(s.table), decks: TABLE.loadouts(s).filter(d => d.id !== id), active: TABLE.activeId(s)};
   touch('decks'); return true;
 }
-/** Team recipes use only owned cards plus the reusable playbook; missing cards are never granted. */
+// Recipes use the attributes printed on the card, never overall rating as a substitute.
+const DECK_THEMES = [
+  {id: 'gunslingers', name: 'Gunslinger QBs', group: 'style', positions: ['QB'], attrs: {ARM: 85}, tag: 'Arm 85+', color: '#bb7444'},
+  {id: 'dual-threat', name: 'Dual Threat QBs', group: 'style', positions: ['QB'], attrs: {RUN: 80}, tag: 'Rushing 80+', color: '#558d7c',
+    // Legacy legends have generic OVR-derived ratings; only mobile legends belong in this recipe.
+    legends: ['xsteveyoung', 'xfrantarkenton', 'xrogerstaubach', 'xjohnelway']},
+  {id: 'bell-cows', name: 'Bell Cow RBs', group: 'style', positions: ['RB'], attrs: {RUN: 85, TD: 75}, tag: 'Rushing 85+ · Scoring 75+', color: '#b38b42'},
+  {id: 'deep-threats', name: 'Deep Threats', group: 'style', positions: ['WR', 'TE'], attrs: {DEEP: 85}, tag: 'Deep threat 85+', color: '#627fb7'},
+  {id: 'route-technicians', name: 'Route Technicians', group: 'style', positions: ['WR', 'TE'], attrs: {RTE: 85}, tag: 'Routes 85+', color: '#9676b5'},
+  {id: 'yac-specialists', name: 'YAC Specialists', group: 'style', positions: ['WR', 'TE'], attrs: {YAC: 85}, tag: 'After catch 85+', color: '#b46c80'},
+  {id: 'lockdown', name: 'Lockdown Defenders', group: 'style', positions: ['CB', 'S'], attrs: {COV: 85}, tag: 'Coverage 85+', color: '#477f99'},
+  {id: 'sack-attack', name: 'Sack Attack', group: 'style', positions: ['DL', 'LB'], attrs: {PRS: 85}, tag: 'Pass rush 85+', color: '#a16759'},
+  {id: 'quarterbacks', name: 'Quarterback Club', group: 'position', positions: ['QB'], tag: 'Quarterbacks', color: '#627fb7'},
+  {id: 'running-backs', name: 'Running Back Room', group: 'position', positions: ['RB'], tag: 'Running backs', color: '#b38b42'},
+  {id: 'wide-receivers', name: 'Wide Receiver Room', group: 'position', positions: ['WR'], tag: 'Wide receivers', color: '#9676b5'},
+  {id: 'tight-ends', name: 'Tight End U', group: 'position', positions: ['TE'], tag: 'Tight ends', color: '#558d7c'},
+  {id: 'offensive-line', name: 'The O-Line', group: 'position', positions: ['OL'], tag: 'Offensive linemen', color: '#a16759'},
+  {id: 'defensive-line', name: 'Defensive Front', group: 'position', positions: ['DL'], tag: 'Defensive linemen', color: '#477f99'},
+  {id: 'linebackers', name: 'Linebacker Corps', group: 'position', positions: ['LB'], tag: 'Linebackers', color: '#b46c80'},
+  {id: 'secondary', name: 'The Secondary', group: 'position', positions: ['CB', 'S'], tag: 'Cornerbacks & safeties', color: '#63847c'}
+];
+export const deckThemes = () => tableOpen() ? DECK_THEMES.map(t => ({...t, positions: [...t.positions], attrs: {...t.attrs}, legends: t.legends?.slice()})) : [];
+const themeRating = (c, key) => Number(c.a[attrKeys(c.pos).indexOf(key)]) || 0;
+const fitsTheme = (c, t) => t.positions.includes(c.pos) && (!t.legends || c.s !== 'X' || t.legends.includes(c.p))
+  && Object.entries(t.attrs || {}).every(([key, minimum]) => themeRating(c, key) >= minimum);
+/** Team, position and attribute recipes use owned cards plus the playbook; never grant missing cards. */
 export function themedDeck(team, s = mine()) {
+  const theme = deckThemes().find(t => t.id === team);
+  if (!theme && !TEAMS[team]) return {ids: [], ok: false, why: 'That theme is not available on this profile.'};
   const pool = TABLE.available(s), ids = [];
-  const players = Object.keys(pool).map(card).filter(c => c?.team === team && pool[c.id] > 0).sort((a, b) => b.o - a.o || a.id.localeCompare(b.id));
+  const rank = (a, b) => (theme ? Object.keys(theme.attrs).reduce((n, key) => n + themeRating(b, key) - themeRating(a, key), 0) : 0)
+    || b.o - a.o || a.id.localeCompare(b.id);
+  const candidates = theme ? CARDS.filter(c => fitsTheme(c, theme)).sort(rank) : [];
+  const players = (theme ? candidates : Object.keys(pool).map(card).filter(c => c?.team === team)).filter(c => pool[c.id] > 0).sort(rank);
   const add = id => { for (let n = 0; n < Math.min(2, pool[id] || 0) && ids.length < TABLE.SIZE; n++) ids.push(id); };
   // Up to 24 players first, then support; remaining teammates fill any empty spaces.
   const first = players.slice(0, 12); first.forEach(c => add(c.id));
   Object.keys(pool).filter(id => B.TRAINERS[id]).sort((a, b) => (TABLE.PLAYBOOK[b] || 0) - (TABLE.PLAYBOOK[a] || 0) || a.localeCompare(b)).forEach(add);
   players.slice(12).forEach(c => add(c.id));
   const check = TABLE.check(ids, s), chemistry = B.teamChemistry(ids);
+  if (theme) {
+    const matching = ids.filter(card), distinct = new Set(matching.map(id => card(id).p)).size;
+    const enough = matching.length >= 12 && distinct >= 6;
+    return {...theme, ids, team: null, cover: players[0]?.id || candidates[0]?.id, matching: matching.length, distinct,
+      ok: check.ok && enough, why: enough ? check.why : `Collect 12 matching player cards from at least 6 different players (${matching.length}/12 cards · ${distinct}/6 players).`};
+  }
   return {ids, team, ok: check.ok && chemistry === team, why: chemistry !== team ? 'Collect at least 12 team player cards, including 6 different players.' : check.why};
 }
 export function setTableDeck(ids, s = mine()) {

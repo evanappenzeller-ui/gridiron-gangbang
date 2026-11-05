@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '../..');
   let owner = true;
   const src = fs.readFileSync(path.join(root, 'js/core/dynasty.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
   const ctx = vm.createContext({B, TABLE, REAL: {}, ACTION: {}, data: {isOwner: () => owner}});
-  vm.runInContext(src + '\nthis.api={setData,fresh,clean,themedDeck,savedDecks,saveDeckSlot,useDeckSlot,deleteDeckSlot,tableDeck,spares,sell,get cards(){return CARDS},get teams(){return TEAMS}}', ctx);
+  vm.runInContext(src + '\nthis.api={setData,fresh,clean,themedDeck,deckThemes,attrKeys,savedDecks,saveDeckSlot,useDeckSlot,deleteDeckSlot,tableDeck,spares,sell,get cards(){return CARDS},get teams(){return TEAMS}}', ctx);
   const D = ctx.api; D.setData(JSON.parse(fs.readFileSync(path.join(root, 'data/dynasty.json'))));
   const s = D.fresh(); s.o = Object.fromEntries([...D.cards.map(c => c.id), ...Object.keys(B.TRAINERS)].map(id => [id, 2]));
   s.dk = D.cards.slice(0, 10).flatMap(c => [c.id, c.id]);
@@ -20,6 +20,37 @@ const root = path.resolve(__dirname, '../..');
     assert.ok(Object.entries(used).every(([id, n]) => n <= Math.min(2, TABLE.available(s)[id] || 0)));
   }
   assert.equal(JSON.stringify(s), original, 'recipes grant no cards or progress');
+  const themes = D.deckThemes(); assert.equal(themes.length, 16); assert.equal(new Set(themes.map(t => t.id)).size, 16);
+  for (const theme of themes) {
+    const recipe = D.themedDeck(theme.id, s), used = {};
+    assert.equal(recipe.ok, true, theme.name); assert.equal(recipe.ids.length, 40); assert.equal(TABLE.check(recipe.ids, s).ok, true);
+    recipe.ids.forEach(id => used[id] = (used[id] || 0) + 1);
+    const players = recipe.ids.map(id => D.cards.find(c => c.id === id)).filter(Boolean);
+    assert.ok(players.length >= 12 && new Set(players.map(c => c.p)).size >= 6);
+    for (const c of players) {
+      assert.ok(theme.positions.includes(c.pos), `${theme.id}: ${c.name} position`);
+      for (const [attr, min] of Object.entries(theme.attrs)) assert.ok(c.a[D.attrKeys(c.pos).indexOf(attr)] >= min, `${theme.id}: ${c.name} ${attr}`);
+      if (c.s === 'X' && theme.legends) assert.ok(theme.legends.includes(c.p));
+    }
+    assert.ok(Object.entries(used).every(([id, n]) => n <= Math.min(2, TABLE.available(s)[id] || 0)));
+    assert.equal(JSON.stringify(D.themedDeck(theme.id, s).ids), JSON.stringify(recipe.ids), 'recipes are deterministic');
+    const empty = D.themedDeck(theme.id, D.fresh()); assert.equal(empty.ok, false); assert.equal(empty.matching, 0);
+    assert.ok(empty.why.includes('0/12 cards')); assert.ok(D.cards.some(c => c.id === empty.cover), 'empty collection still has a matching cover');
+    const single = D.fresh(); single.o = {...s.o}; Object.keys(single.o).forEach(id => { if (D.cards.some(c => c.id === id)) single.o[id] = 1; });
+    const oneEach = D.themedDeck(theme.id, single); assert.equal(oneEach.ok, true, theme.id + ' with single copies');
+    assert.equal(new Set(oneEach.ids.filter(id => D.cards.some(c => c.id === id))).size, oneEach.matching);
+  }
+  assert.equal(JSON.stringify(s), original, 'new recipes never alter saves, decks, cards or balances');
+  const guns = D.themedDeck('gunslingers', s), draftTheme = D.fresh();
+  const six = [...new Set(guns.ids.filter(id => D.cards.some(c => c.id === id)))].slice(0, 6);
+  draftTheme.o = {...TABLE.PLAYBOOK, ...Object.fromEntries(six.map(id => [id, 2]))};
+  const shortTheme = D.themedDeck('gunslingers', draftTheme); assert.equal(shortTheme.ok, false); assert.equal(shortTheme.matching, 12); assert.match(shortTheme.why, /40 cards/);
+  // High OVR and the wrong position never bypass a recipe's actual attribute threshold.
+  const qb = D.cards.find(c => c.pos === 'QB'), attr = D.attrKeys('QB').indexOf('ARM'), arm = qb.a[attr];
+  qb.a[attr] = 84; const below = D.fresh(); below.o = {[qb.id]: 2}; assert.equal(D.themedDeck('gunslingers', below).matching, 0);
+  qb.a[attr] = 85; assert.equal(D.themedDeck('gunslingers', below).matching, 2); qb.a[attr] = arm;
+  const mobile = D.fresh(), brady = D.cards.find(c => c.p === 'xtombrady'); mobile.o = {[brady.id]: 2}; assert.equal(D.themedDeck('dual-threat', mobile).matching, 0);
+  assert.equal(D.themedDeck('unknown-theme', s).ok, false);
   assert.equal(D.themedDeck('KC', D.fresh()).ok, false);
   const themed = D.themedDeck('KC', s), added = D.saveDeckSlot({name: 'Chiefs', ids: themed.ids}, s);
   assert.equal(added.ok, true); assert.equal(JSON.stringify(D.tableDeck(s).ids), current, 'saving keeps current active deck');
@@ -35,6 +66,7 @@ const root = path.resolve(__dirname, '../..');
   assert.ok(!D.spares(s).list.some(c => c.id === keep));
   const bad = [...themed.ids]; bad[0] = 'non-card'; assert.equal(D.saveDeckSlot({name:'Bad',ids:bad},s).ok,false);
   owner = false; const before = JSON.stringify(s);
+  assert.equal(D.deckThemes().length, 0); for (const theme of themes) assert.equal(D.themedDeck(theme.id, s).ok, false);
   assert.equal(D.savedDecks(s).length, 0); assert.equal(D.saveDeckSlot({name:'No',ids:themed.ids},s).ok,false);
   assert.equal(D.useDeckSlot(added.id,s).ok,false); assert.equal(D.deleteDeckSlot('original',s),false); assert.equal(JSON.stringify(s),before);
   owner = true;
@@ -67,5 +99,5 @@ const root = path.resolve(__dirname, '../..');
   for(let w=0;w<2;w++){const hand=a.p[w].hand.filter(B.isBasic),m={a:'setup',act:hand[0],bench:hand.slice(1,4)};B.play(a,w,m);log.push([w,m]);}
   for(let i=0;i<8&&a.phase==='play';i++){const who=a.cur;let m={a:'attack',n:0};if(!B.check(a,who,m).ok)m={a:'end'};B.attackPreview(a,who,0);B.play(a,who,m);log.push([who,m]);}
   const b=B.newGame('replay',[themed.ids,themed.ids],6,JSON.parse(JSON.stringify(chem)));log.forEach(([w,m])=>assert.equal(B.play(b,w,m).ok,true));assert.deepEqual(a,b);
-  console.log('PASS saved deck lifecycle, 32 owned-only team recipes, owner boundary, sale protection, +5 cap, delayed/bench conditions, failed coins and deterministic replay');
+  console.log('PASS saved deck lifecycle, 32 team + 16 position/attribute recipes, exact traits, missing cards, single copies, owner boundary, sale protection, +5 cap and deterministic replay');
 })().catch(e=>{console.error(e);process.exitCode=1});

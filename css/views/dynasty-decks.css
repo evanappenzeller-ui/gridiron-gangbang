@@ -31,6 +31,9 @@
 .v-dynasty .rd-themes { margin-top:34px; padding-top:23px; border-top:1px solid #c7d9e5; }
 .v-dynasty .rd-themes .rd-heading h2 { font-size:23px; }
 .v-dynasty .rd-themes .rd-intro { margin-bottom:10px; }
+.v-dynasty .rd-group-title { margin:26px 0 14px; color:#3e596c; font:700 17px/1.3 var(--font-text); }
+.pk-sheet .rd-recipe { padding:14px; border-radius:14px; background:#edf2fa; color:#465d78; font:400 13px/1.6 var(--font-text); }
+.pk-sheet .rd-recipe b { display:block; margin-bottom:5px; }
 .v-dynasty .rd-requirement { margin:0 0 20px; font:600 11px/1.5 var(--font-text); color:#607586; }
 .v-dynasty .rd-tools { display:flex; flex-wrap:wrap; gap:8px; margin-top:26px; }
 .v-dynasty .rd-tile:focus-visible, .v-dynasty .rd-build:focus-visible { outline:3px solid #187c9a; outline-offset:4px; }
