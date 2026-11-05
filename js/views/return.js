@@ -31,6 +31,8 @@ import * as R from '../core/return.js';
 import * as SP from './drill-sprites.js';
 import * as D3 from './return-3d.js';
 import * as W from './return-world.js';
+import * as life from './return-life.js';
+import {drawHazard, drawFlightRunner} from './return-air-world.js';
 import * as style from './return-style.js';
 import {seeded} from './stadium.js';
 import {msToMidnight} from './board.js';
@@ -87,7 +89,7 @@ function keysHTML(hard) {
     + pw('salts', 'Smelling salts', hard ? '10-second speed burst + extra life' : 'Speed burst + extra life')
     + pw('pills', 'Painkillers', hard ? 'Hit anything, no stumble' : 'Feel nothing')
     + pw('booze', 'Booze', hard ? 'Double yards, but blurry' : 'Double yards')
-    + (data.isOwner() ? pw('jetpack', 'Jetpack', 'Fly over traffic for 8 seconds. Swipe sideways to steer') : '')
+    + (data.isOwner() ? pw('jetpack', 'Jetpack', 'Fly headfirst for 8 seconds. Swipe left or right to barrel roll through coins and dodge sky hazards. A hit brings you down') : '')
     + `</ul>`;
 }
 // Return Man is in beta (open to the league while the owner works on it, Oct 2026): a BETA tag on the cards before a
@@ -166,6 +168,8 @@ function coinsLine(st, run) {
   if (!R.testing() && st.n < R.COIN.fromDay) return ''; // (before the coins' first day: nothing to say of them)
   const C = R.COIN, rule = `${nf(C.base)} for the day’s run + ${nf(C.gold)} a coin (the first ${nf(C.paid)} coins pay).`;
   if (!run.coins) {
+    if (data.isOwner() && run.airC > 0) return `<p class="rm-card-coins">${coinGlyph}<span>${nf(run.airC)} sky coins collected</span></p>`
+      + '<p class="rm-card-s rm-card-cpay">Keepfall coin rewards count on your first run of the day.</p>';
     // (why a run has none: a later run; his first today was on another phone (the board says so); or, his first here,
     // the board wasn't in to tell it was the day's first (the day still pays the base for its run))
     const why = run.k > 0 ? 'Coins are only on your first run.' : run.elsewhere ? 'Your first run today was on another phone: its coins are the ones that count.'
@@ -482,7 +486,12 @@ function runner3(st, now) {
     return {move: 'idle', t, catch: Math.min(1, p / .3) * (1 - q), ball: false};
   }
   const o = {move: 'run', phase: run.steps / D3.STRIDE, t, ball: false};
-  if (R.flying(run) && !run.over) return {...o, move: 'idle', jetpack: true, pitch: .1, roll: -.06 * (R.xOf(run, run.lane) - run.x), lift: .06 * Math.sin(run.t * 4)};
+  if (R.flying(run) && !run.over) {
+    const flight = R.airPoseOf(run), roll = R.airRollOf(run), rest = Math.atan2(Math.sin(roll), Math.cos(roll));
+    return {...o, move: 'idle', jetpack: true, flight, pitch: Math.PI / 2 * flight,
+      roll: ui.RM ? -.08 * (R.xOf(run, run.lane) - run.x) : (flight < 1 ? rest * flight : roll),
+      lift: ui.RM ? 0 : .045 * Math.sin(run.t * 4)};
+  }
   const fl = fallOf(st, now);
   if (run.over) {
     const k = Math.min(1, (now - st.downAt) / 420);
@@ -559,6 +568,7 @@ function drawLanes(st, c, now) {
     A.items.forEach(({item}) => { if (!st.got.has(item.i) && (item.kind !== 'jetpack' || data.isOwner())) { const X = R.xOf(run, item.lane); list.push({z: item.z, x0: X - .4, x1: X + .4, draw: () => W.item(st, c, item, t)}); } });
     // the coins (the owner's first run of the day: core COIN), till he runs through them
     if (coinsShown(st)) A.coins.forEach(({coin}) => { if (!st.coinGot.has(coin.i)) { const X = R.xOf(run, coin.lane); list.push({z: coin.z, x0: X - .35, x1: X + .35, draw: () => W.coin(st, c, coin, t)}); } });
+    if (R.flying(run)) (run.sky?.hazards || []).forEach(h => { if (h.z > st.camZ + 1) list.push({z: h.z, draw: () => drawHazard(st, c, h, P, st.reducedMotion ? 0 : st.lifeTime)}); });
     A.rows.forEach(({row, d}) => row.lanes.forEach((type, l) => {
       if (!type) return;
       // a pothole's cone just before it (kicked flying when he ran through it)
@@ -602,7 +612,10 @@ function drawLanes(st, c, now) {
     pillsGlow(st, c, now, g);
     c.save();
     if (sink > 0) { const road = P(st, bx, 0, az).y; c.beginPath(); c.rect(-1e4, -1e4, 2e4, road + 1e4); c.clip(); }
-    const me = (x, z, alpha) => sprite(st, c, an, US, x, ry - sink, z, alpha);
+    const me = (x, z, alpha) => {
+      if (R.flying(run) && R.airPoseOf(run) > .4) drawFlightRunner(st, c, x, ry, z, runner3(st, now), P, W.ICONS.jetpack);
+      else sprite(st, c, an, US, x, ry - sink, z, alpha);
+    };
     // a cut's and a spin's afterimages, behind him
     (an.ghosts || []).forEach(gh => sprite(st, c, {f: gh.f, flip: gh.flip, mo: an.mo, ex: an.ex}, US, bx + gh.dx, ry, az + .05, gh.a));
     // booze: he's seeing double
@@ -610,7 +623,7 @@ function drawLanes(st, c, now) {
     // back up after the salts: he flickers while nothing can touch him
     const blink = run && !run.over && run.shield > 0 && !run.pills && Math.floor(now / 70) % 2;
     me(bx, az, blink ? .35 : 1);
-    if (R.flying(run)) {
+    if (R.flying(run) && R.airPoseOf(run) <= .4) {
       const q = P(st, bx, ry + 1.05, az - .15);
       c.save(); c.translate(q.x, q.y); c.scale(q.s * 1.4, q.s * 1.4); W.ICONS.jetpack(c, t); c.restore();
     }
@@ -712,7 +725,7 @@ const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(
 const SPARK_MS = 380, COIN_BUZZ_MS = 70;
 /** Whether the coins show: a coin run, on the owner's profile (off it, even from another tab, they're hidden: none
  *  drawn, none counted (onEvents)). */
-const coinsShown = st => !!(st.run && st.run.coins && features.available());
+const coinsShown = st => !!(st.run && features.available() && (st.run.coins || (data.isOwner() && (R.flying(st.run) || st.run.airC > 0))));
 /** A coin run under way, looked at again on his profile (the board's come in, or he's back on it): no longer the
  *  day's first as the board sees it (another of his phones has a run of the day on it), and its coins are gone. A
  *  profile change alone hides them (coinsShown), and ends a run on his hard course where it is (frame), keeping the
@@ -838,6 +851,7 @@ function draw(st, now = performance.now()) {
   st.camZ = (run ? run.z : 0) - st.back - (ui.RM ? 0 : st.lag);
   const z = run ? run.z : 0, t = now / 1000;
   st.t = t;
+  st.lifeTime = run ? run.t : t; st.reducedMotion = ui.RM;
   // booze: the world sways (on the hard course, the owner's ask, Oct 2026: further, up and down too, and blurred)
   const drunk = run && !run.over ? Math.min(1, run.booze / .8) : 0, hardDrunk = drunk > 0 && run.co.hard;
   if (drunk > 0) {
@@ -865,7 +879,12 @@ function draw(st, now = performance.now()) {
   if (wait) { waitStage(st, c, t, z, now); return; }
   if (!(three && style.sky(skyView(st), c, t, z))) W.sky(skyView(st), c, t, z);
   if (three) { draw3(st, o, now); drawSpeed(st, o, now); }
-  else { W.ground(st, c); W.sides(st, c); drawSpeed(st, c, now); drawLanes(st, c, now); }
+  else {
+    W.ground(st, c); W.sides(st, c);
+    if (data.isOwner()) for (let z0 = Math.floor((st.camZ + 120) / 20) * 20; z0 > st.camZ - 20; z0 -= 20)
+      life.draw2D(st, c, P, R.zoneAt(st.co, z0 + .01).theme.id, z0, z0 + 20, ui.RM ? 0 : st.lifeTime);
+    drawSpeed(st, c, now); drawLanes(st, c, now);
+  }
   W.weather(st, o, t, z);
   c.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
   if (o !== c) o.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
@@ -972,7 +991,7 @@ function patchHud(st) {
   const flightNote = el.querySelector('[data-rm-flight-note]');
   if (flightNote) {
     const message = on && data.isOwner() && run.co.enhanced
-      ? R.flying(run) ? (run.jetpack < R.JETPACK.descend ? 'LANDING…' : 'JETPACK · SWIPE TO STEER')
+      ? R.flying(run) ? (run.jetpack <= R.JETPACK.descend ? (run.t - (run.airHitAt ?? -99) < 2 ? 'SKY HIT · LANDING…' : 'LANDING…') : 'JETPACK · SWIPE TO BARREL ROLL')
         : run.t < st.trafficUntil ? `INCOMING TRAIN · ${st.trafficLane || 'DODGE'}` : '' : '';
     flightNote.hidden = !message;
     if (flightNote.textContent !== message) flightNote.textContent = message;
@@ -1118,6 +1137,7 @@ function onEvents(st, evs) {
       ui.announce('Incoming train. Swipe to an open lane.'); ui.haptic('warning');
     }
     if (e.type === 'jetlanded') { st.landAt = now; ui.announce('Jetpack landing. Back on the ground.'); }
+    if (e.type === 'airhit') { ui.haptic('warning'); ui.announce('Sky hazard. Jetpack landing early.'); }
     // a juke off the edge of the road (a hit): he bounces off it
     if (e.edge) { st.edgeAt = now; st.edgeDir = e.edge === 'right' ? 1 : -1; }
     // a touchdown is the way into the next place: no pop for it (the owner's ask, Oct 2026), just the crowd and the call

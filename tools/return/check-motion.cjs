@@ -108,6 +108,7 @@ async function main() {
       });
       test('Jetpack pickup, ascent, steering, collision protection and safe expiry', () => {
         const a = empty(); ok(pickup(a).some(e => e.type === 'pickup'), 'collected');
+        a.sky = null; // This case isolates ground clearance; sky dodging has its own checks below.
         tick(a, 1); ok(a.y > 6 && R.flying(a), 'above all obstacles');
         const spec = V.runner3({run: a, mode: 'run'}, 10000); ok(spec.jetpack && spec.move === 'idle', 'flying pose');
         ok(!R.move(a, 'down') && !R.move(a, 'up'), 'vertical swipes cannot cancel flight');
@@ -118,7 +119,7 @@ async function main() {
         ok(a.landing > 0, 'short landing buffer'); tick(a, 1); train(a, 2); tick(a, 1); ok(a.over, 'protection expires');
       });
       test('Flight handles simultaneous booze, salts and landing on a roof', () => {
-        const a = empty(); a.booze = 8; a.burst = 10; pickup(a); tick(a, 6.8);
+        const a = empty(); a.booze = 8; a.burst = 10; pickup(a); a.sky = null; tick(a, 6.8);
         const z = a.z; a.co.sets = [{i: 0, zs: z, ze: z + 100, plats: [{lane: 1, kind: 'teambus', z0: z, z1: z + 100, h: 3, b: 0, ramp: 0, hi: true}]}];
         tick(a, 1.2); ok(!a.over && Math.abs(a.y - 3) < .05 && a.yards > a.z, 'roof landing and double yards');
       });
@@ -131,6 +132,43 @@ async function main() {
       });
       test('Changing profile terminates an enhanced run', () => {
         const a = empty(); pickup(a); D.setMe('ben'); R.step(a, .1); ok(a.over && a.why === 'stopped' && !R.flying(a), 'no owner flight on other profile'); D.setMe('evan');
+      });
+      test('Every jetpack supplies a fresh solvable sky course and coins, including repeat runs', () => {
+        for (let n = 0; n < 20; n++) {
+          const r = empty(); r.n += n; pickup(r);
+          ok(!r.coins && r.sky.coins.length >= 16 && r.sky.hazards.length >= 4, 'air coins independent of ground reward eligibility');
+          const positions = [...new Set(r.sky.hazards.map(h => h.z))];
+          for (const z of positions) {
+            const blocked = r.sky.hazards.filter(h => h.z === z).map(h => h.lane);
+            ok(blocked.length < 3, 'always an open lane');
+            ok(r.sky.coins.some(c => Math.abs(c.z - z) < 3 && !blocked.includes(c.lane)), 'coins point through the gap');
+          }
+          tick(r, 1.5); ok(r.airC > 0 && r.c === r.airC, 'coins collect on repeat runs');
+          const serial = r.sky.serial, first = r.sky.coins[0].i;
+          r.nextItem = 0; r.jetpack = 0; r.y = 0; r.vy = 0; pickup(r); ok(r.sky.serial > serial && r.sky.coins[0].i !== first, 'new coin IDs every pickup');
+        }
+      });
+      test('Barrel rolls rotate once per lane with continuous rapid steering and a prone pose', () => {
+        const r = empty(); pickup(r); tick(r, 1); R.move(r, 'right'); tick(r, R.AIR.roll / 2, .005);
+        ok(Math.abs(R.airRollOf(r) - Math.PI) < .01, 'halfway upside down');
+        const before = R.airRollOf(r); R.move(r, 'left'); ok(R.airRollOf(r) === before, 'no snap on rapid reversal');
+        tick(r, R.AIR.roll); ok(Math.abs(Math.sin(R.airRollOf(r) / 2)) < .01, 'reversal ends upright');
+        const spec = V.runner3({run: r, mode: 'run'}, 1000); ok(spec.pitch === Math.PI / 2 && spec.flight === 1, 'horizontal headfirst pose');
+      });
+      test('Sky hits end flight with controlled descent; pills protect, and dodging avoids contact', () => {
+        for (const mode of ['hit', 'pills', 'dodge']) {
+          const r = empty(); pickup(r); tick(r, 1); r.sky.hazards = [{i: 'test-birds', kind: 'birds', lane: 1, z: r.z + 8, y: R.AIR.y}];
+          if (mode === 'pills') r.pills = 3; if (mode === 'dodge') R.move(r, 'right');
+          const e = tick(r, .7);
+          ok(!r.over, 'sky contact never an instant ground tackle');
+          if (mode === 'hit') { ok(e.some(e => e.type === 'airhit') && r.jetpack < R.JETPACK.descend, 'hit triggers landing'); tick(r, 1.3); ok(r.y < .02 && !R.flying(r), 'safe descent'); }
+          else ok(!r.airHits && r.jetpack > 5, 'flight continues');
+        }
+      });
+      test('The owner leaves the stadium once; other profiles retain their route', () => {
+        const c = empty().co; ok(R.zoneAt(c, 0).theme.id === 'stadium', 'opening field');
+        for (let z = 100; z < 20000; z += 100) ok(R.zoneAt(c, z).theme.id !== 'stadium', 'no later football field');
+        D.setMe('ben'); const old = R.course(9090, 0, true, true); ok(R.zoneAt(old, 900).theme.id === 'stadium', 'public cycle unchanged'); D.setMe('evan');
       });
       return results;
     });
@@ -155,16 +193,40 @@ async function main() {
     await page.waitForTimeout(1200);
     await page.evaluate(() => { for (let i = 0; i < 12; i++) window.qa.render(); });
     await page.screenshot({path: path.join(output, 'incoming-train.png')});
-    report.render = await page.evaluate(() => {
+    report.render = await page.evaluate(async () => {
       const {st, R, V, D3} = window.qa;
       const start = D3.GL.players.us.root.position.y;
       st.run.jetpack = 5; st.run.jetAge = 3; st.run.y = R.JETPACK.height;
+      st.run.sky = {hazards: [{i: 'visual-birds', kind: 'birds', lane: 0, z: 215, y: R.AIR.y}, {i: 'visual-drone', kind: 'drone', lane: 2, z: 226, y: R.AIR.y}], coins: Array.from({length: 14}, (_, i) => ({i: -i - 1, lane: 1, z: 205 + i * 2.8, y: R.AIR.y, air: true}))};
       for (let i = 0; i < 120; i++) window.qa.render();
       const p = D3.GL.players.us;
       if (!p.jetpack?.visible || !st.el.querySelector('.is-jetpack') || !Number.isFinite(p.root.position.y)) throw new Error('Flight visual missing');
-      return {bounce: start, packVisible: p.jetpack.visible, flightY: p.root.position.y, cameraY: st.camH, hud: st.el.querySelector('[data-rm-flight-note]').textContent};
+      const T = await import('/js/vendor/three/three.module.min.js');
+      const at = key => p.B[key].getWorldPosition(new T.Vector3()).toArray();
+      const bones = Object.fromEntries(['Head', 'Hips', 'LeftFoot', 'RightFoot', 'LeftHand', 'RightHand', 'Spine2'].map(k => [k, at(k)]));
+      if (!(bones.Head[2] < bones.Hips[2] - .3 && bones.LeftFoot[2] > bones.Hips[2] && Math.abs(bones.Head[1] - bones.Hips[1]) < .22)) throw new Error('Runner must be horizontal, head ahead of hips and feet: ' + JSON.stringify(bones));
+      const pack = p.jetpack.getWorldPosition(new T.Vector3()).toArray();
+      if (!(pack[1] > bones.Spine2[1])) throw new Error('Pack must be above the belly-down torso: ' + JSON.stringify({pack, bones}));
+      return {bounce: start, bones, packVisible: p.jetpack.visible, flightY: p.root.position.y, cameraY: st.camH, hud: st.el.querySelector('[data-rm-flight-note]').textContent};
     });
     await page.screenshot({path: path.join(output, 'jetpack-flight.png')});
+    for (const [name, angle] of [['quarter-roll', Math.PI / 2], ['half-roll', Math.PI]]) {
+      await page.evaluate(angle => { const {st, D3} = window.qa; st.run.airRollFrom = st.run.airRollTo = angle; window.qa.render();
+        const p = D3.GL.players.us; if (Math.abs(p.root.rotation.z + angle) > .001) throw new Error('Barrel roll rotation missing');
+      }, angle);
+      await page.screenshot({path: path.join(output, name + '.png')});
+    }
+    await page.evaluate(() => { const {st} = window.qa; st.run.airRollFrom = st.run.airRollTo = 0; });
+    report.skyMemory = await page.evaluate(() => {
+      const {st, D3} = window.qa, sky = st.run.sky;
+      const counts = [];
+      for (let i = 0; i < 8; i++) {
+        st.run.jetpack = 5; st.run.sky = {...sky, hazards: sky.hazards.map(h => ({...h, i: h.i + '-' + i}))}; window.qa.render();
+        st.run.jetpack = 0; st.run.sky = null; window.qa.render(); counts.push(D3.GL.renderer.info.memory.geometries);
+      }
+      if (counts[7] > counts[1] + 2) throw new Error('Expired sky courses leak GPU geometry: ' + counts);
+      st.run.jetpack = 5; st.run.sky = sky; return counts;
+    });
     // Exercise the actual full 2D fallback with the same run and controls.
     await page.evaluate(async () => {
       const {st, V} = window.qa;

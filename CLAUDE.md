@@ -26,6 +26,18 @@ clear corridors. Flight steers sideways, descends automatically and has a short 
 retain the deployed course and cadence. `node tools/return/check-motion.cjs` checks movement, collisions,
 scope against the deployed baseline, mobile rendering, touch/keyboard input and pause/resume offline.
 
+November 4 follow-up (same owner-only scope): flight is belly down and headfirst, with full barrel rolls for
+lane changes. Each pickup creates a fresh sky course and coin trails, including repeat runs. Birds, balloons,
+drones and space debris leave an open route; a sky hit triggers controlled descent, and painkillers protect.
+Keepfall's existing first-run reward eligibility and daily caps remain. The opening stadium has no midfield
+logo and never recurs on the enhanced route. Other profiles keep their existing route and field artwork.
+`return-life.js` adds batched scenery detail, contact/sun shadows, shader wind and ambient motion specific to
+each place. Its clock pauses with the run and freezes for reduced motion. `return-air-world.js` renders the
+sky obstacles and canvas flight fallback. Keep shared City bus objects alive across profile changes; rebuild
+only the owner roadside and sky objects. The environment check compares public scenes with `b7601b2`, checks
+all nine owner scenes and reduced motion, and captures previews. `check-motion.cjs` also verifies sky coins,
+collisions, actual prone bone positions, the back-mounted pack, rolls, and the one-stadium route.
+
 Evan chose the supplied colorful low-poly runner reference for Return Man's environments: bold silhouettes,
 warm cream trim, saturated accents, faceted foliage, clean roads and clearly visible hazards. Keep each of the
 nine locations distinct. This direction applies to Evan's profile only. `return-style.js` owns the procedural

@@ -110,6 +110,12 @@ export const STRIDE_V = 19;
 // Evan's longer, springier stride: distance per cycle grows as the run accelerates.
 export const strideRate = v => Math.min(v * .58, 10.5);
 export const JETPACK = {s: 8, height: 6.2, rise: .65, descend: 1.2, landing: .9};
+export const AIR = {roll: .36, lead: 1.9, gap: 1.4, y: 7.1, coinGap: 2.8};
+export function airRollOf(run) {
+  const u = clamp((run.t - (run.airRollAt ?? -99)) / AIR.roll, 0, 1);
+  return (run.airRollFrom || 0) + ((run.airRollTo || 0) - (run.airRollFrom || 0)) * u * u * (3 - 2 * u);
+}
+export const airPoseOf = run => Math.min(1, run.jetAge / .45, run.jetpack / .65);
 export const TRAFFIC = {lead: 76, length: 20, speed: 12, height: 3.6, first: 155};
 export const flying = run => !!(run?.co.enhanced && data.isOwner() && run.jetpack > 0);
 // The moves, seconds: a juke takes you a lane over (eased out: most of the way at once, settling in; snappier, the
@@ -224,7 +230,7 @@ export const POWER = {
   salts: {name: 'Smelling salts', says: 'A burst of speed and an extra life', is: 'One sniff and you’re wide awake', does: 'A 4-second burst of speed, and an extra life: shake off the next tackle'},
   pills: {name: 'Painkillers', says: 'Nothing can stop you', s: 6, is: 'You can’t feel a thing', does: 'For 6 seconds, run straight through whatever’s in your way'},
   booze: {name: 'Booze', says: 'Double yards', s: 8, is: 'Liquid courage (the world gets wobbly)', does: 'For 8 seconds, every yard counts double'},
-  jetpack: {name: 'Jetpack', says: 'Fly above the traffic', s: JETPACK.s, is: 'Cleared for takeoff', does: 'Fly over hazards for 8 seconds. Swipe sideways to steer; land automatically'}
+  jetpack: {name: 'Jetpack', says: 'Fly above the traffic', s: JETPACK.s, is: 'Cleared for takeoff', does: 'Fly headfirst for 8 seconds. Swipe sideways to barrel roll, collect coins and dodge sky hazards; a hit brings you down'}
 };
 // On the hard course (the owner's, for now) the power-ups as he asked for them (Oct 2026): the salts' burst lasts
 // HARD_BURST_S seconds; their words (HARD_POWER over POWER's: powerOf).
@@ -355,6 +361,10 @@ export function course(n, k, hard = false, enhanced = false) {
 /** The place z yards is in: {i (the how-many-th), theme, z0 (where it starts)}. */
 export function zoneAt(co, z) {
   const i = Math.max(0, Math.floor(z / ZONE));
+  if (co.enhanced && i > 0) {
+    const onward = co.order.filter(n => n !== 0);
+    return {i, theme: THEMES[onward[(i - 1) % onward.length] ?? 1], z0: i * ZONE};
+  }
   return {i, theme: THEMES[co.order[i % co.order.length]], z0: i * ZONE};
 }
 /** Seconds to the next beat at z yards (L: how far into the course, 0 to 1). */
@@ -604,6 +614,7 @@ export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
 export function startRun(n, k, hard = false, coins = false, enhanced = false) {
   return {n, k, co: course(n, 0, hard, enhanced), t: 0, steps: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
     jetpack: 0, jetAge: 0, jetFrom: 0, landing: 0, trains: [], nextTrain: 0,
+    sky: null, jetSerial: 0, airC: 0, airHits: 0, airRollAt: -99, airRollFrom: 0, airRollTo: 0,
     slide: 0, lastJuke: -9, bump: -9, next: 0, nextCone: 0, nextItem: 0, zone: 0, tds: 0,
     salts: 0, pills: 0, booze: 0, shield: 0, burst: 0, over: false, why: null, by: null,
     hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null,
@@ -631,6 +642,12 @@ export function move(run, dir) {
     if (to < 0 || to >= LANES) { if (!flying(run)) { run.bump = run.t; run.sideHit = {edge: dir, lane: run.lane, side: true}; } return false; } // (a hit: step counts it)
     const side = flying(run) ? null : blockAt(run.co, to, run.z, run.y) || trainAt(run, to);
     if (side) { run.bump = run.t; run.sideHit = {plat: side, lane: to, side: true}; return false; } // (a hit: step counts it)
+    if (flying(run)) {
+      run.airRollFrom = airRollOf(run);
+      const turns = run.airRollFrom / (Math.PI * 2);
+      run.airRollTo = (dir === 'right' ? Math.floor(turns + 1e-6) + 1 : Math.ceil(turns - 1e-6) - 1) * Math.PI * 2;
+      run.airRollAt = run.t;
+    }
     run.jFrom = run.x; run.lane = to; run.jt = 0; run.lastJuke = run.t;
     return true;
   }
@@ -724,7 +741,7 @@ function sub(run, dt, out) {
   // (his strides: a yard a yard up to STRIDE_V, longer past it, so his legs never spin faster than they do at a sprint)
   run.steps += run.co.enhanced ? (flying(run) ? 0 : strideRate(v) * dt) : v * dt * Math.min(1, STRIDE_V / v0);
   if (co.enhanced) advanceTrains(run, dt, out);
-  if (run.jt < 1) { run.jt = Math.min(1, run.jt + dt / MOVE.juke); const e = 1 - (1 - run.jt) ** 3; run.x = run.jFrom + (xOf(run, run.lane) - run.jFrom) * e; }
+  if (run.jt < 1) { run.jt = Math.min(1, run.jt + dt / (flying(run) ? AIR.roll : MOVE.juke)); const e = 1 - (1 - run.jt) ** 3; run.x = run.jFrom + (xOf(run, run.lane) - run.jFrom) * e; }
   else run.x = xOf(run, run.lane);
   // a juke into a vehicle's side or off the edge of the road (refused by move) is a hit
   if (run.sideHit) { const w = run.sideHit; run.sideHit = null; if (!hit(run, out, w)) return; }
@@ -794,6 +811,8 @@ function sub(run, dt, out) {
     if (it.kind === 'jetpack') {
       if (!co.enhanced || !data.isOwner()) continue;
       run.jetpack = JETPACK.s; run.jetAge = 0; run.jetFrom = run.y; run.slide = 0; run.vy = 0; run.jumpQ = -9; run.sideHit = null;
+      run.airRollAt = -99; run.airRollFrom = run.airRollTo = 0;
+      run.sky = skyCourse(run, it.i);
     }
     else if (it.kind === 'salts') { run.salts = Math.min(SALTS_MAX, run.salts + 1); run.burst = burstSecs(run); }
     else run[it.kind] = POWER[it.kind].s;
@@ -812,6 +831,7 @@ function sub(run, dt, out) {
       out.push({type: 'coin', coin: cn, c: run.c, add, z: run.z});
     }
   }
+  if (flying(run)) advanceSky(run, out);
   run.slide = Math.max(0, run.slide - dt);
   run.pills = Math.max(0, run.pills - dt);
   run.booze = Math.max(0, run.booze - dt);
@@ -823,7 +843,46 @@ function sub(run, dt, out) {
   run.landing = Math.max(0, run.landing - dt);
   if (run.jetpack > 0) {
     run.jetpack = Math.max(0, run.jetpack - dt);
-    if (!run.jetpack) { run.landing = JETPACK.landing; out.push({type: 'jetlanded', z: run.z}); }
+    if (!run.jetpack) { run.landing = JETPACK.landing; run.sky = null; out.push({type: 'jetlanded', z: run.z}); }
+  }
+}
+// A fresh, deterministic sky course on every pickup, independent of ground-course RNG and coin eligibility.
+function skyCourse(run, item) {
+  const serial = ++run.jetSerial, r = rng(hashStr(`return-air-${run.n}-${item}-${serial}`));
+  const v = speedAt(run.z, run.co.hard) * (1 + burstOf(run)), hazards = [], coins = [];
+  let safe = run.lane, ci = 0;
+  for (let j = 0, t = AIR.lead; t < JETPACK.s - JETPACK.descend - .35; j++, t += AIR.gap) {
+    if (j) safe = safe === 0 ? 1 : safe === 2 ? 1 : r() < .5 ? 0 : 2;
+    const z = run.z + v * t, theme = zoneAt(run.co, z).theme.id;
+    const kinds = theme === 'space' ? ['debris', 'drone'] : ['birds', 'balloon', 'drone', 'birds'];
+    const lanes = [0, 1, 2].filter(l => l !== safe);
+    lanes.slice(0, j > 1 ? 2 : 1).forEach((lane, k) => hazards.push({i: `sky:${serial}:${j}:${k}`, kind: kinds[j % kinds.length], lane, z, y: AIR.y, passed: false}));
+    // The coins mark the safe line, leaving time between lines for a complete roll.
+    for (let at = z - v * .75; at <= z + v * .18; at += AIR.coinGap) {
+      coins.push({i: -(serial * 1000 + ++ci), lane: safe, z: at, y: AIR.y, air: true, taken: false});
+    }
+  }
+  return {serial, hazards, coins};
+}
+function advanceSky(run, out) {
+  if (!run.sky) return;
+  const lane = laneOf(run), cruise = run.jetAge > JETPACK.rise && run.jetpack > JETPACK.descend;
+  for (const h of run.sky.hazards) {
+    if (h.passed || h.z > run.z + .9) continue;
+    h.passed = true;
+    if (!cruise || h.lane !== lane || Math.abs(run.y + .9 - h.y) > 1.3) continue;
+    if (run.pills > 0) { out.push({type: 'airpassed', hazard: h, z: run.z}); continue; }
+    // A strike cuts the flight short; controlled descent avoids dropping into a ground obstacle.
+    run.airHits++; run.jetpack = JETPACK.descend; run.airHitAt = run.t;
+    out.push({type: 'airhit', hazard: h, z: run.z});
+  }
+  for (const coin of run.sky.coins) {
+    if (coin.taken || coin.z > run.z) continue;
+    coin.taken = true;
+    if (coin.lane !== lane || Math.abs(run.y + .9 - coin.y) > 1.2) continue;
+    const add = run.c < COIN.most ? 1 : 0;
+    run.c += add; run.airC += add;
+    out.push({type: 'coin', coin, c: run.c, add, air: true, z: run.z});
   }
 }
 // Mutable traffic belongs to the run, never the cached daily course. Pausing stops it too.
@@ -904,6 +963,10 @@ export function ahead(run, dist = 90, behind = 6) {
     if (d > dist) break;
     if (d >= -behind) items.push({item: co.items[i], d});
   }
+  if (flying(run) && run.sky) run.sky.coins.forEach(coin => {
+    const d = coin.z - z;
+    if (!coin.taken && d >= -behind && d <= dist) coins.push({coin, d});
+  });
   return {rows, sets, items, coins};
 }
 

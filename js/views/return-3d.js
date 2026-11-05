@@ -263,7 +263,8 @@ function dress(gltf, SK, k) {
   pack.scale.setScalar(1 / (SCALE * k.size));
   hang(B.Spine2, pack, new T.Vector3(0, chestY + (sh.y - chestY) * .15, back), new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), Math.PI));
   return {root, wrap, model, B, mixer, run, idle, ball, hipsY: B.Hips.position.y, q: new T.Quaternion(),
-    act: {run, idle}, w: {run: 0, idle: 1}, u: {}, slot: {}, layer, last: 0, pack};
+    act: {run, idle}, w: {run: 0, idle: 1}, u: {}, slot: {}, layer, last: 0, pack,
+    flightRest: Object.values(B).map(b => ({b, q: b.quaternion.clone(), p: b.position.clone()}))};
 }
 const BALL = 1.25; // (the ball a little big for his size: his hands are)
 /** Gives a player the moves' clips (two takes of each: a move started again while the last is still fading out takes
@@ -469,19 +470,29 @@ function pose(P, s, dt) {
     a.time = k === 'run' ? ((s.phase || 0) % 1 + 1) % 1 * d : k === 'idle' ? (s.t || 0) % d : (P.u[k] ?? 0) * d;
   }
   P.mixer.update(0);
+  // Flight has its own neutral torso. Imported running clips carry a twist and lean that would turn the pack under him.
+  if (s.jetpack) P.flightRest.forEach(({b, q, p}) => { b.quaternion.copy(q); b.position.copy(p); });
   // the whole of him: turned, leaned, pitched forward about his feet
+  P.root.rotation.order = s.jetpack ? 'ZXY' : 'YXZ';
   P.root.rotation.set(-(s.pitch || 0), -(s.turn || 0), -(s.roll || 0));
+  // Roll around the torso in flight, not around the feet. Restore the standing pivot on landing.
+  P.wrap.position.y = s.jetpack ? -.85 * (s.flight || 0) : 0;
+  if (s.jetpack) P.root.position.y += .85 * (s.flight || 0);
   P.root.updateMatrixWorld(true);
   P.wrap.getWorldQuaternion(P.q);
   P.model.updateMatrixWorld(true);
   const t = s.t || 0;
   if (s.jetpack && data.isOwner()) {
-    if (!P.jetpack) { P.jetpack = makeJetpack(T); P.jetpack.scale.setScalar(.7); P.jetpack.position.set(0, 0, .16); P.pack.add(P.jetpack); }
-    // Relaxed flying pose, with both knees trailing instead of cycling in midair.
-    leg(P, 'Left', [.12, -.95, -.2], [.05, -.8, -.6]);
-    leg(P, 'Right', [-.12, -.98, -.1], [-.05, -.85, -.5]);
-    limb(P, 'Left', [.55, -.8, .15], [.15, -.55, .8]);
-    limb(P, 'Right', [-.55, -.8, .15], [-.15, -.55, .8]);
+    if (!P.jetpack) { P.jetpack = W3.bend(makeJetpack(T)); P.jetpack.scale.setScalar(.7); P.root.add(P.jetpack); }
+    // Streamlined, belly down, arms reaching ahead and legs trailing behind the pack.
+    trunk(P, [0, 1, 0]); aim(P, 'Neck', 'Head', [0, 1, 0]);
+    leg(P, 'Left', [.12, -1, .05], [.03, -1, -.06]);
+    leg(P, 'Right', [-.12, -1, .05], [-.03, -1, -.06]);
+    limb(P, 'Left', [.34, .9, .18], [.08, .95, .2]);
+    limb(P, 'Right', [-.34, .9, .18], [-.08, .95, .2]);
+    // Anchor in the flight frame: the cartoon mesh's baked chest bounds don't match its animated bone frame.
+    P.B.Spine2.getWorldPosition(tmp().a); P.root.worldToLocal(tmp().a);
+    P.jetpack.position.copy(tmp().a); P.jetpack.position.z += .28;
     animateJetpack(P.jetpack, t);
   }
   if (P.jetpack) P.jetpack.visible = !!s.jetpack && data.isOwner();

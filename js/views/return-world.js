@@ -341,6 +341,7 @@ const fieldYard = z => ((z % 100) + 100) % 100;
 const inEndZone = z => z < 0 || (z >= 100 && fieldYard(z) < 10);
 /** Paint the logo in thin screen rows; return.js sets bend=0 for this 2D fallback. */
 function midfieldLogo(st, c, za, zb) {
+  if (data.isOwner()) return;
   const image = fieldLogo.image();
   if (!image) return;
   const width = fieldLogo.WIDTH, depth = width * image.height / image.width;
@@ -625,15 +626,15 @@ const DRESSERS = {
 };
 const GOODS_COL = {oranges: ['#F28C28', '#FFB255'], apples: ['#D63B2E', '#F06A55'], greens: ['#4FA845', '#7CCB5E'], corn: ['#F2C94C', '#FFE08A'], flowers: ['#E85AA0', '#FFD23F']};
 function dressOf(st, i) {
-  const key = `${st.co.n}|${st.co.k}|${i}`;
-  if (DRESS.has(key)) return DRESS.get(key);
+  const key = `${st.co.n}|${st.co.k}|${i}`, cacheKey = key + (st.co.enhanced ? '|one-field' : '');
+  if (DRESS.has(cacheKey)) return DRESS.get(cacheKey);
   const th = R.zoneAt(st.co, i * R.ZONE).theme, list = [];
   DRESSERS[th.id](list, i * R.ZONE, (i + 1) * R.ZONE, rnd('dress', key));
   list.forEach(o => { if (!o.z1) o.z1 = o.z0; o.zi = i; });
   list.sort((a, b) => b.z0 - a.z0);
   if (DRESS.size > 10) DRESS.clear();
   const v = {th, list};
-  DRESS.set(key, v);
+  DRESS.set(cacheKey, v);
   return v;
 }
 // The props: each drawn at its spot (s: the side, -1 left, 1 right; x: its distance out from the middle).

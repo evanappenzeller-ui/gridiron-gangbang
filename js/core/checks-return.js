@@ -943,7 +943,8 @@ export async function returnChecks(check) {
     const [view, w3, w2, sw] = await Promise.all([get('../views/return.js'), get('../views/return-3dworld.js'), get('../views/return-world.js'), get('../../sw.js')]);
     const start = /coins = own && R\.coinsOpen\(st\.n, k, own\);\s*\n\s*st\.run = R\.startRun\(st\.n, k, own, coins(?:, data\.isOwner\(\))?\);/.test(view)
       && /if \(R\.coinsWait\(st\.n, st\.day\.next, true\)\) \{/.test(view); // (his first kickoff waits for the board)
-    const shown = /const coinsShown = st => !!\(st\.run && st\.run\.coins && features\.available\(\)\)/.test(view) && /if \(coinsShown\(st\)\) A\.coins\.forEach/.test(view) && /const runCoins = st => \(st\.run && st\.run\.coins \? st\.run\.c : undefined\);/.test(view)
+    // Ground reward eligibility is unchanged; the owner's jetpack also shows its repeat-run sky coins.
+    const shown = /const coinsShown = st => !!\(st\.run && features\.available\(\) && \(st\.run\.coins \|\| \(data\.isOwner\(\) && \(R\.flying\(st\.run\) \|\| st\.run\.airC > 0\)\)\)\)/.test(view) && /if \(coinsShown\(st\)\) A\.coins\.forEach/.test(view) && /const runCoins = st => \(st\.run && st\.run\.coins \? st\.run\.c : undefined\);/.test(view)
       && /else if \(e\.type === 'coin'\) \{ if \(coinsShown\(st\)\) coinGot\(st, e, now\); else if \(st\.run\) st\.run\.c = Math\.max\(0, st\.run\.c - \(e\.add \?\? 1\)\); \}/.test(view);
     // (taken away when the board shows another of his phones ran first; a profile change hides them and, on his hard
     // course, ends the run where it is (the frame's whistle), keeping the ones he took: kept with the run, runCoins)
@@ -953,7 +954,7 @@ export async function returnChecks(check) {
     const card = /if \(!features\.available\(\) \|\| !run \|\| !run\.co\.hard\) return '';/.test(view) && /if \(!R\.testing\(\) && st\.n < R\.COIN\.fromDay\) return '';/.test(view)
       && ['Coins are only on your first run.', 'Your first run today was on another phone: its coins are the ones that count.', 'No coins this run', '(test play: not paid)'].every(w => view.includes(w)) && /Gold for Keepfall/.test(view)
       && /const c = run\.c, gold = nf\(R\.payOf\(c\)\);/.test(view); // (the day's pay: the base and the coins, capped: core payOf)
-    const one = (w3.match(/new T\.InstancedMesh\(/g) || []).length === 1 && /function coinsUpdate\(st, A, t\) \{\s*\n\s*if \(!\(A && st\.run && st\.run\.coins && features\.available\(\)\)\)/.test(w3) && /m\.castShadow = false/.test(w3);
+    const one = (w3.match(/new T\.InstancedMesh\(/g) || []).length === 1 && /function coinsUpdate\(st, A, t\) \{\s*\n\s*if \(!\(A && st\.run && features\.available\(\) && \(st\.run\.coins \|\| R\.flying\(st\.run\)\)\)\)/.test(w3) && /m\.castShadow = false/.test(w3);
     const flat = /export function coin\(st, c, cn, t\)/.test(w2) && !/coin[^'"\n]*\.(png|jpe?g|webp|glb|svg)/i.test(w2 + w3 + view) && !/coin/i.test(sw);
     const host = document.createElement('div');
     host.innerHTML = (await import('../views/return.js')).render({});

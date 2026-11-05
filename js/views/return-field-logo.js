@@ -7,13 +7,14 @@ export const OPACITY = .88; // Let the turf and mowing stripes show through the 
 const listeners = new Set();
 let bitmap = null, attempt = null, tried = false, subscribed = false;
 const changed = () => listeners.forEach(fn => fn());
-const current = load => attempt === load && !load.signal.aborted && features.available();
+const enabled = () => features.available() && !data.isOwner();
+const current = load => attempt === load && !load.signal.aborted && enabled();
 
 function watchProfile() {
   if (subscribed) return;
   subscribed = true;
   // data's 'me' event also covers profile changes made in another tab.
-  data.subscribe(type => { if (type === 'me' && !features.available()) revoke(); });
+  data.subscribe(type => { if (type === 'me' && !enabled()) revoke(); });
 }
 
 function revoke() {
@@ -31,7 +32,7 @@ export function subscribe(fn) {
 }
 
 export function sync() {
-  if (!features.available() && (bitmap || attempt || tried)) revoke();
+  if (!enabled() && (bitmap || attempt || tried)) revoke();
 }
 
 async function loadImage(load) {
@@ -54,7 +55,7 @@ async function loadImage(load) {
 /** The shared, unflipped bitmap for the canvas fallback and the 3D canvas texture. */
 export function image() {
   watchProfile(); sync();
-  if (!features.available()) return null;
+  if (!enabled()) return null;
   if (!tried) {
     tried = true;
     attempt = new AbortController();

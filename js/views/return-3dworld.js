@@ -1,5 +1,7 @@
 import * as features from '../core/features.js';
 import {makeJetpack, animateJetpack} from './return-jetpack.js';
+import * as life from './return-life.js';
+import {makeHazard, animateHazard} from './return-air-world.js';
 // Return Man's world in real 3D (the owner's ask, Oct 2026): the places a return runs through (core/return.js THEMES),
 // built in three.js around the players (views/return-3d.js, the same scene): each place's ground (the field with its
 // yard lines and numbers; a parking lot; a city street; packed snow; the desert's rails; cobbles; a boardwalk by the
@@ -45,10 +47,12 @@ function bendShader(sh) {
 export function bend(obj) {
   obj.traverse(o => {
     if (!o.material) return;
-    (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+    [...(Array.isArray(o.material) ? o.material : [o.material]), ...(o.customDepthMaterial ? [o.customDepthMaterial] : [])].forEach(m => {
       if (BENT.has(m)) return;
       BENT.add(m);
-      m.onBeforeCompile = bendShader;
+      const before = m.onBeforeCompile, key = m.customProgramCacheKey();
+      m.onBeforeCompile = function(sh, renderer) { before.call(this, sh, renderer); bendShader(sh); };
+      m.customProgramCacheKey = () => key + '|return-bend';
       m.needsUpdate = true;
     });
   });
@@ -69,6 +73,7 @@ export function init(three, scene, utils) {
   cityBus.init(T, refreshCityBuses);
   fieldLogo.subscribe(refreshFieldLogos);
   styleMode = style.enabled();
+  lifeOwner = data.isOwner();
   if (!styleSubscribed) {
     styleSubscribed = true;
     data.subscribe(type => { if (type === 'me' || type === 'data') syncStyle(); });
@@ -375,8 +380,9 @@ function chunk(st, i) {
   models.extras(b, lit, id, z0, z1, D.list, `${st.co.n}|${st.co.k}`);
   g.userData.theme = id; g.userData.models = withModels;
   const m = b.mesh(mats().vc), l = lit.mesh(mats().glow);
-  if (m) g.add(m);
+  if (m) { life.swayFoliage(T, m, id); g.add(m); }
   if (l) g.add(l);
+  life.build(T, Batch, g, id, z0, z1, D.list);
   g.userData.z0 = z0;
   return g;
 }
@@ -395,7 +401,7 @@ const GROUND_EXTRA = {
       const n = yd <= 50 ? yd : 100 - yd;
       // (read from the sideline, the tops toward it)
       [-1, 1].forEach(s => g.add(decal(numberMat(n), 3.2, 2.2, s * 18.8, z, -s * Math.PI / 2)));
-      if (yd === 50) g.add(midfieldLogo(z));
+      if (yd === 50 && !data.isOwner()) g.add(midfieldLogo(z));
     }
     // the wall round the field, padded, an ad strip along it; the stands climbing behind it, full
     [-1, 1].forEach(s => {
@@ -808,19 +814,27 @@ function sign(text, bg, ink, x, y, z, w, h, s) {
 // ============================================================================ In the lanes
 // Each a group of its own, built when it comes up, kept while it's in view (by its key).
 const LIVE = new Map(); // key -> {obj, seen}
-let styleMode = null, styleSubscribed = false;
+let styleMode = null, lifeOwner = null, styleSubscribed = false;
 function syncStyle() {
-  const next = style.enabled();
-  if (styleMode === next) return;
-  styleMode = next;
+  const next = style.enabled(), owner = data.isOwner();
+  if (styleMode === next && lifeOwner === owner) return;
+  const styleChanged = styleMode !== next;
+  styleMode = next; lifeOwner = owner;
   for (const [key, entry] of LIVE) {
+    // Only the roadside and sky course differ in this pilot; preserve the shared bus/art objects on profile changes.
+    if (!styleChanged && !key.startsWith('c:') && !key.startsWith('a:')) continue;
     ROOT.remove(entry.obj);
     if (key.startsWith('c:') || key.startsWith('v:')) entry.obj.traverse(o => { if (o.isMesh && o.geometry && !o.userData.shared) o.geometry.dispose(); });
     else if (key.startsWith('g:')) entry.obj.traverse(o => { if (o.userData.own) o.geometry.dispose(); });
+    else if (key.startsWith('a:')) disposeAir(entry.obj);
+    LIVE.delete(key);
   }
-  LIVE.clear();
-  if (FAR_GROUND) FAR_GROUND.visible = false;
-  style.clear();
+  if (styleChanged) { if (FAR_GROUND) FAR_GROUND.visible = false; style.clear(); }
+}
+function disposeAir(obj) {
+  const geometries = new Set(), materials = new Set();
+  obj.traverse(o => { if (o.isInstancedMesh) o.dispose(); if (o.geometry) geometries.add(o.geometry); if (o.material) materials.add(o.material); });
+  geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose());
 }
 // Readiness and profile changes must replace cached vehicles, even with the game view hidden.
 function refreshCityBuses() {
@@ -1130,7 +1144,7 @@ function coinsMesh() {
 }
 /** The coins in view (A: core ahead's, or null with no coin run), spinning and bobbing a little; none off his profile. */
 function coinsUpdate(st, A, t) {
-  if (!(A && st.run && st.run.coins && features.available())) { if (COINS) { COINS.count = 0; COINS.visible = false; } return; }
+  if (!(A && st.run && features.available() && (st.run.coins || R.flying(st.run)))) { if (COINS) { COINS.count = 0; COINS.visible = false; } return; }
   const m = coinsMesh(), M = tm();
   let n = 0;
   for (const {coin} of A.coins) {
@@ -1330,6 +1344,8 @@ export function update(st, now) {
   fieldLogo.sync();
   FRAME++;
   const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}${st.co.hard ? 'h' : ''}${st.co.enhanced ? '|flight' : ''}`;
+  const lifeTime = st.lifeTime ?? run?.t ?? t;
+  life.TIME.value = st.reducedMotion ? 0 : lifeTime;
   // the places' models (return-models.js): this one's and the next two's asked for in time; what was built before its
   // place's came in, built again with them while it's still off in the haze
   for (let z = cz; z <= cz + 2 * R.ZONE; z += R.ZONE) models.want(R.zoneAt(st.co, z).theme.id);
@@ -1348,7 +1364,10 @@ export function update(st, now) {
     const ck = key + '|' + i, have = LIVE.has('c:' + ck);
     const e = keep('c:' + ck, () => chunk(st, i), have || built === 0 || i * CHUNK < cz + 45);
     if (!have && e) built++;
-    if (e) e.traverse(o => { if (o.userData.spin) o.rotation.z = t * o.userData.spin; });
+    if (e) {
+      e.traverse(o => { if (o.userData.spin) o.rotation.z = (data.isOwner() ? life.TIME.value : t) * o.userData.spin; });
+      life.animate(e, lifeTime, st.reducedMotion);
+    }
   }
   // the gates (and their goal lines' pylons)
   for (let z = Math.ceil((cz - 4) / R.ZONE) * R.ZONE; z < cz + AHEAD; z += R.ZONE) {
@@ -1410,7 +1429,12 @@ export function update(st, now) {
       const glow = o.children[1]; glow.position.y = y + bob; glow.scale.setScalar(k * (1.9 + .5 * pulse));
       const ring = o.children[2]; ring.position.y = .03; ring.scale.setScalar(k * (1 + .15 * pulse));
     });
-    // the coins (the owner's first run of the day): one instanced mesh
+    if (R.flying(run)) for (const h of run.sky?.hazards || []) {
+      if (h.z < cz || h.z > cz + AHEAD) continue;
+      const o = keep(`a:${key}|${h.i}`, () => makeHazard(T, h.kind));
+      if (o) { o.position.set(R.xOf(run, h.lane), h.y, -h.z); animateHazard(T, o, lifeTime, st.reducedMotion); }
+    }
+    // Ground rewards and the coin trail made by every jetpack share one instanced mesh.
     coinsUpdate(st, A, t);
   } else coinsUpdate(st, null, t);
   // let go of whatever's out of view
@@ -1419,6 +1443,7 @@ export function update(st, now) {
     ROOT.remove(e.obj);
     if (k.startsWith('c:') || k.startsWith('v:')) e.obj.traverse(o => { if (o.isMesh && o.geometry && !o.userData.shared) o.geometry.dispose(); });
     else if (k.startsWith('g:')) e.obj.traverse(o => { if (o.userData.own) o.geometry.dispose(); });
+    else if (k.startsWith('a:')) disposeAir(e.obj);
     LIVE.delete(k);
   }
 }
