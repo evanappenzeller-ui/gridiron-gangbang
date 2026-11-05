@@ -153,7 +153,7 @@ export const ACTION = {
   "0037236": ["0037236-v4", "Commanders_at_Lions_(52379162544).jpg", "All-Pro Reels from District of Columbia, USA", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Aidan Hutchinson
   "0037744": ["0037744-v4", "own:0037744.jpg", "", "", "", 0], // Trey McBride
   "0038543": ["0038543-v4", "own:0038543.jpg", "", "", "", 0], // Jaxon Smith-Njigba
-  "0039139": ["0039139-v3", "card:e2026c5e", "", "", "", 2025], // Jahmyr Gibbs
+  "0039139": ["0039139-v4", "own:0039139.jpg", "", "", "", 0], // Jahmyr Gibbs
   "0039343": ["0039343-v4", "own:0039343.jpg", "", "", "", 0], // Kamari Lassiter
   "0029592": ["0029592-v3", "Kevin_Zeitler.JPG", "Jeffrey Beall", "CC BY 3.0", "https://creativecommons.org/licenses/by/3.0", 2015], // Kevin Zeitler
   "0034973": ["0034973-v4", "Maxx_Crosby_WFT-Raiders_DEC2021.jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2021], // Maxx Crosby
@@ -164,7 +164,7 @@ export const ACTION = {
   "0039075": ["0039075-v4", "own:0039075.jpg", "", "", "", 0], // Puka Nacua
   "0033280": ["0033280-v4", "own:0033280.jpg", "", "", "", 0], // Christian McCaffrey
   "0036963": ["0036963-v4", "own:0036963.jpg", "", "", "", 0], // Amon-Ra St. Brown
-  "0036994": ["0036994-v3", "card:7437998c", "", "", "", 2023], // Ernest Jones
+  "0036994": ["0036994-v4", "own:0036994.png", "", "", "", 0], // Ernest Jones
   "0039338": ["0039338-v4", "own:0039338.jpg", "", "", "", 0], // Brock Bowers
   "0026498": ["0026498-v3", "card:db6e878a", "", "", "", 2025], // Matthew Stafford
   "0031565": ["0031565-v4", "own:0031565.jpg", "", "", "", 0], // Danielle Hunter
@@ -214,7 +214,7 @@ export const ACTION = {
   "0031492": ["0031492-v3", "Jason_Myers_-_51720303739_(cropped).jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2021], // Jason Myers
   "0033106": ["0033106-v4", "Jared_Goff_2022.jpg", "All-Pro Reels", "CC BY-SA 2.0", "https://creativecommons.org/licenses/by-sa/2.0", 2022], // Jared Goff
   "0033831": ["0033831-v4", "own:0033831.jpg", "", "", "", 0], // Andrew Wylie
-  "0035272": ["0035272-v3", "card:2aa4bc7a", "", "", "", 2025], // Andrew Van Ginkel
+  "0035272": ["0035272-v4", "own:0035272.png", "", "", "", 0], // Andrew Van Ginkel
   "0036388": ["0036388-v4", "own:0036388.jpg", "", "", "", 0], // Xavier McKinney
   "0036554": ["0036554-v4", "own:0036554.jpg", "", "", "", 0], // Nico Collins
   "0036986": ["0036986-v3", "card:43715dbb", "", "", "", 2021], // Nahshon Wright
