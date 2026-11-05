@@ -243,7 +243,7 @@ async function main() {
       if (!(bones.Head[2] < bones.Hips[2] - .3 && bones.LeftFoot[2] > bones.Hips[2] && Math.abs(bones.Head[1] - bones.Hips[1]) < .22)) throw new Error('Runner must be horizontal, head ahead of hips and feet: ' + JSON.stringify(bones));
       const pack = p.jetpack.getWorldPosition(new T.Vector3()).toArray();
       if (!(pack[1] > bones.Spine2[1])) throw new Error('Pack must be above the belly-down torso: ' + JSON.stringify({pack, bones}));
-      return {bounce: start, bones, packVisible: p.jetpack.visible, flightY: p.root.position.y, cameraY: st.camH, hud: st.el.querySelector('[data-rm-flight-note]').textContent};
+      return {bounce: start, bones, packVisible: p.jetpack.visible, flightY: p.root.position.y, cameraY: st.camH};
     });
     await page.screenshot({path: path.join(output, 'jetpack-flight.png')});
     for (const [name, angle] of [['quarter-roll', Math.PI / 2], ['half-roll', Math.PI]]) {

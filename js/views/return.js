@@ -42,7 +42,7 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The version mark css/views/return.css carries (--rm-css): an older cached stylesheet gets the new one linked.
-const CSS_V = '9';
+const CSS_V = '10';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim() === CSS_V) return;
@@ -259,7 +259,6 @@ function bodyHTML(st) {
     + `<div class="rm-stage" data-rm-stage data-hscroll aria-label="Return Man: swipe left or right to juke, up to jump, down to slide">`
     + `<div class="rm-layers" data-rm-layers><canvas class="rm-cv" data-rm-cv></canvas><div class="rm-gl" data-rm-gl></div><canvas class="rm-fx" data-rm-fx></canvas></div>${hudHTML()}`
     + `<div class="rm-pop" data-rm-pop aria-hidden="true"></div>`
-    + `<div class="rm-flight-note" data-rm-flight-note hidden></div>`
     + `<div class="rm-card" data-rm-card role="group" aria-live="polite"${autoGoes(st) ? ' hidden' : ''}>${cardHTML(st)}</div></div>`
     + `<div class="rm-fill" data-rm-fill></div>`
     + `<div class="rm-board-w" data-rm-board>${boardHTML(st)}</div>`
@@ -598,7 +597,7 @@ function drawLanes(st, c, now) {
       const z = rz + d, x = R.xOf(run, l);
       list.push({z, x0: x - 1.4, x1: x + 1.4, draw: () => {
         W.obstacle(st, c, type, l, z, k);
-        if (!k && !run.over && d > 2.5 && d < 40 && st.mode === 'run' && ry < 1.2) hint(st, c, type, x, z);
+        if (!data.isOwner() && !k && !run.over && d > 2.5 && d < 40 && st.mode === 'run' && ry < 1.2) hint(st, c, type, x, z);
       }});
     }));
     // the gates into the places ahead
@@ -820,7 +819,7 @@ function draw3(st, c, now) {
   coinFx(st, c, now, bx, az);
   if (ch && run.over) puff(st, c, ch.cx, 0, ch.cz + .6, (now - st.downAt - 480) / 450, 1.2);
   // over a barricade or a banner coming up: the move that beats it
-  if (run && !run.over && st.mode === 'run' && ry < 1.2) {
+  if (!data.isOwner() && run && !run.over && st.mode === 'run' && ry < 1.2) {
     R.ahead(run, 40, 0).rows.forEach(({row, d}) => row.lanes.forEach((type, l) => {
       if (type && d > 2.5 && d < 40 && !st.knocked.get(`${row.i}:${l}`)) hint(st, c, type, R.xOf(run, l), rz + d);
     }));
@@ -1004,14 +1003,6 @@ function patchHud(st) {
   }
   // the power-ups he's carrying: the salts, and what's left of the painkillers and the booze
   const on = live && !run.over, x2 = on && R.multiplierOf(run) === 2;
-  const flightNote = el.querySelector('[data-rm-flight-note]');
-  if (flightNote) {
-    const message = on && data.isOwner() && run.co.enhanced
-      ? R.flying(run) ? (run.jetpack <= R.JETPACK.descend ? (run.t - (run.airHitAt ?? -99) < 2 ? 'SKY HIT · LANDING…' : 'LANDING…') : 'JETPACK · SWIPE TO BARREL ROLL')
-        : run.t < st.trafficUntil ? `INCOMING TRAIN · ${st.trafficLane || 'DODGE'}` : '' : '';
-    flightNote.hidden = !message;
-    if (flightNote.textContent !== message) flightNote.textContent = message;
-  }
   const chip = el.querySelector('[data-rm-ychip]'); if (chip) chip.classList.toggle('is-x2', !!x2);
   const yu = el.querySelector('[data-rm-yu]'); if (yu && yu.textContent !== (x2 ? 'yds ×2' : 'yds')) yu.textContent = x2 ? 'yds ×2' : 'yds';
   const pw = el.querySelector('[data-rm-pows]');
@@ -1119,14 +1110,20 @@ function ungot(st) {
 // screen says, Woooo"): no place names, move calls, hit words or the pickup's card. The haptics, the red edges and the
 // screen reader's words stay.
 const CATCHPHRASE = {salts: 'WOOOO!', pills: 'CAN’T FEEL A THING!', booze: 'HOLD MY BEER!', jetpack: 'CLEARED FOR TAKEOFF!'};
-// The owner's chosen catchphrases; rotate when a pickup has more than one line.
+// Shared catchphrases stay unchanged outside Evan's profile.
 const PICKUP_LINES = {
   salts: ['YEAH BUDDY'],
   pills: ['PUT ME IN COACH'],
   booze: ['LET’S RIDE!', 'WHERE ARE MY KEYS']
 };
+// Rotate through all three before reshuffling, without consecutive repeats.
+const OWNER_PICKUP_LINES = {
+  salts: ['LET’S GO BABY', 'I FEEL LIKE A SUPERHERO', 'OOOO THAT’S NICE'],
+  pills: ['I CAN’T FEEL A THING', 'POP A PERKY JUST TO START UP', 'I AM THE CONCUSSION PROTOCOL'],
+  booze: ['CASE RACE TIME', 'NECTAR FROM THE GODS', 'BUTT CHUG TIME']
+};
 function pickupLine(st, kind) {
-  const lines = PICKUP_LINES[kind];
+  const lines = (data.isOwner() ? OWNER_PICKUP_LINES : PICKUP_LINES)[kind];
   if (!lines) return CATCHPHRASE[kind] || 'WOOOO!';
   const decks = st.pickupLines || (st.pickupLines = {}), deck = decks[kind] || (decks[kind] = {left: [], last: null});
   if (!deck.left.length) {
@@ -1148,6 +1145,7 @@ function clearPickupPop(st) {
 }
 function catchphrase(st, kind) {
   ungot(st);
+  if (data.isOwner() && kind === 'jetpack') { clearPickupPop(st); return ''; }
   const owner = features.available(), line = owner ? pickupLine(st, kind) : CATCHPHRASE[kind] || 'WOOOO!';
   pop(st, line, `is-${kind} is-catch${owner ? ' is-quippy' : ''}`);
   return owner ? line : '';
@@ -1157,9 +1155,6 @@ function onEvents(st, evs) {
   const quiet = !!(st.run && st.run.co && st.run.co.hard), say = (...a) => { if (!quiet) pop(st, ...a); };
   evs.forEach(e => {
     if (e.type === 'traffic') {
-      st.trafficUntil = st.run.t + 2.4;
-      const open = [0, 1, 2].filter(l => !e.lanes.includes(l));
-      st.trafficLane = open.length === 1 ? ['GO LEFT', 'GO MIDDLE', 'GO RIGHT'][open[0]] : 'SWIPE TO DODGE';
       ui.announce('Incoming train. Swipe to an open lane.'); ui.haptic('warning');
     }
     if (e.type === 'jetlanded') { st.landAt = now; ui.announce('Jetpack landing. Back on the ground.'); }

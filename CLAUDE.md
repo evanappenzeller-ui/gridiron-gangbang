@@ -52,6 +52,11 @@ clean seconds reset it. The chaser uses the same run clip, stride rate, bounce a
 Other profiles retain the shared deployed scoring, launch and chase rules. Keep the existing regression checks
 and the new start-screen, roof-landing, multiplier and pursuit cases in `check-motion.cjs` passing.
 
+November 5 pickup copy (owner-only): no obstacle hint arrows or train/flight instruction banners during play.
+Painkillers, beer and salts each rotate through Evan's three chosen lines (`OWNER_PICKUP_LINES`), without
+consecutive repeats. Jetpack pickups show no text popup. Start-screen controls and screen-reader announcements
+remain; other profiles keep their existing hints and pickup lines.
+
 Evan chose the supplied colorful low-poly runner reference for Return Man's environments: bold silhouettes,
 warm cream trim, saturated accents, faceted foliage, clean roads and clearly visible hazards. Keep each of the
 nine locations distinct. This direction applies to Evan's profile only. `return-style.js` owns the procedural

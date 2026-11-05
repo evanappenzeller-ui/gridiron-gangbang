@@ -4,7 +4,7 @@
    laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/return.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --rm-css: 9; }
+:root { --rm-css: 10; }
 
 .rm-pane .rm-card-in.rm-start { width: min(100%, 340px); }
 .rm-pane .rm-start .rm-card-t { font-size: 42px; line-height: 1; margin-top: 10px !important; }
@@ -18,8 +18,6 @@
 
 .rm-pane .rm-pw.is-jetpack { color: #79efff; border-color: #52d3ed; }
 .rm-pane .rm-pw.is-jetpack > b { font-size: 10px; letter-spacing: .06em; }
-.rm-pane .rm-flight-note { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); z-index: 4; max-width: 90%; padding: 8px 12px; border: 1px solid #79efff80; border-radius: 10px; background: #102b40ed; color: #e7fcff; font: 800 11px/1.3 system-ui, sans-serif; letter-spacing: .06em; text-align: center; pointer-events: none; }
-.rm-pane .rm-flight-note[hidden] { display: none; }
 
 .rm-pane {
   --rm-good: #3EF08F; --rm-gold: #FFD23F; --rm-hot: #FF6A2B;
