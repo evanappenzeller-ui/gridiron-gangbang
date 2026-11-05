@@ -54,6 +54,55 @@ async function kitChecks(page) {
   });
 }
 
+async function homeFlow(page, reduced) {
+  const nav = tab => page.locator(`.pk-nav [data-dy-tab="${tab}"]`).click();
+  await page.waitForFunction(() => document.querySelector('.rh-home-art')?.naturalWidth > 0);
+  const before = await page.evaluate(async () => JSON.stringify((await import('/js/core/dynasty.js')).mine()));
+  for (const [width, height] of [[390, 844], [320, 568], [430, 932], [768, 1024]]) {
+    await page.setViewportSize({width, height});
+    await page.waitForTimeout(120);
+    const layout = await page.evaluate(() => {
+      const pane = document.querySelector('.pk-pane'), hdr = document.querySelector('.pk-hdr').getBoundingClientRect(), nav = document.querySelector('.pk-nav').getBoundingClientRect();
+      const p = pane.getBoundingClientRect();
+      return {fits: pane.scrollWidth <= pane.clientWidth + 1, clear: p.top >= hdr.bottom - 1 && p.bottom <= nav.top + 1,
+        taps: [...document.querySelectorAll('.rh-home button, .pk-nav button')].every(b => b.getBoundingClientRect().height >= 44)};
+    });
+    assert.deepEqual(layout, {fits: true, clear: true, taps: true}, `Home fits ${width} x ${height}`);
+    await snap(page, `evan-home-${width}${reduced ? '-rm' : ''}`);
+  }
+  await page.setViewportSize({width: 390, height: 844});
+  await page.locator('.rh-home-battle').focus(); await page.keyboard.press('Enter');
+  await page.waitForSelector('.pk-mode[data-dy-bv="solo"]');
+  assert.equal(await page.locator('.pk-tab.is-on').getAttribute('data-dy-tab'), 'battle');
+  await page.locator('[data-dy-bv="solo"]').click(); await page.waitForSelector('.pk-solo');
+  await nav('home');
+  await page.locator('.rh-home .is-packs').click(); await page.waitForSelector('.pk-packs');
+  await nav('home');
+  await page.locator('.rh-home .is-collection').click(); await page.waitForSelector('.pk-binder');
+  await nav('home');
+  await page.locator('.rh-home-tools [data-dy-tab="decks"]').click(); await page.waitForSelector('.pk-deckbox');
+  await nav('home');
+  await page.locator('.rh-home [data-dy-guide]').click(); await page.waitForSelector('.sheet.pk-sheet');
+  await page.locator('.sheet.pk-sheet .sheet-close').click();
+  await page.waitForFunction(() => !document.querySelector('.sheet.pk-sheet'));
+  const after = await page.evaluate(async () => JSON.stringify((await import('/js/core/dynasty.js')).mine()));
+  assert.equal(after, before, 'Home navigation does not change cards, decks, balances or progress');
+  // A live profile switch must remove the owner chrome and cached Home, including the new artwork.
+  await page.evaluate(async () => { const d = await import('/js/core/data.js'); d.setGuest('Ryan Stewart'); });
+  await page.waitForFunction(() => !document.querySelector('.rh-home-enabled'));
+  assert.deepEqual(await page.locator('.pk-tab').allTextContents(), ['Play', 'Cards', 'Decks', 'Packs']);
+  assert.equal(await page.locator('.rh-home, .rh-home-art').count(), 0, 'Ryan keeps the deployed hub after switching');
+  await page.evaluate(async () => (await import('/js/core/data.js')).setMe('evan'));
+  await page.waitForSelector('.rh-home-enabled');
+  // The router remounts the game when the profile changes; its title screen still applies.
+  await page.waitForSelector('.pk-start.is-ready');
+  await page.locator('.pk-start').click({position: {x: 195, y: 640}});
+  await page.waitForFunction(() => !document.querySelector('.pk-start'));
+  await nav('home');
+  assert.equal(await page.locator('.rh-home').count(), 1);
+  console.log('PASS owner Home: responsive layout, keyboard, destinations, saved progress and profile switching');
+}
+
 async function playerFlow(page, p, {reduced}) {
   const T = p.tag + (reduced ? ' (reduced motion)' : '');
   await page.waitForSelector('.pk-start', {timeout: 15000});
@@ -69,14 +118,16 @@ async function playerFlow(page, p, {reduced}) {
   assert.equal(await page.locator('.pk-start .gg-exit').count(), 1, T + ': the red X on the title screen');
   assert.equal(await page.locator('.pk-start-logo').textContent(), 'GridironTrading Card GameRivals', T + ': the logo');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-title`);
-  // Tap anywhere: Play is the home, with visible labels for every main destination.
+  // Tap anywhere: Evan's new Home, or the deployed Play hub for Ryan Stewart.
   await page.locator('.pk-start').click({position: {x: 195, y: 640}});
   await page.waitForFunction(() => !document.querySelector('.pk-start'), null, {timeout: 5000});
   assert.equal(await page.locator('.pk.is-start, [inert]').count(), 0, T + ': the shell is live again');
-  assert.equal(await page.locator('.pk-tab').count(), 4, T + ': four tabs at the foot');
-  assert.deepEqual(await page.locator('.pk-tab').allTextContents(), ['Play', 'Cards', 'Decks', 'Packs'], T + ': four readable navigation labels');
-  assert.equal(await page.locator('.pk-tab.is-on').getAttribute('data-dy-tab'), 'battle', T + ': Play is selected on entry');
-  assert.equal(await page.locator('[data-pk-title]').textContent(), 'Play', T + ': Play is the current page');
+  const owner = p.tag === 'evan';
+  assert.deepEqual(await page.locator('.pk-tab').allTextContents(), owner ? ['Home', 'Battle', 'Packs', 'Collection', 'Decks'] : ['Play', 'Cards', 'Decks', 'Packs'], T + ': profile-scoped navigation');
+  assert.equal(await page.locator('.pk-tab.is-on').getAttribute('data-dy-tab'), owner ? 'home' : 'battle', T + ': the right entry destination');
+  assert.equal(await page.locator('[data-pk-title]').textContent(), owner ? 'Home' : 'Play', T + ': the current page');
+  assert.equal(await page.locator('.rh-home-enabled, .rh-home').count(), owner ? 2 : 0, T + ': Home belongs only to the owner');
+  if (owner) await homeFlow(page, reduced);
   assert.equal(await page.locator('.pk-hdr [data-dy-menu]').count(), 1, T + ': Menu is in the header');
   const labels = await page.locator('.pk-tab span:not(.pk-dot)').evaluateAll(nodes => nodes.map(n => {
     const s = getComputedStyle(n), r = n.getBoundingClientRect();

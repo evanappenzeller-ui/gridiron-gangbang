@@ -232,14 +232,15 @@ export async function dynastyChecks(check) {
     const all = (src.match(/daily\.LB\.all/g) || []).length === 1 && (msrc.match(/daily\.LB\.all/g) || []).length === 1;
     return {pass: raw && all, detail: 'others() and the matches from LB.raw; LB.all only for your own saves'};
   });
-  check('Gridiron Rivals: the title screen retains its logo, drifting cards, Tap to Start and support id; four labeled tabs open Play first, with Menu in the header and direct match, deck, solo and friend routes', async () => {
+  check('Gridiron Rivals: the title screen keeps its logo, Tap to Start and support id; the owner opens Home with five destinations, other profiles keep four tabs opening Play', async () => {
     const V = await import('../views/dynasty.js');
+    const owner = (await import('./data.js')).isOwner();
     const shell = V.shellHTML(), start = V.startHTML();
     const root = document.createElement('div'); root.innerHTML = shell;
     const tabs = root.querySelectorAll('.pk-tab').length;
     const menu = !!root.querySelector('.pk-hdr [data-dy-menu]') && !!root.querySelector('[data-dy-hud]');
-    const nav = [...root.querySelectorAll('.pk-tab .rh-tab-label')].map(n => n.textContent).join('|') === 'Play|Cards|Decks|Packs'
-      && root.querySelector('.pk-tab.is-on')?.dataset.dyTab === 'battle';
+    const nav = [...root.querySelectorAll('.pk-tab .rh-tab-label')].map(n => n.textContent).join('|') === (owner ? 'Home|Battle|Packs|Collection|Decks' : 'Play|Cards|Decks|Packs')
+      && root.querySelector('.pk-tab.is-on')?.dataset.dyTab === (owner ? 'home' : 'battle');
     const logo = /pk-logo-top">Gridiron<\/span>/.test(start) && /Trading Card Game/.test(start) && /pk-logo-sub">Rivals<\/span>/.test(start);
     const bits = /data-dy-start/.test(start) && /role="button"/.test(start) && /Support ID: [A-Z0-9]{8}</.test(start) && /Ver\. 3\.0\.\d+</.test(start) && /data-dy-menu/.test(start) && /data-dy-exit/.test(start);
     const say = D.status === 'ready' ? /Tap to Start/.test(start) : /Loading/.test(start);
@@ -248,7 +249,7 @@ export async function dynastyChecks(check) {
     const ids = [V.supportId('m_evan'), V.supportId('m_evan'), V.supportId('u_ryan-stewart')];
     const battle = V.battleHome({pack: 'std'}, D.fresh('m_check'));
     const modes = ['class="rh-hero"', 'class="rh-play"', 'class="rh-active-deck" data-dy-tab="decks"', 'data-dy-bv="versus"', 'data-dy-bv="solo"', 'data-dy-guide', 'data-dy-bv="rank"', 'Collections'].every(x => battle.includes(x));
-    return {pass: tabs === 4 && nav && menu && logo && bits && say && drawn === 0 && !('startCards' in V) && ids[0] === ids[1] && ids[0] !== ids[2] && !/EVAN/.test(ids[0]) && modes,
+    return {pass: tabs === (owner ? 5 : 4) && nav && menu && logo && bits && say && drawn === 0 && !('startCards' in V) && ids[0] === ids[1] && ids[0] !== ids[2] && !/EVAN/.test(ids[0]) && modes,
       detail: `${tabs} tabs; no cards on the title screen; support id ${ids[0]}`};
   });
   check('Gridiron Dynasty: each rarity’s reveal on the deal grows with it (the owner, Oct 29 2026: "The more rare the player, the more exciting the animation"): ◆ dealt face up, ◆◆ flips, ◆◆◆ a ring, sparks and its stamp, ◆◆◆◆ rays, a flash and confetti, ★ and ★★ the drum and the sweep, ♛ the crown and the most of everything', async () => {

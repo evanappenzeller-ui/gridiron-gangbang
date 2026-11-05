@@ -226,14 +226,18 @@ const TABS = [
   {id: 'decks', label: 'Decks', title: 'Decks', ic: '<path d="M4 8h16v12H4zM7 4h10v4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 13h6M9 16h4" stroke="currentColor" stroke-width="1.8"/>'},
   {id: 'packs', label: 'Packs', title: 'Packs', ic: '<path d="M6 3h12v18H6zM6 7h12M6 17h12" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m12 9 2 3-2 3-2-3z" fill="currentColor"/>'}
 ];
-const PANE_TABS = TABS;
+// The reference-inspired Home is an owner pilot. Existing profiles keep their four destinations.
+const HOME_TAB = {id: 'home', label: 'Home', title: 'Home', ic: '<path d="m3 10 9-7 9 7v10h-6v-7H9v7H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>'};
+const homeOpen = () => data.isOwner();
+const tabsOf = () => homeOpen() ? [HOME_TAB, {...TABS[0], label: 'Battle', title: 'Battle'}, TABS[3], {...TABS[1], label: 'Collection', title: 'Collection'}, TABS[2]] : TABS;
+const navHTML = () => tabsOf().map((t, i) => `<button type="button" class="pk-tab${i === 0 ? ' is-on' : ''}" data-dy-tab="${t.id}" aria-pressed="${i === 0}">`
+  + `<svg viewBox="0 0 24 24" aria-hidden="true">${t.ic}</svg><span class="rh-tab-label">${t.label}</span><i class="pk-dot" hidden></i></button>`).join('');
 export function shellHTML() {
-  return `<div class="pk" data-dy><header class="pk-hdr">${ui.exitButton('data-dy-exit', 'Exit Gridiron Rivals')}`
-    + `<div class="rh-brand"><span>GRIDIRON RIVALS</span><h1 class="pk-title" data-pk-title tabindex="-1">Play</h1></div><span class="pk-hud" data-dy-hud></span>`
+  return `<div class="pk${homeOpen() ? ' rh-home-enabled' : ''}" data-dy><header class="pk-hdr">${ui.exitButton('data-dy-exit', 'Exit Gridiron Rivals')}`
+    + `<div class="rh-brand"><span>GRIDIRON RIVALS</span><h1 class="pk-title" data-pk-title tabindex="-1">${homeOpen() ? 'Home' : 'Play'}</h1></div><span class="pk-hud" data-dy-hud></span>`
     + `<button type="button" class="rh-menu" data-dy-menu aria-label="Menu">${ui.icon('list', {size: 22})}</button></header>`
     + `<div class="pk-pane" data-dy-pane></div>`
-    + `<nav class="pk-nav" aria-label="Gridiron Rivals">${TABS.map((t, i) => `<button type="button" class="pk-tab${i === 0 ? ' is-on' : ''}" data-dy-tab="${t.id}" aria-pressed="${i === 0}">`
-      + `<svg viewBox="0 0 24 24" aria-hidden="true">${t.ic}</svg><span class="rh-tab-label">${t.label}</span><i class="pk-dot" hidden></i></button>`).join('')}</nav>`
+    + `<nav class="pk-nav" aria-label="Gridiron Rivals">${navHTML()}</nav>`
     + startHTML() + '</div>';
 }
 /** The header's counters: packs to open (tap for the pack list) and coins. */
@@ -661,6 +665,33 @@ function renameSheet(st) {
   });
 }
 
+// ---------------------------------------------------------------------------------------------------- Home
+function homeHTML(st) {
+  if (!homeOpen()) return battleHome(st);
+  const s = D.mine(), own = D.owned(s), ready = D.claimable(s).length, wait = waitingOf(st);
+  const current = matchesOf(st).find(x => ['setup', 'yours'].includes(x.state)) || SOLO.current();
+  const at = SOLO.ladderAt(s), next = SOLO.stage(Math.min(at, SOLO.LADDER));
+  const packs = D.unlimited() ? 'Unlimited packs' : D.dailyReady(s) ? 'Free pack ready' : 'Find your next star';
+  const arrow = ui.icon('chevron-right', {size: 20});
+  return `<section class="rh-home" aria-label="Rivals home">`
+    + `<button type="button" class="rh-home-battle" data-dy-tab="battle" aria-label="Battle: solo ladder and versus">`
+    + `<span class="rh-home-banner"><img class="rh-home-art" src="img/rivals/home-battle-v1.webp" width="1536" height="1024" alt="" fetchpriority="high" decoding="async">`
+    + `<span class="rh-home-heading"><small>TAKE THE FIELD</small><b>Battle</b></span><span class="rh-home-versus" aria-hidden="true">VS</span>`
+    + `<span class="rh-home-ribbon"><span>${ui.icon('versus', {size: 22})}<b>Solo &amp; Versus</b></span>${arrow}</span></span></button>`
+    + (current ? `<button type="button" class="rh-home-resume" data-dy-go="${esc(current.mid)}"><span class="rh-home-status"></span><span><b>Continue your match</b><small>vs. ${esc(current.opp.name)}</small></span>${arrow}</button>`
+      : `<div class="rh-home-progress"><span class="rh-home-status"></span><span>${at > SOLO.LADDER ? 'Solo ladder complete' : `Solo ladder · Game ${next.n} of ${SOLO.LADDER}`}</span><b>${esc(next.tier.name)}</b></div>`)
+    + `<div class="rh-home-section"><h2>Build your next win</h2><span>COLLECT. COMPETE. REPEAT.</span></div>`
+    + `<div class="rh-home-destinations">`
+    + `<button type="button" class="rh-home-tile is-packs" data-dy-tab="packs"><span class="rh-home-tile-art rh-home-packs" aria-hidden="true">${packHTML('std')}${packHTML('prem')}</span>`
+    + `<span class="rh-home-tile-copy"><b>Packs</b><small>${packs}</small></span><span class="rh-home-tile-arrow" aria-hidden="true">${arrow}</span></button>`
+    + `<button type="button" class="rh-home-tile is-collection" data-dy-tab="cards"><span class="rh-home-tile-art rh-home-cards" aria-hidden="true"><i></i><i></i><i></i></span>`
+    + `<span class="rh-home-tile-copy"><b>Collection</b><small>${nf(own.have)} cards collected</small></span><span class="rh-home-tile-arrow" aria-hidden="true">${arrow}</span></button></div>`
+    + (ready ? `<button type="button" class="rh-home-notice" data-dy-goto="cols">${ui.icon('trophy', {size: 18})}<span>${ready === 1 ? '1 collection reward' : `${nf(ready)} collection rewards`} ready to claim</span>${arrow}</button>` : '')
+    + (wait ? `<button type="button" class="rh-home-notice" data-dy-home-versus>${ui.icon('versus', {size: 18})}<span>${wait === 1 ? '1 battle needs' : `${nf(wait)} battles need`} your attention</span>${arrow}</button>` : '')
+    + `<div class="rh-home-tools"><button type="button" data-dy-tab="decks"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">${TABS[2].ic}</svg><span>My decks</span>${arrow}</button><button type="button" data-dy-guide>${ui.icon('info', {size: 24})}<span>How to play</span>${arrow}</button></div>`
+    + `<p class="rh-home-signoff">YOUR TEAM. YOUR CARDS. YOUR LEGACY.</p></section>`;
+}
+
 // ---------------------------------------------------------------------------------------------------- Battle
 // Pocket's Battle screen: the banner (your next Solo ladder game: core/dynasty-solo.js; the owner, Oct 30 2026: "This
 // game mode should be focused on games against the cpu getting increasingly difficult"), then the ladder and Versus
@@ -901,7 +932,7 @@ function menuSheet(st) {
 }
 
 // ---------------------------------------------------------------------------------------------------- the screen
-const PANES = {packs: packsHTML, cards: cardsHTML, decks: decksHTML, battle: battleHTML2};
+const PANES = {home: homeHTML, packs: packsHTML, cards: cardsHTML, decks: decksHTML, battle: battleHTML2};
 // Replaying multiplayer logs is expensive. Share one short-lived snapshot across the badge and screens;
 // match/board/profile events and returning from a battle invalidate it before it can be used again.
 function matchesOf(st) {
@@ -914,7 +945,7 @@ function matchesOf(st) {
 const waitingOf = st => matchesOf(st).filter(x => ['invite', 'setup', 'yours'].includes(x.state)).length;
 const paneKey = st => JSON.stringify([st.tab, st.tab === 'cards' ? st.f : st.tab === 'battle' ? st.bv : st.tab === 'packs' ? [st.pack, st.art] : null]);
 // Pack countdowns and battle idle times age even without a save event. Reusing nodes must not reset their age.
-const paneFresh = (tab, at) => !(tab === 'packs' || tab === 'battle') || Date.now() - at < 15000;
+const paneFresh = (tab, at) => !(tab === 'packs' || tab === 'battle' || tab === 'home') || Date.now() - at < 15000;
 function invalidatePanes(st, matches = false) {
   st.revision++; st.panes.clear();
   if (matches) st.matches = null;
@@ -926,8 +957,15 @@ function scheduleRefresh(st) {
 }
 function updateChrome(st) {
   const el = st.el, hud = hudHTML(D.mine());
+  const shell = el.querySelector('.pk'), owner = homeOpen();
+  if (shell.classList.contains('rh-home-enabled') !== owner) {
+    shell.classList.toggle('rh-home-enabled', owner);
+    el.querySelector('.pk-nav').innerHTML = navHTML();
+  }
+  if (st.tab === 'home' && !owner) st.tab = 'battle';
+  shell.classList.toggle('is-home', owner && st.tab === 'home');
   if (hud !== st.hud) { el.querySelector('[data-dy-hud]').innerHTML = hud; st.hud = hud; }
-  el.querySelector('[data-pk-title]').textContent = (PANE_TABS.find(t => t.id === st.tab) || PANE_TABS[0]).title;
+  el.querySelector('[data-pk-title]').textContent = (tabsOf().find(t => t.id === st.tab) || TABS[0]).title;
   el.querySelectorAll('.pk-tab[data-dy-tab]').forEach(b => { const on = b.dataset.dyTab === st.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
   const dot = el.querySelector('.pk-tab[data-dy-tab="battle"] .pk-dot');
   if (dot) dot.hidden = !waitingOf(st);
@@ -973,7 +1011,7 @@ function refresh(st) {
   st.renderedTab = st.tab; st.renderedKey = paneKey(st); st.renderedRevision = st.revision; st.renderedAt = Date.now();
 }
 function go(st, tab, {keep = false} = {}) {
-  if (!PANES[tab] || st.dead) return;
+  if (!PANES[tab] || st.dead || (tab === 'home' && !homeOpen())) return;
   clearTimeout(st.qT);
   if (st.refreshFrame) { cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; }
   const pane = st.el.querySelector('[data-dy-pane]'), previous = st.tab;
@@ -1009,7 +1047,7 @@ export default {
   render() { return shellHTML(); },
 
   mount(el, ctx) {
-    const st = {el, ctx, tab: 'battle', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: '', sort: sortLoad()}, shown: PAGE, dead: false, starting: false, stops: [], panes: new Map(), revision: 0, refreshFrame: 0, hidden: false};
+    const st = {el, ctx, tab: homeOpen() ? 'home' : 'battle', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: '', sort: sortLoad()}, shown: PAGE, dead: false, starting: false, stops: [], panes: new Map(), revision: 0, refreshFrame: 0, hidden: false};
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
     ctx.setBackTitle('Rivals');
@@ -1030,6 +1068,7 @@ export default {
       if (q('[data-dy-exit]')) { ui.confirmExit({game: 'Gridiron Rivals', cls: 'pk-sheet'}).then(home => { if (home && !st.dead) ctx.back(); }); return; }
       if (q('[data-dy-menu]')) { menuSheet(st); return; }
       if (q('[data-dy-retry]')) { D.load().then(() => refresh(st), () => refresh(st)); refresh(st); return; }
+      if (homeOpen() && q('[data-dy-home-versus]')) { st.bv = 'versus'; go(st, 'battle', {keep: true}); return; }
       if ((b = q('[data-dy-tab]'))) { go(st, b.dataset.dyTab); return; }
       if ((b = q('[data-dy-goto]'))) { st.f.view = 'cols'; go(st, 'cards'); return; }
       if ((b = q('[data-dy-cv]'))) { st.f.view = b.dataset.dyCv; refresh(st); return; }
@@ -1132,8 +1171,8 @@ export default {
     });
     st.stops.push(D.subscribe(why => { invalidatePanes(st, why === 'profile' || why === 'data' || why === 'sync'); if (why !== 'change' && why !== 'open') scheduleRefresh(st); }));
     st.stops.push(MT.subscribe(() => { invalidatePanes(st, true); scheduleRefresh(st); }));
-    st.stops.push(SOLO.subscribe(() => { invalidatePanes(st); if (st.tab === 'battle') scheduleRefresh(st); }));
-    st.stops.push(ctx.on('daily', type => { if (type === 'lb') { invalidatePanes(st, true); if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'battle' || st.tab === 'packs') scheduleRefresh(st); } }));
+    st.stops.push(SOLO.subscribe(() => { invalidatePanes(st); if (st.tab === 'battle' || st.tab === 'home') scheduleRefresh(st); }));
+    st.stops.push(ctx.on('daily', type => { if (type === 'lb') { invalidatePanes(st, true); if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'battle' || st.tab === 'packs' || st.tab === 'home') scheduleRefresh(st); } }));
     st.stops.push(data.subscribe(type => { if (type === 'me') { invalidatePanes(st, true); refresh(st); } }));
     st.stops.push(ctx.timer(() => { if (!st.hidden && D.status === 'ready' && D.mayPlay()) updateChrome(st); }, 15000));
     try { ui.lsSet('gg-dynasty-seen', '1'); } catch (_) {}

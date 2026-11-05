@@ -328,6 +328,15 @@ A new tab needs its entry in `APPS` and its icon in the bar. Verify `node tools/
 
 ## Deploying
 
+Rivals Home pilot (November 4, 2026, current AGENTS.md scope): `data.isOwner()` enables the new Home screen
+and five labeled destinations for Evan only. `views/dynasty.js` keeps other profiles' Play-first hub and four tabs;
+`css/views/dynasty-home.css` scopes its chrome to `.rh-home-enabled` and its home layout to `.is-home`.
+The angled football banner leads to Battle, with Packs, Collection, My decks and How to play below; saved matches
+and collection rewards use existing state and actions. No collection, balance, deck or battle schema changes.
+The generated artwork is `img/rivals/home-battle-v1.webp`; its prompt is in `tools/dynasty/home-art.txt`.
+`check-start-browser.cjs` covers phone/tablet sizes, reduced motion, keyboard access, navigation without save changes,
+live profile switching and the existing game flows; `check-scope.cjs` includes the new stylesheet.
+
 - Standing owner instruction (October 21, 2026): after completing and verifying requested changes,
   automatically commit and push them through the deployment process below. Evan will give feedback
   on each published update; do not wait for a separate push/deploy confirmation. Include only the
