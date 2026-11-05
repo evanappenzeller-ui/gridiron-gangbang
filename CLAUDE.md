@@ -382,12 +382,18 @@ Current AGENTS.md scope: `data.isOwner()` / `dynasty.bossLadderOpen()` enables t
 Evan's Battle landing screen. Ryan keeps the deployed Play hub and original Solo list/decks/rewards.
 Keep `g1`–`g30`, existing wins and in-progress matches. A win unlocks the next stage; old cleared stages stay replayable.
 `core/dynasty.js` `SOLO_BOSSES` selects Epic+ cards at 5, 10, 15, 20, 25 and 30. New owner boss matches save
-`boss: {v: 1, card}` in their existing `gg-dys-<profile>` record. Their 40-card CPU deck contains two copies;
+`boss: {v: 2, card}` in their existing `gg-dys-<profile>` record. Their 40-card CPU deck contains two copies;
 a stored opening seed deals the boss and its recorded setup fields that card. Rules v6 and replay stay unchanged.
-Only a winning, verified boss match earns its featured card. Optional `bossRewards[stage]` receipts on the existing
-Dynasty save prevent repeat grants, including after selling a reward or aging beyond the recent-match ledger.
-Old fifth-stage matches retain their original rewards; previously cleared stages can be replayed against their new
-boss for the card. No automatic grants, balance resets, deck changes or progress reset during loading.
+November 5 follow-up: normal rows are compact numbered battles; only the six boss rows show player cards.
+New boss rewards alternate: one Standard Pack at 5, one Epic Pack at 15/25, and the featured Epic-or-better player
+at 10/20/30. `soloBossReward` is the shared schedule. v2 pays one prize instead of the old pack bonus plus a card;
+coins and progression remain unchanged. Pending v1 boss saves retain their original card/pack rewards.
+Only a winning, verified boss match earns its prize. Optional `bossRewards[stage]` receipts on the existing
+Dynasty save prevent repeat grants, including after opening a pack, selling a card or aging beyond the recent-match
+ledger. Existing receipts (including v1 card rewards on now-pack stages) stay claimed. Old fifth-stage matches
+retain their original rewards; cleared stages without a receipt can be replayed for their new boss prize.
+No automatic grants, balance resets, deck changes or progress reset during loading.
 `css/views/dynasty-ladder.css` scopes the presentation; the existing card artwork is reused. Run
-`node tools/dynasty/check-ladder.cjs` for all six bosses, deck legality, actual winning logs, reward/save round trips,
-unlocking, phone/tablet layouts, resume and profile boundaries, alongside the existing rules/decks/scope/start/reveal/table checks.
+`node tools/dynasty/check-ladder.cjs` covers all six bosses, deck legality, real pack/card victories, v1/v2 saved
+rewards, receipt round trips, unlocking, compact phone/tablet layouts, resume and profile boundaries, alongside
+the existing rules/decks/scope/start/reveal/table checks.

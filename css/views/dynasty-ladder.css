@@ -1,64 +1,64 @@
 /* Owner-only solo ladder; mounted by dynasty.js via data.isOwner(). */
 .v-dynasty .pk.is-ladder .pk-pane { background: #eaf4f9; padding-top: 10px; }
 .v-dynasty .rl-ladder { max-width: 660px; margin-inline: auto; color: #294e68; }
-.v-dynasty .rl-switch { display: flex; gap: 5px; padding: 4px; margin-bottom: 16px; border: 1px solid #fff; border-radius: 15px; background: #dcebf3; }
+.v-dynasty .rl-switch { display: flex; gap: 5px; padding: 4px; margin-bottom: 12px; border: 1px solid #fff; border-radius: 15px; background: #dcebf3; }
 .v-dynasty .rl-switch button { display: flex; align-items: center; justify-content: center; flex: 1; gap: 8px; min-height: 44px; border-radius: 11px; font-size: 13px; font-weight: 750; color: #55758b; background: transparent; cursor: pointer; }
 .v-dynasty .rl-switch button.is-on { color: #1283ab; background: #fff; box-shadow: 0 3px 8px #416d8d15; }
 .v-dynasty .rl-switch svg { width: 23px; height: 23px; }
-.v-dynasty .rl-hero { overflow: hidden; position: relative; border-radius: 20px; margin-bottom: 18px; background: radial-gradient(ellipse at 50% 0, #fff, transparent 65%), linear-gradient(125deg, #c5f4f5, #d9e8ff); box-shadow: 0 8px 18px #3e759320; }
-.v-dynasty .rl-showcase { display: flex; align-items: flex-start; justify-content: center; gap: 13px; height: 150px; overflow: hidden; padding: 15px 18px 0; }
-.v-dynasty .rl-showcase > div { width: 102px; flex: none; transform: rotate(-8deg) translateY(12px); }
-.v-dynasty .rl-showcase > div:nth-child(2) { transform: translateY(0); z-index: 1; }
-.v-dynasty .rl-showcase > div:nth-child(3) { transform: rotate(8deg) translateY(12px); }
-.v-dynasty .rl-showcase .pk-card { width: 100%; }
-.v-dynasty .rl-hero-plate { position: relative; padding: 13px 18px 16px; color: white; text-align: center; background: linear-gradient(105deg, #09bedc, #337cf2); box-shadow: 0 -3px 12px #2a70ae24; }
+.v-dynasty .rl-hero { overflow: hidden; border-radius: 16px; margin-bottom: 13px; box-shadow: 0 5px 12px #3e759320; }
+.v-dynasty .rl-hero-plate { padding: 12px 16px; color: white; background: linear-gradient(105deg, #09b6d5, #337cf2); }
 .v-dynasty .rl-hero-plate small { font-size: 9px; font-weight: 800; letter-spacing: .16em; }
-.v-dynasty .rl-hero-plate h2 { margin: 4px 0; font-size: 25px; font-weight: 800; letter-spacing: -.035em; }
+.v-dynasty .rl-hero-plate h2 { margin: 3px 0; font-size: 23px; font-weight: 800; letter-spacing: -.035em; }
 .v-dynasty .rl-hero-plate p { margin: 0; font-size: 11px; }
 .v-dynasty .rl-progress { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .v-dynasty .rl-progress > div { display: flex; flex-direction: column; gap: 4px; }
-.v-dynasty .rl-progress b { font-size: 23px; }
+.v-dynasty .rl-progress b { font-size: 21px; }
 .v-dynasty .rl-progress b small { font-size: 12px; font-weight: 650; color: #58778b; }
 .v-dynasty .rl-progress span { font-size: 10px; color: #52778d; }
 .v-dynasty .rl-progress button { display: flex; align-items: center; gap: 5px; min-height: 44px; padding: 8px 12px; border-radius: 22px; color: #0c83ad; background: #fff; box-shadow: 0 3px 8px #46789618; font-size: 12px; font-weight: 750; cursor: pointer; }
-.v-dynasty .rl-progress-track { height: 5px; margin-top: 12px; border-radius: 5px; background: #d2e5ef; overflow: hidden; }
+.v-dynasty .rl-progress-track { height: 4px; margin-top: 9px; border-radius: 5px; background: #d2e5ef; overflow: hidden; }
 .v-dynasty .rl-progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #20c8d3, #3089ec); }
-.v-dynasty .rl-reward-note { display: flex; gap: 6px; align-items: flex-start; margin: 14px 0 22px; color: #55788f; font-size: 10px; line-height: 1.6; }
-.v-dynasty .rl-reward-note svg { flex: none; margin-top: 1px; color: #159ec2; }
 .v-dynasty .rl-resume { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 10px 13px; margin-top: 15px; border: 1px solid #b6dce8; border-radius: 13px; background: #f7fdff; color: #197d9b; cursor: pointer; text-align: left; }
 .v-dynasty .rl-resume > span { display: flex; flex: 1; flex-direction: column; gap: 4px; }
 .v-dynasty .rl-resume b { font-size: 12px; }
 .v-dynasty .rl-resume small { font-size: 11px; color: #52778d; }
-.v-dynasty .rl-tier { margin-top: 22px; }
-.v-dynasty .rl-tier > h3 { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 2px 15px; font-size: 17px; letter-spacing: -.02em; }
+.v-dynasty .rl-tier { margin-top: 16px; }
+.v-dynasty .rl-tier > h3 { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 2px 10px; font-size: 16px; letter-spacing: -.02em; }
 .v-dynasty .rl-tier > h3 > span { display: flex; gap: 7px; align-items: center; }
 .v-dynasty .rl-tier > h3 > span::before { content: ''; width: 4px; height: 16px; border-radius: 4px; background: var(--rl-accent); }
 .v-dynasty .rl-tier > h3 small { color: #678397; font-size: 9px; font-weight: 650; letter-spacing: .05em; }
-.v-dynasty .rl-matches { display: grid; gap: 15px; padding: 0; margin: 0; list-style: none; }
-.v-dynasty .rl-match { position: relative; border-radius: 18px; background: #f7fcff; box-shadow: 3px 7px 13px #3b6b8e26; contain-intrinsic-size: auto 170px; }
-.v-dynasty .rl-match > button { display: flex; align-items: stretch; width: 100%; min-height: 170px; padding: 0; border: 1px solid #fff; border-radius: inherit; background: transparent; color: inherit; text-align: left; overflow: hidden; cursor: pointer; isolation: isolate; }
+.v-dynasty .rl-matches { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.v-dynasty .rl-match { position: relative; border-radius: 14px; background: #f7fcff; box-shadow: 2px 4px 9px #3b6b8e1c; contain-intrinsic-size: auto 70px; }
+.v-dynasty .rl-match > button { display: flex; align-items: center; width: 100%; min-height: 70px; padding: 0; border: 1px solid #fff; border-radius: inherit; background: transparent; color: inherit; text-align: left; overflow: hidden; cursor: pointer; isolation: isolate; }
 .v-dynasty .rl-match > button:disabled { cursor: default; opacity: 1; }
-.v-dynasty .rl-card { display: block; flex: none; position: relative; width: 112px; min-height: 170px; padding: 18px 2px 0 12px; background: linear-gradient(150deg, color-mix(in srgb, var(--rl-accent), white 25%), var(--rl-accent)); clip-path: polygon(0 0, 80% 0, 100% 100%, 0 100%); }
-.v-dynasty .rl-card > .pk-card { width: 91px; transform: rotate(-9deg); transform-origin: center; pointer-events: none; }
-.v-dynasty .rl-cpu { position: absolute; left: 10px; bottom: 9px; z-index: 3; min-width: 31px; padding: 3px 8px; border-radius: 12px; background: #49748dbf; color: white; font-size: 9px; font-weight: 800; text-align: center; }
-.v-dynasty .rl-match-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; padding: 13px 12px 10px 11px; }
-.v-dynasty .rl-match-top { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.v-dynasty .rl-step { display: grid; place-items: center; flex: none; width: 34px; height: 34px; margin-left: 11px; border-radius: 11px; color: #32657b; background: color-mix(in srgb, var(--rl-accent) 17%, white); font-size: 12px; font-weight: 800; }
+.v-dynasty .rl-match-status { display: flex; flex: none; align-items: center; flex-direction: column; gap: 5px; width: 48px; margin-right: 9px; color: #718a9b; }
+.v-dynasty .rl-match-status b { font-size: 9px; font-weight: 650; }
+.v-dynasty .rl-match-status .rl-ready-dot { margin: 0; }
+.v-dynasty .rl-match:not(.is-locked) .rl-match-status { color: #087fac; }
+.v-dynasty .rl-match.is-won .rl-match-status { color: #2d9877; }
+.v-dynasty .rl-card { display: block; flex: none; position: relative; width: 95px; min-height: 132px; padding: 12px 2px 0 10px; clip-path: polygon(0 0, 80% 0, 100% 100%, 0 100%); }
+.v-dynasty .rl-card > .pk-card { width: 77px; transform: rotate(-9deg); transform-origin: center; pointer-events: none; }
+.v-dynasty .rl-cpu { position: absolute; left: 8px; bottom: 7px; z-index: 3; min-width: 31px; padding: 2px 7px; border-radius: 12px; background: #49748dd9; color: white; font-size: 8px; font-weight: 800; text-align: center; }
+.v-dynasty .rl-match-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; padding: 10px 10px; }
+.v-dynasty .rl-match-top { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
 .v-dynasty .rl-number { font: 800 10px/1 var(--font-text); color: #68859a; }
 .v-dynasty .rl-level { border: 1.5px solid #93aebe; padding: 2px 8px; border-radius: 12px; color: #56788e; font-size: 9px; font-weight: 750; }
 .v-dynasty .rl-match-top > svg, .v-dynasty .rl-ready-dot { margin-left: auto; flex: none; color: #648599; }
 .v-dynasty .rl-ready-dot { width: 7px; height: 7px; border-radius: 50%; background: #13abc3; box-shadow: 0 0 0 3px #13abc31a; }
-.v-dynasty .rl-match-copy > strong { font-size: 15px; line-height: 1.3; letter-spacing: -.02em; }
-.v-dynasty .rl-match-reward { display: flex; align-items: flex-start; gap: 4px; margin-top: 7px; color: #387e9b; font-size: 10px; line-height: 1.45; font-weight: 650; }
+.v-dynasty .rl-match-copy > strong { font-size: 14px; line-height: 1.3; letter-spacing: -.02em; }
+.v-dynasty .rl-match-reward { display: flex; align-items: flex-start; gap: 4px; margin-top: 4px; color: #52778d; font-size: 10px; line-height: 1.45; font-weight: 550; }
 .v-dynasty .rl-match-reward svg { flex: none; }
 .v-dynasty .rl-match-copy > small { display: block; margin-top: 4px; font-size: 9px; line-height: 1.4; color: #627d90; }
-.v-dynasty .rl-match-action { display: flex; gap: 5px; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 9px; }
+.v-dynasty .rl-match-action { display: flex; gap: 5px; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 6px; }
 .v-dynasty .rl-match-action em { font-style: normal; font-size: 7px; font-weight: 800; letter-spacing: .06em; color: #6c879a; }
 .v-dynasty .rl-match-action b { display: flex; align-items: center; gap: 4px; color: #087fac; font-size: 11px; }
 .v-dynasty .rl-match.is-next { box-shadow: 0 0 0 2px #25b9d4, 3px 7px 16px #3b6b8e26; }
 .v-dynasty .rl-match.is-locked .rl-card { filter: saturate(.65); }
 .v-dynasty .rl-ladder .rl-match.is-locked { opacity: 1; }
 .v-dynasty .rl-match.is-locked .rl-match-action b { color: #718a9b; }
-.v-dynasty .rl-match.is-boss { background: linear-gradient(135deg, #fdfbff, #f0edff); }
+.v-dynasty .rl-match.is-boss { background: linear-gradient(135deg, #fdfbff, #f0edff); contain-intrinsic-size: auto 134px; }
+.v-dynasty .rl-match.is-boss > button { min-height: 134px; align-items: stretch; }
 .v-dynasty .rl-match.is-boss .rl-card { background: linear-gradient(150deg, #f7c965, #ba83dc 65%, #777be8); }
 .v-dynasty .rl-match.is-boss .rl-level { background: #f5e9ff; border-color: #bc93cd; color: #7f4c9c; }
 .v-dynasty .rl-match.is-boss .rl-match-reward { color: #8245a0; }
@@ -71,20 +71,15 @@
   .v-dynasty .rl-match { content-visibility: auto; overflow: clip; overflow-clip-margin: 18px; }
 }
 @media (max-width: 360px) {
-  .v-dynasty .rl-showcase { gap: 8px; height: 130px; }
-  .v-dynasty .rl-showcase > div { width: 86px; }
-  .v-dynasty .rl-card { width: 93px; padding-left: 8px; }
-  .v-dynasty .rl-card > .pk-card { width: 78px; }
+  .v-dynasty .rl-card { width: 80px; padding-left: 7px; }
+  .v-dynasty .rl-card > .pk-card { width: 67px; }
   .v-dynasty .rl-match-copy { padding-inline: 8px; }
-  .v-dynasty .rl-match-copy > strong { font-size: 14px; }
+  .v-dynasty .rl-match-copy > strong { font-size: 13px; }
   .v-dynasty .rl-level { padding-inline: 5px; font-size: 8px; }
   .v-dynasty .rl-match-action em { font-size: 6px; }
 }
 @media (min-width: 700px) {
-  .v-dynasty .rl-showcase { height: 180px; gap: 22px; }
-  .v-dynasty .rl-showcase > div { width: 124px; }
-  .v-dynasty .rl-card { width: 135px; padding-left: 20px; }
-  .v-dynasty .rl-card > .pk-card { width: 100px; }
-  .v-dynasty .rl-match-copy { padding: 16px 20px; }
-  .v-dynasty .rl-match-copy > strong { font-size: 18px; }
+  .v-dynasty .rl-card { width: 105px; padding-left: 16px; }
+  .v-dynasty .rl-match-copy { padding-inline: 15px; }
+  .v-dynasty .rl-match-copy > strong { font-size: 15px; }
 }

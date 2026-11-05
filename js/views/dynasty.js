@@ -776,7 +776,7 @@ function guideSheet() {
     + `<li><b>Tap any card</b>It lifts off the table with what it can do now: your active player’s plays, a bench player’s Send in, a hand card’s play. Put back sets it down.</li>`
     + `<li><b>Attack</b>An attack needs its energy on your active player. Attacking ends your turn. In new matches, the second (signature) attack spends one attached energy; quick plays keep it. Existing matches keep their original rules. Hitting a weakness does +20: Air beats Blitz, Blitz beats Ground, Ground beats Coverage, Coverage beats Air.</li>`
     + `<li><b>Win</b>Knock out a player for a point (a Legend or Prime ex for two). Three points wins.</li>`
-    + `<li><b>Solo ladder</b>Thirty games against the computer, each win unlocking the next. The first ones are gentle; from game 16 the computer counters your deck’s main type and plays every trick. A win pays coins (double the first time), and every fifth game’s first win pays packs.${D.bossLadderOpen() ? ' Every fifth battle also features a boss: defeat it to earn its Epic-or-better card once. Previously won stages stay unlocked; beat their new boss to earn the card.' : ''}</li>`
+    + `<li><b>Solo ladder</b>Thirty games against the computer, each win unlocking the next. The first ones are gentle; from game 16 the computer counters your deck’s main type and plays every trick. A win pays coins (double the first time).${D.bossLadderOpen() ? ' Every fifth battle features an Epic-or-better boss. First-defeat rewards alternate: one pack at battles 5, 15 and 25; the featured player card at 10, 20 and 30. Each boss reward is earned once. Previously won stages and earned rewards are preserved.' : ' Every fifth game’s first win pays packs.'}</li>`
     + `<li><b>Versus</b>Battles go in turns: play yours when you like, and your opponent gets YOUR MOVE on their Rivals case.</li></ol>`;
   ui.openSheet({title: 'Guide', body, cls: 'pk-sheet', detents: ['large']});
 }
@@ -803,36 +803,34 @@ function soloHTML() {
   return h;
 }
 
-// Owner ladder: Pocket-like card rows, with the actual boss and first-defeat card reward clearly visible.
+// Owner ladder: compact numbered matches, with collectible artwork reserved for every fifth battle.
 function soloLadderHTML() {
   const s = D.mine(), dk = D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), cur = SOLO.current();
-  const at = SOLO.ladderAt(s), yours = SOLO.mainType(dk.ids), done = SOLO.STAGES.filter(g => s.so[g.id]).length;
-  const bossIds = Object.keys(D.SOLO_BOSSES), prizes = bossIds.filter(id => !s.bossRewards?.[id]);
-  const showcase = (prizes.length ? prizes : bossIds).slice(0, 3).map(D.soloBoss).filter(Boolean);
-  const nextBoss = D.soloBoss(bossIds.find(id => Number(id.slice(1)) >= at)) || D.soloBoss('g30');
+  const at = SOLO.ladderAt(s), done = SOLO.STAGES.filter(g => s.so[g.id]).length;
   const colors = ['#5cbf70', '#39b3cf', '#648ee1', '#a275d3', '#d4a23c', '#db77ae'];
   let h = `<section class="rl-ladder" aria-label="Solo battle ladder"><div class="rl-switch" aria-label="Battle mode"><button type="button" class="is-on" data-dy-bv="solo" aria-pressed="true">${MODE_IC.solo}Solo ladder</button><button type="button" data-dy-bv="versus" aria-pressed="false">${MODE_IC.versus}Versus</button></div>`
-    + `<div class="rl-hero"><div class="rl-showcase" aria-hidden="true">${showcase.map(c => `<div>${cardHTML(c, {tag: false, noCount: true, eager: true})}</div>`).join('')}</div>`
-    + `<div class="rl-hero-plate"><small>30 BATTLES · 6 BOSSES</small><h2>Road to Glory</h2><p>Beat the boss. Keep the card.</p></div></div>`
+    + `<div class="rl-hero"><div class="rl-hero-plate"><small>30 BATTLES · A BOSS EVERY 5</small><h2>Road to Glory</h2><p>Boss rewards: pack → Epic+ player → repeat</p></div></div>`
     + `<div class="rl-progress"><div><b>${done}<small> / ${SOLO.LADDER} won</small></b><span>${at > SOLO.LADDER ? 'Ladder complete · Replay for coins' : 'Win each battle to unlock the next'}</span></div><button type="button" data-dy-ladder-next>${at > SOLO.LADDER ? 'Final boss' : `Battle ${at}`}${ui.icon('chevron-down', {size: 16})}</button></div>`
     + `<div class="rl-progress-track" role="progressbar" aria-label="Solo battles won" aria-valuemin="0" aria-valuemax="30" aria-valuenow="${done}"><i style="width:${done / SOLO.LADDER * 100}%"></i></div>`;
   if (cur) h += `<button type="button" class="rl-resume" data-dy-go="${esc(cur.mid)}">${ui.icon('play-fill', {size: 20})}<span><b>Continue your battle</b><small>${esc(cur.opp.name)}</small></span>${ui.icon('chevron-right', {size: 20})}</button>`;
   if (!dk.ok) h += `<button type="button" class="pk-alert is-gold" data-dy-tab="${s.pk.start ? 'packs' : 'decks'}">${ui.icon('info', {size: 18})}<span>${s.pk.start ? 'Open your Starter Pack to build your first deck.' : `Prepare your deck: ${esc(dk.why)}`}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
-  h += `<p class="rl-reward-note">${ui.icon('trophy', {size: 16})}<span>${prizes.length ? `Boss rewards are earned once.${nextBoss ? ` Next up: ${esc(nextBoss.name)}.` : ''}` : 'All six boss cards earned. Keep playing for coins.'}</span></p>`;
   SOLO.TIERS.forEach((tier, i) => {
     h += `<section class="rl-tier" style="--rl-accent:${colors[i]}"><h3><span>${esc(tier.name)}</span><small>BATTLES ${tier.from}–${tier.from + 4}</small></h3><ol start="${tier.from}" class="rl-matches pk-solo">`;
     SOLO.STAGES.filter(g => g.n >= tier.from && g.n < tier.from + 5).forEach(g => {
-      const boss = D.soloBoss(g.id), c = SOLO.previewCard(g.id, yours), won = !!s.so[g.id], unlocked = SOLO.unlocked(g.id, s), paid = !!s.bossRewards?.[g.id];
+      const boss = D.soloBoss(g.id), prize = D.soloBossReward(g.id), won = !!s.so[g.id], unlocked = SOLO.unlocked(g.id, s), paid = !!s.bossRewards?.[g.id];
       const P = D.ladderPay(g.n), playable = unlocked && dk.ok;
       const action = !unlocked ? 'Locked' : !dk.ok ? 'Deck needed' : won ? 'Replay' : 'Battle';
       const title = boss ? `${boss.name}’s team` : g.name;
-      const reward = boss ? (paid ? 'Boss card earned' : `Win ${boss.name} · ${D.RARITY_NAME[boss.r]}`) : `${nf(P.coins * (won ? 1 : 2))} coins${won ? ' per win' : ' on first win'}`;
-      const extra = !unlocked ? `Win battle ${g.n - 1} to unlock` : boss && paid ? 'Replay for coins' : boss && won ? 'Defeat this new boss for its card' : won ? 'Complete · Play again anytime' : boss ? 'First defeat adds this card to your collection' : 'Victory unlocks the next battle';
+      const reward = boss ? (paid ? 'Reward earned' : prize.pack ? `1 ${D.PACKS[prize.pack].name}` : `${D.RARITY_NAME[boss.r]} player card`) : `${nf(P.coins * (won ? 1 : 2))} coins${won ? ' per win' : ' on first win'}`;
+      const extra = !unlocked ? `Win battle ${g.n - 1} to unlock` : boss && paid ? 'Replay for coins' : boss ? 'Win to claim · One-time reward' : 'Victory unlocks the next battle';
+      const status = won ? ui.icon('check-circle', {size: 17}) : !unlocked ? ui.icon('lock', {size: 16}) : '<i class="rl-ready-dot"></i>';
       h += `<li class="rl-match${boss ? ' is-boss' : ''}${won ? ' is-won' : ''}${g.n === at ? ' is-next' : ''}${unlocked ? '' : ' is-locked'}" data-ladder-stage="${g.id}"><button type="button" data-dy-solo="${g.id}"${playable ? '' : ' disabled'} aria-label="${esc(`Battle ${g.n}${boss ? ', boss' : ''}: ${title}. ${reward}. ${extra}. ${action}`)}">`
-        + `<span class="rl-card" aria-hidden="true">${c ? cardHTML(c, {tag: false, noCount: true}) : ''}<span class="rl-cpu">AI</span></span>`
-        + `<span class="rl-match-copy"><span class="rl-match-top"><span class="rl-number">${String(g.n).padStart(2, '0')}</span><span class="rl-level">${boss ? `${D.RARITY_NAME[boss.r]} boss` : esc(tier.name)}</span>${won ? ui.icon('check-circle', {size: 17}) : !unlocked ? ui.icon('lock', {size: 16}) : '<i class="rl-ready-dot"></i>'}</span>`
-        + `<strong>${esc(title)}</strong><span class="rl-match-reward">${boss ? ui.icon(paid ? 'check' : 'trophy', {size: 14}) : ui.icon('sparkle', {size: 14})}${esc(reward)}</span>`
-        + `<small>${esc(extra)}</small><span class="rl-match-action">${boss && !paid ? '<em>WIN THIS CARD</em>' : '<em>SOLO BATTLE</em>'}<b>${action}${playable ? ui.icon('chevron-right', {size: 15}) : ''}</b></span></span></button></li>`;
+        + (boss ? `<span class="rl-card" aria-hidden="true">${cardHTML(boss, {tag: false, noCount: true, eager: true})}<span class="rl-cpu">BOSS</span></span>`
+          + `<span class="rl-match-copy"><span class="rl-match-top"><span class="rl-number">${String(g.n).padStart(2, '0')}</span><span class="rl-level">${D.RARITY_NAME[boss.r]} boss</span>${status}</span>`
+          + `<strong>${esc(title)}</strong><span class="rl-match-reward">${ui.icon(paid ? 'check' : 'trophy', {size: 14})}${esc(reward)}</span>`
+          + `<small>${esc(extra)}</small><span class="rl-match-action"><em>${paid ? 'COMPLETED' : prize.pack ? 'PACK REWARD' : 'PLAYER REWARD'}</em><b>${action}${playable ? ui.icon('chevron-right', {size: 15}) : ''}</b></span></span>`
+          : `<span class="rl-step" aria-hidden="true">${String(g.n).padStart(2, '0')}</span><span class="rl-match-copy"><strong>${esc(title)}</strong><span class="rl-match-reward">${esc(unlocked ? reward : extra)}</span></span><span class="rl-match-status">${status}<b>${action}</b></span>`)
+        + '</button></li>';
     });
     h += '</ol></section>';
   });

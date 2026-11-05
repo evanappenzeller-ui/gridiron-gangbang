@@ -161,11 +161,6 @@ export function bossDeckFor(id, yours = 'A') {
   }
   return deck;
 }
-/** Representative card for each ladder row; boss rows always show the exact earned card. */
-export function previewCard(id, yours = 'A') {
-  return D.soloBoss(id) || deckFor(id, yours).map(D.card).filter(Boolean).sort((a, b) => b.o - a.o)[0] || null;
-}
-
 // ---------------------------------------------------------------------------------------------------- how it plays
 // One move at a time for side who, by its skill (skillOf): set up, then each turn Items (Recruit while the bench has room,
 // Water Bottle on a hurt player), Basics to the bench (up to its bench), evolutions, the energy where an attack needs it
@@ -299,7 +294,7 @@ function game(r) {
 }
 function matchOf(r) {
   const o = opponent(r.opp), G = game(r);
-  const boss = r.boss?.v === 1 && D.soloBoss(r.opp)?.id === r.boss.card
+  const boss = [1, 2].includes(r.boss?.v) && D.soloBoss(r.opp)?.id === r.boss.card
     && r.decks[1].includes(r.boss.card) && r.log.some(([w, m]) => w === 1 && m.a === 'setup' && m.act === r.boss.card) ? D.card(r.boss.card) : null;
   const base = {mid: r.id, solo: true, opp: {key: 'cpu', name: boss ? `${boss.name} · Boss` : o.name, member: null, guest: false, cpu: o}, boss: boss?.id || null, you: 0, G, at: r.at};
   let result = null, why = G.over && G.over.why;
@@ -307,7 +302,7 @@ function matchOf(r) {
   else if (G.phase === 'over') result = G.over.win === -1 ? 'd' : G.over.win === 0 ? 'w' : 'l';
   if (result) {
     // (paid once: core/dynasty.js paySolo)
-    if (!r.paid && D.status === 'ready' && D.mayPlay()) { r.pay = D.paySolo(r.id, o.id, o.lv, result, D.mine(), boss?.id || null) || null; r.paid = 1; write(); }
+    if (!r.paid && D.status === 'ready' && D.mayPlay()) { r.pay = D.paySolo(r.id, o.id, o.lv, result, D.mine(), boss?.id || null, r.boss?.v) || null; r.paid = 1; write(); }
     return {...base, state: 'over', result, why, pay: r.pay || null};
   }
   const state = G.phase === 'setup' ? (G.p[0].set ? 'theirs' : 'setup') : B.toMove(G) === 0 ? 'yours' : 'theirs';
@@ -337,7 +332,7 @@ export function start(id) {
   if (!theirs.length) return {ok: false, why: 'This opponent’s cards aren’t ready. Try again.'};
   const candidate = {id: mid, opp: o.id, seed: mid, v: table ? TABLE.VERSION : B.RULES_VERSION, decks: [dk.ids.slice(), theirs], log: [], at: Date.now(), z: '', paid: 0, pay: null};
   if (boss) {
-    candidate.boss = {v: 1, card: boss.id};
+    candidate.boss = {v: 2, card: boss.id};
     // Pick an opening shuffle that deals the boss. The stored seed replays using the unchanged rules engine.
     let ready = false;
     for (let i = 0; i < 256; i++) {

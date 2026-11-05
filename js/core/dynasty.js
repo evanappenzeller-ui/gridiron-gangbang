@@ -878,7 +878,7 @@ export const SOLO_PAY = {beg: {coins: 150, first: {std: 1}}, int: {coins: 250, f
 // fifth game's first win packs too)
 const LADDER_PACKS = {5: {std: 1}, 10: {std: 2}, 15: {prem: 1}, 20: {prem: 1, std: 1}, 25: {prem: 2}, 30: {prem: 3}};
 export const ladderPay = n => ({coins: 100 + 10 * n, first: LADDER_PACKS[n] || null});
-// Stable player IDs: the boss you fight is the card you earn. Every five games, Epic or higher.
+// Stable featured players: every fifth battle fields an Epic-or-better boss.
 export const SOLO_BOSSES = Object.freeze({g5: 'L0036322', g10: 'G1-0032764', g15: 'L0036900',
   g20: 'Xjjwatt', g25: 'Xbarrysanders', g30: 'Xtombrady'});
 export const bossLadderOpen = () => data.isOwner();
@@ -887,25 +887,37 @@ export function soloBoss(id) {
   const cid = SOLO_BOSSES[id], c = card(ALIAS.get(cid) || cid);
   return c && c.o >= SCALE.epic ? c : null;
 }
+/** New boss rewards alternate one pack / featured player. v1 saved battles keep their original card reward. */
+export function soloBossReward(id, version = 2) {
+  const c = soloBoss(id);
+  if (!c || ![1, 2].includes(version)) return null;
+  if (version === 2 && Number(id.slice(1)) % 10 === 5) return {pack: id === 'g5' ? 'std' : 'prem'};
+  return {card: c.id};
+}
 /** Pays Solo battle gid (opponent opp at level lv: a ladder game's number, or an earlier opponent's level) its result:
  *  once. A new boss match also supplies its featured card, validated by dynasty-solo.js against its saved lineup.
- *  Old fifth-stage matches keep their original rewards. {coins, packs, first, card?} or null when already paid. */
-export function paySolo(gid, opp, lv, res, s = mine(), boss = null) {
+ *  Old fifth-stage matches keep their original rewards. {coins, packs, first, card?, bossPack?} or null when already paid. */
+export function paySolo(gid, opp, lv, res, s = mine(), boss = null, bossVersion = 1) {
   const P = typeof lv === 'number' ? ladderPay(lv) : SOLO_PAY[lv];
   if (!P || !['w', 'l', 'd'].includes(res) || s.sl.includes(gid)) return null;
   s.sl = [gid, ...s.sl].slice(0, 20);
   const first = res === 'w' && !s.so[opp];
-  const pay = {coins: res === 'w' ? P.coins * (first && typeof lv === 'number' ? 2 : 1) : res === 'd' ? 50 : 0, packs: first ? P.first : null, first};
+  const prize = soloBoss(opp), reward = prize && boss === prize.id ? soloBossReward(opp, bossVersion) : null;
+  // v2 has one boss prize, not the old pack bonus plus a card. Previously earned prizes stay claimed.
+  const pay = {coins: res === 'w' ? P.coins * (first && typeof lv === 'number' ? 2 : 1) : res === 'd' ? 50 : 0,
+    packs: first && !(reward && bossVersion === 2) ? P.first : null, first};
   if (res === 'w') s.so[opp] = (s.so[opp] || 0) + 1;
-  credit(s, pay.coins); if (pay.packs) addPacks(s, pay.packs);
-  const prize = soloBoss(opp);
-  if (res === 'w' && prize && boss === prize.id && !s.bossRewards?.[opp]) {
-    // Separate from old stage wins: a previously cleared stage can be replayed to beat its new boss once.
-    s.bossRewards = {...s.bossRewards, [opp]: prize.id};
-    if (!s.o[prize.id] && !s.nw.includes(prize.id)) s.nw = [prize.id, ...s.nw].slice(0, 60);
-    addCard(s, prize.id); s.lp = [prize.id, ...s.lp].slice(0, 24);
-    pay.card = prize.id;
+  if (res === 'w' && reward && !s.bossRewards?.[opp]) {
+    s.bossRewards = {...s.bossRewards, [opp]: reward.card || `pack:${reward.pack}`};
+    if (reward.card) {
+      if (!s.o[prize.id] && !s.nw.includes(prize.id)) s.nw = [prize.id, ...s.nw].slice(0, 60);
+      addCard(s, prize.id); s.lp = [prize.id, ...s.lp].slice(0, 24);
+      pay.card = prize.id;
+    } else {
+      pay.packs = {[reward.pack]: 1}; pay.bossPack = reward.pack;
+    }
   }
+  credit(s, pay.coins); if (pay.packs) addPacks(s, pay.packs);
   touch('battle'); return pay;
 }
 
