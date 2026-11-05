@@ -7,7 +7,7 @@ export const OPACITY = .88; // Let the turf and mowing stripes show through the 
 const listeners = new Set();
 let bitmap = null, attempt = null, tried = false, subscribed = false;
 const changed = () => listeners.forEach(fn => fn());
-const enabled = () => features.available() && !data.isOwner();
+const enabled = () => features.available() && !features.returnManUpdated();
 const current = load => attempt === load && !load.signal.aborted && enabled();
 
 function watchProfile() {

@@ -10,3 +10,7 @@ Use the existing profile mechanism; do not claim it is verified authentication o
 The owner explicitly authorized the Gridiron Hub v3.0 rollout to everyone on October 22, 2026.
 Its existing Keepfall, Return Man, game presentation and navigation features are now shared baseline behavior
 (`core/features.js`). Scoreboards, pictures and Keepfall show everyone to everyone since Oct 24, 2026 (CLAUDE.md).
+
+The owner explicitly authorized all completed Return Man updates for every player on November 5, 2026.
+Its movement, course/scenery, jetpack, scoring, pursuit, title/intro and pickup presentation are shared baseline
+(`features.returnManUpdated()`). This exception does not open other app pilots or owner tools.

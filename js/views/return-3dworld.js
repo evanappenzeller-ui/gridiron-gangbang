@@ -73,7 +73,7 @@ export function init(three, scene, utils) {
   cityBus.init(T, refreshCityBuses);
   fieldLogo.subscribe(refreshFieldLogos);
   styleMode = style.enabled();
-  lifeOwner = data.isOwner();
+  lifeUpdated = features.returnManUpdated();
   if (!styleSubscribed) {
     styleSubscribed = true;
     data.subscribe(type => { if (type === 'me' || type === 'data') syncStyle(); });
@@ -401,7 +401,7 @@ const GROUND_EXTRA = {
       const n = yd <= 50 ? yd : 100 - yd;
       // (read from the sideline, the tops toward it)
       [-1, 1].forEach(s => g.add(decal(numberMat(n), 3.2, 2.2, s * 18.8, z, -s * Math.PI / 2)));
-      if (yd === 50 && !data.isOwner()) g.add(midfieldLogo(z));
+      if (yd === 50 && !features.returnManUpdated()) g.add(midfieldLogo(z));
     }
     // the wall round the field, padded, an ad strip along it; the stands climbing behind it, full
     [-1, 1].forEach(s => {
@@ -814,12 +814,12 @@ function sign(text, bg, ink, x, y, z, w, h, s) {
 // ============================================================================ In the lanes
 // Each a group of its own, built when it comes up, kept while it's in view (by its key).
 const LIVE = new Map(); // key -> {obj, seen}
-let styleMode = null, lifeOwner = null, styleSubscribed = false;
+let styleMode = null, lifeUpdated = null, styleSubscribed = false;
 function syncStyle() {
-  const next = style.enabled(), owner = data.isOwner();
-  if (styleMode === next && lifeOwner === owner) return;
+  const next = style.enabled(), owner = features.returnManUpdated();
+  if (styleMode === next && lifeUpdated === owner) return;
   const styleChanged = styleMode !== next;
-  styleMode = next; lifeOwner = owner;
+  styleMode = next; lifeUpdated = owner;
   for (const [key, entry] of LIVE) {
     // Only the roadside and sky course differ in this pilot; preserve the shared bus/art objects on profile changes.
     if (!styleChanged && !key.startsWith('c:') && !key.startsWith('a:')) continue;
@@ -1384,7 +1384,7 @@ export function update(st, now) {
     const e = keep('c:' + ck, () => chunk(st, i), have || built === 0 || i * CHUNK < cz + 45);
     if (!have && e) built++;
     if (e) {
-      e.traverse(o => { if (o.userData.spin) o.rotation.z = (data.isOwner() ? life.TIME.value : t) * o.userData.spin; });
+      e.traverse(o => { if (o.userData.spin) o.rotation.z = (features.returnManUpdated() ? life.TIME.value : t) * o.userData.spin; });
       life.animate(e, lifeTime, st.reducedMotion);
     }
   }
@@ -1430,13 +1430,13 @@ export function update(st, now) {
     }));
     // the vehicles
     A.sets.forEach(({set}) => set.plats.forEach((p, j) => keep(`v:${key}|${set.i}|${j}`, () => vehicleOf(p, R.zoneAt(st.co, p.z0).theme))));
-    if (st.co.enhanced && data.isOwner()) (run.trains || []).forEach(p => {
+    if (st.co.enhanced && features.returnManUpdated()) (run.trains || []).forEach(p => {
       const o = keep(`v:traffic:${key}|${p.i}`, () => vehicleOf({...p, z0: 0, z1: R.TRAFFIC.length}, {id: 'city'}));
       if (o) o.position.z = -p.z0;
     });
     // the power-ups (gone once picked up)
     A.items.forEach(({item}) => {
-      if (item.kind === 'jetpack' && !data.isOwner()) return;
+      if (item.kind === 'jetpack' && !features.returnManUpdated()) return;
       const big = !!st.co.hard, k = big ? BIG : 1, o = keep(`i:${key}|${item.i}`, () => itemOf(item.kind, big).clone());
       if (!o) return;
       const g = R.groundAt(st.co, item.lane, item.z), bob = Math.sin(t * 3 + item.i) * .12, pulse = .5 + .5 * Math.sin(t * 5 + item.i);

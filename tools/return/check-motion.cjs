@@ -6,7 +6,7 @@ const path = require('node:path');
 const {execFileSync} = require('node:child_process');
 const root = path.resolve(__dirname, '../..');
 const output = path.join(root, 'output/return-motion');
-const baseline = process.env.RETURN_MOTION_BASELINE || '93d3d2e';
+const baseline = process.env.RETURN_MOTION_BASELINE || 'c90656a';
 const origin = 'http://127.0.0.1:8765';
 let playwright;
 try { playwright = require('playwright'); } catch (_) { playwright = require(path.join(process.env.USERPROFILE, '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright')); }
@@ -48,8 +48,8 @@ async function main() {
       const results = [], ok = (b, s) => { if (!b) throw new Error(s); }, eq = (a, b, s) => ok(JSON.stringify(a) === JSON.stringify(b), s);
       const test = (name, fn) => { fn(); results.push(name); };
       const tick = (r, seconds, dt = 1 / 60) => { const e = []; for (let t = 0; t < seconds - 1e-7 && !r.over; t += dt) e.push(...R.step(r, dt)); return e; };
-      function empty() {
-        D.setMe('evan'); const r = R.startRun(70001, 0, true, false, true);
+      function empty(profile = 'evan') {
+        D.setMe(profile); const r = R.startRun(70001, 0, true, false, true);
         r.co = {...r.co, rows: [], sets: [], items: [], traffic: [], z: 1e9, done: 1e9}; r.t = 10;
         return r;
       }
@@ -58,19 +58,33 @@ async function main() {
         r.trains.push(p); return p;
       }
       function pickup(r) { r.co.items = [{i: 0, kind: 'jetpack', lane: 1, z: r.z + .01}]; return tick(r, .02); }
-      test('Other member, app user, guest name and unselected courses/movement match deployed baseline', () => {
-        for (const profile of ['ben', 'Ryan Stewart', 'Evan Appenzeller', null]) {
-          D.setMe(profile === 'ben' ? 'ben' : 'none'); D.setGuest(profile === 'ben' ? null : profile);
-          for (const n of [1, 16, 500]) {
-            const a = R.fill(R.course(n, 0, true, true), 3000), b = old.fill(old.course(n, 0, true), 3000);
-            ok(!a.enhanced && !a.traffic && !a.items.some(i => i.kind === 'jetpack'), 'no new gameplay outside owner profile');
-            eq(a, b, 'same complete course');
+      test('Every profile receives the deployed owner course, movement and power-ups', () => {
+        D.setMe('evan');
+        const courses = [1, 16, 500].map(n => JSON.stringify(old.fill(old.course(n, 0, true, true), 3000)));
+        const b = old.startRun(12, 0, true, false, true), frames = [];
+        for (let i = 0; i < 300; i++) {
+          if (i % 40 === 0) old.move(b, 'up');
+          frames.push({events: JSON.stringify(old.step(b, 1 / 60)), motion: [b.z, b.y, b.steps, b.yards, b.over]});
+        }
+        for (const profile of ['evan', 'ben', 'Ryan Stewart', 'Evan Appenzeller', 'Guest Runner', null]) {
+          D.setMe(profile === 'evan' || profile === 'ben' ? profile : 'none'); D.setGuest(['evan', 'ben'].includes(profile) ? null : profile);
+          for (const [index, n] of [1, 16, 500].entries()) {
+            const a = R.fill(R.course(n, 0, true, true), 3000);
+            ok(a.enhanced && a.traffic.length && a.items.some(i => i.kind === 'jetpack'), 'complete course for ' + profile);
+            ok(JSON.stringify(a) === courses[index], 'same complete owner course for ' + profile);
           }
-          const a = R.startRun(12, 0, true, false, true), b = old.startRun(12, 0, true, false);
+          const a = R.startRun(12, 0, true, false, true);
           for (let i = 0; i < 300; i++) {
-            if (i % 40 === 0) { R.move(a, 'up'); old.move(b, 'up'); }
-            eq(R.step(a, 1 / 60), old.step(b, 1 / 60), 'same events');
-            eq([a.z, a.y, a.steps, a.yards, a.over], [b.z, b.y, b.steps, b.yards, b.over], 'same motion');
+            if (i % 40 === 0) R.move(a, 'up');
+            ok(JSON.stringify(R.step(a, 1 / 60)) === frames[i].events, 'same events for ' + profile);
+            eq([a.z, a.y, a.steps, a.yards, a.over], frames[i].motion, 'same motion for ' + profile);
+          }
+          for (const kind of ['salts', 'pills', 'booze', 'jetpack']) {
+            const r = R.startRun(70011, 0, true, false, true);
+            r.co = {...r.co, rows: [], sets: [], traffic: [], items: [{i: 0, kind, lane: 1, z: .01}], z: 1e9, done: 1e9};
+            ok(tick(r, .02).some(e => e.type === 'pickup'), kind + ' pickup for ' + profile);
+            ok(R.multiplierOf(r) === 2, kind + ' double points for ' + profile);
+            if (kind === 'jetpack') ok(R.flying(r) && r.sky.coins.length && r.sky.hazards.length && R.move(r, 'right'), 'flight, coins, hazards and steering for ' + profile);
           }
         }
       });
@@ -131,8 +145,8 @@ async function main() {
         ok(a.trains[0] !== b.trains[0], 'independent train objects');
         const before = JSON.stringify(a); R.step(a, 0); eq(JSON.stringify(a), before, 'paused state does not advance');
       });
-      test('Changing profile terminates an enhanced run', () => {
-        const a = empty(); pickup(a); D.setMe('ben'); R.step(a, .1); ok(a.over && a.why === 'stopped' && !R.flying(a), 'no owner flight on other profile'); D.setMe('evan');
+      test('Changing profile keeps shared flight available', () => {
+        const a = empty(); pickup(a); D.setMe('ben'); R.step(a, .1); ok(!a.over && R.flying(a), 'flight stays available on another member'); D.setMe('evan');
       });
       test('Every jetpack supplies a fresh solvable sky course and coins, including repeat runs', () => {
         for (let n = 0; n < 20; n++) {
@@ -166,10 +180,10 @@ async function main() {
           else ok(!r.airHits && r.jetpack > 5, 'flight continues');
         }
       });
-      test('The owner leaves the stadium once; other profiles retain their route', () => {
+      test('Every player leaves the stadium once', () => {
         const c = empty().co; ok(R.zoneAt(c, 0).theme.id === 'stadium', 'opening field');
         for (let z = 500; z < 20000; z += 100) ok(R.zoneAt(c, z).theme.id !== 'stadium', 'no later football field');
-        D.setMe('ben'); const old = R.course(9090, 0, true, true); ok(R.zoneAt(old, 900).theme.id === 'stadium', 'public cycle unchanged'); D.setMe('evan');
+        D.setMe('ben'); const shared = R.course(9090, 0, true, true); ok(R.zoneAt(shared, 900).theme.id !== 'stadium', 'no repeat field for other members'); D.setMe('evan');
       });
       test('Owner scenery lasts 500 physical yards, with 100-yard touchdowns and clear boundaries', () => {
         for (let n = 1; n <= 12; n++) {
@@ -189,7 +203,7 @@ async function main() {
           eq(events.filter(e => e.type === 'zone').map(e => Math.floor(e.z)), [500, 1000], 'zone events only at 500-yard boundaries');
           ok(r.tds === 10 && Math.abs(r.yards - r.z * (boost ? 2 : 1)) < .001, 'touchdowns and boost scoring unchanged');
         }
-        for (const id of ['ben', 'none']) { D.setMe(id); const co = R.course(80050, 0, true, true); ok(R.zoneLength(co) === 100 && R.zoneAt(co, 100).i === 1, 'public length unchanged'); }
+        for (const id of ['ben', 'none']) { D.setMe(id); const co = R.course(80050, 0, true, true); ok(R.zoneLength(co) === 500 && R.zoneAt(co, 100).i === 0, 'shared 500-yard scenery'); }
         D.setMe('evan');
       });
       test('Every active power-up doubles points, overlaps stay 2x, and expiry restores 1x', () => {
@@ -213,10 +227,10 @@ async function main() {
         const st = {run: clean, mode: 'run'}, main = V.runner3(st, 10000), chase = V.chaser3(st, 10000, clean.z - 3);
         ok(main.move === chase.move && main.phase === chase.phase && main.lift === chase.lift && main.pitch === chase.pitch, 'same running clip, stride, bounce and lean');
       });
-      test('Every distinct unprotected obstacle hit with a visible chaser ends the owner run', () => {
+      test('Every profile is tackled by a distinct unprotected hit while the chaser is visible', () => {
         const rowHit = (r, ob = 'hurdle') => { r.co.rows.push({i:r.co.rows.length,z:r.z+.01,lanes:[null,ob,null],th:'stadium'}); return tick(r,.02); };
-        for (const dt of [1/30,1/60,1/120]) for (const elapsed of [.2,1,3.9,4.02,4.1,4.2]) for (const kind of ['hurdle','bar','hole','low vehicle','vehicle side','edge']) {
-          const r=empty(); rowHit(r); tick(r,Math.max(0,elapsed-(r.t-r.hitAt)),dt);
+        for (const profile of ['evan','ben','none']) for (const dt of [1/30,1/60,1/120]) for (const elapsed of [.2,1,3.9,4.02,4.1,4.2]) for (const kind of ['hurdle','bar','hole','low vehicle','vehicle side','edge']) {
+          const r=empty(profile); rowHit(r); tick(r,Math.max(0,elapsed-(r.t-r.hitAt)),dt);
           const st={run:r,camZ:r.z-7,lag:0,dt,mode:'run'};
           ok(V.chaserAt(st)!==null, 'chaser visible before '+kind+' at '+elapsed);
           let events;
@@ -401,7 +415,7 @@ async function main() {
     await page.locator('[data-rm-resume]').evaluate(b => b.click());
     await page.waitForFunction(() => window.qa.mounted.mode === 'run');
     await page.evaluate(() => { window.qa.D.setMe('ben'); });
-    assert(await page.evaluate(() => window.qa.mounted.run.over && !document.querySelector('.is-jetpack')), 'live profile change stops flight and removes HUD');
+    assert(await page.evaluate(() => !window.qa.mounted.run.over && document.querySelector('.is-jetpack')), 'live profile change retains shared flight and HUD');
     await page.evaluate(() => { window.qa.V.unmount(document.querySelector('main'), window.qa.ctx); });
     report.input = 'Keyboard, pointer swipe, pause/resume and live profile change passed';
     console.log('PASS ' + report.input);

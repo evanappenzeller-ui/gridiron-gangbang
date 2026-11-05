@@ -14,7 +14,6 @@ import {jetpackIcon} from './return-jetpack.js';
 // dressList, LOOKS, OBS, GOODS_COL, HOLE_COL, coneFly, coneAhead, CONE_MS (for the 3D world).
 // Owner: RETURN.
 import * as R from '../core/return.js';
-import * as data from '../core/data.js';
 import * as fieldLogo from './return-field-logo.js';
 import {backdrop, bowl, seeded, sparkle} from './stadium.js';
 
@@ -341,7 +340,7 @@ const fieldYard = z => ((z % 100) + 100) % 100;
 const inEndZone = z => z < 0 || (z >= 100 && fieldYard(z) < 10);
 /** Paint the logo in thin screen rows; return.js sets bend=0 for this 2D fallback. */
 function midfieldLogo(st, c, za, zb) {
-  if (data.isOwner()) return;
+  if (features.returnManUpdated()) return;
   const image = fieldLogo.image();
   if (!image) return;
   const width = fieldLogo.WIDTH, depth = width * image.height / image.width;

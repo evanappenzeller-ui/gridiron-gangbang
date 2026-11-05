@@ -1,7 +1,7 @@
 import * as features from './features.js';
 // Return Man core: the Daily Games' endless runner, after Subway Surfers (the owner's ask, Oct 2026). You field a
 // kickoff in the stadium and run it back as far as you can, and the run goes on out of the stadium into a new place
-// every 500 yards on the owner's enhanced course, otherwise 100 (zoneLength): the tailgate, city, frozen tundra,
+// every 500 yards on the shared enhanced course, otherwise 100 in legacy fixtures (zoneLength): the tailgate, city, frozen tundra,
 // desert, the farmers market, the beach, outer space and the farm, in an order of the kickoff's own, and round again.
 // Three lanes, and in them, a row at a time, the things to get past (OBST; the owner's ask, Oct 2026: no coverage men
 // running at you, more to jump and slide): a barricade to jump, a banner to slide under. Swipe left or right to juke
@@ -13,8 +13,8 @@ import * as features from './features.js';
 // into, a juke off the edge of the road: the owner's ask, Oct 2026) slows you and puts him right on your back; run on
 // clean and he drops away. A hit while he's on you (at the
 // catch he starts there too) and he tackles you: that's the return.
-// On Evan's hard course a stumble keeps him on your heels until a tackle or a salts revival: the next distinct,
-// unprotected collision catches you even after a long clean stretch. Other profiles keep the timed recovery.
+// The shared enhanced course lets you outrun the chaser after four clean seconds and his visible retreat; legacy hard-course fixtures
+// retain their earlier persistent stumble rule.
 // On the way, three power-ups: smelling salts (a burst of speed, BURST: the owner's ask, Oct 2026; and an extra life:
 // the next time he'd catch you, you shake him off, and away you burst again; on Evan's course, never an obstacle shield),
 // prescription painkillers (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You
@@ -65,7 +65,6 @@ import * as features from './features.js';
 // Ryan D for everyone; a guest (or Ryan S) only on their own phones.
 import {lsGet, lsSet} from './ui.js';
 import * as daily from './daily.js';
-import * as data from './data.js';
 
 // ---------------------------------------------------------------------------------------------- days
 export const START = '2026-10-20';
@@ -118,9 +117,9 @@ export function airRollOf(run) {
 export const airPoseOf = run => Math.min(1, run.jetAge / .45, run.jetpack / .65,
   run.jetpack < JETPACK.descend ? Math.max(0, (run.y - surfaceAt(run, laneOf(run), run.z, run.y)) / 1.8) : 1);
 export const TRAFFIC = {lead: 76, length: 20, speed: 12, height: 3.6, first: 155};
-export const flying = run => !!(run?.co.enhanced && data.isOwner() && run.jetpack > 0);
+export const flying = run => !!(run?.co.enhanced && features.returnManUpdated() && run.jetpack > 0);
 /** Active boosts share a single 2x multiplier; overlapping power-ups never multiply it again. */
-export const multiplierOf = run => run && (run.booze > 0 || (run.co.enhanced && data.isOwner() && (run.burst > 0 || run.pills > 0 || flying(run)))) ? 2 : 1;
+export const multiplierOf = run => run && (run.booze > 0 || (run.co.enhanced && features.returnManUpdated() && (run.burst > 0 || run.pills > 0 || flying(run)))) ? 2 : 1;
 // The moves, seconds: a juke takes you a lane over (eased out: most of the way at once, settling in; snappier, the
 // owner's ask, Oct 2026); a slide keeps you low (SLIDE_BODY yards, not BODY) for slide s.
 export const MOVE = {juke: .13, slide: .7};
@@ -352,7 +351,7 @@ const COURSES = new Map();
 /** Day n's kickoff k: the same on every phone. It's worked out as it's needed (fill). */
 export function course(n, k, hard = false, enhanced = false) {
   hard = !!hard;
-  enhanced = !!enhanced && data.isOwner();
+  enhanced = !!enhanced && features.returnManUpdated();
   const key = `${n}|${k}|${hard ? 'h' : ''}${enhanced ? '|flight' : ''}`;
   if (COURSES.has(key)) return COURSES.get(key);
   // the places after the stadium: the day's order, each kickoff starting one further on
@@ -633,7 +632,7 @@ export function startRun(n, k, hard = false, coins = false, enhanced = false) {
     slide: 0, lastJuke: -9, bump: -9, next: 0, nextCone: 0, nextItem: 0, zone: 0, tds: 0,
     salts: 0, pills: 0, booze: 0, shield: 0, burst: 0, over: false, why: null, by: null,
     hits: 0, hitAt: co.enhanced ? -10 : 0, slow: 0, grace: 0, knock: 0, sideHit: null,
-    stumblePending: false, lastHit: null, // The owner starts clear; the shared course's linebacker starts close.
+    stumblePending: false, lastHit: null, // The enhanced course starts clear; legacy fixtures start with the linebacker close.
     coins: !!(coins && hard), c: 0, nextCoin: 0};
 }
 /** Takes a run's coins away (it isn't the day's first after all: the board shows another of his phones ran it,
@@ -651,7 +650,7 @@ const grounded = run => run.vy <= 0 && run.y <= surfaceAt(run, laneOf(run), run.
  *  step counts it), the return's over. */
 export function move(run, dir) {
   if (run.over) return false;
-  if (run.co.enhanced && !data.isOwner()) return false;
+  if (run.co.enhanced && !features.returnManUpdated()) return false;
   if (dir === 'left' || dir === 'right') {
     const to = run.lane + (dir === 'left' ? -1 : 1);
     if (to < 0 || to >= LANES) { if (!flying(run)) { run.bump = run.t; run.sideHit = {edge: dir, lane: run.lane, side: true}; } return false; } // (a hit: step counts it)
@@ -680,7 +679,7 @@ export function move(run, dir) {
 }
 /** How far behind you the linebacker is now, in yards (CHASE): near at the catch, running up on you from where he was
  *  just after a hit (near runUp s on), falling back to edge while he's on you, then out of sight (far) once he's lost.
- *  The shared hard course keeps him at the edge until a revival; the owner loses him after four seconds plus his visible retreat. */
+ *  Legacy hard-course fixtures keep him near until a revival; the shared enhanced course gives four seconds of pursuit followed by a visible retreat. */
 export function gapOf(run) {
   if (!run) return CHASE.far;
   if (run.over && run.why === 'caught') return .6;
@@ -833,7 +832,7 @@ function sub(run, dt, out) {
     const it = items[run.nextItem++];
     if (it.lane !== lane || Math.abs(run.y - groundAt(co, it.lane, it.z)) > 1.4) continue;
     if (it.kind === 'jetpack') {
-      if (!co.enhanced || !data.isOwner()) continue;
+      if (!co.enhanced || !features.returnManUpdated()) continue;
       run.jetpack = JETPACK.s; run.jetAge = 0; run.jetFrom = run.y; run.slide = 0; run.vy = 0; run.jumpQ = -9; run.sideHit = null;
       run.airRollAt = -99; run.airRollFrom = run.airRollTo = 0;
       run.sky = skyCourse(run, it.i);
@@ -939,7 +938,7 @@ function trainAt(run, lane) {
  *  he ran you down; 'crashed': head on into a tall one's front, on the hard course). */
 export function step(run, dt) {
   if (run.over || !(dt > 0)) return [];
-  if (run.co.enhanced && !data.isOwner()) { stop(run); return []; }
+  if (run.co.enhanced && !features.returnManUpdated()) { stop(run); return []; }
   const out = [];
   fill(run.co, run.z + 120);
   if (run.coins) coinsTo(run.co, run.z + 120);

@@ -938,16 +938,16 @@ export async function returnChecks(check) {
     const pass = ends && test && day && kickoff && spark && left;
     return {pass, detail: `a paused run ended where it got to ${ends}: before Test play ${test}, at midnight ${day}; a kickoff ends a run left under way first ${kickoff}; the sparkle guarded ${spark}`};
   });
-  check('Return Man coins are the owner\'s alone (CLAUDE.md: his profile only): the page starts a coin run only on his profile (and asks coinsOpen), shows the coins, the counter beside the yards and the sparkles only on a coin run on his profile (counting them only there), takes them away when the board shows his first run was on another phone, and on a profile change (another tab too) hides them, the run on his hard course ending where it is with the ones he took kept; his first kickoff waits for the board to tell it\'s the first; its end card says what they pay Keepfall (or why a run has none: a later run, his first on another phone, the board not in) on his profile only, from the coins\' first day; the 3D coins are one instanced mesh (one draw call), made only on his profile; no picture to load, nothing new in the offline cache; the counter\'s there for everyone but hidden', async () => {
+  check('Return Man: all players see eligible ground coins and jetpack sky coins, with existing first-run reward limits and batched rendering', async () => {
     const get = f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '');
     const [view, w3, w2, sw] = await Promise.all([get('../views/return.js'), get('../views/return-3dworld.js'), get('../views/return-world.js'), get('../../sw.js')]);
-    const start = /coins = own && R\.coinsOpen\(st\.n, k, own\);\s*\n\s*st\.run = R\.startRun\(st\.n, k, own, coins(?:, data\.isOwner\(\))?\);/.test(view)
+    const start = /coins = own && R\.coinsOpen\(st\.n, k, own\);\s*\n\s*st\.run = R\.startRun\(st\.n, k, own, coins, features\.returnManUpdated\(\)\);/.test(view)
       && /if \(R\.coinsWait\(st\.n, st\.day\.next, true\)\) \{/.test(view); // (his first kickoff waits for the board)
-    // Ground reward eligibility is unchanged; the owner's jetpack also shows its repeat-run sky coins.
-    const shown = /const coinsShown = st => !!\(st\.run && features\.available\(\) && \(st\.run\.coins \|\| \(data\.isOwner\(\) && \(R\.flying\(st\.run\) \|\| st\.run\.airC > 0\)\)\)\)/.test(view) && /if \(coinsShown\(st\)\) A\.coins\.forEach/.test(view) && /const runCoins = st => \(st\.run && st\.run\.coins \? st\.run\.c : undefined\);/.test(view)
+    // Ground reward eligibility is unchanged; every player's jetpack also shows its repeat-run sky coins.
+    const shown = /const coinsShown = st => !!\(st\.run && features\.available\(\) && \(st\.run\.coins \|\| \(features\.returnManUpdated\(\) && \(R\.flying\(st\.run\) \|\| st\.run\.airC > 0\)\)\)\)/.test(view) && /if \(coinsShown\(st\)\) A\.coins\.forEach/.test(view) && /const runCoins = st => \(st\.run && st\.run\.coins \? st\.run\.c : undefined\);/.test(view)
       && /else if \(e\.type === 'coin'\) \{ if \(coinsShown\(st\)\) coinGot\(st, e, now\); else if \(st\.run\) st\.run\.c = Math\.max\(0, st\.run\.c - \(e\.add \?\? 1\)\); \}/.test(view);
-    // (taken away when the board shows another of his phones ran first; a profile change hides them and, on his hard
-    // course, ends the run where it is (the frame's whistle), keeping the ones he took: kept with the run, runCoins)
+    // Ground rewards are withdrawn if the board shows that another phone already ran first.
+    // The shared feature can stop a legacy run if disabled; changing profiles does not revoke access.
     const recheck = /recheckCoins\(st\); \/\/ \(the board's in/.test(view) && /recheckCoins\(st\);\s*\n/.test(view)
       && /if \(!run \|\| !run\.coins \|\| run\.over \|\| R\.testing\(\) \|\| !features\.available\(\)\) return;\s*\n\s*if \(!R\.ranElsewhere\(st\.n\)\) return;\s*\n\s*R\.dropCoins\(run\)/.test(view)
       && /st\.run\.co\.hard && !features\.available\(\)\) \{ R\.stop\(st\.run\); tackled\(st\); \}/.test(view);
@@ -960,7 +960,7 @@ export async function returnChecks(check) {
     host.innerHTML = (await import('../views/return.js')).render({});
     const chip = host.querySelector('.rm-hl [data-rm-ychip] + [data-rm-coins][hidden] [data-rm-cn]');
     const pass = start && shown && recheck && card && one && flat && !!chip;
-    return {pass, detail: `started on his profile alone ${start}; shown on his alone ${shown}; taken away on the board or a profile change ${recheck}; the end card's ${card}; one instanced mesh, his alone ${one}; nothing to load or cache ${flat}; the counter beside the yards, hidden ${!!chip}`};
+    return {pass, detail: `shared course start ${start}; shared ground/sky coins ${shown}; first-run eligibility rechecked ${recheck}; reward explanation ${card}; one instanced mesh ${one}; nothing to load or cache ${flat}; the counter beside the yards, hidden ${!!chip}`};
   });
   check('Return Man: its stylesheet (css/views/return.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim();

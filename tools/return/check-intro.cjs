@@ -19,7 +19,7 @@ async function main() {
       try {
         const file = path.resolve(root, '.' + decodeURIComponent(u.pathname)); assert(!path.relative(root, file).startsWith('..'));
         let body = fs.readFileSync(file);
-        if (u.pathname === '/js/views/return.js') body += '\nexport {draw,frame,patchHud,pause,resume,go}; export const getRM=()=>ui.RM;';
+        if (u.pathname === '/js/views/return.js') body += '\nexport {draw,frame,patchHud,pause,resume,go,onEvents}; export const getRM=()=>ui.RM;';
         if (u.pathname === '/js/views/return-3d.js') body += '\nexport {GL};';
         await route.fulfill({body, contentType: mime[path.extname(file)] || 'application/octet-stream'});
       } catch (e) { errors.push(e.message); await route.fulfill({status: 404, body: 'missing'}); }
@@ -97,17 +97,41 @@ async function main() {
     assert(await page.locator('[data-rm-gl]').isHidden(), '2D fallback stays usable');
     await page.screenshot({path:path.join(output,'fallback.png')});
     results.push('Reduced motion and canvas fallback');
-    await page.evaluate(() => { const {D,st}=window.qa; D.setMe('ben'); if (!st.run.over) throw new Error('profile change must terminate the owner intro'); });
-    for (const profile of ['ben','Ryan Stewart','Evan Appenzeller',null]) {
+    await page.evaluate(() => { const {D,st,I}=window.qa; D.setMe('ben'); if (st.run.over || !I.enabled(st)) throw new Error('profile change must retain shared intro'); });
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.waitForFunction(() => !window.qa.V.getRM());
+    for (const profile of ['ben','Ryan Stewart','Evan Appenzeller','Guest Runner',null]) {
       const state=await page.evaluate(profile => {
-        const {D,V,ctx,I}=window.qa; V.unmount(document.querySelector('main'),ctx);
+        const {D,V,ctx,I,R}=window.qa; V.unmount(document.querySelector('main'),ctx);
         D.setMe(profile==='ben'?'ben':'none'); D.setGuest(profile==='ben'?null:profile);
+        R.setTest(true);
         const markup=V.render(ctx), probe={intro:true,mode:'catch',catchAt:0};
-        return {title:markup.includes('rm-start-title'),shot:I.shot(probe,500),duration:I.duration(probe)};
+        V.mount(document.querySelector('main'),ctx);
+        return {title:markup.includes('rm-start-title'),shot:!!I.shot(probe,500),duration:I.duration(probe)};
       },profile);
-      assert.deepEqual(state,{title:false,shot:null,duration:750},'existing public opening '+profile);
+      assert.deepEqual(state,{title:true,shot:true,duration:2600},'shared opening '+profile);
+      await page.waitForFunction(() => document.querySelector('[data-rm-cv]').__rm.warmed);
+      assert(await page.evaluate(() => { const st=document.querySelector('[data-rm-cv]').__rm; return st.mode==='ready' && !st.run; }), 'explicit Play required for '+profile);
+      await page.locator('[data-rm-go]').click();
+      await page.evaluate(() => { const st=window.qa.st=document.querySelector('[data-rm-cv]').__rm; cancelAnimationFrame(st.raf); st.raf=0; });
+      const shared = await page.evaluate(() => {
+        const {V,D3,I,st,R}=window.qa, now=performance.now(); st.catchAt=now-1180; st.last=now; V.frame(st,now);
+        const intro = st.mode==='catch' && st.run.co.enhanced && st.run.z===0 && D3.GL.punt.visible && !!I.shot(st,now);
+        const lines={pills:['I CAN’T FEEL A THING','POP A PERKY JUST TO START UP','I AM THE CONCUSSION PROTOCOL'],booze:['CASE RACE TIME','NECTAR FROM THE GODS','BUTT CHUG TIME'],salts:['LET’S GO BABY','I FEEL LIKE A SUPERHERO','OOOO THAT’S NICE']};
+        let item=0;
+        for (const [kind, expected] of Object.entries(lines)) {
+          const seen=[];
+          for (let i=0;i<6;i++) { V.onEvents(st,[{type:'pickup',kind,item:{i:item++}}]); seen.push(st.el.querySelector('[data-rm-pop]').textContent); }
+          if (seen.some((s,i)=>!expected.includes(s) || (i && s===seen[i-1])) || new Set(seen.slice(0,3)).size!==3) throw new Error('Wrong shared pickup rotation '+kind);
+        }
+        V.onEvents(st,[{type:'pickup',kind:'jetpack',item:{i:item++}}]);
+        if (st.el.querySelector('[data-rm-pop]').textContent || !st.el.querySelector('[data-rm-got]').hidden) throw new Error('Jetpack must stay text-free');
+        if(st.el.querySelector('[data-rm-flight-note]')) throw new Error('No gameplay instruction banner');
+        return {intro, zone:R.zoneLength(st.run.co), updated:!!st.el.querySelector('.is-updated-return')};
+      });
+      assert.deepEqual(shared,{intro:true,zone:500,updated:true},'complete updated presentation '+profile);
     }
-    results.push('Member, app user, guest display-name impersonation, unselected and live profile boundaries');
+    results.push('Member, app user, named guest and unselected players share title, preload, intro, course and pickup messages');
     assert.deepEqual(errors,[]); console.log(results.map(s=>'PASS '+s).join('\n'));
     fs.writeFileSync(path.join(output,'report.json'),JSON.stringify({passed:true,results,frames,errors},null,2));
   } finally { await browser.close(); }

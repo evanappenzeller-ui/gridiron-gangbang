@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 import {makeJetpack, animateJetpack} from './return-jetpack.js';
 // Return Man's players in real 3D (the owner's ask, Oct 2026: smooth, at the screen's frame rate, not pictures): a
 // rigged, animated cartoon football player (Evan, Nov 4 2026: Subway Surfers' style, chunky, big-headed, bright flat
@@ -18,7 +19,6 @@ import {makeJetpack, animateJetpack} from './return-jetpack.js';
 // Everything's bent with the world (return-3dworld.js bend()).
 // Exports: load(), ready(), render(st, now, who), leans(), STRIDE, MOVES.
 import * as W3 from './return-3dworld.js';
-import * as data from '../core/data.js';
 import * as intro from './return-intro.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 const MODEL = new URL('../../models/return-runner-v1.glb', import.meta.url).href;
@@ -74,9 +74,9 @@ function flightGear(P) {
   if (!P.jetpack) { P.jetpack = W3.bend(makeJetpack(T)); P.jetpack.scale.setScalar(.7); P.root.add(P.jetpack); }
   return P.jetpack;
 }
-/** Compile shaders and upload both players, flight gear and pickups before the owner starts. */
+/** Compile shaders and upload both players, flight gear and pickups before Play. */
 export function prepare(st) {
-  if (!GL || !data.isOwner()) return Promise.resolve();
+  if (!GL || !features.returnManUpdated()) return Promise.resolve();
   if (PREPARED) return PREPARED;
   PREPARED = (async () => {
     await new Promise(requestAnimationFrame);
@@ -515,7 +515,7 @@ function pose(P, s, dt) {
   P.wrap.getWorldQuaternion(P.q);
   P.model.updateMatrixWorld(true);
   const t = s.t || 0;
-  if (s.jetpack && data.isOwner()) {
+  if (s.jetpack && features.returnManUpdated()) {
     flightGear(P);
     // Streamlined, belly down, arms reaching ahead and legs trailing behind the pack.
     trunk(P, [0, 1, 0]); aim(P, 'Neck', 'Head', [0, 1, 0]);
@@ -528,7 +528,7 @@ function pose(P, s, dt) {
     P.jetpack.position.copy(tmp().a); P.jetpack.position.z += .28;
     animateJetpack(P.jetpack, t);
   }
-  if (P.jetpack) P.jetpack.visible = !!s.jetpack && data.isOwner();
+  if (P.jetpack) P.jetpack.visible = !!s.jetpack && features.returnManUpdated();
   // a stumble: the trunk forward (not down in a slide), his free arm flailing
   if (s.stumble > 0) {
     if (want !== 'slide') trunk(P, [0, .78, .62], s.stumble * .8);

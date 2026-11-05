@@ -43,7 +43,7 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The version mark css/views/return.css carries (--rm-css): an older cached stylesheet gets the new one linked.
-const CSS_V = '11';
+const CSS_V = '12';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim() === CSS_V) return;
@@ -84,13 +84,13 @@ function keysHTML(hard) {
     + k('is-up', '↑', hard ? 'Jump a barricade or a pothole, or onto a low one' : 'Jump a barricade, or onto a low one')
     + k('is-dn', '↓', 'Slide under a banner')
     + k('is-ramp', '◢', hard ? 'Run up a ramp onto the roofs. Head on into a bus: down' : 'Run up a ramp onto the roofs')
-    + (data.isOwner() ? k('is-train', '↔', 'Incoming trains: change lanes to dodge') : '')
-    + k('is-chase', '!', data.isOwner() ? 'While the chaser is visible, your next unprotected hit ends the run. Stay clean until he leaves the screen' : hard ? 'The linebacker starts close. After a stumble, your next unprotected hit tackles you—even after a clean stretch' : 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
+    + (features.returnManUpdated() ? k('is-train', '↔', 'Incoming trains: change lanes to dodge') : '')
+    + k('is-chase', '!', features.returnManUpdated() ? 'While the chaser is visible, your next unprotected hit ends the run. Stay clean until he leaves the screen' : hard ? 'The linebacker starts close. After a stumble, your next unprotected hit tackles you—even after a clean stretch' : 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
     + pw('salts', 'Smelling salts', hard ? '10-second speed burst + extra life' : 'Speed burst + extra life')
     + pw('pills', 'Painkillers', hard ? 'Hit anything, no stumble' : 'Feel nothing')
-    + pw('booze', 'Booze', data.isOwner() ? 'Double yards, with a swaying view' : hard ? 'Double yards, but blurry' : 'Double yards')
-    + (data.isOwner() ? pw('jetpack', 'Jetpack', 'Fly headfirst for 8 seconds. Swipe left or right to barrel roll through coins and dodge sky hazards. A hit brings you down') : '')
+    + pw('booze', 'Booze', features.returnManUpdated() ? 'Double yards, with a swaying view' : hard ? 'Double yards, but blurry' : 'Double yards')
+    + (features.returnManUpdated() ? pw('jetpack', 'Jetpack', 'Fly headfirst for 8 seconds. Swipe left or right to barrel roll through coins and dodge sky hazards. A hit brings you down') : '')
     + `</ul>`;
 }
 // Return Man is in beta (open to the league while the owner works on it, Oct 2026): a BETA tag on the cards before a
@@ -139,7 +139,7 @@ function cardHTML(st) {
       + `<p class="rm-card-s">${esc(d.runs ? 'One kickoff a day. Come back tomorrow for the next one.' : 'You ran today’s kickoff on another phone. One a day: come back tomorrow for the next one.')}</p>`
       + sb() + nextKick() + `</div>`;
   }
-  if (data.isOwner() && st.mode === 'ready') {
+  if (features.returnManUpdated() && st.mode === 'ready') {
     return `<div class="rm-card-in rm-start"><p class="rm-start-eyebrow">GRIDIRON ARCADE · ${R.testing() ? 'PRACTICE' : 'DAILY KICKOFF'}</p>`
       + '<h2 class="rm-start-title"><span>RETURN</span><span>MAN</span></h2>'
       + '<div class="rm-start-tunnel" aria-hidden="true"><i class="rm-start-light"></i><i class="rm-start-ball"></i></div>'
@@ -181,7 +181,7 @@ function coinsLine(st, run) {
   if (!R.testing() && st.n < R.COIN.fromDay) return ''; // (before the coins' first day: nothing to say of them)
   const C = R.COIN, rule = `${nf(C.base)} for the day’s run + ${nf(C.gold)} a coin (the first ${nf(C.paid)} coins pay).`;
   if (!run.coins) {
-    if (data.isOwner() && run.airC > 0) return `<p class="rm-card-coins">${coinGlyph}<span>${nf(run.airC)} sky coins collected</span></p>`
+    if (features.returnManUpdated() && run.airC > 0) return `<p class="rm-card-coins">${coinGlyph}<span>${nf(run.airC)} sky coins collected</span></p>`
       + '<p class="rm-card-s rm-card-cpay">Keepfall coin rewards count on your first run of the day.</p>';
     // (why a run has none: a later run; his first today was on another phone (the board says so); or, his first here,
     // the board wasn't in to tell it was the day's first (the day still pays the base for its run))
@@ -235,12 +235,11 @@ function boardHTML(st) {
     + ui.seg({name: 'rm-sb', items: SB_MODES, value: st.sbMode, small: true, label: 'Scoreboard', cls: 'c-board-seg'})
     + `<div data-rm-sbody>${boardBodyHTML(st)}</div></section>`;
 }
-// On the owner's profile the day's first kickoff (and Test play's) starts on its own when the page opens, no card
-// first (the owner's ask, Oct 2026). Everyone else still taps Field the kick.
+// Automatic kickoff is retained only for the legacy presentation. The shared updated title always waits for Play.
 // His day's first run, a coin run, waits for the board (core coinsWait: only it can tell the run's the first across his
 // phones, coinsOpen): the stage a moment (BOARD_WAIT_MS), then his card saying so; it kicks off as the board comes in
 // (the 'lb' in mount).
-const autoGoes = st => !data.isOwner() && features.available() && st.mode === 'ready' && !st.day.next && !doneToday(st);
+const autoGoes = st => !features.returnManUpdated() && features.available() && st.mode === 'ready' && !st.day.next && !doneToday(st);
 const BOARD_WAIT_MS = 2500;
 function autoGo(st) {
   if (st.dead) return;
@@ -258,7 +257,7 @@ function autoGo(st) {
 // While a return's on (or before the day's first), the scoreboard waits under the stage; between runs it shows.
 const playing = st => !st.day.runs || st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused';
 function bodyHTML(st) {
-  return `<div class="rm${playing(st) ? ' is-playing' : ''}${data.isOwner() ? ' is-owner-pilot' : ''}" data-rm>`
+  return `<div class="rm${playing(st) ? ' is-playing' : ''}${features.returnManUpdated() ? ' is-updated-return' : ''}" data-rm>`
     + `<div class="rm-stage" data-rm-stage data-hscroll aria-label="Return Man: swipe left or right to juke, up to jump, down to slide">`
     + `<div class="rm-layers" data-rm-layers><canvas class="rm-cv" data-rm-cv></canvas><div class="rm-gl" data-rm-gl></div><canvas class="rm-fx" data-rm-fx></canvas></div>${hudHTML()}`
     + `<div class="rm-pop" data-rm-pop aria-hidden="true"></div>`
@@ -583,11 +582,11 @@ function drawLanes(st, c, now) {
   if (run) {
     const lag = st.lag || 0, A = R.ahead(run, 120, PAST + 2 + lag); // (further back while he's held back in a pothole)
     A.sets.forEach(({set}) => set.plats.forEach(p => { const X = R.xOf(run, p.lane), w = p.hi ? 1.25 : 1.15; list.push({z: p.z1, veh: {x0: X - w, x1: X + w, z0: p.z0 - (p.ramp || 0), z1: p.z1}, x0: X - w, x1: X + w, draw: () => W.vehicle(st, c, p)}); }));
-    if (run.co.enhanced && data.isOwner()) (run.trains || []).forEach(p => {
+    if (run.co.enhanced && features.returnManUpdated()) (run.trains || []).forEach(p => {
       const X = R.xOf(run, p.lane);
       list.push({z: p.z1, veh: {x0: X - 1.25, x1: X + 1.25, z0: p.z0, z1: p.z1}, x0: X - 1.25, x1: X + 1.25, draw: () => W.vehicle(st, c, p)});
     });
-    A.items.forEach(({item}) => { if (!st.got.has(item.i) && (item.kind !== 'jetpack' || data.isOwner())) { const X = R.xOf(run, item.lane); list.push({z: item.z, x0: X - .4, x1: X + .4, draw: () => W.item(st, c, item, t)}); } });
+    A.items.forEach(({item}) => { if (!st.got.has(item.i) && (item.kind !== 'jetpack' || features.returnManUpdated())) { const X = R.xOf(run, item.lane); list.push({z: item.z, x0: X - .4, x1: X + .4, draw: () => W.item(st, c, item, t)}); } });
     // the coins (the owner's first run of the day: core COIN), till he runs through them
     if (coinsShown(st)) A.coins.forEach(({coin}) => { if (!st.coinGot.has(coin.i)) { const X = R.xOf(run, coin.lane); list.push({z: coin.z, x0: X - .35, x1: X + .35, draw: () => W.coin(st, c, coin, t)}); } });
     if (R.flying(run)) (run.sky?.hazards || []).forEach(h => { if (h.z > st.camZ + 1) list.push({z: h.z, draw: () => drawHazard(st, c, h, P, st.reducedMotion ? 0 : st.lifeTime)}); });
@@ -605,7 +604,7 @@ function drawLanes(st, c, now) {
       const z = rz + d, x = R.xOf(run, l);
       list.push({z, x0: x - 1.4, x1: x + 1.4, draw: () => {
         W.obstacle(st, c, type, l, z, k);
-        if (!data.isOwner() && !k && !run.over && d > 2.5 && d < 40 && st.mode === 'run' && ry < 1.2) hint(st, c, type, x, z);
+        if (!features.returnManUpdated() && !k && !run.over && d > 2.5 && d < 40 && st.mode === 'run' && ry < 1.2) hint(st, c, type, x, z);
       }});
     }));
     // the gates into the places ahead
@@ -759,7 +758,7 @@ const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(
 const SPARK_MS = 380, COIN_BUZZ_MS = 70;
 /** Whether the coins show: a coin run, on the owner's profile (off it, even from another tab, they're hidden: none
  *  drawn, none counted (onEvents)). */
-const coinsShown = st => !!(st.run && features.available() && (st.run.coins || (data.isOwner() && (R.flying(st.run) || st.run.airC > 0))));
+const coinsShown = st => !!(st.run && features.available() && (st.run.coins || (features.returnManUpdated() && (R.flying(st.run) || st.run.airC > 0))));
 /** A coin run under way, looked at again on his profile (the board's come in, or he's back on it): no longer the
  *  day's first as the board sees it (another of his phones has a run of the day on it), and its coins are gone. A
  *  profile change alone hides them (coinsShown), and ends a run on his hard course where it is (frame), keeping the
@@ -840,7 +839,7 @@ function draw3(st, c, now) {
   coinFx(st, c, now, bx, az);
   if (ch && run.over) puff(st, c, ch.cx, 0, ch.cz + .6, (now - st.downAt - 480) / 450, 1.2);
   // over a barricade or a banner coming up: the move that beats it
-  if (!data.isOwner() && run && !run.over && st.mode === 'run' && ry < 1.2) {
+  if (!features.returnManUpdated() && run && !run.over && st.mode === 'run' && ry < 1.2) {
     R.ahead(run, 40, 0).rows.forEach(({row, d}) => row.lanes.forEach((type, l) => {
       if (type && d > 2.5 && d < 40 && !st.knocked.get(`${row.i}:${l}`)) hint(st, c, type, R.xOf(run, l), rz + d);
     }));
@@ -866,7 +865,7 @@ function draw(st, now = performance.now()) {
   if (!c || !st.W) return;
   c.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
   const run = st.run, dt = st.dt || .016;
-  st.co = run ? run.co : R.course(st.n, 0, features.available(), data.isOwner());
+  st.co = run ? run.co : R.course(st.n, 0, features.available(), features.returnManUpdated());
   // the camera: behind him, following him across part of the way a beat behind (a spring, critically damped: it sets
   // off easy and settles without swinging past); up when he's up top; a jolt off a vehicle's side, a stumble's
   const bump = run && run.t - run.bump < .22 ? Math.sin((run.t - run.bump) * 60) * .25 * (1 - (run.t - run.bump) / .22) : 0;
@@ -917,7 +916,7 @@ function draw(st, now = performance.now()) {
   if (three) { draw3(st, o, now); drawSpeed(st, o, now); }
   else {
     W.ground(st, c); W.sides(st, c);
-    if (data.isOwner()) for (let z0 = Math.floor((st.camZ + 120) / 20) * 20; z0 > st.camZ - 20; z0 -= 20)
+    if (features.returnManUpdated()) for (let z0 = Math.floor((st.camZ + 120) / 20) * 20; z0 > st.camZ - 20; z0 -= 20)
       life.draw2D(st, c, P, R.zoneAt(st.co, z0 + .01).theme.id, z0, z0 + 20, ui.RM ? 0 : st.lifeTime);
     drawSpeed(st, c, now); drawLanes(st, c, now);
   }
@@ -1013,8 +1012,8 @@ function setDay(st, n) {
 function patchHud(st) {
   const shot = intro.shot(st, performance.now()), root = st.el.querySelector('[data-rm]');
   root?.classList.toggle('is-punt-intro', !!shot && st.mode === 'catch');
-  root?.classList.toggle('is-title', data.isOwner() && st.mode === 'ready' && !doneToday(st));
-  if (st.mode !== 'ready' || !data.isOwner()) root?.classList.remove('is-browsing-board');
+  root?.classList.toggle('is-title', features.returnManUpdated() && st.mode === 'ready' && !doneToday(st));
+  if (st.mode !== 'ready' || !features.returnManUpdated()) root?.classList.remove('is-browsing-board');
   const caption = st.el.querySelector('[data-rm-intro]');
   if (caption) { caption.hidden = !shot || st.mode !== 'catch'; if (shot && caption.textContent !== shot.label) caption.textContent = shot.label; }
   const el = st.el, run = st.run, live = run && st.mode !== 'ready', y = live ? Math.floor(run.yards) : 0;
@@ -1074,8 +1073,8 @@ function go(st) {
   if (st.mode === 'run' || st.mode === 'catch') return;
   if (doneToday(st)) { st.mode = 'ready'; st.run = null; setCard(st, true); return; } // (one a day: today's is run)
   // (the 3D still coming: the kickoff waits for it, mount's settle3D; a run begun without it stays in the pictures)
-  if (waiting3D(st)) { st.goOn3D = true; if (data.isOwner()) setCard(st, true); return; }
-  if (data.isOwner() && D3.ready() && !st.warmed) { st.goOn3D = true; setCard(st, true); st.prepare?.(); return; }
+  if (waiting3D(st)) { st.goOn3D = true; if (features.returnManUpdated()) setCard(st, true); return; }
+  if (features.returnManUpdated() && D3.ready() && !st.warmed) { st.goOn3D = true; setCard(st, true); st.prepare?.(); return; }
   st.flat = !D3.ready();
   clearTimeout(st.waitT); st.waitT = 0; st.waited = false;
   // (a run of the day's left under way here and never ended (paused, then dropped some other way): it counts where it
@@ -1083,7 +1082,7 @@ function go(st) {
   if (R.live(st.n)) { R.settle(st.n); if (!R.testing()) R.autoPost(); setDay(st, st.n); }
   // (the owner's: the hard course; the coins on the day's first run alone, core coinsOpen)
   const own = features.available(), k = st.day.next, coins = own && R.coinsOpen(st.n, k, own);
-  st.run = R.startRun(st.n, k, own, coins, data.isOwner());
+  st.run = R.startRun(st.n, k, own, coins, features.returnManUpdated());
   // (his first run here, but the board shows another of his phones ran the day's first: the end card says so)
   if (own && !coins && !k && !R.testing() && R.ranElsewhere(st.n)) st.run.elsewhere = true;
   st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0; st.edgeAt = 0; st.fall = null; st.splash = null; st.lagOut = null; st.dip = 0;
@@ -1094,7 +1093,7 @@ function go(st) {
   // (the painted skies only show without the 3D: built ahead for that alone, each a screen-sized canvas)
   if (!in3D(st)) W.warm(skyView(st), 0);
   st.mode = 'catch'; st.catchAt = performance.now();
-  st.intro = data.isOwner(); st.introReduced = ui.RM; st.pausedMode = null;
+  st.intro = features.returnManUpdated(); st.introReduced = ui.RM; st.pausedMode = null;
   setCard(st, false);
   patchHud(st);
   ui.haptic('light');
@@ -1105,9 +1104,9 @@ function tackled(st) {
   st.mode = 'tackled'; st.downAt = performance.now();
   ungot(st); clearPickupPop(st);
   ui.haptic('error');
-  const ownerChanged = st.run.co.enhanced && !data.isOwner();
-  st.day = ownerChanged ? R.dayState(st.n) : R.record(st.n, st.run.k, st.run.yards, st.run.z, runCoins(st)) || R.dayState(st.n);
-  if (!ownerChanged) R.autoPost();
+  const featureDisabled = st.run.co.enhanced && !features.returnManUpdated();
+  st.day = featureDisabled ? R.dayState(st.n) : R.record(st.n, st.run.k, st.run.yards, st.run.z, runCoins(st)) || R.dayState(st.n);
+  if (!featureDisabled) R.autoPost();
   patchHud(st);
   st.later = setTimeout(() => {
     if (st.dead) return;
@@ -1138,20 +1137,20 @@ function ungot(st) {
 // screen says, Woooo"): no place names, move calls, hit words or the pickup's card. The haptics, the red edges and the
 // screen reader's words stay.
 const CATCHPHRASE = {salts: 'WOOOO!', pills: 'CAN’T FEEL A THING!', booze: 'HOLD MY BEER!', jetpack: 'CLEARED FOR TAKEOFF!'};
-// Shared catchphrases stay unchanged outside Evan's profile.
+// Legacy catchphrases are retained for the earlier presentation.
 const PICKUP_LINES = {
   salts: ['YEAH BUDDY'],
   pills: ['PUT ME IN COACH'],
   booze: ['LET’S RIDE!', 'WHERE ARE MY KEYS']
 };
 // Rotate through all three before reshuffling, without consecutive repeats.
-const OWNER_PICKUP_LINES = {
+const UPDATED_PICKUP_LINES = {
   salts: ['LET’S GO BABY', 'I FEEL LIKE A SUPERHERO', 'OOOO THAT’S NICE'],
   pills: ['I CAN’T FEEL A THING', 'POP A PERKY JUST TO START UP', 'I AM THE CONCUSSION PROTOCOL'],
   booze: ['CASE RACE TIME', 'NECTAR FROM THE GODS', 'BUTT CHUG TIME']
 };
 function pickupLine(st, kind) {
-  const lines = (data.isOwner() ? OWNER_PICKUP_LINES : PICKUP_LINES)[kind];
+  const lines = (features.returnManUpdated() ? UPDATED_PICKUP_LINES : PICKUP_LINES)[kind];
   if (!lines) return CATCHPHRASE[kind] || 'WOOOO!';
   const decks = st.pickupLines || (st.pickupLines = {}), deck = decks[kind] || (decks[kind] = {left: [], last: null});
   if (!deck.left.length) {
@@ -1173,7 +1172,7 @@ function clearPickupPop(st) {
 }
 function catchphrase(st, kind) {
   ungot(st);
-  if (data.isOwner() && kind === 'jetpack') { clearPickupPop(st); return ''; }
+  if (features.returnManUpdated() && kind === 'jetpack') { clearPickupPop(st); return ''; }
   const owner = features.available(), line = owner ? pickupLine(st, kind) : CATCHPHRASE[kind] || 'WOOOO!';
   pop(st, line, `is-${kind} is-catch${owner ? ' is-quippy' : ''}`);
   return owner ? line : '';
@@ -1220,7 +1219,7 @@ function onEvents(st, evs) {
     else if (e.type === 'stumbled') {
       if (!fallIn(st, e, now)) { st.hitAt = now; st.hitDir = fallDir(st.run); }
       say('STUMBLE!', 'is-hit', st.run.co.hard ? 'Next hit: tackled' : 'The linebacker’s on you'); ui.haptic('warning');
-      ui.announce(`${R.hitLine(e)}. ${st.run.co.hard ? 'Your next unprotected hit will be a tackle, even after a clean stretch.' : 'The linebacker’s on you: another hit now and he’ll tackle you.'}`);
+      ui.announce(`${R.hitLine(e)}. ${st.run.co.enhanced ? 'Stay clear until the linebacker leaves the screen. Another unprotected hit while he is visible tackles you.' : st.run.co.hard ? 'Your next unprotected hit will be a tackle, even after a clean stretch.' : 'The linebacker’s on you: another hit now and he’ll tackle you.'}`);
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
     else if (e.type === 'shoved') { if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); }
@@ -1239,9 +1238,9 @@ function frame(st, now) {
   // off screen (another tab, a sheet over it): the return waits
   if ((st.mode === 'run' || st.mode === 'catch') && !st.ctx.visible) { pause(st); return; }
   if (st.mode === 'catch' && now - st.catchAt >= intro.duration(st)) st.mode = 'run';
-  // (the hard course is the owner's alone: off his profile, even from another tab, a return on it ends where it is)
+  // Stop safely if the corresponding shared feature is disabled during a run.
   if ((st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused') && st.run.co.hard && !features.available()) { R.stop(st.run); tackled(st); }
-  if ((st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused') && st.run.co.enhanced && !data.isOwner()) { R.stop(st.run); tackled(st); }
+  if ((st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused') && st.run.co.enhanced && !features.returnManUpdated()) { R.stop(st.run); tackled(st); }
   if (st.mode === 'run') {
     const bumped = st.run.bump;
     onEvents(st, R.step(st.run, dt));
@@ -1375,7 +1374,7 @@ function onClick(st, e) {
   if (t.hasAttribute('data-rm-go')) { if (st.mode === 'tackled') { st.mode = 'ready'; st.run = null; } go(st); return; }
   if (t.hasAttribute('data-rm-resume')) { resume(st); return; }
   if (t.hasAttribute('data-rm-sb')) {
-    if (data.isOwner() && st.mode === 'ready') st.el.querySelector('[data-rm]')?.classList.add('is-browsing-board');
+    if (features.returnManUpdated() && st.mode === 'ready') st.el.querySelector('[data-rm]')?.classList.add('is-browsing-board');
     const b = st.el.querySelector('[data-rm-board]'); if (b) b.scrollIntoView({behavior: ui.RM ? 'auto' : 'smooth', block: 'start'}); return;
   }
   if (t.hasAttribute('data-rm-test')) testPlay(st, t.dataset.rmTest === 'on');
@@ -1456,13 +1455,13 @@ export function mount(el, ctx) {
   });
   // Profile changes also arrive from other tabs. Refresh existing HUD/card images immediately.
   st.iconOwner = features.available();
-  st.pilotOwner = data.isOwner();
+  st.updatedReturn = features.returnManUpdated();
   st.unsubIcons = data.subscribe(type => {
-    if (type === 'me' && !st.dead && st.pilotOwner !== data.isOwner()) {
-      st.pilotOwner = data.isOwner();
+    if (type === 'me' && !st.dead && st.updatedReturn !== features.returnManUpdated()) {
+      st.updatedReturn = features.returnManUpdated();
       if (st.mode === 'ready') st.goOn3D = false;
-      el.querySelector('[data-rm]')?.classList.toggle('is-owner-pilot', st.pilotOwner);
-      if (st.run?.co.enhanced && !st.run.over && !st.pilotOwner) { R.stop(st.run); tackled(st); }
+      el.querySelector('[data-rm]')?.classList.toggle('is-updated-return', st.updatedReturn);
+      if (st.run?.co.enhanced && !st.run.over && !st.updatedReturn) { R.stop(st.run); tackled(st); }
       const card = el.querySelector('[data-rm-card]');
       if (card && !card.hidden) { card.innerHTML = cardHTML(st); ui.hydrate(card); }
       patchHud(st); draw(st);
@@ -1490,7 +1489,7 @@ export function mount(el, ctx) {
   // (the 3D in, or not to be had, or too slow: a kickoff that waited for it goes now)
   const settle3D = st.prepare = async () => {
     clearTimeout(st.wait3T); if (st.dead || st.preparing) return;
-    if (data.isOwner() && D3.ready() && !st.warmed && (st.mode === 'ready' || st.mode === 'tackled')) {
+    if (features.returnManUpdated() && D3.ready() && !st.warmed && (st.mode === 'ready' || st.mode === 'tackled')) {
       draw(st); st.preparing = true;
       try {
         await D3.prepare(st);

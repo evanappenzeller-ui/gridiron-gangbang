@@ -19,69 +19,45 @@ Do not restore legacy score or Keepfall save fields into the v3 save namespaces.
 
 ## Return Man art direction
 
-November 4, 2026 owner pilot (current AGENTS.md scope): Evan's stable profile gets a longer, bouncier stride,
-oncoming express trains and an eight-second jetpack. The view passes `data.isOwner()` to the optional fifth
-`startRun` argument; `course` keeps its enhanced cache separate. Traffic belongs to each run and uses reserved
-clear corridors. Flight steers sideways, descends automatically and has a short landing buffer. Other profiles
-retain the deployed course and cadence. `node tools/return/check-motion.cjs` checks movement, collisions,
-scope against the deployed baseline, mobile rendering, touch/keyboard input and pause/resume offline.
+November 5, 2026 shared rollout (Evan: "Make all the new return man changes available to all players"):
+the complete November 4–5 pilot is now available to members, app users, named guests and unselected players.
+`core/features.js` `returnManUpdated()` controls Return Man alone, independently of owner privileges and other
+app pilots. The view passes it to the optional fifth `startRun` argument; legacy course fixtures remain separate.
+Do not restore profile gates to this shared experience. Existing saves, daily limits and reward eligibility remain.
 
-November 4 follow-up (same owner-only scope): flight is belly down and headfirst, with full barrel rolls for
-lane changes. Each pickup creates a fresh sky course and coin trails, including repeat runs. Birds, balloons,
-drones and space debris leave an open route; a sky hit triggers controlled descent, and painkillers protect.
-Keepfall's existing first-run reward eligibility and daily caps remain. The opening stadium has no midfield
-logo and never recurs on the enhanced route. Other profiles keep their existing route and field artwork.
-`return-life.js` adds batched scenery detail, contact/sun shadows, shader wind and ambient motion specific to
-each place. Its clock pauses with the run and freezes for reduced motion. `return-air-world.js` renders the
-sky obstacles and canvas flight fallback. Keep shared City bus objects alive across profile changes; rebuild
-only the owner roadside and sky objects. The environment check compares public scenes with `b7601b2`, checks
-all nine owner scenes and reduced motion, and captures previews. `check-motion.cjs` also verifies sky coins,
-collisions, actual prone bone positions, the back-mounted pack, rolls, and the one-stadium route.
+Everyone gets the longer, bouncier stride, incoming trains and eight-second jetpack. Flight is belly down,
+headfirst, with barrel rolls for lane changes. Each pickup creates a fresh sky course and coin trails; birds,
+balloons, drones and debris leave an open route. A sky hit triggers descent; painkillers protect. Moving bus/train
+roofs are solid landing and running surfaces (`surfaceAt`). Keepfall's first-run reward eligibility and daily caps
+remain. All active boosts give 2x yards, never stacking above 2x; stored salts alone remain an extra life.
+A first stumble starts a four-second pursuit, followed by a visible retreat. A new unprotected hit while the
+chaser is still visible ends the run; only his leaving the screen clears the pursuit. Painkillers, stored salts,
+flight clearance, roof landings and duplicate-contact handling keep their protection. The chaser uses the
+runner's run clip, stride rate, bounce and lean.
 
-November 5 follow-up (owner-only): opening Return Man, including Practice, now waits on a Start run card.
-`D3.prepare` compiles shaders and uploads both players, the jetpack and cached sky/pickup models under that
-card, before an explicit start. Owner pickup callouts use transform/opacity animations without a layout flush;
-the HUD and booze effect avoid live full-scene blur. `check-performance.cjs` compares the pre-change event
-paths with the working version, checking zero new shader programs and zero forced layout reads on pickups
-and a stumble (software-GPU timings are diagnostic, not a phone frame-rate guarantee).
-All active boosts give 2x yards, never stacking above 2x: salts during its burst, pills, booze and flight.
-Stored salts remain an extra life after the burst. `surfaceAt` includes moving vehicle roofs, used by descent,
-ground support, jumps, camera and poses. Landing on a roof ends flight at contact; the roof stays solid afterward.
-The enhanced runner's first stumble starts a four-second pursuit, then the chaser retreats. The pursuit stays
-lethal until he leaves the screen; its visible retreat is not a grace period. A new unprotected ground-obstacle
-impact while he is visible ends the owner's run. Evan explicitly kept the existing power-up protection:
-painkillers, stored salts, flight clearance and safe roof landings remain unchanged. Duplicate contact with
-the same obstacle still counts once. The chaser uses the runner's run clip, stride rate, bounce and lean.
-Other profiles retain the shared deployed scoring, launch and chase rules. Keep the existing regression checks
-and the new start-screen, roof-landing, multiplier and pursuit cases in `check-motion.cjs` passing.
+The stadium-tunnel title waits for Play, including Practice. `return-intro.js` times the 2.6-second punt,
+two-handed catch and camera orbit into the chase camera. Simulation and scoring freeze until handoff.
+Pause/resume preserves the shot; reduced motion uses a shorter catch with a fixed camera. Canvas fallback remains.
+`D3.prepare` preloads player, pickup and jetpack shaders under the title. Callouts use transform/opacity without
+layout flushes; the HUD and beer effect avoid full-scene blur. `check-performance.cjs` verifies no new shader
+compilation or forced layout reads during pickups/stumbles; software-GPU timings are diagnostic.
+No obstacle hint arrows or train/flight instruction banners appear during gameplay. Painkillers, beer and salts
+rotate through the three chosen lines (`UPDATED_PICKUP_LINES`) without consecutive repeats; jetpack has no text
+popup. Start-screen help and screen-reader announcements remain.
 
-November 5 pickup copy (owner-only): no obstacle hint arrows or train/flight instruction banners during play.
-Painkillers, beer and salts each rotate through Evan's three chosen lines (`OWNER_PICKUP_LINES`), without
-consecutive repeats. Jetpack pickups show no text popup. Start-screen controls and screen-reader announcements
-remain; other profiles keep their existing hints and pickup lines.
+Every scenery lasts 500 physical yards (`zoneLength`), including the opening stadium, which has no logo and never
+recurs. Touchdowns remain every 100 physical yards; render tiles and markings stay at 100 for bounded batch sizes.
+Gates, sky/light blends, model preloading, zone events and vehicle boundary clearance use the scenery length.
+All nine places use the colorful low-poly art, batched living details, contact/sun shadows, shader wind and ambient
+motion. `return-style.js` owns palettes, `return-scenery.js` roadside detail, and `return-life.js` living motion;
+its clock pauses with play and freezes for reduced motion. `return-air-world.js` owns sky hazards/fallback flight.
+Preserve City bus art, its loading-failure fallback, and shared assets across profile changes.
 
-November 5 punt opening (owner-only, current AGENTS.md): the stadium-tunnel title screen waits for Play.
-`return-intro.js` times the 2.6-second punt, two-handed catch and camera orbit into the existing chase camera;
-the simulation, score and obstacles stay frozen until the handoff. `return-3d.js` reuses the football geometry,
-following the gloves at contact and clearing it before the run so both arms stay free. Pause/resume preserves
-the shot. Reduced motion uses a shorter catch with a fixed camera; the canvas fallback remains playable.
-Other profiles retain the existing 750ms kickoff and launch behavior. `node tools/return/check-intro.cjs`
-checks the title on phones/tablets, Play/Help/Scoreboard, ball contact, camera continuity, score freeze,
-pause/resume, reduced motion, fallback and profile boundaries offline.
-
-November 5 longer scenery (owner-only): `core/return.js` `zoneLength(co)` is 500 yards for the enhanced
-course, including the opening stadium. Other profiles retain 100-yard places. Gates, sky/light blends,
-model preloading, zone events and vehicle boundary clearance use that length; touchdown scoring stays
-every 100 physical yards. Scenery/render tiles and field markings remain 100 yards so detail density and
-batch sizes stay bounded. `check-motion.cjs` covers 500-yard boundaries, course generation and unchanged scoring.
-
-Evan chose the supplied colorful low-poly runner reference for Return Man's environments: bold silhouettes,
-warm cream trim, saturated accents, faceted foliage, clean roads and clearly visible hazards. Keep each of the
-nine locations distinct. This direction applies to Evan's profile only. `return-style.js` owns the procedural
-ground/sky palettes; `return-scenery.js` adds batched roadside details; `return-3dworld.js` integrates them.
-Keep gameplay dimensions and collisions intact, retain the 2D fallback, and preserve the existing City bus art
-and its complete loading-failure fallback. Verify `node tools/return/check-environments.cjs`,
-`node tools/return/check-city-bus.cjs`, and `node tools/return/check-city-cache.cjs` before further visual releases.
+Before publishing, run `node tools/return/check-motion.cjs`, `check-intro.cjs`, `check-performance.cjs`,
+`check-environments.cjs`, `check-city-bus.cjs` and `check-city-cache.cjs` in tools/return. Motion compares every
+profile's course and movement against the deployed owner pilot (c90656a); environment checks compare all nine
+shared scenes with that art, including guests, account transitions, reduced motion and canvas fallback.
+Intro checks exercise actual Play, preloading, camera/catch and pickup rotation across profiles.
 
 The player (November 4, 2026, Evan: a cartoony runner, Subway Surfers' style; shipped to everyone):
 `models/return-runner-v1.glb`, from KayKit's Adventurers (Kay Lousberg, CC0): the Barbarian's body for both players, the

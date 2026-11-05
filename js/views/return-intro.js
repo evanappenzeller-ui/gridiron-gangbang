@@ -1,9 +1,9 @@
-// Owner's punt opening. Presentation only: the simulation stays at zero until it finishes.
-import * as data from '../core/data.js';
+import * as features from '../core/features.js';
+// Shared punt opening. Presentation only: the simulation stays at zero until it finishes.
 export const DURATION = 2600;
 const clamp = v => Math.max(0, Math.min(1, v));
 export const ease = v => { const p = clamp(v); return p * p * (3 - 2 * p); };
-export const enabled = st => !!st.intro && data.isOwner();
+export const enabled = st => !!st.intro && features.returnManUpdated();
 export const duration = st => enabled(st) ? (st.introReduced ? 1100 : DURATION) : 750;
 export function shot(st, now) {
   if (!enabled(st) || (st.mode !== 'catch' && !(st.mode === 'paused' && st.pausedMode === 'catch'))) return null;

@@ -1,4 +1,4 @@
-// Small, readable airborne silhouettes. Only the owner pilot requests these objects.
+// Small, readable airborne silhouettes. The shared jetpack course requests these objects.
 export function makeHazard(T, kind) {
   const g = new T.Group(); g.name = 'sky-' + kind; g.userData.airKind = kind;
   const mat = color => new T.MeshStandardMaterial({color, roughness: .8, flatShading: true});

@@ -26,9 +26,9 @@ async function fixture(browser, legacy) {
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await page.addInitScript(() => { requestIdleCallback = () => 1; cancelIdleCallback = () => {}; });
   await page.goto(origin + '/check');
-  await page.evaluate(async () => {
+  await page.evaluate(async legacy => {
     const [D, R, V, D3, W3] = await Promise.all([import('/js/core/data.js'), import('/js/core/return.js'), import('/js/views/return.js'), import('/js/views/return-3d.js'), import('/js/views/return-3dworld.js')]);
-    await D.load(); D.setMe('evan'); R.setTest(true); if (!await D3.load()) throw Error('3D load');
+    await D.load(); D.setMe(legacy ? 'evan' : 'ben'); R.setTest(true); if (!await D3.load()) throw Error('3D load');
     const el = document.querySelector('main'); el.innerHTML = V.render({}); el.querySelector('[data-rm-card]').hidden = true;
     const cv = el.querySelector('[data-rm-cv]'), fx = el.querySelector('[data-rm-fx]'); cv.width = fx.width = 430; cv.height = fx.height = 820;
     const st = {el, cv, fx, c2: cv.getContext('2d'), c3: fx.getContext('2d'), layers: el.querySelector('[data-rm-layers]'), glHost: el.querySelector('[data-rm-gl]'), ctx: {visible: true},
@@ -36,7 +36,7 @@ async function fixture(browser, legacy) {
     const reset = () => { const r = R.startRun(st.n, 0, true, false, true); r.co = {...r.co, order: [2], rows: [], items: [], sets: [], traffic: [], z: 1e9, done: 1e9}; r.t = 10; r.z = 200; st.run = r; st.co = r.co; st.mode = 'run'; st.hitAt = st.flashAt = 0; return r; };
     reset(); window.qa = {D, R, V, D3, W3, st, reset};
     for (let i = 0; i < 12; i++) V.draw(st, performance.now());
-  });
+  }, legacy);
   await page.waitForFunction(() => window.qa.W3.sceneryReady('city'));
   await page.evaluate(async () => {
     const {D3, W3, V, st} = window.qa; W3.renewScenery(); for (let i = 0; i < 12; i++) V.draw(st, performance.now());

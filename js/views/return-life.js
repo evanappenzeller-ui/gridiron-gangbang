@@ -1,6 +1,6 @@
-// Owner scenery pass: deterministic roadside details, wind, weather and small ambient motions.
+import * as features from '../core/features.js';
+// Shared scenery pass: deterministic roadside details, wind, weather and small ambient motions.
 // A few batches per visible chunk; no collision geometry, textures or per-frame allocations for foliage.
-import * as data from '../core/data.js';
 import {seeded} from './stadium.js';
 export const TIME = {value: 0};
 const clamp = x => Math.max(0, Math.min(1, x));
@@ -50,7 +50,7 @@ function motionMesh(T, batch, ranges) {
 }
 /** Also let the existing imported greenery respond to the same breeze. */
 export function swayFoliage(T, m, id) {
-  if (!m || id === 'space' || !data.isOwner()) return;
+  if (!m || id === 'space' || !features.returnManUpdated()) return;
   const p = m.geometry.attributes.position, c = m.geometry.attributes.color, a = new Float32Array(p.count * 3);
   for (let i = 0; i < p.count; i++) {
     const green = c.getY(i) > c.getX(i) * 1.1 && c.getY(i) > c.getZ(i) * 1.03;
@@ -72,7 +72,7 @@ export const THEMES = {
   farm: 'Swaying wheat, wildflowers, irrigation, butterflies and grazing livestock'
 };
 export function build(T, Batch, g, id, z0, z1, props = []) {
-  if (!data.isOwner()) return;
+  if (!features.returnManUpdated()) return;
   const r = seeded(Math.abs(Math.floor(z0 * 173 + id.length * 7919)) + 71), b = new Batch(), w = new Batch(), shades = new Batch(), ranges = [];
   const M = mats(T), center = (z0 + z1) / 2;
   g.userData.livingWorld = id; g.life = [];
@@ -228,7 +228,7 @@ export function animate(g, t, reduced = false) {
 }
 /** Lightweight canvas fallback: moving verge plants, shadows and place-specific wind/weather details. */
 export function draw2D(st, c, project, id, z0, z1, t) {
-  if (!data.isOwner()) return;
+  if (!features.returnManUpdated()) return;
   const r = seeded(Math.abs(Math.floor(z0 * 173 + id.length * 7919)) + 71);
   for (let i = 0; i < 18; i++) {
     const side = i % 2 ? 1 : -1, x = side * (5.2 + r() * 1.3), z = z0 + r() * (z1 - z0), h = .25 + r() * .6;

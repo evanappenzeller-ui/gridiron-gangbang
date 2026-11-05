@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Owner living scenery and unchanged public environment regression. No server required.
+// Shared living scenery and deployed owner-art parity regression. No server required.
 // Run: node tools/return/check-environments.cjs
 // Baseline modules/assets come from the deployed version before the living scenery pass.
 // Every request is fulfilled locally or blocked. The app boot/score posting never runs.
@@ -11,7 +11,7 @@ const {execFileSync} = require('node:child_process');
 const root = fs.realpathSync(path.resolve(__dirname, '../..'));
 const output = process.env.RETURN_ENV_TEST_OUTPUT || path.resolve(root, '../output/return-man/environment-qa');
 const origin = 'http://127.0.0.1:8765';
-const baselineRef = process.env.RETURN_ENV_BASELINE || 'b7601b2';
+const baselineRef = process.env.RETURN_ENV_BASELINE || '866a199';
 const baseline = execFileSync('git', ['rev-parse', '--verify', `${baselineRef}^{commit}`], {cwd: root, encoding: 'utf8'}).trim();
 const themes = ['stadium', 'tailgate', 'city', 'tundra', 'desert', 'market', 'beach', 'space', 'farm'];
 const sourceCache = new Map();
@@ -77,8 +77,8 @@ async function fixture(browser, legacy = false) {
     const [T, D, R, W3, W] = await Promise.all([import('/js/vendor/three/three.module.min.js'), import('/js/core/data.js'),
       import('/js/core/return.js'), import('/js/views/return-3dworld.js'), import('/js/views/return-world.js')]);
     const style = await import('/js/views/return-style.js');
-    const life = legacy ? null : await import('/js/views/return-life.js');
-    await D.load(); D.setMe('ben');
+    const life = await import('/js/views/return-life.js');
+    await D.load(); D.setMe(legacy ? 'evan' : 'ben');
     const scene = new T.Scene(), hemi = new T.HemisphereLight(), sun = new T.DirectionalLight();
     scene.add(hemi, sun, sun.target); scene.fog = new T.Fog(0x8899aa, 70, 150);
     W3.init(T, scene, {});
@@ -152,7 +152,7 @@ async function fixture(browser, legacy = false) {
       const flat = {...st, bend: 0};
       fallbackContext.reset(); // Each comparison starts with identical canvas drawing state.
       W.sky(flat, fallbackContext, st.t, st.run.z); W.ground(flat, fallbackContext); W.sides(flat, fallbackContext);
-      if (life && D.isOwner()) for (let z = 140; z >= 0; z -= 20) life.draw2D(flat, fallbackContext, W.P, theme.id, z, z + 20, st.lifeTime ?? 1.234);
+      if (life) for (let z = 140; z >= 0; z -= 20) life.draw2D(flat, fallbackContext, W.P, theme.id, z, z + 20, st.lifeTime ?? 1.234);
       for (const set of st.co.sets) for (const p of set.plats) W.vehicle(flat, fallbackContext, p);
       for (const row of st.co.rows) row.lanes.forEach((type, lane) => { if (type) W.obstacle(flat, fallbackContext, type, lane, row.z); });
       for (const item of st.co.items) W.item(flat, fallbackContext, item, st.t);
@@ -175,14 +175,14 @@ async function fixture(browser, legacy = false) {
       drawFallback();
     }
     window.environmentCheck = {
-      identity(id) { D.setMe(id); },
+      identity(id) { D.setMe(id === 'ben' || id === 'evan' ? id : 'none'); D.setGuest(id === 'ben' || id === 'evan' ? null : id); },
       ready() {
         frame();
         // (each place's scenery models, once in: what was built before they came, built again with them)
         if (!W3.sceneryReady(theme.id)) return false;
         W3.renewScenery(); frame();
         // (and the stadium's painted midfield logo, decoded after the network's gone quiet)
-        if ((!D.isOwner() || legacy) && theme.id === 'stadium' && !scene.getObjectByName('toreadors-midfield-logo')) return false;
+        if (theme.id === 'stadium' && scene.getObjectByName('toreadors-midfield-logo')) throw new Error('Midfield logo must stay removed');
         return theme.id !== 'city' || !!scene.getObjectByName('city-bus-pilot-body');
       },
       status() {
@@ -290,7 +290,7 @@ function unchanged(actual, expected, label) {
       for (const theme of themes) {
         const s = await current.snapshot(theme); report.themes[theme].public = s;
         rendered(s, 'public ' + theme);
-        compare(s, report.themes[theme].baseline, theme + ': public scenery unchanged');
+        compare(s, report.themes[theme].baseline, theme + ': public scenery matches deployed owner art');
       }
       assert(current.imageRequests.length > 0, 'public profiles load v3 art');
       // (the Unity-pack scenery: every place but the stadium has its models, asked for once each, for everyone)
@@ -300,7 +300,7 @@ function unchanged(actual, expected, label) {
       await current.identity('evan');
       for (const theme of themes) {
         const s = await current.snapshot(theme); rendered(s, 'owner ' + theme);
-        assert.equal(s.owner, true); assert.notEqual(s.sceneHash, report.themes[theme].public.sceneHash, theme + ': owner details added');
+        assert.equal(s.owner, true); compare(s, report.themes[theme].public, theme + ': same details on every profile');
         assert(s.living && (s.wind || theme === 'space'), theme + ': detailed scenery');
         assert(s.shadows || theme === 'space', theme + ': ground contact shadows');
         assert(s.drawCalls < 230, theme + ': bounded draw calls');
@@ -314,7 +314,7 @@ function unchanged(actual, expected, label) {
       }
       const fallback = await current.page.evaluate(() => window.environmentCheck.fallbackImage());
       fs.writeFileSync(path.join(output, 'owner-farm-2d.png'), Buffer.from(fallback.split(',')[1], 'base64'));
-      for (const [identity, label] of [['ben', 'restored'], [null, 'signedOut']]) {
+      for (const [identity, label] of [['ben', 'restored'], ['Ryan Stewart', 'appUser'], ['Guest Runner', 'guest'], [null, 'signedOut']]) {
         await current.identity(identity);
         if (label === 'restored') {
           const hidden = await current.page.evaluate(() => window.environmentCheck.status());
@@ -342,6 +342,6 @@ function unchanged(actual, expected, label) {
     fs.writeFileSync(path.join(output, 'environment-checks.json'), JSON.stringify(report, null, 2) + '\n');
     await browser.close();
   }
-  console.log('All nine living scenes, unchanged public/signed-out profiles, account transitions, reduced motion and 2D fallbacks passed.');
+  console.log('All nine living scenes match the deployed owner art across member/app-user/guest/unselected profiles, account transitions, reduced motion and 2D fallbacks passed.');
   console.log('Screenshots and metrics: ' + output);
 })().catch(error => { console.error(error); process.exitCode = 1; });

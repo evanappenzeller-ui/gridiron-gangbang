@@ -4,6 +4,10 @@ import * as data from './data.js';
 // Separate from data.isOwner(), which controls board privacy and owner tools.
 export const available = () => true;
 
+// Evan approved the complete Return Man pilot for every player on November 5, 2026.
+// This rollout is independent of owner privileges and other games' pilots.
+export const returnManUpdated = () => true;
+
 // Gridiron Dynasty is Evan's and Ryan Stewart's alone (Evan, Oct 28 2026: "Make available to Evan and Ryan Stewart's
 // profiles only"): by their stable ids, his member id and Ryan Stewart's app-user id (data.js USERS), never a typed name.
 export const DYNASTY = Object.freeze({members: Object.freeze([data.OWNER]), users: Object.freeze(['ryan-stewart'])});
