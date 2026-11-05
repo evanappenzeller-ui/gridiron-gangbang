@@ -2,7 +2,9 @@
 // rewatchable inside the app. Pushed on any tab (a cold link sits on Matchup). Owner: PRESS-SCREEN.
 //   Large title (eyebrow "Matchup of the Week", "Press Room", "The loser faces the media.") · the featured presser as
 //   a big player card (the latest, or the route's week: the share link) with Share / Replace / Remove · the league
-//   chat's questions for that week's loser (press.questionsFor, from data/pressers.json), when it has some · a prompt when
+//   chat's questions for that week's loser (press.questionsFor, from data/pressers.json, then the ones Evan added in the
+//   app: on his phone the section is always there with Add a question, and his own open openQuestion's sheet to change
+//   or delete; Nov 5 2026), when it has some · a prompt when
 //   the latest Matchup of the Week loser hasn't posted yet · the archive by season (a row features that presser and
 //   plays it) · "How to post". The + in the bar opens the post sheet. Until the rules are pasted ('denied') the +,
 //   Replace and Remove are gone and the sheet's Post stays off with that reason.
@@ -677,6 +679,123 @@ function wireSheet(S) {
   });
 }
 
+// ============================================================================ Question sheet
+// Evan's alone (press.canAddQuestions): a question the league asked, tied to the manager who asked it, for a week's
+// loser. openQuestion({key: '2026-w4'}) adds one to that week (its chips can move it); with id, changes that one or
+// takes it out. Saved with press.saveQuestion / removeQuestion (on his board doc; this device only on a dev host).
+let qOpen = null;
+export function openQuestion({key, id = null} = {}) {
+  if (!press.canAddQuestions() || qOpen) return qOpen;
+  const K = parseKey(key) || {year: liveYear(), week: (press.weekOptions(liveYear()).slice(-1)[0]) || 1};
+  const item = id ? press.addedFor(keyOf(K.year, K.week)).find(x => x.id === id) : null;
+  if (id && !item) { ui.toast('That question isn\u2019t there anymore.', {icon: 'info'}); return null; }
+  const Q = {year: K.year, week: K.week, by: item ? item.by : null, busy: false, dead: false, id, el: null, sheet: null};
+  let resolve;
+  qOpen = new Promise(r => { resolve = r; });
+  const done = qOpen;
+  Q.sheet = ui.openSheet({
+    title: item ? 'Change question' : 'Add a question', body: qBody(Q, item), cls: 'sh-press sh-pq', detents: ['large'],
+    onClose: () => { Q.dead = true; if (qOpen === done) qOpen = null; resolve(Q.result || null); }
+  });
+  Q.el = Q.sheet.el;
+  wireQuestion(Q);
+  paintQ(Q);
+  requestAnimationFrame(() => { const rail = !Q.dead && Q.el.querySelector('.pq-weeks .chips'); if (rail) ui.setChips(rail, String(Q.week), {scroll: true}); });
+  return done;
+}
+function qWeeksHTML(Q) {
+  const opts = weekOpts(Q.year);
+  if (!opts.includes(Q.week)) opts.push(Q.week);
+  const items = opts.sort((a, b) => a - b).map(w => ({id: String(w), label: `Wk ${w}`}));
+  const k = keyOf(Q.year, Q.week), n = press.addedFor(k).filter(x => x.id !== Q.id).length;
+  let snap = memo.snap;
+  if (!snap) { try { snap = press.peek(); } catch (_) { snap = null; } }
+  const p = byKeyOf(snap)[k];
+  const note = p ? `For ${nm(p.who)}\u2019s week ${Q.week} press conference.` : `Week ${Q.week}\u2019s press conference isn\u2019t posted yet: the question shows once it is.`;
+  return ui.chips({name: 'pq-week', items, value: String(Q.week), label: 'Week'})
+    + `<p class="shp-note">${esc(note)}${n ? esc(` ${n} added for this week so far.`) : ''}</p>`;
+}
+function qBody(Q, item) {
+  const who = data.ids.map(mid => ({id: mid, label: nm(mid), lead: ui.avatar(mid, {size: 24})}));
+  return `<div class="shp pq">`
+    + `<section class="shp-sec" aria-labelledby="pq-week-h"><h3 class="shp-h" id="pq-week-h">Week${Q.year !== liveYear() ? `, ${Q.year}` : ''}</h3><div class="pq-weeks">${qWeeksHTML(Q)}</div></section>`
+    + `<section class="shp-sec" aria-labelledby="pq-who-h"><h3 class="shp-h" id="pq-who-h">Asked by</h3>${ui.chips({name: 'pq-who', items: who, value: Q.by || '', label: 'Asked by', cls: 'shp-who-chips'})}</section>`
+    + `<section class="shp-sec"><div class="shp-hrow"><label class="shp-h" for="pq-q">Question</label><span class="shp-count pq-qn" aria-hidden="true">0/${press.Q_MAX}</span></div>`
+    + `<div class="shp-field pq-field"><textarea id="pq-q" class="shp-in pq-in" name="pq-q" rows="4" maxlength="${press.Q_MAX}" autocapitalize="sentences" placeholder="Coach, …">${esc(item ? item.q : '')}</textarea></div></section>`
+    + `<section class="shp-sec"><div class="shp-hrow"><label class="shp-h" for="pq-note">Note</label><span class="shp-count pq-nn" aria-hidden="true">0/${press.NOTE_MAX}</span></div>`
+    + `<div class="shp-field"><input id="pq-note" class="shp-in" name="pq-note" type="text" maxlength="${press.NOTE_MAX}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Optional, e.g. Photo in the league chat." value="${esc(item && item.note ? item.note : '')}"></div></section>`
+    + `<div class="shp-foot">${ui.button({label: item ? 'Save' : 'Add question', kind: 'primary', block: true, disabled: true, attrs: {'data-pq-save': ''}})}<p class="shp-why" aria-live="polite"></p>`
+    + (item ? ui.button({label: 'Delete question', kind: 'secondary', block: true, cls: 'pq-del is-destructive', attrs: {'data-pq-del': ''}}) : '')
+    + `</div></div>`;
+}
+function paintQ(Q) {
+  const el = Q.el;
+  if (!el || Q.dead) return;
+  const q = el.querySelector('#pq-q'), n = el.querySelector('#pq-note');
+  const set = (box, v, max) => { if (box) { box.textContent = `${v.length}/${max}`; box.classList.toggle('is-full', v.length >= max); } };
+  set(el.querySelector('.pq-qn'), q.value, press.Q_MAX);
+  set(el.querySelector('.pq-nn'), n.value, press.NOTE_MAX);
+  const why = Q.busy ? '' : !Q.by ? 'Pick who asked it.' : !q.value.trim() ? 'Type the question.' : '';
+  const btn = el.querySelector('[data-pq-save]');
+  if (btn) btn.disabled = !!why || Q.busy;
+  const w = el.querySelector('.shp-why');
+  if (w) w.textContent = why;
+}
+function paintQWeeks(Q) {
+  const box = Q.el && Q.el.querySelector('.pq-weeks');
+  if (!box) return;
+  const rail = box.querySelector('.chips'), left = rail ? rail.scrollLeft : 0;
+  box.innerHTML = qWeeksHTML(Q);
+  const r2 = box.querySelector('.chips');
+  if (r2) r2.scrollLeft = left;
+}
+const Q_FAIL = {invalid: 'Pick who asked it and type the question.', full: 'That week has as many questions as it can hold.', denied: 'Only Evan can add questions.', failed: "Couldn't save. Try again."};
+async function saveQ(Q) {
+  if (Q.busy || Q.dead) return;
+  const el = Q.el, q = el.querySelector('#pq-q').value, note = el.querySelector('#pq-note').value;
+  Q.busy = true; paintQ(Q);
+  let r;
+  try { r = await press.saveQuestion({id: Q.id, week: keyOf(Q.year, Q.week), by: Q.by, q, note}); } catch (e) { console.error(e); r = {r: 'failed'}; }
+  Q.busy = false;
+  if (r.r === 'ok' || r.r === 'dev') {
+    ui.haptic('success');
+    ui.toast(`${Q.id ? 'Saved' : 'Question added'}${r.r === 'dev' ? ' on this device (dev)' : ''}`, {icon: 'check-circle'});
+    Q.result = {key: keyOf(Q.year, Q.week), id: r.id};
+    Q.sheet.close();
+    return;
+  }
+  ui.haptic('warning');
+  paintQ(Q);
+  ui.toast(Q_FAIL[r.r] || Q_FAIL.failed, {icon: 'x-circle'});
+}
+async function deleteQ(Q) {
+  if (Q.busy || Q.dead || !Q.id) return;
+  const v = await ui.actionSheet({title: 'Delete this question?', message: 'It comes off the Press Room for everyone.', actions: [{label: 'Delete', value: 'delete', role: 'destructive'}]});
+  if (v !== 'delete' || Q.dead) return;
+  Q.busy = true; paintQ(Q);
+  let r;
+  try { r = await press.removeQuestion(keyOf(Q.year, Q.week), Q.id); } catch (e) { console.error(e); r = 'failed'; }
+  Q.busy = false;
+  if (r === 'ok' || r === 'dev') { ui.haptic('success'); ui.toast(r === 'dev' ? 'Deleted on this device (dev)' : 'Deleted', {icon: 'check-circle'}); Q.sheet.close(); return; }
+  paintQ(Q);
+  ui.toast(Q_FAIL[r] || Q_FAIL.failed, {icon: 'x-circle'});
+}
+function wireQuestion(Q) {
+  const el = Q.el;
+  el.addEventListener('input', () => paintQ(Q));
+  el.addEventListener('ui:change', e => {
+    const d = e.detail || {};
+    if (d.name === 'pq-week') { const w = +d.value; if (w && w !== Q.week) { Q.week = w; paintQWeeks(Q); } }
+    else if (d.name === 'pq-who') { Q.by = data.M[d.value] ? d.value : null; paintQ(Q); }
+  });
+  el.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'pq-note') { e.preventDefault(); e.target.blur(); } });
+  el.addEventListener('click', e => {
+    const t = e.target.closest && e.target.closest('[data-pq-save], [data-pq-del]');
+    if (!t) return;
+    if (t.hasAttribute('data-pq-save')) saveQ(Q); else deleteQ(Q);
+  });
+}
+
 // ============================================================================ Screen
 // Pushed on any tab, so a Press Room can be mounted on two tabs at once: each keeps its own state (screens: ctx ->
 // state). memo.snap is the last subscribePressers payload, so a re-mounted screen paints at once.
@@ -720,19 +839,27 @@ function featHTML(p, off) {
     + `<div class="pr-acts">${act('share', 'Share', 'data-pr-share')}${off ? '' : act('swap', 'Replace', 'data-pr-replace')}${p.seed || off ? '' : act('x-circle', 'Remove', 'data-pr-remove', ' is-destructive')}</div>`
     + `</section>`;
 }
-// "Questions from the press": what the league chat asked the featured week's loser, asker by asker.
+// "Questions from the press": what the league asked the featured week's loser, asker by asker (the league chat's, then
+// the ones Evan added in the app). On Evan's phone (press.canAddQuestions) the section is there even with none yet,
+// with Add a question; a question he added opens its sheet to change or take it out.
 function qsHTML(p) {
   const qs = p ? press.questionsFor(p.key) : [];
-  if (!qs.length) return '';
+  const own = !!p && press.canAddQuestions();
+  if (!qs.length && !own) return '';
   const me = data.me();
-  const items = qs.map(x => `<li class="pr-q">`
-    + `<span class="pr-q-lead">${ui.avatar(x.by, {size: 32, you: x.by === me})}</span>`
+  const body = x => `<span class="pr-q-lead">${ui.avatar(x.by, {size: 32, you: x.by === me})}</span>`
     + `<span class="pr-q-main"><span class="pr-q-by">${esc(nm(x.by))}</span><span class="pr-q-t">${esc(x.q)}</span>`
     + (x.note ? `<span class="pr-q-note">${ui.icon('info', {size: 14})}<span>${esc(x.note)}</span></span>` : '')
-    + `</span></li>`).join('');
+    + `</span>`;
+  const items = qs.map(x => (own && x.added
+    ? `<li class="pr-q is-mine"><button type="button" class="pr-q-edit" data-pr-qedit="${esc(x.id)}" data-pr-qweek="${esc(p.key)}" aria-label="${esc(`Change ${poss(nm(x.by))} question`)}">${body(x)}${ui.icon('chevron-right', {cls: 'pr-q-go'})}</button></li>`
+    : `<li class="pr-q">${body(x)}</li>`)).join('');
+  const sub = qs.length ? `For ${nm(p.who)}, ${weekLabel(p).toLowerCase()}, from the league.` : `No questions for ${nm(p.who)} yet. Add the ones the league asked.`;
   return `<section class="pr-qs" aria-labelledby="pr-qs-h"><h2 class="t-2 pr-h" id="pr-qs-h">Questions from the press</h2>`
-    + `<p class="pr-qs-sub">${esc(`For ${nm(p.who)}, ${weekLabel(p).toLowerCase()}, from the league chat.`)}</p>`
-    + `<ol class="card pr-qs-list">${items}</ol></section>`;
+    + `<p class="pr-qs-sub">${esc(sub)}</p>`
+    + (items ? `<ol class="card pr-qs-list">${items}</ol>` : '')
+    + (own ? `<button type="button" class="pr-qs-add" data-pr-qadd="${esc(p.key)}">${ui.icon('plus')}<span>Add a question</span></button>` : '')
+    + `</section>`;
 }
 function featSkHTML() {
   return `<div class="card pr-card pr-sk" aria-hidden="true"><span class="sk pr-sk-media"></span><div class="pr-sk-body"><span class="sk sk-circle"></span><span class="pr-sk-lines"><span class="sk sk-line"></span><span class="sk sk-line"></span></span></div></div>`;
@@ -1052,8 +1179,10 @@ async function removePresser(s, key) {
   ui.toast(r === 'denied' ? OFF_MSG : "Couldn't remove it. Try again.", {icon: r === 'denied' ? 'info' : 'x-circle'});
 }
 function onClick(s, e) {
-  const t = e.target.closest && e.target.closest('[data-pr-key], [data-pr-share], [data-pr-replace], [data-pr-remove], [data-pr-post], [data-pr-retry]');
+  const t = e.target.closest && e.target.closest('[data-pr-key], [data-pr-share], [data-pr-replace], [data-pr-remove], [data-pr-post], [data-pr-retry], [data-pr-qadd], [data-pr-qedit]');
   if (!t || !s.el.contains(t)) return;
+  if (t.hasAttribute('data-pr-qadd')) { ui.haptic('light'); openQuestion({key: t.dataset.prQadd}); return; }
+  if (t.hasAttribute('data-pr-qedit')) { ui.haptic('light'); openQuestion({key: t.dataset.prQweek, id: t.dataset.prQedit}); return; }
   if (t.hasAttribute('data-pr-key')) { ui.haptic('light'); featureKey(s, t.dataset.prKey, {play: true}); }
   else if (t.hasAttribute('data-pr-share')) sharePresser(s, t.dataset.prShare);
   else if (t.hasAttribute('data-pr-replace')) { ui.haptic('light'); openPost({key: t.dataset.prReplace, onPosted: onPosted(s)}); }
@@ -1092,6 +1221,8 @@ export default {
     s.autoplay = !!s.want && (!act || act.isActive);
     if (ctx.first) ui.stagger(el);
     subscribe(s);
+    // (the questions Evan adds: a save here or on his other phone, through the board)
+    s.unq = press.subscribeQuestions(() => { if (!s.dead) patch(s); });
     // A malformed week key goes straight to the archive (after the push; the first snapshot would do it too).
     if (s.want && !parseKey(s.want) && !s.idle) s.idle = ui.whenIdle(() => { s.idle = null; refresh(s); });
   },
@@ -1143,6 +1274,7 @@ export default {
     stopIn(el);
     unsubscribe(s);
     el.removeEventListener('click', s.onClick);
+    if (s.unq) s.unq();
     s.dead = true;
     screens.delete(ctx);
   }

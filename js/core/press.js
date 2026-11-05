@@ -439,8 +439,118 @@ export function seedQuestions(o) {
   });
   return out;
 }
-/** The league chat's questions for a week's loser ('2026-w2'), in the order they were asked: [{by, q, note?}]. */
-export const questionsFor = key => (noSeed ? [] : (SEED.qs[key] || []).map(x => Object.assign({}, x)));
+/** The questions for a week's loser ('2026-w2'): the league chat's (the seed), then the ones Evan added in the app
+ *  (addedFor: {id, by, q, note?, added: true}), each in the order asked: [{by, q, note?}]. */
+export const questionsFor = key => (noSeed ? [] : (SEED.qs[key] || []).map(x => Object.assign({}, x))).concat(addedFor(key));
+
+// ---------------------------------------------------------------------------
+// Questions added in the app (Evan, Nov 5 2026: "Add a section in the press room for me to manually add questions in
+// and tie them to the manager that asked"). His alone to add, change or take out (data.isOwner(): canAddQuestions);
+// everyone sees them under the week's "Questions from the press", after the seeded ones. They ride on his own board
+// doc (players/{uid}, daily.js LB.put: no new database rules), as PQ_FIELD = {at, w: {weekKey: [{id, by, q, note?}]}};
+// each of his phones writes the whole set, and the freshest copy (at) among his docs on the board wins (daily.LB.raw,
+// his by boardKey). Dev hosts keep it in localStorage (PQ_STORE); the checks' sandbox in memory.
+export const PQ_FIELD = 'prq', PQ_WEEK_MAX = 40;
+const PQ_STORE = 'gg-dev-press-qs';
+let pqLocal = null; // the set this phone last wrote, till the board has it back
+const pqSubs = new Set();
+/** A stored set made whole ({at, w}), or null: bad weeks, unknown askers, empty questions and duplicate ids dropped. */
+export function cleanAdded(o) {
+  if (!o || typeof o !== 'object' || Array.isArray(o) || !o.w || typeof o.w !== 'object') return null;
+  const w = Object.create(null);
+  Object.keys(o.w).forEach(k => {
+    const P = week.parseKey(k);
+    if (!P || P.week > MAX_WEEK || !Array.isArray(o.w[k])) return;
+    const ids = new Set();
+    const list = o.w[k].map(x => {
+      const q = x ? oneLine(x.q, Q_MAX) : '', note = x ? oneLine(x.note, NOTE_MAX) : '', id = x && typeof x.id === 'string' ? x.id.slice(0, 24) : '';
+      if (!q || !id || ids.has(id) || typeof x.by !== 'string' || !data.M[x.by]) return null;
+      ids.add(id);
+      return note ? {id, by: x.by, q, note} : {id, by: x.by, q};
+    }).filter(Boolean).slice(0, PQ_WEEK_MAX);
+    if (list.length) w[week.weekKey(P.year, P.week)] = list;
+  });
+  return {at: Number(o.at) || 0, w};
+}
+function pqStored() {
+  if (sandbox) return sandbox.pq || null;
+  if (standIn()) { try { return cleanAdded(JSON.parse(localStorage.getItem(PQ_STORE) || 'null')); } catch (_) { return null; } }
+  return addedOnBoard(daily.LB.raw || []);
+}
+/** The freshest set of added questions on the board's docs that are Evan's (by boardKey, never a typed name), or null. */
+export function addedOnBoard(docs) {
+  let best = null;
+  (Array.isArray(docs) ? docs : []).forEach(p => {
+    if (!p || daily.boardKey(p) !== data.OWNER) return;
+    const c = cleanAdded(p[PQ_FIELD]);
+    if (c && (!best || c.at > best.at)) best = c;
+  });
+  return best;
+}
+/** The questions Evan added, the freshest copy: {at, w}. */
+function pqAll() {
+  const b = pqStored();
+  return pqLocal && (!b || pqLocal.at > b.at) ? pqLocal : b || {at: 0, w: Object.create(null)};
+}
+/** The questions Evan added for a week: [{id, by, q, note?, added: true}]. */
+export const addedFor = key => ((pqAll().w[key]) || []).map(x => Object.assign({}, x, {added: true}));
+/** Whether this phone may add, change or take out questions: Evan's (data.isOwner()). */
+export const canAddQuestions = () => data.isOwner();
+/** Told whenever the added questions may have changed (a write, the board): fn(). Returns unsubscribe. */
+export function subscribeQuestions(fn) {
+  pqSubs.add(fn);
+  return () => pqSubs.delete(fn);
+}
+const pqEmit = () => { if (!sandbox) [...pqSubs].forEach(fn => { try { fn(); } catch (e) { console.error(e); } }); };
+try { daily.subscribe((type) => { if (type === 'lb') pqEmit(); }); } catch (_) {}
+async function pqSave(next) {
+  next.at = Math.max(Date.now(), pqAll().at + 1);
+  if (sandbox) { sandbox.pq = next; return 'dev'; }
+  if (standIn()) {
+    try { localStorage.setItem(PQ_STORE, JSON.stringify(next)); } catch (_) { return 'failed'; }
+    pqEmit();
+    return 'dev';
+  }
+  const LB = daily.LB;
+  if (!LB.put || !LB.uid) return 'failed';
+  pqLocal = next;
+  pqEmit();
+  const body = {[PQ_FIELD]: JSON.parse(JSON.stringify(next))}, fields = [PQ_FIELD];
+  if (!(LB.all || LB.raw || []).some(p => p && p.id === LB.uid)) {
+    Object.assign(body, {nick: (data.me() ? data.name(data.me()) : '').trim().slice(0, 24), g: false, total: 0});
+    fields.push('nick', 'g', 'total');
+  }
+  try { await LB.put(body, fields); return 'ok'; }
+  catch (e) { console.error(e); if (pqLocal === next) pqLocal = null; pqEmit(); return 'failed'; }
+}
+/**
+ * Adds a question to a week ({week: '2026-w4', by: manager id, q, note?}) or, with id, changes that one (its week
+ * may change too). Evan's alone. Resolves 'ok' | 'dev' (saved on this device) | 'invalid' | 'full' | 'denied' |
+ * 'failed'; the question's id with it ({r, id}).
+ */
+export async function saveQuestion({id = null, week: key, by, q, note = ''} = {}) {
+  if (!canAddQuestions()) return {r: 'denied'};
+  const P = week.parseKey(key), text = oneLine(q, Q_MAX), nt = oneLine(note, NOTE_MAX);
+  if (!P || P.week > MAX_WEEK || !text || typeof by !== 'string' || !data.M[by]) return {r: 'invalid'};
+  const wk = week.weekKey(P.year, P.week), cur = pqAll(), next = {at: 0, w: Object.create(null)};
+  Object.keys(cur.w).forEach(k => { next.w[k] = cur.w[k].filter(x => x.id !== id).map(x => Object.assign({}, x)); if (!next.w[k].length) delete next.w[k]; });
+  const list = next.w[wk] || (next.w[wk] = []);
+  const old = id ? (cur.w[wk] || []).findIndex(x => x.id === id) : -1;
+  if (list.length >= PQ_WEEK_MAX && old < 0) return {r: 'full'};
+  const qid = id || `q${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+  const item = nt ? {id: qid, by, q: text, note: nt} : {id: qid, by, q: text};
+  if (old >= 0) list.splice(old, 0, item); else list.push(item);
+  return {r: await pqSave(next), id: qid};
+}
+/** Takes out one of the questions Evan added (by its week and id). Resolves as saveQuestion's r. */
+export async function removeQuestion(key, id) {
+  if (!canAddQuestions()) return 'denied';
+  const cur = pqAll(), list = cur.w[key];
+  if (!list || !list.some(x => x.id === id)) return 'invalid';
+  const next = {at: 0, w: Object.create(null)};
+  Object.keys(cur.w).forEach(k => { const l = cur.w[k].filter(x => !(k === key && x.id === id)).map(x => Object.assign({}, x)); if (l.length) next.w[k] = l; });
+  return pqSave(next);
+}
 // The seed's motw list -> {weekKey: 'a|b'} (entries with a bad key or unknown managers are skipped).
 export function seedMotw(list) {
   const out = Object.create(null);
@@ -760,7 +870,7 @@ export const __dev = {
   // The checks: an in-memory stand-in (nothing reaches localStorage or other tabs, nothing is emitted) while `on`.
   sandbox(on) {
     if (!DEV_OK) return false;
-    if (on) { sandbox = {store: {}, fail: devFail}; devFail = null; }
+    if (on) { sandbox = {store: {}, fail: devFail, pq: null}; devFail = null; }
     else if (sandbox) { devFail = sandbox.fail; sandbox = null; }
     invalidate();
     if (!on) emitAll();
@@ -769,7 +879,7 @@ export const __dev = {
   snapshot: () => payload(),
   reset() {
     if (!DEV_OK) return false;
-    try { localStorage.removeItem(STORE); } catch (_) {}
+    try { localStorage.removeItem(STORE); localStorage.removeItem(PQ_STORE); } catch (_) {}
     fakeLook.clear();
     S.injected = null;
     devFail = null;

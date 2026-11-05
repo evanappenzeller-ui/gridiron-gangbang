@@ -341,6 +341,18 @@ Run the sweep on the owner's PC: a cloud session's shared address gets "retry in
 Commons fetchers at once there. The kit checks "Gridiron Rivals: no Legend wears a headshot…" and "Gridiron Rivals:
 action photos…" cover it.
 
+## Press Room questions (November 5, 2026)
+
+Evan asked: "Add a section in the press room for me to manually add questions in and tie them to the manager that
+asked." Under the featured week's "Questions from the press" (`js/views/press.js` `qsHTML`), Evan's phone
+(`press.canAddQuestions()` = `data.isOwner()`) always shows the section with Add a question; the sheet (`openQuestion`)
+picks the week, who asked (any member) and the question (plus an optional note). His own questions open that sheet
+again to change or delete. Everyone sees them after the week's seeded questions (`press.questionsFor`); no one else can
+add or change them. They ride on his board doc as `prq` (`{at, w: {weekKey: [{id, by, q, note?}]}}`, `core/press.js`
+`saveQuestion`/`removeQuestion`, the freshest copy among his docs by `boardKey`: `addedOnBoard`), so no Firestore rules
+change; dev hosts keep them in localStorage. The kit check "Press Room: questions added in the app…" covers it; verify
+`node tools/press/check-questions.cjs`.
+
 ## Live league scores (October 30, 2026)
 
 The owner asked for live scores in the app; everyone gets them. They live on the Scores tab (Oct 30 2026, the owner: "The

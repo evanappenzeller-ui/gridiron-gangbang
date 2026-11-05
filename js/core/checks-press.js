@@ -360,4 +360,37 @@ export async function pressChecks(check) {
     const refused = r.every(x => x === null);
     return {pass: played && notYet && bad && seedOk && refused, detail: `week 3: ${a && a.who} lost to ${a && a.opp}; week ${next}: ${open ? 'options ' + open.options.join('/') : 'n/a'}; malformed ${bad}; seed picks ${seedOk}; bad weeks ${JSON.stringify(r)}`};
   });
+
+  // 12. Questions Evan adds in the app (Nov 5 2026): his board docs only, the freshest copy; his alone to save
+  check('Press Room: questions added in the app (Evan, Nov 5 2026: “for me to manually add questions in and tie them to the manager that asked”): read from Evan’s board docs only (the freshest copy), cleaned (unknown askers, empty or overlong text, duplicate ids); saved, changed and taken out on his phone alone (in memory here); they follow the week’s seeded questions', async () => {
+    const W = '2026-w4', set = (at, list) => ({at, w: {[W]: list}});
+    const docs = [
+      {id: 'e1', nick: 'Evan', prq: set(5, [{id: 'a', by: 'mason', q: 'Old copy'}])},
+      {id: 'e2', nick: 'Evan', prq: set(9, [{id: 'b', by: 'mason', q: '  Coach,   why?  '}, {id: 'b', by: 'ben', q: 'dup'}, {id: 'c', by: 'nobody', q: 'x'}, {id: 'd', by: 'ben', q: ''}, {id: 'e', by: 'ben', q: 'Why punt?', note: 'n'.repeat(200)}])},
+      {id: 'm1', nick: 'Mason', prq: set(99, [{id: 'z', by: 'mason', q: 'Not Evan’s'}])}];
+    const b = press.addedOnBoard(docs), list = b ? b.w[W] : [];
+    const board = !!b && b.at === 9 && list.length === 2 && list[0].q === 'Coach, why?' && list[1].note.length === press.NOTE_MAX && !press.addedOnBoard([docs[2]]);
+    const owner = press.canAddQuestions() === data.isOwner();
+    press.__dev.sandbox(true);
+    let saved = false, removed = false, refused = true, ordered = true;
+    try {
+      const seeded = press.questionsFor(W).length;
+      const r = await press.saveQuestion({week: W, by: 'mason', q: 'Coach, a question?', note: 'From the chat'});
+      if (data.isOwner()) {
+        const r2 = await press.saveQuestion({week: W, by: 'ben', q: 'Second'});
+        const qs = press.questionsFor(W), mine = qs.slice(seeded);
+        ordered = qs.length === seeded + 2 && mine[0].by === 'mason' && mine[0].added && mine[0].note === 'From the chat' && mine[1].q === 'Second';
+        const e = await press.saveQuestion({id: r.id, week: W, by: 'jayton', q: 'Changed'});
+        const after = press.addedFor(W);
+        saved = r.r === 'dev' && r2.r === 'dev' && e.r === 'dev' && after.length === 2 && after[0].id === r.id && after[0].by === 'jayton' && after[0].q === 'Changed' && !after[0].note;
+        removed = (await press.removeQuestion(W, r.id)) === 'dev' && press.addedFor(W).length === 1 && (await press.removeQuestion(W, 'nope')) === 'invalid';
+        refused = (await press.saveQuestion({week: W, by: 'nobody', q: 'x'})).r === 'invalid' && (await press.saveQuestion({week: W, by: 'ben', q: '   '})).r === 'invalid'
+          && (await press.saveQuestion({week: '2026-w99', by: 'ben', q: 'x'})).r === 'invalid';
+      } else {
+        saved = removed = ordered = true;
+        refused = r.r === 'denied' && (await press.removeQuestion(W, 'x')) === 'denied' && !press.addedFor(W).length;
+      }
+    } finally { press.__dev.sandbox(false); }
+    return {pass: board && owner && saved && removed && refused && ordered, detail: `board ${board}; owner ${owner}; saved/changed ${saved}; removed ${removed}; refused ${refused}; after the seed ${ordered}`};
+  });
 }

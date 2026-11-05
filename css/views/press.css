@@ -404,3 +404,18 @@ html.rm .c-press-ifr, html.rm .c-press-btn { transition: none; }
 }
 .sh-press .shp-why { min-height: 18px; margin-top: 8px; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .sh-press .shp-why:empty { visibility: hidden; }
+
+/* Questions Evan adds (Nov 5 2026): his rows open their sheet; Add a question under the list. */
+.v-press .pr-q.is-mine { padding: 0; }
+.v-press .pr-q-edit { display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 12px 12px 12px 16px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.v-press .pr-q-edit .pr-q-main { flex: 1; }
+.v-press .pr-q-edit.is-pressed, .v-press .pr-q-edit:active { background-color: var(--surface-2); }
+.v-press .pr-q-edit:focus-visible { outline-offset: -2px; }
+.v-press .pr-q-go { flex: none; align-self: center; width: 16px; height: 16px; color: var(--ink-3); stroke-width: 2.4; }
+.v-press .pr-qs-add { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 44px; margin-top: 10px; padding: 10px 16px;
+  border: 1px dashed var(--separator); border-radius: var(--r-cell); background: none; color: var(--tint); font: 600 var(--fs-callout)/1.2 var(--font-text); cursor: pointer; }
+.v-press .pr-qs-add > .ic { width: 18px; height: 18px; stroke-width: 2.2; }
+.v-press .pr-qs-add.is-pressed, .v-press .pr-qs-add:active { background-color: var(--surface-2); }
+.sh-pq .pq-field { align-items: stretch; }
+.sh-pq textarea.pq-in { height: auto; min-height: 112px; resize: vertical; line-height: 1.4; padding-top: 10px; padding-bottom: 10px; }
+.sh-pq .pq-del { margin-top: 10px; color: var(--wrong); }
