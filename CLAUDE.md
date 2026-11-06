@@ -92,6 +92,19 @@ limiter; the quiet tap (`select`) tone is louder too. Saved sliders and defaults
 song needs its LUFS in its `song()` line. `check-sfx.cjs` asserts the music holds steady under overlapping effects and the
 effects gain; `check-music.cjs` the battle mix's gain.
 
+Shuffle (November 6, 2026, Evan: "Shuffle the music in rivals. The music should never follow the same play through twice";
+the Rivals group). The menus no longer loop one song: they play the 31 songs in a shuffled pass, each song's end (or Skip)
+moving to the next, then a fresh pass. The battle mix starts at its random spot, then plays its other six parts in a
+shuffled order (Skip and part ends follow it); seeking into another part starts a new pass from it. `playThrough()` in
+`core/dynasty-music.js` deals each pass: never an order in the profile's recent history (`gg-rivals-shuffle:<profileKey>:v1`,
+the last 64 orders of each list, written only for Rivals profiles; separate from music settings and saves), never opening
+with what just played, with a fallback that turns the order round if `Math.random` repeats itself. Entering Rivals or
+switching profile deals a new jukebox pass that does not open with the saved (last played) song; picking a song starts a
+new pass from it; another tab's storage event syncs only on/off and level. The saved `track` is the song playing.
+A decode error in a track's last two seconds counts as its end (`sundress-v1.mp3` has a damaged last frame that Chromium's
+Symphonia MP3 decoder rejects), so the shuffle carries on. `check-music.cjs` asserts whole passes, new orders (also with a
+stubbed `Math.random`), song-end and part-end advance, battle Skip and that other profiles save no shuffle.
+
 ## Rivals deck shelf (November 5, 2026)
 
 The owner shelf now includes 16 additional recipes: eight position groups and eight attribute themes (Gunslinger

@@ -69,6 +69,8 @@ async function main() {
     page.on('request', r => { if (/\.mp3$/.test(r.url())) trackRequests.push(r.url()); });
     const nav = route => page.evaluate(async route => (await import('/js/app.js')).nav(route), route);
     const state = () => page.evaluate(async () => (await import('/js/core/dynasty-music.js')).state());
+    const upNext = () => page.evaluate(async () => (await import('/js/core/dynasty-music.js')).upNext());
+    const part = n => new RegExp(`cyber-funkwave-v1-${String(n + 1).padStart(2, '0')}\\.mp3$`);
     const playing = () => page.waitForFunction(async () => (await import('/js/core/dynasty-music.js')).state().playing);
     const silent = () => page.waitForFunction(() => audioProbes.every(p => p.ctx.state !== 'running') && mediaProbes.every(m => m.paused));
     const watchFade = () => page.evaluate(() => {
@@ -111,8 +113,11 @@ async function main() {
     assert.equal(await page.evaluate(() => audioProbes.length), 0, 'no audio context or autoplay before interaction');
     assert.equal(trackRequests.length, 0, 'no MP3 download before interaction');
     await page.locator('[data-dy-music-menu]').click();
-    assert.equal(await page.locator('.pk-mini-player:visible [data-mini-title]').innerText(), 'Sundress');
-    assert.equal(await page.locator('.pk-mini-player:visible [data-mini-artist]').innerText(), 'A$AP Rocky');
+    // The jukebox is shuffled: the opening song is the first of a fresh pass over all 31 songs.
+    const opening = (await state()).track, pass = [opening.id, ...(await upNext()).songs];
+    assert.equal(new Set(pass).size, 31, 'a play-through holds every song once: ' + pass);
+    assert.equal(await page.locator('.pk-mini-player:visible [data-mini-title]').innerText(), opening.title);
+    assert.equal(await page.locator('.pk-mini-player:visible [data-mini-artist]').innerText(), opening.artist);
     assert.equal(trackRequests.length, 0, 'opening song controls does not start playback');
     await page.locator('[data-dy-music-menu]').click();
     assert.equal(await page.locator('.pk-mini-player:visible').count(), 0);
@@ -142,10 +147,11 @@ async function main() {
     await page.locator('[data-dy-sound]').focus(); await page.keyboard.press('Space'); await playing();
     await page.locator('[data-dy-music-menu]').focus(); await page.keyboard.press('Enter');
     await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).seek(30));
+    const skipTo = (await upNext()).songs[0];
     await page.locator('.pk-mini-player [data-dy-music-skip]').click();
     assert((await state()).position < 2, 'skip starts the next song from its beginning');
-    assert.equal((await state()).track.id, 'praise-the-lord', 'skip moves to the next jukebox song');
-    await page.waitForFunction(() => document.querySelector('.pk-mini-player [data-mini-title]')?.textContent === 'Praise the Lord (Da Shine)');
+    assert.equal((await state()).track.id, skipTo, 'skip moves to the next song in the shuffle');
+    await page.waitForFunction(title => document.querySelector('.pk-mini-player [data-mini-title]')?.textContent === title, (await state()).track.title);
     await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).selectTrack('sundress'));
     assert.equal((await state()).track.id, 'sundress');
     assert.equal((await state()).volume, 8, 'skip preserves the quiet default');
@@ -202,10 +208,31 @@ async function main() {
     }));
     const track = await page.evaluate(() => ({duration: mediaProbes[0].duration, loop: mediaProbes[0].loop, src: mediaProbes[0].currentSrc}));
     assert(track.duration > 158 && track.duration < 159, 'the supplied full-length MP3 decoded');
-    assert.equal(track.loop, true); assert.match(track.src, /\/audio\/rivals\/sundress-v1\.mp3$/);
+    assert.equal(track.loop, false); assert.match(track.src, /\/audio\/rivals\/sundress-v1\.mp3$/);
+    // Picking Sundress started a new shuffle from it; its end plays the next song in that shuffle.
+    const following = (await upNext()).songs[0];
+    assert.notEqual(following, 'sundress');
     await page.evaluate(() => { mediaProbes[0].currentTime = mediaProbes[0].duration - .15; });
-    await page.waitForFunction(() => mediaProbes[0].currentTime < 2 && !mediaProbes[0].paused);
-    console.log('PASS: uploaded MP3 decodes, produces actual audio, and loops from the end');
+    await page.waitForFunction(id => mediaProbes[0].currentSrc.endsWith(`/audio/rivals/${id}-v1.mp3`) && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5, following, {timeout: 15000});
+    assert.equal((await state()).track.id, following);
+    assert.equal(JSON.parse(await page.evaluate(key => localStorage.getItem(key), KEY)).track, following, 'the playing song is saved');
+    console.log('PASS: uploaded MP3 decodes, produces actual audio, and moves on to the next shuffled song at its end');
+    // Never the same play-through twice: skip through several whole passes (muted, so nothing downloads), including with a
+    // stubbed Math.random that would deal the same shuffle every time.
+    const passes = await page.evaluate(async () => {
+      const m = await import('/js/core/dynasty-music.js'); m.setEnabled(false);
+      const run = () => { const out = []; for (let p = 0; p < 4; p++) { while (m.upNext().songs.length) m.skipTrack(); m.skipTrack(); out.push([m.state().track.id, ...m.upNext().songs]); } return out; };
+      const real = run(); const random = Math.random; Math.random = () => .5;
+      try { return {real, stubbed: run()}; } finally { Math.random = random; m.setEnabled(true); }
+    });
+    for (const list of [passes.real, passes.stubbed]) {
+      assert.equal(new Set(list.map(p => p.join())).size, list.length, 'every play-through is a new order');
+      list.forEach((p, i) => { assert.equal(new Set(p).size, 31); if (i) assert.notEqual(p[0], list[i - 1][30], 'a pass never opens with the song that just played'); });
+    }
+    const heard = await page.evaluate(() => JSON.parse(localStorage.getItem('gg-rivals-shuffle:m_evan:v1')));
+    assert(heard.songs.length >= 9 && new Set(heard.songs).size === heard.songs.length, 'the profile remembers its recent play-throughs, all different');
+    await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).selectTrack('sundress')); await playing();
+    console.log('PASS: shuffled jukebox: every pass a new order, never opening with the last song, with or without real randomness');
     await settings();
     assert.equal(await page.getByRole('dialog', {name:'Settings',exact:true}).count(),1);
     assert.equal(await page.locator('[data-dy-music-title]').innerText(),'Sundress');
@@ -304,13 +331,18 @@ async function main() {
     // The mix plays at slider × .7 × its loudness level (-14.2 LUFS brought to -16).
     await page.waitForFunction(async () => { const v = (await import('/js/core/dynasty-music.js')).state().volume;
       return Math.abs(musicGain.gain.value - v / 100 * .7 * 10 ** ((-16 + 14.2) / 20)) < .002; });
-    // A part's end leads into the next; the last part leads back into the first.
+    // The mix's parts are shuffled too: a pass from the part the battle started in, then the other six in a random order.
+    const parts = (await upNext()).parts;
+    assert.deepEqual([3, ...parts].slice().sort(), [0, 1, 2, 3, 4, 5, 6], 'a pass of the mix holds every part once: ' + parts);
     await page.evaluate(() => { mediaProbes[0].currentTime = mediaProbes[0].duration - .3; });
-    await page.waitForFunction(() => /cyber-funkwave-v1-05\.mp3$/.test(mediaProbes[0].currentSrc) && mediaProbes[0].readyState >= 3 && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5);
+    await page.waitForFunction(re => new RegExp(re).test(mediaProbes[0].currentSrc) && mediaProbes[0].readyState >= 3 && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5, part(parts[0]).source);
+    // Seeking into another part starts a new shuffle from it; a part's end moves on in the shuffle.
     await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).seek(2324.4));
-    await page.waitForFunction(() => /cyber-funkwave-v1-01\.mp3$/.test(mediaProbes[0].currentSrc) && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5);
+    const afterLast = (await upNext()).parts[0];
+    assert(Number.isInteger(afterLast) && afterLast !== 6, 'the part after the last one comes from the shuffle');
+    await page.waitForFunction(re => new RegExp(re).test(mediaProbes[0].currentSrc) && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5, part(afterLast).source);
     await playing();
-    console.log('PASS: battle mix from a random spot, part to part and back to the start');
+    console.log('PASS: battle mix from a random spot, through its parts in a shuffled order');
     await page.waitForFunction(() => !document.querySelector('[data-db-skip]'), null, {timeout: 15000});
     const battleSound = page.locator('.v-dynasty-battle [data-dy-sound]');
     for (const [width,height] of [[320,568],[390,844],[768,1024]]) {
@@ -328,9 +360,10 @@ async function main() {
     if (process.env.SOUND_SHOTS) await page.screenshot({path:path.join(process.env.SOUND_SHOTS,'battle.png')});
     await battleSound.click(); await silent();
     await page.locator('.v-dynasty-battle [data-dy-music-menu]').click();
+    const skipPart = (await upNext()).parts[0];
     await page.locator('.v-dynasty-battle [data-dy-music-skip]').click();
     assert.equal((await state()).enabled, false, 'skip preserves mute');
-    assert.match(await page.evaluate(() => mediaProbes[0].src), /cyber-funkwave-v1-02\.mp3$/, 'skip in a battle moves on to the next part of the mix');
+    assert.match(await page.evaluate(() => mediaProbes[0].src), part(skipPart), 'skip in a battle moves on to the next part of the shuffle');
     assert.equal((await state()).track.id, 'battle');
     await page.locator('.db-match-title').click();
     assert.equal(await page.locator('.pk-mini-player:visible').count(), 0, 'outside tap closes panel');
@@ -408,6 +441,7 @@ async function main() {
       await p.evaluate(async () => { const m = await import('/js/core/dynasty-music.js'); m.start(); m.setVolume(100); (await import('/js/views/dynasty-music.js')).musicSheet(); });
       assert.equal(await p.evaluate(() => audioCount), 0); assert.equal(await p.locator('.pk-music').count(), 0);
       assert.equal(downloads.length, 0, 'other profiles never request the MP3');
+      assert.equal(await p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('gg-rivals-shuffle:')).length), 0, 'nor save a shuffle');
       await ctx.close();
     }
     console.log('PASS: Ryan Dow, another member, visitor and owner-name guest retain existing silent behavior');

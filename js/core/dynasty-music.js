@@ -1,8 +1,10 @@
 import {rivalsUpdated} from './features.js';
 // Rivals' owner-uploaded MP3s. One streaming media element, with Web Audio volume control
 // (including on iOS), shared by the hub and battle views. Never touches game saves.
-// The hub loops the jukebox song the player picked. Battles play the Cyber Funkwave mix from a random point each
-// time a battle opens, part after part; a song picked from the jukebox during a battle plays for the rest of it.
+// Everything shuffles (Evan, Nov 6 2026: "Shuffle the music in rivals. The music should never follow the same play
+// through twice"). The menus play the jukebox in a shuffled order; battles play the Cyber Funkwave mix from a random point
+// each time a battle opens, its parts in a shuffled order; a song picked from the jukebox during a battle starts a new
+// shuffle from that song for the rest of it. See playThrough() for the never-twice rule.
 import * as data from './data.js';
 import {profileKey} from './realm-active.js';
 
@@ -62,11 +64,63 @@ export const BATTLE = Object.freeze({id: 'battle', title: 'Cyber Funkwave', arti
     url: new URL(`../../audio/rivals/cyber-funkwave-v1-${String(i + 1).padStart(2, '0')}.mp3`, import.meta.url).href})))});
 const partAt = t => { let i = 0; while (i + 1 < STARTS.length && STARTS[i + 1] <= t) i++; return i; };
 const partOf = key => key.startsWith('battle:') ? Number(key.slice(7)) : -1;
+const indexOf = id => TRACKS.findIndex(t => t.id === id);
 // Anywhere in the mix (it loops), though not in a part's last few seconds.
 function randomSpot() {
   const t = Math.random() * BATTLE.duration, part = partAt(t);
   return {part, at: Math.min(t - STARTS[part], Math.max(0, PARTS[part] - 5))};
 }
+
+// Shuffle. A play-through is one pass over every song (or every part of the mix) in a random order. A new pass never
+// opens with what just played and is never an order this profile has heard before: the recent orders are remembered in
+// HEARD_KEY (separate from the music settings and from game saves). songs/parts: the current pass and where it is.
+const HEARD_KEY = () => `gg-rivals-shuffle:${profileKey()}:v1`, HEARD = 64;
+let heard = {songs: [], parts: []}, songs = {order: [], at: 0}, parts = {order: [], at: 0};
+function readHeard() {
+  const list = v => Array.isArray(v) ? v.filter(x => typeof x === 'string').slice(-HEARD) : [];
+  try { const saved = JSON.parse(localStorage.getItem(HEARD_KEY())); heard = {songs: list(saved?.songs), parts: list(saved?.parts)}; }
+  catch (_) { heard = {songs: [], parts: []}; }
+}
+// A new order of 0…n-1. `first` leads it when given (a picked song, or the part a battle starts in); otherwise it never
+// opens with `last`. Never an order in this profile's recent history. With a stubbed Math.random it falls back to turning
+// the order round until it is new.
+function playThrough(list, n, first = -1, last = -1) {
+  const seen = new Set(heard[list]);
+  const fits = order => !seen.has(order.join('.')) && (first >= 0 || n < 3 || order[0] !== last);
+  const lead = first >= 0 ? [first] : [];
+  let order = null;
+  for (let tries = 0; tries < 32 && !order; tries++) {
+    const rest = [...Array(n).keys()].filter(i => i !== first);
+    for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+    if (fits([...lead, ...rest])) order = [...lead, ...rest];
+  }
+  if (!order) {
+    const rest = [...Array(n).keys()].filter(i => i !== first);
+    for (let turn = 1; turn <= rest.length && !order; turn++) {
+      const next = [...lead, ...rest.slice(turn), ...rest.slice(0, turn)];
+      if (fits(next)) order = next;
+    }
+    order ||= [...lead, ...rest];
+  }
+  heard[list] = [...heard[list], order.join('.')].slice(-HEARD);
+  if (rivalsUpdated()) { try { localStorage.setItem(HEARD_KEY(), JSON.stringify(heard)); } catch (_) {} }
+  return order;
+}
+// A new pass through the jukebox, from `first` or else not from the song that just played.
+function shuffleSongs(first = -1) {
+  songs = {order: playThrough('songs', TRACKS.length, first, indexOf(selected)), at: 0};
+  selected = TRACKS[songs.order[0]].id;
+}
+function nextSong() {
+  if (++songs.at >= songs.order.length) shuffleSongs(); else selected = TRACKS[songs.order[songs.at]].id;
+}
+function shuffleParts(first) { parts = {order: playThrough('parts', PARTS.length, first), at: 0}; }
+function nextPart() {
+  if (++parts.at >= parts.order.length) parts = {order: playThrough('parts', PARTS.length, -1, parts.order[parts.order.length - 1]), at: 0};
+  return parts.order[parts.at];
+}
+// What plays after the current song and the current part of the mix, in this pass (for the checks).
+export const upNext = () => ({songs: songs.order.slice(songs.at + 1).map(i => TRACKS[i].id), parts: parts.order.slice(parts.at + 1)});
 
 let selected = TRACKS[0].id;
 const track = () => TRACKS.find(t => t.id === selected) || TRACKS[0];
@@ -85,18 +139,26 @@ let shown = null, lastBattle = null, ownSong = false, loaded = '', spot = {part:
 const systemActions = ['play', 'pause', 'stop', 'seekto', 'seekbackward', 'seekforward'];
 
 let preferenceKey;
+// The saved on/off and level. The saved track is the song last played, which a new shuffle never opens with.
 function read() {
   preferenceKey = KEY();
   enabled = true; volume = DEFAULT_MUSIC_VOLUME;
-  selected = TRACKS[0].id;
+  let last = '';
   try {
     const saved = JSON.parse(localStorage.getItem(KEY()));
     if (typeof saved?.enabled === 'boolean') enabled = saved.enabled;
     if (typeof saved?.volume === 'number' && Number.isFinite(saved.volume)) volume = Math.max(0, Math.min(100, Math.round(saved.volume)));
-    if (TRACKS.some(t => t.id === saved?.track)) selected = saved.track;
+    if (TRACKS.some(t => t.id === saved?.track)) last = saved.track;
   } catch (_) {}
+  return last;
 }
-read();
+// Entering Rivals (or another profile): the settings, and a new shuffled play-through of the jukebox.
+function begin() {
+  const last = read();
+  if (last) selected = last;
+  readHeard(); shuffleSongs();
+}
+begin();
 const visible = () => [...clients].some(c => c.visible);
 const wanted = () => rivalsUpdated() && visible() && !document.hidden && !away && started && enabled && volume > 0;
 const notify = () => { updateSystem(); listeners.forEach(fn => fn()); };
@@ -104,7 +166,7 @@ const playingMix = () => shown === 'battle' && !ownSong;
 // The music's gain for the loaded source: slider × MUSIC_LEVEL × the track's loudness level.
 const outputLevel = () => volume / 100 * MUSIC_LEVEL * (partOf(loaded) >= 0 ? BATTLE.level : (TRACKS.find(t => t.id === loaded) || track()).level);
 export function state() {
-  if (preferenceKey !== KEY()) read();
+  if (preferenceKey !== KEY()) begin();
   const part = media ? partOf(loaded) : -1, here = Number.isFinite(media?.currentTime) ? media.currentTime : 0;
   const length = Number.isFinite(media?.duration) ? media.duration : 0;
   return {enabled, volume, track: playingMix() ? BATTLE : track(), battle: shown === 'battle',
@@ -152,7 +214,7 @@ function updateSystem() {
 function desired() {
   if (playingMix()) return {key: 'battle:' + spot.part, url: BATTLE.parts[spot.part].url, loop: false, at: spot.at};
   const t = track();
-  return {key: t.id, url: t.url, loop: true, at: resume[t.id] || 0};
+  return {key: t.id, url: t.url, loop: TRACKS.length < 2, at: resume[t.id] || 0};
 }
 // Point the media element at it. A new source cancels any pending play without suspending the context, so the next
 // part of the mix can follow the last one without a fresh tap; sync() then plays it if music is wanted.
@@ -199,7 +261,7 @@ function checkScene() {
   shown = now;
   if (!now) return;
   armSceneFade();
-  if (newBattle) { lastBattle = battle; ownSong = false; spot = randomSpot(); }
+  if (newBattle) { lastBattle = battle; ownSong = false; spot = randomSpot(); shuffleParts(spot.part); }
   load(!!newBattle);
 }
 
@@ -257,15 +319,23 @@ export function start() {
         const at = seekTo; seekTo = null;
         if (Math.abs(media.currentTime - at) > .5) { try { media.currentTime = Math.min(at, Math.max(0, (media.duration || at) - 1)); } catch (_) {} }
       });
-      media.addEventListener('ended', () => {
-        const part = partOf(loaded);
-        if (part < 0) return;
-        spot = {part: (part + 1) % BATTLE.parts.length, at: 0}; load(); sync();
-      });
+      // A song's end plays the next one in the shuffle; a part's end, the mix's next part in its shuffle.
+      const finish = () => {
+        if (partOf(loaded) >= 0) spot = {part: nextPart(), at: 0};
+        else { nextSong(); save(); }
+        load(); sync();
+      };
+      media.addEventListener('ended', finish);
       media.addEventListener('playing', () => { if (!wanted()) halt(); else { fadeWhenPlaying(); notify(); } });
       media.addEventListener('pause', notify); media.addEventListener('waiting', notify);
       for (const name of ['timeupdate', 'loadedmetadata', 'durationchange', 'seeked']) media.addEventListener(name, notify);
-      media.addEventListener('error', () => { failure = 'The track couldn’t load. Pause, then play to retry.'; halt(); });
+      media.addEventListener('error', () => {
+        // A damaged last frame (Sundress's, under Chromium's newer MP3 decoder) fails a moment before the end: that
+        // counts as the end, so the shuffle carries on.
+        const left = media.duration - media.currentTime;
+        if (loaded && !media.loop && Number.isFinite(left) && left < 2) { finish(); return; }
+        failure = 'The track couldn’t load. Pause, then play to retry.'; halt();
+      });
       audio.onstatechange = () => {
         if (audio.state === 'interrupted' || !wanted()) halt();
         else if (audio.state === 'suspended' && !pending && !failure) sync();
@@ -297,7 +367,7 @@ export function selectTrack(id) {
   } else {
     if (!TRACKS.some(t => t.id === id)) return;
     const before = media ? loaded : '';
-    selected = id;
+    if (id !== selected) shuffleSongs(indexOf(id));
     if (shown === 'battle') ownSong = true;
     if (media && desired().key !== before) { halt(); load(); }
     updateMetadata();
@@ -311,18 +381,17 @@ export function seek(seconds) {
   if (part < 0) { try { media.currentTime = t; } catch (_) {} notify(); return; }
   const to = partAt(t), at = Math.max(0, Math.min(t - STARTS[to], BATTLE.parts[to].seconds - .5));
   if (to === part) { try { media.currentTime = at; } catch (_) {} notify(); return; }
-  spot = {part: to, at}; load(); sync();
+  spot = {part: to, at}; shuffleParts(to); load(); sync();
 }
-// Skip: the next song in the jukebox, or while the battle mix plays, its next part.
+// Skip: the next song in the shuffle, or while the battle mix plays, its next part in the mix's shuffle.
 export function skipTrack() {
   if (!rivalsUpdated() || !visible()) return;
   if (playingMix()) {
     halt(true);
-    spot = {part: ((media ? Math.max(0, partOf(loaded)) : spot.part) + 1) % BATTLE.parts.length, at: 0}; load(true);
+    spot = {part: nextPart(), at: 0}; load(true);
   } else {
-    const next = TRACKS[(TRACKS.findIndex(t => t.id === selected) + 1) % TRACKS.length];
     halt(true);
-    selected = next.id; load(); updateMetadata();
+    nextSong(); load(); updateMetadata();
   }
   save(); start();
 }
@@ -330,11 +399,10 @@ function save() { try { localStorage.setItem(KEY(), JSON.stringify({enabled, vol
 const visibility = () => sync();
 const pageHide = () => { away = true; halt(); };
 const pageShow = () => { away = false; sync(); };
+// Another tab's settings change follows here; each tab keeps its own shuffle.
 const storage = e => {
   if (e.key !== KEY() && e.key !== null) return;
-  const before = loaded; read();
-  if (media && desired().key !== before) { halt(true); load(); }
-  sync();
+  read(); sync();
 };
 
 // Mounted routes can coexist in the navigation stack; only visible Rivals views own playback.
@@ -342,9 +410,9 @@ const storage = e => {
 export function attach(el, isVisible = true, kind = 'hub') {
   const client = {visible: isVisible, battle: kind === 'battle'}; clients.add(client);
   if (clients.size === 1) {
-    read(); load();
+    begin(); load();
     away = false;
-    offProfile = data.subscribe(type => { if (type === 'me') { started = false; halt(true); releaseSystem(); read(); failure = ''; resume = {}; load(); notify(); } });
+    offProfile = data.subscribe(type => { if (type === 'me') { started = false; halt(true); releaseSystem(); begin(); failure = ''; resume = {}; load(); notify(); } });
     document.addEventListener('visibilitychange', visibility);
     addEventListener('pagehide', pageHide); addEventListener('pageshow', pageShow); addEventListener('storage', storage);
   }

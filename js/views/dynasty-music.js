@@ -211,7 +211,7 @@ export function musicSheet() {
     range.value = s.volume; range.disabled = !s.supported;
     sh.body.querySelector('[data-dy-music-value]').textContent = s.volume + '%';
     const status = !s.supported ? 'Music is unavailable in this browser.'
-      : !s.enabled ? 'Music is paused.' : s.failure || (!s.volume ? 'Music level is muted.' : s.playing ? (s.track.id === mix.id ? 'Battle music · plays on through the mix · pauses when you leave Rivals.' : 'Loops automatically · pauses when you leave Rivals.') : s.loading ? 'Loading track…' : 'Ready · starts with your next tap in Rivals.');
+      : !s.enabled ? 'Music is paused.' : s.failure || (!s.volume ? 'Music level is muted.' : s.playing ? (s.track.id === mix.id ? 'Battle music · shuffles through the mix · pauses when you leave Rivals.' : 'Shuffle · a new order every time · pauses when you leave Rivals.') : s.loading ? 'Loading track…' : 'Ready · starts with your next tap in Rivals.');
     const statusEl = sh.body.querySelector('[data-dy-music-status]');
     if (statusEl.textContent !== status) statusEl.textContent = status;
   };

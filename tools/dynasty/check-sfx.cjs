@@ -80,8 +80,9 @@ async function main() {
     });
     await page.waitForFunction(async()=>(await import('/js/core/dynasty-music.js')).state().playing);
     // Music sits under the effects and they never lower it (the owner, Nov 5 2026): its gain is slider × .7 × the song's
-    // loudness level (Sundress, -8.4 LUFS, brought to -16), held steady while a card and an impact overlap.
-    const musicGain=.08*.7*10**((-16+8.4)/20);
+    // loudness level (its LUFS brought to -16; the menus shuffle, so whichever song is playing), held steady while a card
+    // and an impact overlap.
+    const musicGain=await page.evaluate(async()=>{const s=(await import('/js/core/dynasty-music.js')).state();return .08*.7*s.track.level;});
     await page.waitForFunction(g=>Math.abs(musicOutputGain.gain.value-g)<.0005,musicGain);
     const cuesBefore=await page.evaluate(()=>sfxProbes.length);
     await page.evaluate(()=>{window.endCard=testFx.play('card');window.endImpact=testFx.play('heavy');window.gainSeen=[];
