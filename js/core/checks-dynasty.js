@@ -248,8 +248,8 @@ export async function dynastyChecks(check) {
     // (the support id: the same for a profile every time, another's another, never the profile's key)
     const ids = [V.supportId('m_evan'), V.supportId('m_evan'), V.supportId('u_ryan-stewart')];
     const battle = V.battleHome({pack: 'std'}, D.fresh('m_check'));
-    const modes = ['class="rh-hero"', 'class="rh-play"', 'class="rh-active-deck" data-dy-tab="decks"', 'data-dy-bv="versus"', 'data-dy-bv="solo"', 'data-dy-guide', 'data-dy-bv="rank"', 'Collections'].every(x => battle.includes(x));
-    return {pass: tabs === (owner ? 5 : 4) && nav && menu && logo && bits && say && drawn === 0 && !('startCards' in V) && ids[0] === ids[1] && ids[0] !== ids[2] && !/EVAN/.test(ids[0]) && modes,
+    const modes = ['class="rh-hero"', 'class="rh-play"', 'class="rh-active-deck" data-dy-tab="decks"', 'data-dy-bv="solo"', 'data-dy-guide', 'data-dy-bv="rank"', 'Collections'].every(x => battle.includes(x));
+    return {pass: tabs === (owner ? 5 : 4) && nav && menu && logo && bits && say && drawn === 0 && !('startCards' in V) && ids[0] === ids[1] && ids[0] !== ids[2] && !/EVAN/.test(ids[0]) && modes && !battle.includes('data-dy-bv="versus"'),
       detail: `${tabs} tabs; no cards on the title screen; support id ${ids[0]}`};
   });
   check('Gridiron Dynasty: each rarity’s reveal on the deal grows with it (the owner, Oct 29 2026: "The more rare the player, the more exciting the animation"): ◆ dealt face up, ◆◆ flips, ◆◆◆ a ring, sparks and its stamp, ◆◆◆◆ rays, a flash and confetti, ★ and ★★ the drum and the sweep, ♛ the crown and the most of everything', async () => {

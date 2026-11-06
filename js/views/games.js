@@ -276,7 +276,7 @@ function dynastyWaiting(key = profileKey(), docs = daily.LB.raw || []) {
 }
 function dynastyState() {
   if (!gameOpen('dynasty')) return {kind: 'coming-soon', sticker: 'COMING SOON'};
-  const n = safeN(() => dynastyWaiting());
+  const n = features.rivalsVersus() ? safeN(() => dynastyWaiting()) : 0;
   return {kind: ui.lsGet('gg-dynasty-seen') === '1' ? 'started' : 'new', sticker: n ? 'YOUR MOVE' : ''};
 }
 const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState, keep: keepState, dynasty: dynastyState};

@@ -28,6 +28,17 @@ Records with `roundEnergy: 1` replay the earlier individual matching grants. Old
 their original rules.
 
 
+## Rivals friend battles paused (November 6, 2026)
+
+Evan: "Remove the multiplayer battles while we figure out the gameplay." `features.rivalsVersus()` returns false, which
+hides every friend-battle entry point for the Rivals group: the Challenge a friend mode, the ladder's Versus switch, the
+Home banner's "Solo & Versus" (now "Solo ladder"), battles-waiting notices and dots, the Daily Games case's YOUR MOVE
+sticker, the Decks shelf's friend match deck, and the guide's Versus lines. `matchesOf()` returns no matches, the
+challenge/accept/decline/cancel/claim handlers do nothing, and a link to a non-solo battle route shows "Friend battles
+are paused". Saved friend matches (`dyb`), friend decks, trophies and Rankings are untouched; `core/dynasty-match.js` is
+unchanged. Turning the switch back on restores everything as it was (note the 72-hour claim-win idle clock keeps running
+while paused). Solo is unaffected. `check-start-browser.cjs`, `check-deck-shelf-browser.cjs` and the kit check assert it.
+
 ## Rivals sound effects (November 5, 2026)
 
 Owner-only under AGENTS.md: `data.isOwner()` enables the original generated Foley/stingers in

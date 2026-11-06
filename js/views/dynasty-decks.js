@@ -3,6 +3,7 @@ import {profileKey} from '../core/realm-active.js';
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as D from '../core/dynasty.js';
+import {rivalsVersus} from '../core/features.js';
 import * as B from '../core/dynasty-battle.js';
 import * as T from '../core/dynasty-table.js';
 import {tableDeckSheet} from './dynasty-table-options.js';
@@ -32,7 +33,7 @@ export function deckShelfHTML(face) {
   return `<section class="rd-shelf"><header class="rd-heading"><div><small>YOUR PLAYBOOKS</small><h2>My Decks</h2></div><span>${decks.length}/${T.DECK_LIMIT}</span></header>
     <p class="rd-intro">Choose a deck for your next solo match.</p><div class="rd-grid" aria-label="Custom decks"><button type="button" class="rd-build" data-rd-new ${decks.length >= T.DECK_LIMIT ? 'disabled' : ''}><span aria-hidden="true">+</span><b>Build New</b></button>${decks.map((d, i) => tile(d, i, face)).join('')}</div>
     <section class="rd-themes"><header class="rd-heading"><div><small>BETTER TOGETHER</small><h2>Themed Decks</h2></div><span>${newThemes.length + themes.length} themes</span></header><p class="rd-intro">Build around a position, signature attribute, or NFL team using your collection.</p><p class="rd-requirement">40 cards · 12+ matching player cards · 6+ different players</p>${group('style', 'Play Styles')}${group('position', 'Position Groups')}<h3 class="rd-group-title">NFL Teams</h3><p class="rd-intro">All players from one team unlock team chemistry. ${chemistryText}</p><div class="rd-grid" aria-label="Themed decks">${themes.map((d, i) => tile(d, i, face, true)).join('')}</div></section>
-    <div class="rd-tools"><button type="button" class="pk-pill" data-rd-friends>Friend match deck · 20 cards</button><button type="button" class="pk-pill" data-dy-table>Table finishes</button></div></section>`;
+    <div class="rd-tools">${rivalsVersus() ? '<button type="button" class="pk-pill" data-rd-friends>Friend match deck · 20 cards</button>' : ''}<button type="button" class="pk-pill" data-dy-table>Table finishes</button></div></section>`;
 }
 export function handleDeckShelf(e, onChange, face) {
   if (!D.tableOpen()) return false;

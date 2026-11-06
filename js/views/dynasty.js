@@ -1,4 +1,4 @@
-import {rivalsUpdated} from '../core/features.js';
+import {rivalsUpdated, rivalsVersus} from '../core/features.js';
 import {tableOptions, tableDeckSheet} from './dynasty-table-options.js';
 import {musicSheet, attachMusic} from './dynasty-music.js';
 import * as sfx from '../core/dynasty-sfx.js';
@@ -683,10 +683,10 @@ function homeHTML(st) {
   const packs = D.unlimited() ? 'Unlimited packs' : D.dailyReady(s) ? 'Free pack ready' : 'Find your next star';
   const arrow = ui.icon('chevron-right', {size: 20});
   return `<section class="rh-home" aria-label="Rivals home">`
-    + `<button type="button" class="rh-home-battle" data-dy-tab="battle" aria-label="Battle: solo ladder and versus">`
+    + `<button type="button" class="rh-home-battle" data-dy-tab="battle" aria-label="Battle: ${rivalsVersus() ? 'solo ladder and versus' : 'solo ladder'}">`
     + `<span class="rh-home-banner"><img class="rh-home-art" src="img/rivals/home-battle-v1.webp" width="1536" height="1024" alt="" fetchpriority="high" decoding="async">`
     + `<span class="rh-home-heading"><small>TAKE THE FIELD</small><b>Battle</b></span><span class="rh-home-versus" aria-hidden="true">VS</span>`
-    + `<span class="rh-home-ribbon"><span>${ui.icon('versus', {size: 22})}<b>Solo &amp; Versus</b></span>${arrow}</span></span></button>`
+    + `<span class="rh-home-ribbon"><span>${ui.icon('versus', {size: 22})}<b>${rivalsVersus() ? 'Solo &amp; Versus' : 'Solo ladder'}</b></span>${arrow}</span></span></button>`
     + (current ? `<button type="button" class="rh-home-resume" data-dy-go="${esc(current.mid)}"><span class="rh-home-status"></span><span><b>Continue your match</b><small>vs. ${esc(current.opp.name)}</small></span>${arrow}</button>`
       : `<div class="rh-home-progress"><span class="rh-home-status"></span><span>${at > SOLO.LADDER ? 'Solo ladder complete' : `Solo ladder · Game ${next.n} of ${SOLO.LADDER}`}</span><b>${esc(next.tier.name)}</b></div>`)
     + `<div class="rh-home-section"><h2>Build your next win</h2><span>COLLECT. COMPETE. REPEAT.</span></div>`
@@ -725,7 +725,7 @@ export function battleHome(st, s = D.mine()) {
     + `<span class="rh-deck-copy"><small>ACTIVE DECK</small><b>${esc(D.teamName(s))}</b><span>${dk.ids.length}/${D.tableOpen() ? 40 : 20} cards · ${dk.ok ? 'Ready to play' : esc(dk.why)}</span></span>${ui.icon('chevron-right', {size: 18})}</button>`
     + `<div class="rh-section-head"><h2>Choose your matchup</h2><span>${nf(s.rec.w)} W · ${nf(s.rec.l)} L</span></div>`
     + `<div class="pk-modes"><button type="button" class="pk-mode" data-dy-bv="solo">${MODE_IC.solo}<b>Solo ladder</b><small>${at > SOLO.LADDER ? 'All 30 games won' : `Game ${at} of ${SOLO.LADDER} · ${esc(next.tier.name)}`}</small></button>`
-    + `<button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Challenge a friend</b><small>${wait ? `${wait} ${wait === 1 ? 'match needs' : 'matches need'} your attention` : 'Take turns, on your schedule'}</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button></div>`
+    + (rivalsVersus() ? `<button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Challenge a friend</b><small>${wait ? `${wait} ${wait === 1 ? 'match needs' : 'matches need'} your attention` : 'Take turns, on your schedule'}</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button>` : '') + '</div>'
     + `<details class="rh-how"><summary>Make every card count <span>How to play</span></summary><ol><li><b>Set your lineup.</b> One active player, up to three on the bench.</li><li><b>Tap a card.</b> It lifts up with its plays. Pick one, or put it back.</li><li><b>Start your turn.</b> Draw one card automatically. Your active player sets the energy type for your whole lineup. Each player gains one, or two with a special ability or energy upgrade.</li><li><b>Choose your moment.</b> Quick plays keep energy. Signature plays spend one energy for a bigger hit.</li></ol><p>${D.tableOpen() ? 'In new solo matches, hold and drag cards into play. Each defeated player counts once: lose three and the match ends.' : 'Knockouts score touchdowns. First to three wins.'} Matches already in progress keep their original rules.</p></details>`
     + `<div class="pk-row-s"><button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Rules</span></button>`
     + `<button type="button" class="pk-mini" data-dy-tab="decks">${TILE.decks}<span>Decks</span></button>`
@@ -775,7 +775,7 @@ function rankHTML() {
 }
 function guideSheet() {
   if (D.tableOpen()) {
-    ui.openSheet({title: 'Solo table rules', cls: 'pk-sheet', detents: ['large'], body: `<ol class="pk-guide"><li><b>Build your deck</b>40 cards, at least 6 players, up to 2 of each. Mix your collection with eight reusable match-playbook abilities in Decks.</li><li><b>Set your lineup</b>Hold a player in your hand, then drag to Active or one of three Bench spaces. Tap Start when ready.</li><li><b>Hold to inspect</b>Hold any face-up card, yours or theirs. Release to read its attacks. Opponent hand cards stay hidden. Tapping a card also opens its actions.</li><li><b>Play a card</b>Hold, move, then drop on a glowing space. Players go to your bench. Instant abilities go in the center; targeted ones go on your player. An invalid drop returns the card to your hand.</li><li><b>Make your play</b>At the start of your turn, draw one card automatically. Your active player sets the energy type for your whole lineup: QB/WR/TE generate Pass, RB/OL Run, DL/LB Blitz, CB/S Coverage, and K Kick. Each player gains one. A special ability, Energy Surge, or Speed Cleats raises that player’s grant to two. A switch affects the next turn’s grant. Fresh Playbook draws two cards. Items play immediately; use at most one Coach each turn.</li><li><b>Attack</b>Tap your active player and choose an attack whose energy cost they can meet. Quick attacks keep energy; signature attacks spend one. All or Nothing flips a coin: heads hits hard, tails fails. Every attack ends your turn.</li><li><b>Three knockouts</b>Every player counts as one, including Legends. The first team to lose three players loses. If your bench is empty, a player from your hand or deck joins it as a reserve. A 100-turn stalemate is a draw.</li><li><b>Make the table yours</b>Unlock finishes through solo wins, challenge 10 and pack openings. Equip one in Decks or from the table. The felt changes with the turn.</li></ol><p class="pk-note">New friend matches use the same turn-start draw and energy rules. Matches already in progress follow their original rules.</p>`});
+    ui.openSheet({title: 'Solo table rules', cls: 'pk-sheet', detents: ['large'], body: `<ol class="pk-guide"><li><b>Build your deck</b>40 cards, at least 6 players, up to 2 of each. Mix your collection with eight reusable match-playbook abilities in Decks.</li><li><b>Set your lineup</b>Hold a player in your hand, then drag to Active or one of three Bench spaces. Tap Start when ready.</li><li><b>Hold to inspect</b>Hold any face-up card, yours or theirs. Release to read its attacks. Opponent hand cards stay hidden. Tapping a card also opens its actions.</li><li><b>Play a card</b>Hold, move, then drop on a glowing space. Players go to your bench. Instant abilities go in the center; targeted ones go on your player. An invalid drop returns the card to your hand.</li><li><b>Make your play</b>At the start of your turn, draw one card automatically. Your active player sets the energy type for your whole lineup: QB/WR/TE generate Pass, RB/OL Run, DL/LB Blitz, CB/S Coverage, and K Kick. Each player gains one. A special ability, Energy Surge, or Speed Cleats raises that player’s grant to two. A switch affects the next turn’s grant. Fresh Playbook draws two cards. Items play immediately; use at most one Coach each turn.</li><li><b>Attack</b>Tap your active player and choose an attack whose energy cost they can meet. Quick attacks keep energy; signature attacks spend one. All or Nothing flips a coin: heads hits hard, tails fails. Every attack ends your turn.</li><li><b>Three knockouts</b>Every player counts as one, including Legends. The first team to lose three players loses. If your bench is empty, a player from your hand or deck joins it as a reserve. A 100-turn stalemate is a draw.</li><li><b>Make the table yours</b>Unlock finishes through solo wins, challenge 10 and pack openings. Equip one in Decks or from the table. The felt changes with the turn.</li></ol>${rivalsVersus() ? '<p class="pk-note">New friend matches use the same turn-start draw and energy rules. Matches already in progress follow their original rules.</p>' : ''}`});
     return;
   }
   const body = `<ol class="pk-guide">`
@@ -786,7 +786,7 @@ function guideSheet() {
     + `<li><b>Attack</b>An attack needs its energy on your active player. Attacking ends your turn. In new matches, the second (signature) attack spends one attached energy; quick plays keep it. Existing matches keep their original rules. Hitting a weakness does +20: Air beats Blitz, Blitz beats Ground, Ground beats Coverage, Coverage beats Air.</li>`
     + `<li><b>Win</b>Knock out a player for a point (a Legend or Prime ex for two). Three points wins.</li>`
     + `<li><b>Solo ladder</b>Thirty games against the computer, each win unlocking the next. The first ones are gentle; from game 16 the computer counters your deck’s main type and plays every trick. A win pays coins (double the first time).${D.bossLadderOpen() ? ' Every fifth battle features an Epic-or-better boss. First-defeat rewards alternate: one pack at battles 5, 15 and 25; the featured player card at 10, 20 and 30. Each boss reward is earned once. Previously won stages and earned rewards are preserved.' : ' Every fifth game’s first win pays packs.'}</li>`
-    + `<li><b>Versus</b>Battles go in turns: play yours when you like, and your opponent gets YOUR MOVE on their Rivals case.</li></ol>`;
+    + (rivalsVersus() ? `<li><b>Versus</b>Battles go in turns: play yours when you like, and your opponent gets YOUR MOVE on their Rivals case.</li>` : '') + '</ol>';
   ui.openSheet({title: 'Guide', body, cls: 'pk-sheet', detents: ['large']});
 }
 // Solo: your battle in play, then the ladder by tier: each game won, the next one to play, or locked, with what it pays.
@@ -817,7 +817,7 @@ function soloLadderHTML() {
   const s = D.mine(), dk = D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), cur = SOLO.current();
   const at = SOLO.ladderAt(s), done = SOLO.STAGES.filter(g => s.so[g.id]).length;
   const colors = ['#5cbf70', '#39b3cf', '#648ee1', '#a275d3', '#d4a23c', '#db77ae'];
-  let h = `<section class="rl-ladder" aria-label="Solo battle ladder"><div class="rl-switch" aria-label="Battle mode"><button type="button" class="is-on" data-dy-bv="solo" aria-pressed="true">${MODE_IC.solo}Solo ladder</button><button type="button" data-dy-bv="versus" aria-pressed="false">${MODE_IC.versus}Versus</button></div>`
+  let h = `<section class="rl-ladder" aria-label="Solo battle ladder">${rivalsVersus() ? `<div class="rl-switch" aria-label="Battle mode"><button type="button" class="is-on" data-dy-bv="solo" aria-pressed="true">${MODE_IC.solo}Solo ladder</button><button type="button" data-dy-bv="versus" aria-pressed="false">${MODE_IC.versus}Versus</button></div>` : ''}`
     + `<div class="rl-hero"><div class="rl-hero-plate"><small>30 BATTLES · A BOSS EVERY 5</small><h2>Road to Glory</h2><p>Boss rewards: pack → Epic+ player → repeat</p></div></div>`
     + `<div class="rl-progress"><div><b>${done}<small> / ${SOLO.LADDER} won</small></b><span>${at > SOLO.LADDER ? 'Ladder complete · Replay for coins' : 'Win each battle to unlock the next'}</span></div><button type="button" data-dy-ladder-next>${at > SOLO.LADDER ? 'Final boss' : `Battle ${at}`}${ui.icon('chevron-down', {size: 16})}</button></div>`
     + `<div class="rl-progress-track" role="progressbar" aria-label="Solo battles won" aria-valuemin="0" aria-valuemax="30" aria-valuenow="${done}"><i style="width:${done / SOLO.LADDER * 100}%"></i></div>`;
@@ -853,7 +853,7 @@ function startSolo(st, id) {
   ui.actionSheet({title: 'Start a new battle?', message: `Your battle against ${cur.opp.name} ends unplayed.`, cls: 'pk-sheet', actions: [{label: 'Start the new one', role: 'primary', value: 'y'}]})
     .then(v => { if (v === 'y') { SOLO.resign(cur.mid); go(); } });
 }
-function battleHTML2(st) { return st.bv === 'versus' ? versusHTML(st) : st.bv === 'rank' ? rankHTML() : st.bv === 'solo' || D.bossLadderOpen() ? soloHTML() : battleHome(st); }
+function battleHTML2(st) { return st.bv === 'versus' && rivalsVersus() ? versusHTML(st) : st.bv === 'rank' ? rankHTML() : st.bv === 'solo' || D.bossLadderOpen() ? soloHTML() : battleHome(st); }
 
 // ---------------------------------------------------------------------------------------------------- opening a pack
 function openHere(st) {
@@ -983,6 +983,7 @@ const PANES = {home: homeHTML, packs: packsHTML, cards: cardsHTML, decks: decksH
 // Replaying multiplayer logs is expensive. Share one short-lived snapshot across the badge and screens;
 // match/board/profile events and returning from a battle invalidate it before it can be used again.
 function matchesOf(st) {
+  if (!rivalsVersus()) return [];
   const key = profileKey(), now = Date.now();
   if (!st.matches || st.matchKey !== key || now - st.matchAt > 15000) {
     st.matches = MT.list(); st.matchKey = key; st.matchAt = now;
@@ -1012,7 +1013,7 @@ function updateChrome(st) {
   if (st.tab === 'home' && !owner) st.tab = 'battle';
   shell.classList.toggle('is-home', owner && st.tab === 'home');
   shell.classList.toggle('is-pack-shop', rivalsUpdated() && st.tab === 'packs');
-  shell.classList.toggle('is-ladder', D.bossLadderOpen() && st.tab === 'battle' && !['versus', 'rank'].includes(st.bv));
+  shell.classList.toggle('is-ladder', D.bossLadderOpen() && st.tab === 'battle' && !(st.bv === 'rank' || (st.bv === 'versus' && rivalsVersus())));
   if (hud !== st.hud) { el.querySelector('[data-dy-hud]').innerHTML = hud; st.hud = hud; }
   el.querySelector('[data-pk-title]').textContent = (tabsOf().find(t => t.id === st.tab) || TABS[0]).title;
   el.querySelectorAll('.pk-tab[data-dy-tab]').forEach(b => { const on = b.dataset.dyTab === st.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
@@ -1137,7 +1138,7 @@ export default {
       const q = sel => t.closest(sel);
       let b;
       if (handleDeckShelf(e, () => scheduleRefresh(st), cardHTML)) return;
-      if (D.tableOpen() && q('[data-rd-friends]')) { st.friendDeck = true; refresh(st); return; }
+      if (D.tableOpen() && rivalsVersus() && q('[data-rd-friends]')) { st.friendDeck = true; refresh(st); return; }
       if (D.tableOpen() && q('[data-rd-back]')) { st.friendDeck = false; refresh(st); return; }
       if (D.tableOpen() && e.target.closest('[data-dy-table-deck]')) { tableDeckSheet(() => scheduleRefresh(st)); return; }
       if (D.tableOpen() && e.target.closest('[data-dy-table]')) { tableOptions(() => scheduleRefresh(st)); return; }
@@ -1192,6 +1193,7 @@ export default {
       if (q('[data-dy-rename]')) { renameSheet(st); return; }
       const run = (r, then) => { if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; } ui.haptic('success'); if (then) then(r); refresh(st); };
       if ((b = q('[data-dy-solo]'))) { startSolo(st, b.dataset.dySolo); return; }
+      if (!rivalsVersus() && q('[data-dy-challenge], [data-dy-accept], [data-dy-decline], [data-dy-cancel], [data-dy-claimwin]')) return;
       if ((b = q('[data-dy-challenge]'))) { run(MT.challenge(b.dataset.dyChallenge), () => ui.toast('Challenge sent. It’s on their Rivals now.', {icon: 'check-circle'})); return; }
       if ((b = q('[data-dy-accept]'))) { run(MT.accept(b.dataset.dyAccept), r => ctx.nav(`/puzzles/dynasty/battle/${r.mid}`)); return; }
       if ((b = q('[data-dy-decline]'))) { run(MT.decline(b.dataset.dyDecline)); return; }

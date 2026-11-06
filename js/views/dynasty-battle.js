@@ -1,4 +1,4 @@
-import {rivalsUpdated} from '../core/features.js';
+import {rivalsUpdated, rivalsVersus} from '../core/features.js';
 import {bindTableTouch} from './dynasty-table-touch.js';
 import {musicSheet, attachMusic} from './dynasty-music.js';
 import * as sfx from '../core/dynasty-sfx.js';
@@ -375,10 +375,16 @@ function draw(st) {
   // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
   if (!D.mayPlay()) { clearCinema(st); st.focus = null; closeFocus(st); fullScreen(st, false); host.innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
   if (D.status !== 'ready') { host.innerHTML = `<div class="db-msg">${ui.skeleton('rows', 3, {label: 'Loading the battle'})}</div>`; return; }
+  const close = ui.iconButton({icon: 'close', label: 'Back to Rivals', cls: 'db-x', attrs: 'data-back'});
+  // (friend battles are paused, features.rivalsVersus: a saved link to one shows this, never the match)
+  if (!SOLO.isSolo(st.mid) && !rivalsVersus()) {
+    clearCinema(st); st.focus = null; closeFocus(st); st.x = null;
+    host.innerHTML = `<header class="db-top">${close}</header><div class="db-msg">${ui.empty({icon: 'versus', title: 'Friend battles are paused', body: 'Multiplayer battles are off while the gameplay is reworked. Your matches are saved. Play the Solo ladder in the meantime.'})}</div>`;
+    return;
+  }
   const x = src(st).get(st.mid);
   if (D.tableOpen() && st.touch?.active && st.touch.revision === x?.G?.ev.length) return;
   st.touch?.cancel();
-  const close = ui.iconButton({icon: 'close', label: 'Back to Rivals', cls: 'db-x', attrs: 'data-back'});
   if (!x || !x.G) {
     st.focus = null; closeFocus(st);
     const why = !x ? 'This battle isn’t here (yet). It shows once the board has it.' : x.state === 'invite' ? `${x.opp.name} challenged you. Accept it on the Battle tab.`

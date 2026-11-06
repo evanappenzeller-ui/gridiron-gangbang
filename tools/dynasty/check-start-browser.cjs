@@ -78,7 +78,8 @@ async function homeFlow(page, reduced) {
   await page.locator('.rh-home-battle').focus(); await page.keyboard.press('Enter');
   await page.waitForSelector('.rl-ladder');
   assert.equal(await page.locator('.pk-tab.is-on').getAttribute('data-dy-tab'), 'battle');
-  await page.locator('[data-dy-bv="solo"]').click(); await page.waitForSelector('.pk-solo');
+  await page.waitForSelector('.pk-solo');
+  assert.equal(await page.locator('[data-dy-bv="versus"], .rl-switch').count(), 0, 'friend battles are paused: no Versus switch on the ladder');
   await nav('home');
   await page.locator('.rh-home .is-packs').click(); await page.waitForSelector('.pk-packs');
   await nav('home');
@@ -89,6 +90,13 @@ async function homeFlow(page, reduced) {
   await page.locator('.rh-home [data-dy-guide]').click(); await page.waitForSelector('.sheet.pk-sheet');
   await page.locator('.sheet.pk-sheet .sheet-close').click();
   await page.waitForFunction(() => !document.querySelector('.sheet.pk-sheet'));
+  assert.doesNotMatch(await page.locator('.rh-home-ribbon').innerText(), /Versus/, 'friend battles are paused: the banner says Solo ladder');
+  // A saved link to a friend match shows the paused notice, never the match.
+  await page.evaluate(async () => (await import('/js/app.js')).nav('/puzzles/dynasty/battle/paused1'));
+  await page.waitForSelector('.db-msg');
+  assert.match(await page.locator('.db-msg').innerText(), /Friend battles are paused/);
+  await page.evaluate(() => history.back());
+  await page.waitForSelector('.rh-home');
   const after = await page.evaluate(async () => JSON.stringify((await import('/js/core/dynasty.js')).mine()));
   assert.equal(after, before, 'Home navigation does not change cards, decks, balances or progress');
   // A live profile switch must remove the owner chrome and cached Home, including the new artwork.
@@ -287,9 +295,8 @@ async function playerFlow(page, p, {reduced}) {
   // Play: routes to solo, friend challenges, deck editing, rules and collections.
   await page.locator('.pk-tab[data-dy-tab="battle"]').click();
   await page.waitForSelector(owner ? '.rl-ladder' : '.pk-mode');
-  const mode = owner ? '.rl-switch button' : '.pk-mode';
-  assert.equal(await page.locator(`${mode}[data-dy-bv="versus"]`).count(), 1, T + ': friend challenges are directly accessible');
-  assert.equal(await page.locator(`${mode}[data-dy-bv="solo"]`).count(), 1, T + ': solo opponents are directly accessible');
+  assert.equal(await page.locator('[data-dy-bv="versus"]').count(), 0, T + ': friend battles are paused (features.rivalsVersus)');
+  assert.equal(await page.locator(owner ? '.rl-ladder' : '.pk-mode[data-dy-bv="solo"]').count(), 1, T + ': solo opponents are directly accessible');
   assert.deepEqual(await page.locator('.pk-mini span:not(.sr-only)').allTextContents(), ['Rules', 'Decks', 'Rankings', 'Collections'], T + ': Guide, Decks, Rankings, Missions');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-battle`);
   // Missions: the collections

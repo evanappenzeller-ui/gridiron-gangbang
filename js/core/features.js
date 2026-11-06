@@ -17,6 +17,10 @@ export const dynastyOpen = (member = data.me(), user = member ? null : data.user
 // Standing Rivals rollout, Nov 5 2026: completed and future game updates go to these four players.
 // This grants no owner/admin privileges and does not change pack/coin entitlements.
 export const rivalsUpdated = () => dynastyOpen();
+// Friend (multiplayer) battles are paused for everyone (Nov 6 2026, Evan: "Remove the multiplayer battles while we figure
+// out the gameplay"). Their entry points, badges and routes hide; saved matches stay on the board untouched, so turning
+// this back on brings them back as they were. Solo is unaffected.
+export const rivalsVersus = () => false;
 /** Whether a saved profile key (m_<member>, u_<app user>: realm-active.js profileKey) is one of theirs. */
 export const dynastyKey = key => DYNASTY.members.some(m => key === 'm_' + m) || DYNASTY.users.some(u => key === 'u_' + u);
 // Unlimited packs (Evan, Oct 29 2026: "Give Ryan Stewart and I unlimited packs to open"): their Dynasties open any pack
