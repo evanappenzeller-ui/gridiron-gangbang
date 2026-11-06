@@ -52,7 +52,7 @@ async function main() {
           const create = this.createGain.bind(this);
           this.createGain = () => {
             const node = create(), connect = node.connect.bind(node);
-            node.connect = to => { const result = connect(to); if (to === this.destination) connect(analyser); return result; };
+            node.connect = to => { const result = connect(to); if (to === this.destination) { connect(analyser); window.musicGain = node; } return result; };
             return node;
           };
           window.audioProbes.push({ctx: this, analyser});
@@ -275,6 +275,9 @@ async function main() {
     assert.match(mixAt.src, /\/audio\/rivals\/cyber-funkwave-v1-04\.mp3$/, 'battle plays the mix: ' + JSON.stringify(mixAt));
     assert(mixAt.at > 276 && mixAt.at < 290, 'the mix starts at the random spot: ' + JSON.stringify(mixAt));
     assert(Math.abs(mixAt.duration - 2324.9) < 1 && mixAt.position > 1162 && mixAt.id === 'battle' && mixAt.title === 'Cyber Funkwave', JSON.stringify(mixAt));
+    // The mix plays at slider × .7 × its loudness level (-14.2 LUFS brought to -16).
+    await page.waitForFunction(async () => { const v = (await import('/js/core/dynasty-music.js')).state().volume;
+      return Math.abs(musicGain.gain.value - v / 100 * .7 * 10 ** ((-16 + 14.2) / 20)) < .002; });
     // A part's end leads into the next; the last part leads back into the first.
     await page.evaluate(() => { mediaProbes[0].currentTime = mediaProbes[0].duration - .3; });
     await page.waitForFunction(() => /cyber-funkwave-v1-05\.mp3$/.test(mediaProbes[0].currentSrc) && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5);

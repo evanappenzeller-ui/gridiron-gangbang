@@ -73,6 +73,15 @@ start is set before its metadata loads (`jump()`), so it never plays from 0 firs
 `<id>-v1.mp3` in audio/rivals and a `song()` line in `TRACKS`; changed audio gets a new version number.
 `check-music.cjs` covers the 31-song jukebox, the random start, part chaining and the battle jukebox.
 
+Levels (November 5, 2026, Evan: "Reduce the volume of the background music. The sound effects should be more noticeable.
+Do not deafen the music when a sound effect is used"). Effects never lower the music (no ducking). Each track's `song()`
+line carries its measured loudness (integrated LUFS, `ffmpeg -af ebur128`); `level` brings it down to -16 LUFS and
+`MUSIC_LEVEL` (.7) lowers all music, so the music gain is slider × .7 × level (loud hip-hop masters about -11 dB, the mix,
+-14.2 LUFS over its pass, about -5 dB). Effects' gain is slider × `EFFECTS_LEVEL` (2, was .65: about +10 dB) into their
+limiter; the quiet tap (`select`) tone is louder too. Saved sliders and defaults (music 8, effects 55) are unchanged. A new
+song needs its LUFS in its `song()` line. `check-sfx.cjs` asserts the music holds steady under overlapping effects and the
+effects gain; `check-music.cjs` the battle mix's gain.
+
 ## Rivals deck shelf (November 5, 2026)
 
 The owner shelf now includes 16 additional recipes: eight position groups and eight attribute themes (Gunslinger

@@ -1,9 +1,12 @@
-import {makeRoomForEffect} from './dynasty-music.js';
 import {rivalsUpdated} from './features.js';
 // Original, locally synthesized Rivals Foley and stingers. No downloads or game-save writes.
 import * as data from './data.js';
 import {profileKey} from './realm-active.js';
 const KEY = () => `gg-rivals-sfx:${profileKey()}:v1`;
+// Effects stand out over the music (the owner, Nov 5 2026: "The sound effects should be more noticeable"), without
+// lowering it. Output gain = slider × EFFECTS_LEVEL (was .65, about 10 dB quieter); the limiter below keeps the big hits clean.
+const EFFECTS_LEVEL = 2;
+const level = () => volume / 100 * EFFECTS_LEVEL;
 const clients = new Set(), listeners = new Set(), voices = new Set(), buffers = new Map();
 let ctx, master, offProfile, enabled = true, volume = 55, unlocked = false, away = false;
 let epoch = 0, idleTimer, failure = '';
@@ -36,7 +39,7 @@ export function setEnabled(value) {
 export function setVolume(value) {
   if (!rivalsUpdated() || !Number.isFinite(Number(value))) return;
   volume = Math.max(0, Math.min(100, Math.round(Number(value))));
-  if (master && ctx) master.gain.setTargetAtTime(volume / 100 * .65, ctx.currentTime, .015);
+  if (master && ctx) master.gain.setTargetAtTime(level(), ctx.currentTime, .015);
   if (!volume) silence(); save();
 }
 function idle() {
@@ -48,7 +51,6 @@ function idle() {
 function stopVoice(v) {
   if (v.stopped) return;
   v.stopped = true;
-  v.releaseMusic?.();
   try { v.source.stop(); } catch (_) {}
   v.source.disconnect(); v.pan?.disconnect(); voices.delete(v); idle();
 }
@@ -77,7 +79,7 @@ function buffer(name) {
   for (let i=0; i<out.length; i++) {
     const t=i/rate, x=t/duration, n=noise(); low = low*.86+n*.14;
     const env=Math.min(1,t/.004)*Math.pow(1-x,2); let y=0;
-    if (name==='select') y=tone(t,0,duration,1100,.12);
+    if (name==='select') y=tone(t,0,duration,1100,.3);
     else if (name==='card' || name==='miss') y=(n-low)*.22*Math.sin(Math.PI*x)**2 + tone(t,.025,.09,180,.06);
     else if (name==='tear') y=(n-low)*.27*env*(.35+.65*Math.abs(Math.sin(t*170))) + low*.22*env;
     else if (name==='coin') y=[0,.09,.19,.31].reduce((v,s)=>v+tone(t,s,.29,2200-s*1400,.12),0);
@@ -100,7 +102,7 @@ function unlock(e) {
   if (![...clients].some(c => c.visible && c.el.contains(target)) && !target.closest?.('.pk-sheet')) return;
   try {
     if (!ctx) { ctx = new (globalThis.AudioContext || globalThis.webkitAudioContext)({latencyHint:'interactive'});
-      master=ctx.createGain(); master.gain.value=volume/100*.65;
+      master=ctx.createGain(); master.gain.value=level();
       const limiter=ctx.createDynamicsCompressor(); limiter.threshold.value=-6; limiter.knee.value=6;
       limiter.ratio.value=12; limiter.attack.value=.003; limiter.release.value=.1;
       master.connect(limiter); limiter.connect(ctx.destination);
@@ -128,7 +130,6 @@ function play(client, name, {delay=0, pan=0} = {}) {
       v={source,pan:stereo,client,stopped:false}; voices.add(v);
       source.onended=()=>stopVoice(v);
       source.start(ctx.currentTime+Math.max(0,Math.min(2,delay)));
-      v.releaseMusic = makeRoomForEffect();
     }).catch(()=>{});
   } catch (_) { /* Audio must never block a game action. */ }
   return cancel;
@@ -136,13 +137,13 @@ function play(client, name, {delay=0, pan=0} = {}) {
 function visibility() { if(document.hidden) silence(); }
 function hide() { away=true; silence(); }
 function show() { away=false; }
-function storage(e) { if(e.key===KEY() || e.key===null) { read(); silence(); if(master)master.gain.value=volume/100*.65; notify(); } }
+function storage(e) { if(e.key===KEY() || e.key===null) { read(); silence(); if(master)master.gain.value=level(); notify(); } }
 export function attach(el, isVisible=true) {
   const c={el,visible:isVisible,last:new Map(),rev:0}; clients.add(c);
   if(clients.size===1) {
-    read(); if(master)master.gain.value=volume/100*.65;
+    read(); if(master)master.gain.value=level();
     away=false;
-    offProfile=data.subscribe(type=>{if(type==='me'){unlocked=false;silence();read();failure='';if(master)master.gain.value=volume/100*.65;notify();}});
+    offProfile=data.subscribe(type=>{if(type==='me'){unlocked=false;silence();read();failure='';if(master)master.gain.value=level();notify();}});
     document.addEventListener('visibilitychange',visibility);
     for(const type of ['pointerdown','keydown','click']) document.addEventListener(type,unlock,true);
     addEventListener('pagehide',hide); addEventListener('pageshow',show); addEventListener('storage',storage);

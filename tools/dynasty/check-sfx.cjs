@@ -41,10 +41,12 @@ async function main() {
       const AC=window.AudioContext;
       window.AudioContext=class extends AC {
         constructor(...args){ super(...args);sfxContexts.push(this);
-          // Music's last gain feeds the destination. Effects use a compressor at their output.
+          // Music's gain feeds the destination. Effects' gain feeds their limiter (a compressor).
           const gain=this.createGain.bind(this);
           this.createGain=()=>{const node=gain(),connect=node.connect.bind(node);node.connect=to=>{
-            if(to===this.destination)window.musicOutputGain=node;return connect(to);
+            if(to===this.destination)window.musicOutputGain=node;
+            else if(to instanceof DynamicsCompressorNode)window.effectsGain=node;
+            return connect(to);
           };return node;};
           const original=this.createBufferSource.bind(this);
           this.createBufferSource=()=>{const s=original(),start=s.start.bind(s),stop=s.stop.bind(s);
@@ -77,13 +79,21 @@ async function main() {
       const music=await import('/js/core/dynasty-music.js');music.setVolume(8);music.setEnabled(true);
     });
     await page.waitForFunction(async()=>(await import('/js/core/dynasty-music.js')).state().playing);
-    await page.evaluate(()=>{window.endCard=testFx.play('card');window.endImpact=testFx.play('heavy');});
-    await page.waitForFunction(()=>musicOutputGain.gain.value<.3);
-    await page.evaluate(()=>endCard());
-    assert((await page.evaluate(()=>musicOutputGain.gain.value))<.31,'overlapping impact still lowers music');
-    await page.evaluate(()=>endImpact());await page.waitForFunction(()=>musicOutputGain.gain.value>.98);
+    // Music sits under the effects and they never lower it (the owner, Nov 5 2026): its gain is slider × .7 × the song's
+    // loudness level (Sundress, -8.4 LUFS, brought to -16), held steady while a card and an impact overlap.
+    const musicGain=.08*.7*10**((-16+8.4)/20);
+    await page.waitForFunction(g=>Math.abs(musicOutputGain.gain.value-g)<.0005,musicGain);
+    const cuesBefore=await page.evaluate(()=>sfxProbes.length);
+    await page.evaluate(()=>{window.endCard=testFx.play('card');window.endImpact=testFx.play('heavy');window.gainSeen=[];
+      const t=setInterval(()=>gainSeen.push(musicOutputGain.gain.value),10);setTimeout(()=>clearInterval(t),450);});
+    await page.waitForFunction(n=>sfxProbes.length>=n+2,cuesBefore);
+    await page.waitForTimeout(500);
+    const seen=await page.evaluate(()=>gainSeen);
+    assert(seen.length>20 && seen.every(g=>Math.abs(g-musicGain)<.0005),'effects never lower the music: '+JSON.stringify(seen.slice(0,6)));
+    assert(Math.abs(await page.evaluate(()=>effectsGain.gain.value)-1.1)<.01,'effects play at slider 55% × 2 (was × .65)');
+    await page.evaluate(()=>{endCard();endImpact();});
     await page.evaluate(async()=>{const m=await import('/js/core/dynasty-music.js');if(m.state().volume!==8)throw Error('effect changed slider');m.setEnabled(false);});
-    console.log('PASS: music plays under overlapping card and impact sounds and returns to the chosen level');
+    console.log('PASS: music holds steady under overlapping card and impact sounds; effects play well above it');
     const quietCount=await page.evaluate(()=>sfxProbes.length);
     await page.evaluate(()=>{fx.setVolume(0);testFx.play('victory');});await page.waitForTimeout(80);
     assert.equal(await page.evaluate(()=>sfxProbes.length),quietCount,'zero volume skips playback');

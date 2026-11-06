@@ -7,46 +7,55 @@ import * as data from './data.js';
 import {profileKey} from './realm-active.js';
 
 const KEY = () => `gg-rivals-music:${profileKey()}:v1`;
-const song = (id, title, artist) => Object.freeze({id, title, artist, url: new URL(`../../audio/rivals/${id}-v1.mp3`, import.meta.url).href});
+// Music sits under the effects (the owner, Nov 5 2026: "Reduce the volume of the background music. The sound effects
+// should be more noticeable. Do not deafen the music when a sound effect is used"). Each track carries its measured
+// loudness (integrated LUFS, ffmpeg ebur128) and plays at `level`, which brings it down to REFERENCE_LUFS, so a loud
+// hip-hop master and the quieter battle mix sound alike; MUSIC_LEVEL then lowers all music. The slider and its saved
+// value are unchanged: the output is slider × MUSIC_LEVEL × the track's level. Effects never lower the music.
+const REFERENCE_LUFS = -16, MUSIC_LEVEL = .7;
+const levelFor = lufs => Math.min(1, 10 ** ((REFERENCE_LUFS - lufs) / 20));
+const song = (id, title, artist, lufs) => Object.freeze({id, title, artist, level: levelFor(lufs),
+  url: new URL(`../../audio/rivals/${id}-v1.mp3`, import.meta.url).href});
 export const TRACKS = Object.freeze([
-  song('sundress', 'Sundress', 'A$AP Rocky'),
-  song('praise-the-lord', 'Praise the Lord (Da Shine)', 'A$AP Rocky ft. Skepta'),
-  song('fashion-killa', 'Fashion Killa', 'A$AP Rocky'),
-  song('lost', 'Lost', 'Frank Ocean'),
-  song('jimmy-cooks', 'Jimmy Cooks', 'Drake ft. 21 Savage'),
-  song('overdue', 'Overdue', 'Metro Boomin & Travis Scott'),
-  song('timeless', 'Timeless', 'The Weeknd & Playboi Carti'),
-  song('niagara-falls', 'Niagara Falls (Foot or 2)', 'Metro Boomin, Travis Scott & 21 Savage'),
-  song('something-about-us', 'Something About Us', 'Daft Punk'),
-  song('voyager', 'Voyager', 'Daft Punk'),
-  song('straighten-it-out', 'Straighten It Out', 'Pete Rock & C.L. Smooth'),
-  song('troy', 'They Reminisce Over You (T.R.O.Y.)', 'Pete Rock & C.L. Smooth'),
-  song('dead-and-gone', 'Dead and Gone', 'T.I. ft. Justin Timberlake'),
-  song('lpfj2', 'Lord Pretty Flacko Jodye 2', 'A$AP Rocky'),
-  song('let-it-happen', 'Let It Happen', 'Tame Impala'),
-  song('still-tippin', 'Still Tippin’', 'Mike Jones ft. Slim Thug & Paul Wall'),
-  song('rapp-snitch-knishes', 'Rapp Snitch Knishes', 'MF DOOM ft. Mr. Fantastik'),
-  song('back-to-the-moon', 'back to the moon', 'Gunna'),
-  song('hate-it-or-love-it', 'Hate It or Love It', 'The Game ft. 50 Cent'),
-  song('butterfly-effect', 'Butterfly Effect', 'Travis Scott'),
-  song('overnight-celebrity', 'Overnight Celebrity', 'Twista'),
-  song('cities', 'Cities', 'Throttle'),
-  song('save-your-tears', 'Save Your Tears', 'The Weeknd'),
-  song('ease-my-mind', 'Ease My Mind', 'Chris Lake & Abel Balder'),
-  song('wicked-game', 'Wicked Game', 'The Expendables'),
-  song('railroad-shelter', 'Railroad Shelter', 'TJ O’Neill ft. Stick Figure'),
-  song('played-like-a-piano', 'Played Like a Piano', 'King Tee ft. Ice Cube & Breeze'),
-  song('talking-to-my-diary', 'Talking to My Diary (Instrumental)', 'Dr. Dre'),
-  song('ballin', 'Ballin’', 'Mustard ft. Roddy Ricch'),
-  song('feel-so-good', 'Feel So Good', 'Mase'),
-  song('dead-presidents-ii', 'Dead Presidents II', 'JAY-Z'),
+  song('sundress', 'Sundress', 'A$AP Rocky', -8.4),
+  song('praise-the-lord', 'Praise the Lord (Da Shine)', 'A$AP Rocky ft. Skepta', -8.7),
+  song('fashion-killa', 'Fashion Killa', 'A$AP Rocky', -10.2),
+  song('lost', 'Lost', 'Frank Ocean', -9.1),
+  song('jimmy-cooks', 'Jimmy Cooks', 'Drake ft. 21 Savage', -8.5),
+  song('overdue', 'Overdue', 'Metro Boomin & Travis Scott', -11.9),
+  song('timeless', 'Timeless', 'The Weeknd & Playboi Carti', -8.4),
+  song('niagara-falls', 'Niagara Falls (Foot or 2)', 'Metro Boomin, Travis Scott & 21 Savage', -8.3),
+  song('something-about-us', 'Something About Us', 'Daft Punk', -14.5),
+  song('voyager', 'Voyager', 'Daft Punk', -14.6),
+  song('straighten-it-out', 'Straighten It Out', 'Pete Rock & C.L. Smooth', -15.1),
+  song('troy', 'They Reminisce Over You (T.R.O.Y.)', 'Pete Rock & C.L. Smooth', -14.2),
+  song('dead-and-gone', 'Dead and Gone', 'T.I. ft. Justin Timberlake', -8.6),
+  song('lpfj2', 'Lord Pretty Flacko Jodye 2', 'A$AP Rocky', -9.2),
+  song('let-it-happen', 'Let It Happen', 'Tame Impala', -8.6),
+  song('still-tippin', 'Still Tippin’', 'Mike Jones ft. Slim Thug & Paul Wall', -12.3),
+  song('rapp-snitch-knishes', 'Rapp Snitch Knishes', 'MF DOOM ft. Mr. Fantastik', -10.7),
+  song('back-to-the-moon', 'back to the moon', 'Gunna', -9.0),
+  song('hate-it-or-love-it', 'Hate It or Love It', 'The Game ft. 50 Cent', -8.4),
+  song('butterfly-effect', 'Butterfly Effect', 'Travis Scott', -9.3),
+  song('overnight-celebrity', 'Overnight Celebrity', 'Twista', -9.1),
+  song('cities', 'Cities', 'Throttle', -8.2),
+  song('save-your-tears', 'Save Your Tears', 'The Weeknd', -15.3),
+  song('ease-my-mind', 'Ease My Mind', 'Chris Lake & Abel Balder', -9.2),
+  song('wicked-game', 'Wicked Game', 'The Expendables', -9.7),
+  song('railroad-shelter', 'Railroad Shelter', 'TJ O’Neill ft. Stick Figure', -10.4),
+  song('played-like-a-piano', 'Played Like a Piano', 'King Tee ft. Ice Cube & Breeze', -17.3),
+  song('talking-to-my-diary', 'Talking to My Diary (Instrumental)', 'Dr. Dre', -10.2),
+  song('ballin', 'Ballin’', 'Mustard ft. Roddy Ricch', -10.3),
+  song('feel-so-good', 'Feel So Good', 'Mase', -11.5),
+  song('dead-presidents-ii', 'Dead Presidents II', 'JAY-Z', -12.8),
 ]);
 // The battle mix's video is one 38:45 playlist played three times over; one pass is kept, cut into seven parts at the gaps
 // between its tunes, so a phone only fetches (and the service worker only caches) the part that plays. The last part
-// leads back into the first, as in the original. Lengths in seconds, in order.
+// leads back into the first, as in the original. Lengths in seconds, in order. One level for the whole mix (-14.2 LUFS
+// over the pass), so its tunes keep their own balance.
 const PARTS = [246.3, 244.3, 395.3, 343.8, 374.101, 335.8, 385.3];
 const STARTS = PARTS.map((_, i) => PARTS.slice(0, i).reduce((a, s) => a + s, 0));
-export const BATTLE = Object.freeze({id: 'battle', title: 'Cyber Funkwave', artist: 'Funkonaut Sound',
+export const BATTLE = Object.freeze({id: 'battle', title: 'Cyber Funkwave', artist: 'Funkonaut Sound', level: levelFor(-14.2),
   duration: PARTS.reduce((a, s) => a + s, 0),
   parts: Object.freeze(PARTS.map((seconds, i) => Object.freeze({seconds,
     url: new URL(`../../audio/rivals/cyber-funkwave-v1-${String(i + 1).padStart(2, '0')}.mp3`, import.meta.url).href})))});
@@ -64,8 +73,6 @@ const clients = new Set(), listeners = new Set();
 export const DEFAULT_MUSIC_VOLUME = 8;
 let enabled = true, volume = DEFAULT_MUSIC_VOLUME, started = false, away = false, failure = '';
 let audio = null, master = null, media = null, pending = 0, revision = 0, offProfile = null;
-let effectGain = null;
-const audibleEffects = new Set();
 let systemOwned = false, previousType = null;
 // shown: the visible scene ('hub', 'battle' or null). lastBattle: the battle view the mix last started for, so a new
 // battle rolls a new start while returning to the same one carries on. ownSong: a jukebox song replaces the mix in this
@@ -92,6 +99,8 @@ const visible = () => [...clients].some(c => c.visible);
 const wanted = () => rivalsUpdated() && visible() && !document.hidden && !away && started && enabled && volume > 0;
 const notify = () => { updateSystem(); listeners.forEach(fn => fn()); };
 const playingMix = () => shown === 'battle' && !ownSong;
+// The music's gain for the loaded source: slider × MUSIC_LEVEL × the track's loudness level.
+const outputLevel = () => volume / 100 * MUSIC_LEVEL * (partOf(loaded) >= 0 ? BATTLE.level : (TRACKS.find(t => t.id === loaded) || track()).level);
 export function state() {
   if (preferenceKey !== KEY()) read();
   const part = media ? partOf(loaded) : -1, here = Number.isFinite(media?.currentTime) ? media.currentTime : 0;
@@ -137,20 +146,6 @@ function updateSystem() {
   try { if (s.duration > 0) navigator.mediaSession?.setPositionState?.({duration: s.duration, position: Math.min(s.position, s.duration), playbackRate: 1}); } catch (_) {}
 }
 
-// Effects share one temporary reduction. Releasing the last cue brings the music
-// back to its chosen level. This gain never changes the slider or the saved preference.
-export function makeRoomForEffect() {
-  if (!effectGain || !wanted()) return;
-  const effect = {};
-  if (!audibleEffects.size) effectGain.gain.setTargetAtTime(.25, audio.currentTime, .004);
-  audibleEffects.add(effect);
-  return () => {
-    if (audibleEffects.delete(effect) && !audibleEffects.size) {
-      effectGain.gain.setTargetAtTime(1, audio.currentTime, .10);
-    }
-  };
-}
-
 // What the visible scene plays: a part of the mix, or a looping jukebox song (back where it was, after a battle).
 function desired() {
   if (playingMix()) return {key: 'battle:' + spot.part, url: BATTLE.parts[spot.part].url, loop: false, at: spot.at};
@@ -188,11 +183,6 @@ function checkScene() {
 }
 
 function halt(reset = false) {
-  audibleEffects.clear();
-  if (effectGain) {
-    effectGain.gain.cancelScheduledValues(audio.currentTime);
-    effectGain.gain.setValueAtTime(1, audio.currentTime);
-  }
   revision++; pending = 0;
   if (media) { media.pause(); if (reset) { try { media.currentTime = 0; } catch (_) {} } }
   if (audio) {
@@ -206,7 +196,7 @@ function sync() {
   if (!wanted()) { halt(); return; }
   if (!audio) { notify(); return; }
   ownSystem();
-  master.gain.setTargetAtTime(volume / 100, audio.currentTime, .04);
+  master.gain.setTargetAtTime(outputLevel(), audio.currentTime, .04);
   if (pending || (audio.state === 'running' && !media.paused)) { notify(); return; }
   const request = ++revision; pending = request; failure = '';
   // Invoke both in the original gesture; waiting for resume first loses iOS's play permission.
@@ -232,8 +222,7 @@ export function start() {
     try {
       ownSystem();
       audio = new AC(); master = audio.createGain(); master.gain.value = 0;
-      effectGain = audio.createGain();
-      master.connect(effectGain); effectGain.connect(audio.destination);
+      master.connect(audio.destination);
       media = new Audio(); media.preload = 'none'; loaded = '';
       checkScene(); load();
       audio.createMediaElementSource(media).connect(master);
@@ -257,7 +246,7 @@ export function start() {
         else notify();
       };
     } catch (_) {
-      media?.pause(); audio?.close().catch(() => {}); audio = null; media = null; effectGain = null; loaded = '';
+      media?.pause(); audio?.close().catch(() => {}); audio = null; media = null; loaded = '';
       releaseSystem();
       failure = 'Music is unavailable in this browser.'; notify(); return;
     }
