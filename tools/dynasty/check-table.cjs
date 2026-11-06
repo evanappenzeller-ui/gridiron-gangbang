@@ -125,9 +125,9 @@ async function browserTest(url) {
       await page.waitForTimeout(600);
       assert.equal(await page.locator('.db-hand-pop,.db-focus,.is-drop-ready').count(),0,'release returns card without opening details');
       assert.deepEqual(await snapshot(),before,'hold and release do not play a card');
-      await card.tap(); await page.waitForSelector('.sheet.db-focus .pk-info');
-      assert.equal(await page.locator('[data-db-putback]').count(),0,'no Put back: the details sheet closes');
-      await page.locator('.sheet.db-focus [data-sheet-close]').click(); await page.waitForSelector('.sheet.db-focus',{state:'detached'});
+      await card.tap(); await page.waitForSelector('.sheet.db-preview .db-pv-card .pk-card');
+      assert.equal(await page.locator('[data-db-putback]').count(),0,'no Put back: a tap outside the card sets it down');
+      await page.touchscreen.tap(6,200); await page.waitForSelector('.sheet.db-focus',{state:'detached'});
     }
     await drag(`[data-db-hand="${fixture.players[0]}"]`,'[data-db-drop="active"]',{browseFrom:`[data-db-hand="${fixture.charge}"]`});
     assert.equal(await page.locator('.is-me .is-active [data-db-slot]').count(),1);
@@ -154,7 +154,7 @@ async function browserTest(url) {
     await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:bb.x+bb.width/2,y:bb.y+bb.height/2}]});await page.waitForTimeout(400);
     await page.screenshot({path:path.join(out,'inspect.png')});await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     await page.waitForSelector('.db-focus');assert.equal((await snapshot()).ev.length,rev);assert.equal(await page.locator('[data-db-attack]:not(:disabled)').count(),0);
-    await page.waitForTimeout(600);await page.locator('.sheet.db-focus [data-sheet-close]').click();await page.waitForSelector('.sheet.db-focus',{state:'detached'});
+    await page.waitForTimeout(600);await page.touchscreen.tap(6,200);await page.waitForSelector('.sheet.db-focus',{state:'detached'});
     await page.screenshot({path:path.join(out,'table.png')});
     // The rest of each deck lies face down on the felt beside its active player, with the real count; yours opens the deck list.
     const piles=await snapshot(),pileDom=await page.evaluate(()=>[...document.querySelectorAll('.db-pile')].map(p=>({me:p.classList.contains('is-me'),n:Number(p.querySelector('b').textContent),back:!!p.querySelector('img[src*="card-back-v1"]'),inRow:!!p.closest('.db-row.is-active')})));

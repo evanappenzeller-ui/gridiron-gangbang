@@ -409,7 +409,15 @@ HP/energy on the table, then what it can do now (your active player's plays as b
 missing, Send in / Switch out, a hand card's play, setup's lineup choices; a lineup is suggested), then its battle side
 (`battleHTML`). No lifted-card overlay, no Put back: closing the sheet (X, swipe, Back) sets the card down; a move closes
 it; it refreshes in place as the match changes. Hand
-indexes stay the cards' identity, so duplicates stay apart. New matches (solo and friend) use rules v4
+indexes stay the cards' identity, so duplicates stay apart.
+Card preview (Nov 6 2026, Evan, with a Pokémon TCG Pocket screenshot: "When a card is selected in game, this should be the
+preview screen for the player to decide whether to use one of their attacks, retreat and switch with another card, or do
+nothing (click outside of the card which sets it back down)"; the Rivals group): the white details sheet became
+`previewHTML`, a transparent full-height `pk-sheet db-focus db-preview` over a dimmed table: the card enlarged, an HP/energy
+tab above it, your active player's plays as glowing banners covering its printed attacks (cost, name, damage, effect or what's
+missing; disabled ones grey), a Retreat bar with its cost (one bench player: switches; more: choose), a bench player's Send in,
+a hand card's play, setup's lineup choices. A tap anywhere outside the card and its buttons, Escape, a swipe or Back sets it
+down; Details opens the old card sheet (`detail`, `battleHTML`) over it. `check-rivals-battle.cjs` covers it. New matches (solo and friend) use rules v4
 (`B.RULES_VERSION`): the turn's energy attaches itself as the turn starts (`autoEnergy`: the active player while it
 helps his signature play, else the bench player it brings nearest his; after a knockout, the one sent in). A v1-v3
 match keeps attaching by hand (Give energy on the lifted card).

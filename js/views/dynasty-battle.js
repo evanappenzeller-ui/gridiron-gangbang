@@ -7,7 +7,7 @@ import {tableOptions} from './dynasty-table-options.js';
 // A card table (the owner, Oct 30 2026: "The gameplay is far too confusing. I want it to include the cards that are in
 // play laid out and the available cards in your hand are spread out at the bottom. Clicking on each card will show the
 // attacks and allow the player to choose which one or put the card back down"): both lineups as cards on the felt, your
-// hand fanned along the foot. Tapping any card opens its details sheet (focusSheetHTML) with what it can do now.
+// hand fanned along the foot. Tapping any card lifts it into its preview (previewHTML) with what it can do now.
 // Energy goes on by itself in rules v4; earlier matches keep a Give energy action on the lifted card.
 // Collectible card details, the complete log and match options remain available without interrupting ordinary moves.
 import * as ui from '../core/ui.js';
@@ -215,34 +215,37 @@ function suggestLineup(st, hand) {
 }
 
 // ---------------------------------------------------------------------------------------------------- the card up close
-// A tapped card opens its details sheet (Nov 5 2026, Evan: "Clicking a card in the rivals gameplay should bring up a
-// detailed screen similar to [Card details]. Remove the other screen entirely containing the start with him and put back
-// options"): the card, its state on the table, what it can do now (setup's lineup choices, a hand card's play, a bench
-// player's Send in, your active player's plays with their cost, damage and what's still missing, Switch out), then its
-// battle side. Closing the sheet sets the card down; nothing is played until a button is pressed.
-function attackButtons(st, x, slot) {
-  const G = x.G, me = G.p[x.you];
-  const active = slot === me.active;
+// A tapped card lifts into its preview (Nov 6 2026, Evan, with a Pokémon TCG Pocket screenshot: "When a card is selected in
+// game, this should be the preview screen for the player to decide whether to use one of their attacks, retreat and switch
+// with another card, or do nothing (click outside of the card which sets it back down)"; the Rivals group via
+// `rivalsUpdated()`): the card enlarged over the dimmed table, its HP and energy on a tab above it, your active player's
+// plays as glowing banners over the card's printed attacks (cost, name, damage, what it does or still needs), a Retreat bar
+// with its cost, then the card's own play (setup's lineup choices, a hand card's play, a bench player's Send in). Tapping
+// anywhere outside the card and its buttons, Escape or Back sets it down; Details opens the full card sheet. Nothing is
+// played until a banner is pressed.
+const TYPE_TINT = {A: '#3D9BE9', G: '#4FAE3E', B: '#E8573A', C: '#9562D9', S: '#A9A391'};
+function attackBanners(st, x, slot) {
+  const G = x.G;
   return B.attacksOf(slot.id, G.v).map((a, n) => {
-    const p = active ? B.attackPreview(G, x.you, n) : null;
+    const p = B.attackPreview(G, x.you, n);
     const missing = B.unpaid(a.cost, slot.en);
-    const dmg = p ? p.damageText : `${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}`;
-    const can = active && x.state === 'yours' && !st.mode && p.ok;
-    const why = !active ? 'Only your active player attacks.' : x.state !== 'yours' ? 'On your turn.'
-      : missing ? `Needs ${missing} more energy.` : p.ok ? '' : p.why;
-    const text = [B.fxText(a), B.signatureText(G, n), ...(p ? p.notes || [] : [])].filter(Boolean).join(' ');
-    return `<button type="button" class="db-move${n ? ' is-signature' : ''}" data-db-attack="${n}"${can ? '' : ' disabled'}>`
-      + `<span class="db-move-cost" aria-label="Costs ${a.cost.map(e => B.ENERGY[e]).join(', ')}">${a.cost.map(pipHTML).join('')}</span>`
-      + `<span class="db-move-name"><b>${esc(a.name)}</b>${text ? `<small>${esc(text)}</small>` : ''}${why ? `<small class="db-move-why">${esc(why)}</small>` : ''}</span>`
-      + `<strong>${esc(dmg)}<small>DMG</small></strong></button>`;
+    const can = x.state === 'yours' && !st.mode && p.ok;
+    const why = x.state !== 'yours' ? 'On your turn.' : missing ? `Needs ${missing} more energy.` : p.ok ? '' : p.why;
+    const text = [B.fxText(a), B.signatureText(G, n), ...(p.notes || [])].filter(Boolean).join(' ');
+    const tint = TYPE_TINT[B.ENERGY_TYPE[a.cost.find(e => e !== '*')] || (B.stats(slot.id) || {}).type] || TYPE_TINT.S;
+    return `<button type="button" class="db-pv-atk${can ? ' is-ready' : ''}" style="--tc:${tint}" data-db-attack="${n}"${can ? '' : ' disabled'}>`
+      + `<span class="db-pv-cost" aria-label="Costs ${a.cost.map(e => B.ENERGY[e]).join(', ')}">${a.cost.map(pipHTML).join('')}</span>`
+      + `<span class="db-pv-name"><b>${esc(a.name)}</b>${text ? `<small>${esc(text)}</small>` : ''}${why ? `<small class="db-pv-need">${esc(why)}</small>` : ''}</span>`
+      + `<strong class="db-pv-dmg">${esc(p.damageText)}</strong></button>`;
   }).join('');
 }
-function focusSheetHTML(st, x, mySlots) {
+function previewHTML(st, x, mySlots) {
   const F = st.focus;
   if (!F) return null;
   const G = x.G, you = x.you, me = G.p[you], op = G.p[1 - you], yours = x.state === 'yours', setup = x.state === 'setup';
-  let id, slot = null, moves = '', plays = '', why = '';
-  const btn = (label, attrs, kind = 'go') => `<button type="button" class="db-act is-${kind}" ${attrs}>${esc(label)}</button>`;
+  let id, slot = null, plays = '', moves = '', retreat = '', why = '';
+  const btn = (label, attrs, kind = 'go') => `<button type="button" class="db-pv-go is-${kind}" ${attrs}>${esc(label)}</button>`;
+  const retreatBar = (label, cost, attrs, ok) => `<button type="button" class="db-pv-retreat" ${attrs}${ok ? '' : ' disabled'}><span class="db-pv-rc" aria-label="${cost ? `Costs ${cost} energy` : 'Free'}">${cost ? Array.from({length: cost}, () => pipHTML('*')).join('') : '<small>FREE</small>'}</span><b>${esc(label)}</b></button>`;
   if (F.kind === 'hand') {
     id = me.hand[F.i];
     if (setup) {
@@ -263,16 +266,16 @@ function focusSheetHTML(st, x, mySlots) {
       if (!side) moves = (F.u === -1 ? '' : btn('Make him the starter', 'data-db-lineup="promote"')) + btn('Back to hand', 'data-db-lineup="hand"', 'soft');
     } else if (!side) {
       const isAct = slot === me.active;
-      if (isAct) plays = `<div class="db-moves">${attackButtons(st, x, slot)}</div>`;
+      if (isAct) plays = attackBanners(st, x, slot);
       if (yours && me.promote && !isAct) moves = btn('Send him in', `data-db-promote="${slot.u}"`);
       else if (yours && !isAct) {
         const r = B.check(G, you, {a: 'retreat', to: slot.u}), cost = me.active ? B.retreatCost(me.active, me) : 0;
-        moves = btn(`Send him in${cost ? ` (costs ${cost} energy)` : ''}`, `data-db-retreat="${slot.u}"${r.ok ? '' : ' disabled'}`, 'soft');
+        retreat = retreatBar('Send him in', cost, `data-db-retreat="${slot.u}"`, r.ok);
         if (!r.ok) why = r.why === 'One switch a turn.' ? 'You’ve switched once this turn.' : r.why;
       }
-      if (yours && isAct && me.bench.length && !me.promote) {
+      if (isAct && me.bench.length && !me.promote) {
         const r = B.check(G, you, {a: 'retreat', to: me.bench[0].u}), cost = B.retreatCost(me.active, me);
-        moves += btn(`Switch him out${cost ? ` (costs ${cost} energy)` : ''}`, `data-db-switch${r.ok ? '' : ' disabled'}`, 'soft');
+        retreat = retreatBar('Retreat', cost, 'data-db-switch', yours && r.ok);
       }
       // (matches begun before v4: the turn's energy is given by hand)
       if (yours && me.en && !me.used.energy && !me.promote && B.check(G, you, {a: 'energy', on: slot.u}).ok) moves = btn(`Give him the ${B.ENERGY[me.en]} energy`, `data-db-energy="${slot.u}"`) + moves;
@@ -280,51 +283,61 @@ function focusSheetHTML(st, x, mySlots) {
   }
   if (!id) return null;
   const stats = B.stats(id);
-  const state = slot && stats && !setup ? `<p class="pk-own">${Math.max(0, stats.hp - slot.dmg)} of ${stats.hp} HP left${slot.en.length ? ` · energy ${energyHTML(slot.en)}` : ' · no energy'}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}${slot.attachment ? ` · ${esc(nameOf(slot.attachment))} attached` : ''}${F.side === 'opp' ? ` · ${esc(x.opp.name)}’s` : ''}</p>` : '';
-  const html = `<div class="pk-zoom is-s db-focus-card">${anyHTML(id, {size: 'm', tag: false, rulesVersion: G.v, roundEnergy: G.roundEnergy || 0})}</div>${state}`
-    + plays + (moves ? `<div class="db-focus-acts">${moves}</div>` : '') + (why ? `<p class="db-focus-why">${esc(why)}</p>` : '')
-    + battleHTML(id, G, {attacks: !plays});
-  return {id, title: nameOf(id), html};
+  let tab = '';
+  if (slot && stats && !setup) {
+    const left = Math.max(0, stats.hp - slot.dmg), conds = [slot.stun && 'Stunned', slot.inj && 'Injured', slot.attachment && nameOf(slot.attachment)].filter(Boolean);
+    tab = `<div class="db-pv-tab${left <= stats.hp * 0.3 ? ' is-low' : ''}" aria-label="${left} of ${stats.hp} HP left, ${slot.en.length} energy${conds.length ? ', ' + conds.join(', ') : ''}${F.side === 'opp' ? `, ${esc(x.opp.name)}’s` : ''}">`
+      + `<span class="db-pv-hp"><b>${left}</b><i style="--pv-hp:${Math.round(left / stats.hp * 100)}%"></i></span>`
+      + `<span class="db-pv-en">${slot.en.length ? energyHTML(slot.en) : '<small>No energy</small>'}</span>`
+      + (conds.length ? `<span class="db-pv-conds">${conds.map(c => `<i>${esc(c)}</i>`).join('')}</span>` : '') + '</div>';
+  }
+  const html = `<div class="db-pv${plays ? ' has-plays' : ''}">${ui.iconButton({icon: 'close', label: 'Set the card down', cls: 'db-pv-x', attrs: 'data-sheet-close'})}`
+    + `<div class="db-pv-stage">${tab}<div class="pk-zoom db-pv-card">${anyHTML(id, {size: 'm', tag: false, rulesVersion: G.v, roundEnergy: G.roundEnergy || 0})}</div>`
+    + `<div class="db-pv-acts">${plays}${moves}<div class="db-pv-row"><button type="button" class="db-pv-info" data-db-details>${ui.icon('info', {size: 15})}Details</button>${retreat}</div>`
+    + (why ? `<p class="db-pv-why">${esc(why)}</p>` : '') + '</div></div></div>';
+  return {id, slot, title: nameOf(id), html};
 }
-// (the open sheet follows the match: refreshed in place, closed when its card is gone or a move is made)
+// (the open preview follows the match: refreshed in place, closed when its card is gone or a move is made)
 function closeFocus(st) {
   const f = st.focusSheet;
   if (!f) return;
   st.focusSheet = null; f.stopFoil(); f.sh.close();
 }
 function syncFocus(st, x, mySlots) {
-  const c = st.focus && !st.dead && !st.hidden ? focusSheetHTML(st, x, mySlots) : null;
+  const c = st.focus && !st.dead && !st.hidden ? previewHTML(st, x, mySlots) : null;
   if (!c) { if (st.focus && !st.dead) st.focus = null; closeFocus(st); return; }
   const f = st.focusSheet;
   if (f && f.sh.open) {
+    f.slot = c.slot;
     if (f.html === c.html) return;
     f.stopFoil(); f.html = c.html;
-    const t = f.sh.el.querySelector('.sheet-title');
-    if (t) t.textContent = c.title;
+    f.sh.el.setAttribute('aria-label', c.title);
     f.sh.body.innerHTML = c.html; ui.hydrate(f.sh.body); f.stopFoil = bindCardFoil(f.sh.body);
     return;
   }
   const F = st.focus;
-  const rec = {html: c.html, stopFoil: () => {}};
-  rec.sh = ui.openSheet({title: c.title, body: c.html, cls: 'pk-sheet db-focus', detents: ['large'],
+  const rec = {html: c.html, slot: c.slot, stopFoil: () => {}};
+  rec.sh = ui.openSheet({label: c.title, chrome: false, body: c.html, cls: 'pk-sheet db-focus db-preview', detents: ['large'],
     returnFocus: () => cardOf(st, F),
     onClose: () => {
       rec.stopFoil();
       if (st.focusSheet !== rec) return;
-      // (closed by its own close button, a swipe or Back: the card goes back down)
+      // (closed by a tap outside the card, Escape, a swipe or Back: the card goes back down)
       st.focusSheet = null; st.focus = null;
       if (!st.dead) draw(st);
     }});
   rec.stopFoil = bindCardFoil(rec.sh.body);
-  rec.sh.body.addEventListener('click', e => sheetAction(st, e));
+  rec.sh.body.addEventListener('click', e => sheetAction(st, e, rec));
   st.focusSheet = rec;
 }
 const cardOf = (st, f) => f && st.el.querySelector(f.kind === 'hand' ? `[data-db-hand="${f.i}"]` : `[data-db-slot="${f.u}"][data-side="${f.side || 'me'}"]`);
-// (the sheet's buttons: each one a move, or a place in the setup lineup)
-function sheetAction(st, e) {
+// (the preview's buttons: each one a move, or a place in the setup lineup; anywhere else outside the card sets it down)
+function sheetAction(st, e, rec) {
   const q = s => e.target.closest(s);
   let b;
+  if (!q('button, .db-pv-card, .db-pv-tab, .db-pv-why')) { if (st.focusSheet === rec) rec.sh.close(); return; }
   if (!st.x || st.scene || st.dead) return;
+  if ((b = q('[data-db-details]'))) { const F = st.focus; if (F) detail(st, F.kind === 'hand' ? st.x.G.p[st.x.you].hand[F.i] : (rec.slot || {}).id, rec.slot); return; }
   if ((b = q('[data-db-attack]'))) { if (!b.disabled) send(st, {a: 'attack', n: Number(b.dataset.dbAttack)}); return; }
   if ((b = q('[data-db-play-hand]'))) { if (!b.disabled) playHand(st); return; }
   if ((b = q('[data-db-lineup]'))) { lineup(st, b.dataset.dbLineup); return; }

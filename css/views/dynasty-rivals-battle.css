@@ -156,24 +156,69 @@ html.is-dynasty-battle { --col-w: 640px; }
 
 @keyframes db-lift { from { transform: translateY(60px) scale(.6) rotate(-4deg); opacity: .4; } }
 
-/* A tapped card's details sheet (Nov 5 2026): the card, what it can do now, then its battle side, on the light sheet. */
-.pk-sheet.db-focus .db-focus-acts { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
-.pk-sheet.db-focus .db-act { width: 100%; min-height: 50px; padding: 12px 16px; border: 0; border-radius: 14px; font: 800 16px/1.2 var(--font-text); text-align: left; cursor: pointer; }
-.pk-sheet.db-focus .db-act.is-go { background: #2E7D4F; color: #F3FAEC; box-shadow: 0 3px 0 #1C5233; }
-.pk-sheet.db-focus .db-act.is-soft { background: #FFFFFF; color: #1F5A3C; box-shadow: inset 0 0 0 1.5px #2E7D4F66; }
-.pk-sheet.db-focus .db-act:disabled { background: #EEF0EC; color: #8C9A94; box-shadow: none; cursor: default; }
-.pk-sheet.db-focus .db-focus-why { margin: -4px 0 12px; text-align: center; color: #9A5A06; font: 700 13px/1.35 var(--font-text); }
-.pk-sheet.db-focus .db-moves { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
-.pk-sheet.db-focus .db-move { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border: 1.5px solid #ADD9B1; border-radius: 14px; background: #E4EFDD; color: #183B2B; text-align: left; cursor: pointer; }
-.pk-sheet.db-focus .db-move.is-signature { border-color: #E7CA81; background: #F4E8C6; color: #533B14; }
-.pk-sheet.db-focus .db-move:disabled { cursor: default; border-color: #E3E6E1; background: #FFFFFF; color: #34443E; }
-.pk-sheet.db-focus .db-move-cost { display: flex; flex-wrap: wrap; gap: 2px; width: 50px; flex: none; font-size: 16px; }
-.pk-sheet.db-focus .db-move-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.pk-sheet.db-focus .db-move-name b { font: 800 16px/1.2 var(--font-text); }
-.pk-sheet.db-focus .db-move-name small { font: 500 12px/1.35 var(--font-text); opacity: .85; }
-.pk-sheet.db-focus .db-move-name small.db-move-why { font-weight: 700; color: #9A5A06; opacity: 1; }
-.pk-sheet.db-focus .db-move strong { display: flex; flex-direction: column; align-items: flex-end; flex: none; font: 900 26px/1 var(--font-text); }
-.pk-sheet.db-focus .db-move strong small { margin-top: 2px; font: 800 8px/1 var(--font-text); letter-spacing: .5px; }
+/* A tapped card's preview (Nov 6 2026, after Pokémon TCG Pocket): the card enlarged over a dimmed table, HP and energy on a
+   tab above it, your active player's plays as glowing banners over its printed attacks, a Retreat bar, then Details.
+   A transparent full-height sheet: tapping anywhere but the card and its buttons sets the card down. */
+body .sheet-scrim:has(+ .sheet.pk-sheet.db-preview) { background: #33405E; }
+.sheet.pk-sheet.db-preview { background: transparent; box-shadow: none; border-radius: 0; }
+.sheet.pk-sheet.db-preview .sheet-grab { display: none; }
+.sheet.pk-sheet.db-preview .sheet-body { display: flex; padding: max(10px, var(--sa-t, 0px)) 12px max(14px, var(--sa-b)); }
+.pk-sheet.db-preview .db-pv { --pv-w: max(200px, min(330px, calc(100vw - 76px), calc((100dvh - 290px) * .8))); position: relative; flex: 1; min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.pk-sheet.db-preview .db-pv.has-plays { --pv-w: max(170px, min(320px, calc(100vw - 76px), calc((100dvh - 370px) * .85))); }
+/* (the card's own printed plays sit under the banners: hidden, so no line peeks between them) */
+.pk-sheet.db-preview .db-pv.has-plays .db-pv-card :is(.pk-c-atk, .pk-c-fx, .pk-c-ab) { visibility: hidden; }
+.pk-sheet.db-preview .db-pv-x { position: absolute; top: 0; right: 0; z-index: 3; opacity: 0; color: #fff; }
+.pk-sheet.db-preview .db-pv-x:focus-visible { opacity: 1; }
+.pk-sheet.db-preview .db-pv-stage { position: relative; width: var(--pv-w); display: flex; flex-direction: column; align-items: center; }
+.pk-sheet.db-preview .db-pv-card { width: 100%; margin: 0; filter: drop-shadow(0 18px 30px #0B122680); animation: db-pv-in .28s cubic-bezier(.2,.9,.3,1.2) both; }
+.pk-sheet.db-preview .db-pv-card > .pk-card { cursor: default; }
+@keyframes db-pv-in { from { transform: scale(.88); } }
+.pk-sheet.db-preview .db-pv-tab { align-self: flex-end; display: flex; align-items: center; gap: 8px; margin: 0 -4px -8px 0; padding: 6px 12px 15px; border-radius: 14px 14px 0 0; background: linear-gradient(#FFFFFFF0, #E9EEF7F0); box-shadow: 0 -2px 10px #0B122633; color: #1D2433; position: relative; z-index: 0; }
+.pk-sheet.db-preview .db-pv-hp { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.pk-sheet.db-preview .db-pv-hp b { font: 900 26px/1 var(--font-text); letter-spacing: -.02em; }
+.pk-sheet.db-preview .db-pv-hp i { display: block; width: 74px; height: 7px; border-radius: 4px; background: linear-gradient(90deg, #2FBF71 var(--pv-hp), #C9D2DE var(--pv-hp)); box-shadow: inset 0 0 0 1px #0B12261F; }
+.pk-sheet.db-preview .db-pv-tab.is-low .db-pv-hp i { background: linear-gradient(90deg, #E8573A var(--pv-hp), #C9D2DE var(--pv-hp)); }
+.pk-sheet.db-preview .db-pv-en { display: flex; align-items: center; gap: 2px; font-size: 20px; }
+.pk-sheet.db-preview .db-pv-en small { font: 700 11px/1.1 var(--font-text); color: #5B6577; }
+.pk-sheet.db-preview .db-pv-conds { display: flex; flex-direction: column; gap: 2px; }
+.pk-sheet.db-preview .db-pv-conds i { padding: 2px 6px; border-radius: 6px; background: #FDE7C3; color: #7A4300; font: 800 10px/1.2 var(--font-text); font-style: normal; text-transform: uppercase; }
+.pk-sheet.db-preview .db-pv-acts { position: relative; z-index: 2; width: min(calc(100vw - 20px), max(calc(100% + 40px), 340px)); display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+/* (the plays cover the card's printed attacks, as on Pocket's table) */
+.pk-sheet.db-preview .db-pv.has-plays .db-pv-acts { margin-top: calc(var(--pv-w) * -.5); }
+.pk-sheet.db-preview .db-pv-atk { --glow: #5BE6F7; display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; min-height: 60px; padding: 9px 16px 9px 12px; border: 2.5px solid #FFFFFFCC; border-radius: 16px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tc) 22%, #fff), color-mix(in srgb, var(--tc) 46%, #fff)); color: #1B1730; text-align: left; cursor: pointer; box-shadow: 0 6px 16px #0B122640; transition: transform .12s; }
+.pk-sheet.db-preview .db-pv-atk.is-ready { border-color: #E9FDFF; box-shadow: 0 0 0 3px var(--glow), 0 0 22px 6px color-mix(in srgb, var(--glow) 70%, transparent), 0 6px 16px #0B122640; animation: db-pv-glow 1.6s ease-in-out infinite; }
+.pk-sheet.db-preview .db-pv-atk.is-ready:active { transform: scale(.97); }
+.pk-sheet.db-preview .db-pv-atk:disabled { cursor: default; background: linear-gradient(180deg, #F3F5F8, #DCE1E9); color: #475066; }
+.pk-sheet.db-preview .db-pv-atk:disabled .db-pv-cost, .pk-sheet.db-preview .db-pv-atk:disabled .db-pv-dmg { opacity: .7; }
+@keyframes db-pv-glow { 50% { box-shadow: 0 0 0 3px var(--glow), 0 0 32px 10px color-mix(in srgb, var(--glow) 55%, transparent), 0 6px 16px #0B122640; } }
+.pk-sheet.db-preview .db-pv-cost { display: flex; flex-wrap: wrap; gap: 2px; font-size: 18px; }
+.pk-sheet.db-preview .db-pv-name { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; text-align: center; }
+.pk-sheet.db-preview .db-pv-name b { font: 900 19px/1.15 var(--font-text); letter-spacing: .005em; }
+.pk-sheet.db-preview .db-pv-name small { font: 500 12.5px/1.3 var(--font-text); }
+.pk-sheet.db-preview .db-pv-name small.db-pv-need { font-weight: 800; color: #9A4A06; }
+.pk-sheet.db-preview .db-pv-dmg { min-width: 36px; text-align: right; font: 900 24px/1 var(--font-text); letter-spacing: -.02em; }
+.pk-sheet.db-preview .db-pv-go { width: 100%; min-height: 54px; padding: 12px 16px; text-align: center; border: 2.5px solid #FFFFFFCC; border-radius: 16px; font: 900 18px/1.2 var(--font-text); cursor: pointer; box-shadow: 0 6px 16px #0B122640; }
+.pk-sheet.db-preview .db-pv-go.is-go { background: linear-gradient(180deg, #47B97A, #2E7D4F); color: #F3FAEC; border-color: #E9FDFF; box-shadow: 0 0 0 3px #5BE6F7, 0 0 20px 5px #5BE6F799, 0 6px 16px #0B122640; }
+.pk-sheet.db-preview .db-pv-go.is-soft { background: linear-gradient(180deg, #FFFFFF, #E5EAF1); color: #1F2E44; }
+.pk-sheet.db-preview .db-pv-go:disabled { background: linear-gradient(180deg, #F3F5F8, #DCE1E9); color: #7A8496; border-color: #FFFFFF99; box-shadow: 0 6px 16px #0B122633; cursor: default; }
+.pk-sheet.db-preview .db-pv-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pk-sheet.db-preview .db-pv-info { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border: 0; border-radius: 20px; background: #FFFFFFE6; color: #2B3A55; font: 800 14px/1 var(--font-text); cursor: pointer; box-shadow: 0 4px 12px #0B122633; }
+.pk-sheet.db-preview .db-pv-retreat { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; margin-left: auto; padding: 0 22px 0 8px; border: 0; border-radius: 22px 10px 10px 22px; background: linear-gradient(180deg, #EEF1F6, #C9D1DD); color: #1D2433; font: 800 17px/1 var(--font-text); cursor: pointer; box-shadow: 0 0 0 2px #FFFFFFB3, 0 6px 14px #0B122640; }
+.pk-sheet.db-preview .db-pv-retreat:not(:disabled) { box-shadow: 0 0 0 2.5px #5BE6F7, 0 0 16px 3px #5BE6F780, 0 6px 14px #0B122640; }
+.pk-sheet.db-preview .db-pv-retreat:disabled { opacity: .62; cursor: default; }
+.pk-sheet.db-preview .db-pv-rc { display: flex; align-items: center; justify-content: center; gap: 2px; min-width: 30px; height: 30px; padding: 0 4px; border-radius: 15px; background: #FFFFFF; font-size: 18px; }
+.pk-sheet.db-preview .db-pv-rc small { font: 900 10px/1 var(--font-text); color: #2E7D4F; }
+.pk-sheet.db-preview .db-pv-why { margin: 0; padding: 7px 12px; border-radius: 12px; align-self: center; background: #FFF4DDEE; color: #7A4300; text-align: center; font: 700 13px/1.35 var(--font-text); }
+@media (max-height: 700px) {
+  .pk-sheet.db-preview .db-pv-atk { min-height: 52px; padding-block: 6px; }
+  .pk-sheet.db-preview .db-pv-name b { font-size: 17px; }
+  .pk-sheet.db-preview .db-pv-name small { font-size: 11.5px; line-height: 1.25; }
+  .pk-sheet.db-preview .db-pv-acts { gap: 7px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pk-sheet.db-preview .db-pv-card, .pk-sheet.db-preview .db-pv-atk.is-ready { animation: none; }
+}
 
 @media (min-width: 600px) {
   .v-dynasty-battle { --db-bench: max(44px, min(96px, calc(var(--db-room) / 8.3))); --db-active: max(58px, min(124px, calc(var(--db-room) / 6.25))); --db-hand: max(56px, min(112px, calc(var(--db-room) / 6.9))); }
