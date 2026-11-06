@@ -1,4 +1,4 @@
-// Baseline (Ryan Stewart) tabletop hand and battle presentation smoke test; the owner pilot is check-table.cjs. Firebase and external requests are disabled.
+// Ryan Stewart’s tabletop hand and battle presentation smoke test. Firebase and external requests are disabled.
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), assert = require('node:assert/strict');
 const {chromium} = require('playwright');
 const root = path.resolve(__dirname, '../..');
@@ -25,8 +25,9 @@ async function main(url) {
     await page.evaluate(async () => {
       const D = await import('/js/core/dynasty.js'), SOLO = await import('/js/core/dynasty-solo.js'), app = await import('/js/app.js');
       await D.load();
-      const s = D.mine(), players = D.CARDS.filter(c => c.s === 'L' && c.pos === 'QB').slice(0, 9).map(c => c.id);
-      const deck = [...players.flatMap(id => [id, id]), 'I-water', 'I-water'];
+      const s = D.mine(), players = D.CARDS.filter(c => c.s === 'L' && c.pos === 'QB').slice(0, 20).map(c => c.id);
+      players.forEach(id => { s.o[id] = 2; });
+      const deck = [...players.slice(0, 9).flatMap(id => [id, id]), 'I-water', 'I-water'];
       deck.forEach(id => { s.o[id] = 2; }); D.setDeck(deck);
       if (SOLO.start('g2').ok) throw Error('game 2 is locked until game 1 is won');
       const r = SOLO.start('g1'); if (!r.ok) throw Error(r.why);
@@ -49,10 +50,17 @@ async function main(url) {
     assert.equal(await page.locator('.db-table').count(), 1, 'both lineups share the table');
     assert.equal(await page.locator('.db-hand-fan').count(), 1, 'the hand is spread along the foot');
     const solo = () => page.evaluate(async () => { const x = (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid); return {state: x.state, me: x.G.p[0], v: x.G.v}; });
-    assert.equal((await solo()).v, 5, 'new ladder games use rules v5 (automatic energy, one card a player)');
-    // Setup: a lineup is suggested; a tapped card opens its details sheet with its place, and closing it changes nothing.
-    assert.equal(await page.locator('.is-me .is-active .db-slot:not(.is-empty)').count(), 1, 'the suggested lineup has a starter');
-    assert.equal(await page.locator('[data-db-ready]').isDisabled(), false, 'Start is ready with the suggestion');
+    assert.equal((await solo()).v, 6, 'new ladder games use the solo table');
+    await page.waitForSelector('.db-cinema', {state: 'detached'});
+    const firstPlayer = await page.evaluate(async () => {
+      const B = await import('/js/core/dynasty-battle.js');
+      return window.battleSolo.get(window.battleTestMid).G.p[0].hand.findIndex(B.isBasic);
+    });
+    await page.locator(`[data-db-hand="${firstPlayer}"]`).click();
+    await page.locator('[data-db-lineup="act"]').click();
+    // Setup: the selected lineup is ready; a tapped card opens its details sheet with its place, and closing it changes nothing.
+    assert.equal(await page.locator('.is-me .is-active .db-slot:not(.is-empty)').count(), 1, 'the selected player starts');
+    assert.equal(await page.locator('[data-db-ready]').isDisabled(), false, 'Start is ready with the selected player');
     const handBefore = await page.locator('[data-db-hand]').count();
     await page.locator('.is-me .is-active .db-slot').click();
     await page.waitForSelector('.sheet.db-focus');
@@ -103,7 +111,7 @@ async function main(url) {
     // The active player lifts with his plays: the quick play is ready, the signature says what it needs.
     await page.locator('.is-me .db-slot.is-ready').click();
     await page.waitForSelector('.db-focus [data-db-attack]');
-    assert.equal(await page.locator('.db-focus [data-db-attack]').count(), 2, 'both plays show on the card’s details');
+    assert.equal(await page.locator('.db-focus [data-db-attack]').count(), 3, 'all three plays show on the card’s details');
     assert.equal(await page.locator('.db-focus .pk-atk').count(), 0, 'the plays show once, as buttons');
     assert.equal(await page.locator('.db-focus [data-db-attack="0"]').isEnabled(), true);
     assert.match(await page.locator('.db-focus [data-db-attack="1"]').innerText(), /Spend 1 energy|Needs \d more energy/);
@@ -139,16 +147,16 @@ async function main(url) {
     await page.waitForTimeout(400);
     assert.equal(await page.locator('.db-cinema').count(), 0, 'an attack received under a sheet waits instead of opening an inert dialog');
     await page.evaluate(() => window.battleTestSheet.close());
-    await page.waitForSelector('[data-db-scene="attack"]');
+    await page.waitForSelector('[data-db-scene="card"]');
     const played = await ownAttacks(), event = played[played.length - 1];
     assert.equal(played.length, before + 1, 'playing an attack resolves it once');
     assert.equal(await page.locator('[data-db]').evaluate(n => n.inert), true, 'the tabletop cannot submit another action during a scene');
-    assert.match(await page.locator('.db-cinema-result').textContent(), event.missed ? /JUKED/ : new RegExp(String(event.dmg) + ' DAMAGE'), 'the animation displays the actual resolved damage');
+    assert.match(await page.locator('.db-event p').textContent(), new RegExp('for ' + event.dmg + '\\b'), 'the animation displays the actual resolved damage');
     assert.ok((await page.locator('.db-cinema').innerText()).includes(event.name), 'the animation names the played attack');
     // Programmatic clicks also exercise the guard independently of browser inert behavior.
     await page.evaluate(() => document.querySelectorAll('[data-db-slot][data-side="me"], [data-db-attack]').forEach(n => n.click()));
     assert.equal((await ownAttacks()).length, before + 1, 'a second action cannot be submitted while the scene is open');
-    await page.waitForTimeout(1400);
+
     await page.screenshot({path: path.join(root, 'output/rivals-cinema.png'), fullPage: true});
     await page.locator('[data-db-skip]').click();
     await page.waitForFunction(() => !document.querySelector('[data-db]')?.inert, null, {timeout: 20000});
@@ -164,7 +172,7 @@ async function main(url) {
       assert.equal(await page.locator('.db-cinema, .db-hand-fan').count(), 0, profile + ' cannot see a battle presentation');
     }
     assert.deepEqual(errors, []);
-    console.log('PASS Rivals table: ladder lock, suggested lineup, a tapped card’s details sheet (no Put back), automatic energy, attacks from the details sheet, scene and skip, repeat-action guard, responsive widths, profile boundaries.');
+    console.log('PASS Rivals table: ladder lock, selected lineup, a tapped card’s details sheet (no Put back), automatic energy, attacks from the details sheet, scene and skip, repeat-action guard, responsive widths, profile boundaries.');
     await ctx.close();
   } finally { await browser.close(); }
 }

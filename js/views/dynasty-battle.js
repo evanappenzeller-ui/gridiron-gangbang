@@ -38,7 +38,7 @@ function evText(ev, you, opp) {
     case 'reinforce': return `${who} brought ${nameOf(ev.id)} from reserves to the bench.`;
     case 'bench': return `${who} put ${nameOf(ev.id)} on the bench.`;
     case 'evolve': return `${who} evolved ${short(ev.from)} into ${D.card(ev.id) && D.card(ev.id).t ? D.card(ev.id).t : D.SERIES[(D.card(ev.id) || {}).s] ? D.SERIES[D.card(ev.id).s].name : ''} ${short(ev.id)}.`;
-    case 'energy': return ev.auto ? `${mine ? 'Your' : `${opp}’s`} ${short(ev.id)} got a ${B.ENERGY[ev.e]} energy.` : `${who} gave ${short(ev.id)} a ${B.ENERGY[ev.e]} energy.`;
+    case 'energy': return ev.auto ? `${mine ? 'Your' : `${opp}’s`} ${short(ev.id)} got ${ev.count || 1} ${B.ENERGY[ev.e]} energy.` : `${who} gave ${short(ev.id)} a ${B.ENERGY[ev.e]} energy.`;
     case 'stadium': return `${who} played ${nameOf(ev.id)}.`;
     case 'item': return `${who} played ${nameOf(ev.id)}${ev.got && mine ? `: ${nameOf(ev.got)}` : ''}${ev.heal ? `: healed ${ev.heal}` : ''}${ev.energy ? `: +${ev.energy} energy` : ''}${ev.n != null ? `: drew ${ev.n} cards` : ''}.`;
     case 'retreat': return `${who} switched ${short(ev.from)} out for ${short(ev.to)}.`;
@@ -158,6 +158,12 @@ function nextCinema(st) {
 // (in play) the HP meter and the attached energy, or (in hand) what kind of card it is.
 // (the rules version of the battle on screen: from v5 nothing is an upgrade)
 let RV = B.RULES_VERSION;
+function energyHTML(energy) {
+  if (energy.length <= 3) return energy.map(pipHTML).join('');
+  const counts = new Map();
+  for (const e of energy) counts.set(e, (counts.get(e) || 0) + 1);
+  return Array.from(counts, ([e, count]) => pipHTML(e) + '×' + count).join(' ');
+}
 function faceHTML(id, slot = null) {
   const c = D.card(id), t = D.trainer(id), stats = c && B.stats(id);
   const team = c && D.teamOf(c.team), type = stats && B.TYPES[stats.type];
@@ -168,7 +174,7 @@ function faceHTML(id, slot = null) {
   const art = c ? `<span class="db-face-art" data-team-scene="${esc(c.team)}" style="--team:${esc(team.pri)};--team-secondary:${esc(team.sec)}${teamSceneStyle(c.team)}"><span class="db-face-number">${esc(c.num || c.pos)}</span>${portrait.url ? `<img${portrait.photo ? ' class="is-photo"' : portrait.action ? ' class="is-action"' : ''} src="${esc(portrait.url)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`
     : `<span class="db-face-art is-tactic"${t.team ? ` data-team-scene="${esc(t.team)}" style="--team:${esc(D.teamOf(t.team).pri)};--team-secondary:${esc(D.teamOf(t.team).sec)}${teamSceneStyle(t.team)}"` : ''}>${ui.icon(t.kind === 'stadium' ? 'star' : t.kind === 'coach' ? 'football' : 'bolt', {size: 30})}</span>`;
   const foot = !c ? `<span class="db-face-role">${esc({coach: 'Coach · one a turn', item: 'Item', stadium: 'Stadium'}[t.kind])}</span>`
-    : slot ? `<span class="db-face-meter"><i style="width:${Math.round(hp / stats.hp * 100)}%"></i></span><span class="db-face-en">${slot.en.length ? slot.en.map(pipHTML).join('') : '<small>No energy</small>'}</span>`
+    : slot ? `<span class="db-face-meter"><i style="width:${Math.round(hp / stats.hp * 100)}%"></i></span><span class="db-face-en">${slot.en.length ? energyHTML(slot.en) : '<small>No energy</small>'}</span>`
     : `<span class="db-face-role">${esc(c.pos)} · ${esc(team.abbr || c.team)}${B.stageOf(id, RV) ? ' · Upgrade' : ''}</span>`;
   return `<span class="db-face r-${esc(rarity)}${c ? '' : ' is-tactic'}" style="--type:${type ? type.color : '#C59A48'}">`
     + `<span class="db-face-top">${pip}<b class="db-face-name">${esc(c ? short(id) : nameOf(id))}</b>${stats ? `<span class="db-face-hp">${hp}<small>HP</small></span>` : ''}</span>`
@@ -274,8 +280,8 @@ function focusSheetHTML(st, x, mySlots) {
   }
   if (!id) return null;
   const stats = B.stats(id);
-  const state = slot && stats && !setup ? `<p class="pk-own">${Math.max(0, stats.hp - slot.dmg)} of ${stats.hp} HP left${slot.en.length ? ` · energy ${slot.en.map(pipHTML).join('')}` : ' · no energy'}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}${F.side === 'opp' ? ` · ${esc(x.opp.name)}’s` : ''}</p>` : '';
-  const html = `<div class="pk-zoom is-s db-focus-card">${anyHTML(id, {size: 'm', tag: false, rulesVersion: G.v})}</div>${state}`
+  const state = slot && stats && !setup ? `<p class="pk-own">${Math.max(0, stats.hp - slot.dmg)} of ${stats.hp} HP left${slot.en.length ? ` · energy ${energyHTML(slot.en)}` : ' · no energy'}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}${slot.attachment ? ' · Energy Surge attached' : ''}${F.side === 'opp' ? ` · ${esc(x.opp.name)}’s` : ''}</p>` : '';
+  const html = `<div class="pk-zoom is-s db-focus-card">${anyHTML(id, {size: 'm', tag: false, rulesVersion: G.v, roundEnergy: !!G.roundEnergy})}</div>${state}`
     + plays + (moves ? `<div class="db-focus-acts">${moves}</div>` : '') + (why ? `<p class="db-focus-why">${esc(why)}</p>` : '')
     + battleHTML(id, G, {attacks: !plays});
   return {id, title: nameOf(id), html};
@@ -415,6 +421,11 @@ function draw(st) {
     return `<button type="button" class="db-card${lifted ? ' is-lifted' : ''}${playable ? ' is-playable' : ''}" style="--rot:${(off * spread).toFixed(1)}deg;--lift:${Math.round(Math.min(enhanced ? 18 : Infinity, off * off * spread * 0.55))}px;--z:${n + 1}" data-db-hand="${i}" aria-label="${esc(nameOf(id))}${playable ? ', playable' : ''}">${faceHTML(id)}</button>`;
   }).join('');
   const stadium = G.stadium ? `<span class="db-stad">${ui.icon('star', {size: 13})}${esc(D.trainer(G.stadium.id).name)}</span>` : '';
+  const last = G.ev.at(-1);
+  if (G.roundEnergy && x.state === 'yours' && !me.promote && !mode && last?.k === 'energy' && last.who === you) {
+    const draw = G.ev.find(e => e.n === G.turn && e.k === 'draw' && e.who === you);
+    status = esc(draw ? evText(draw, you, x.opp.name) : 'Your deck is empty.') + ' Your lineup gained energy.';
+  }
   const log = G.ev.map(e => ({e, t: evText(e, you, x.opp.name)})).filter(l => l.t).slice(-1);
   const lifted = (side, u) => st.focus && st.focus.kind !== 'hand' && (st.focus.side || 'me') === side && st.focus.u === u;
   const mine = (slot, act) => slotHTML(slot, 'me', act, {pick: !!slot && pickMine(slot.u) || (!!slot && me.promote && x.state === 'yours' && !act),
@@ -501,9 +512,9 @@ function send(st, m) {
 }
 function detail(st, id, slot) {
   const st2 = B.stats(id);
-  const hp = slot && st2 ? `<p class="pk-own">${Math.max(0, st2.hp - slot.dmg)} of ${st2.hp} HP left${slot.en.length ? ` · energy ${slot.en.map(pipHTML).join('')}` : ''}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}</p>` : '';
+  const hp = slot && st2 ? `<p class="pk-own">${Math.max(0, st2.hp - slot.dmg)} of ${st2.hp} HP left${slot.en.length ? ` · energy ${energyHTML(slot.en)}` : ''}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}${slot.attachment ? ' · Energy Surge attached' : ''}</p>` : '';
   let stopFoil = () => {};
-  const sh = ui.openSheet({title: nameOf(id), body: `<div class="pk-zoom is-s">${anyHTML(id, {size: 'm', tag: false, rulesVersion: st.x.G.v})}</div>${hp}${battleHTML(id, st.x.G)}`, cls: 'pk-sheet', detents: ['large'], onClose: () => stopFoil()});
+  const sh = ui.openSheet({title: nameOf(id), body: `<div class="pk-zoom is-s">${anyHTML(id, {size: 'm', tag: false, rulesVersion: st.x.G.v, roundEnergy: !!st.x.G.roundEnergy})}</div>${hp}${battleHTML(id, st.x.G)}`, cls: 'pk-sheet', detents: ['large'], onClose: () => stopFoil()});
   stopFoil = bindCardFoil(sh.body);
 }
 function lift(st, f) {
@@ -656,7 +667,7 @@ function tableGestures(st) {
     preview(v) {
       if (v.hidden) return '<div class="db-peek-in"><div class="db-card-back">R</div><b>Opponent’s hand</b><p>Face down until played</p></div>';
       const t = D.trainer(v.id), stats = B.stats(v.id);
-      return `<div class="db-peek-in"><div class="db-peek-card">${faceHTML(v.id, v.slot)}</div><b>${esc(nameOf(v.id))}</b><p>${esc(t?.text || `${stats.hp} HP · ${B.TYPES[stats.type].name}`)}</p>${stats ? `<div class="db-moves is-info">${attackPreviewList(stats, st.x.G.v)}</div>` : ''}<small>${v.kind === 'hand' ? 'Slide across your hand to preview · ' : ''}${v.draggable ? 'Drag onto a glowing space to play · release to inspect' : 'Release to inspect · no move is played'}</small></div>`;
+      return `<div class="db-peek-in"><div class="db-peek-card">${faceHTML(v.id, v.slot)}</div><b>${esc(nameOf(v.id))}</b><p>${esc(t ? B.trainerText(t, st.x.G.roundEnergy) : `${stats.hp} HP · ${B.TYPES[stats.type].name}`)}</p>${stats ? `<div class="db-moves is-info">${attackPreviewList(stats, st.x.G.v)}</div>` : ''}<small>${v.kind === 'hand' ? 'Slide across your hand to preview · ' : ''}${v.draggable ? 'Drag onto a glowing space to play · release to inspect' : 'Release to inspect · no move is played'}</small></div>`;
     },
     accepts: (v, drop) => !!action(v, drop),
     drop(v, drop) { const m = action(v, drop); if (!m) return; if (m.setup) { st.focus = v; lineup(st, m.setup); } else send(st, m); },

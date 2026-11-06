@@ -74,10 +74,12 @@ async function browserTest(url) {
       let g,seed;for(let n=0;n<5000;n++){seed='ui'+n;g=B.newGame(seed,[deck,deck],6);const h=g.p[0].hand;if(g.first===0&&h.includes('I-charge')&&h.includes('I-draw')&&h.filter(B.isBasic).length>=2)break;}
       const h=g.p[0].hand;if(!h.includes('I-charge')||!h.includes('I-draw'))throw Error('no fixture seed');
       const move={a:'setup',act:g.p[1].hand.find(B.isBasic),bench:[]};
-      localStorage.setItem('gg-dys-m_evan',JSON.stringify({id:'cputable',opp:'g1',seed,v:6,decks:[deck,deck],log:[[1,move]],at:Date.now(),z:'',paid:0}));
+      localStorage.setItem('gg-dys-m_evan',JSON.stringify({id:'cputable',opp:'g1',seed,v:6,roundEnergy:1,decks:[deck,deck],log:[[1,move]],at:Date.now(),z:'',paid:0}));
       D.touch();D.flush();return {players:h.map((id,i)=>B.isBasic(id)?i:null).filter(i=>i!=null),charge:h.indexOf('I-charge'),draw:h.indexOf('I-draw'),friend:old};
     });
-    await page.goto(url+'/#/puzzles/dynasty/battle/cputable'); await page.reload(); await page.waitForSelector('.is-owner-table');
+    await page.reload(); await page.waitForFunction(()=>window.__ggBooted);
+    await page.evaluate(async()=>{const app=await import('/js/app.js');await app.nav('/puzzles/dynasty/battle/cputable');});
+    await page.waitForSelector('.is-owner-table');
     await page.waitForSelector('[data-db-coin]'); await page.screenshot({path:path.join(out,'coin.png')});
     await page.locator('[data-db-coin]').click(); assert.match(await page.locator('[data-db-coin-result]').innerText(),/You go first/);
     await page.locator('[data-db-skip]').click();await page.screenshot({path:path.join(out,'before-drag.png')});
@@ -137,9 +139,12 @@ async function browserTest(url) {
     await page.screenshot({path:path.join(out,'setup.png')});
     await page.locator('[data-db-ready]').click(); await page.waitForTimeout(500);
     let g=await snapshot(); assert.equal(g.cur,0);const oldEn=g.p[0].active.en.length;
+    assert.ok(g.p[0].bench.every(s=>s.en.length>=1) && oldEn>=1);
+    assert.equal(g.ev.filter(e=>e.k==='draw').length,1);
+    assert.match(await page.locator('.db-status').innerText(),/You drew .+Your lineup gained energy/);
     let charge=g.p[0].hand.indexOf('I-charge');
     await drag(`[data-db-hand="${charge}"]`,'.is-me .is-active [data-db-slot]');
-    await page.waitForTimeout(1200);g=await snapshot();assert.equal(g.p[0].active.en.length,oldEn+2);
+    await page.waitForTimeout(1200);g=await snapshot();assert.equal(g.p[0].active.en.length,oldEn+2);assert.equal(g.p[0].active.attachment,'I-charge');
     const beforeDraw=g.p[0].hand.length, draw=g.p[0].hand.indexOf('I-draw');
     await drag(`[data-db-hand="${draw}"]`,'[data-db-drop="play"]');
     await page.waitForTimeout(1200);g=await snapshot();assert.equal(g.p[0].hand.length,beforeDraw+1);
@@ -182,14 +187,14 @@ async function browserTest(url) {
         const decks=[D.tableDeck().ids,T.cpuDeck(S.deckFor('g'+n,S.mainType(D.tableDeck().ids)),D.CARDS.map(c=>c.id))];
         if(decks[1].length!==40)throw Error('CPU needs 40 cards at '+n);
         const counts={};for(const id of decks[1]){counts[id]=(counts[id]||0)+1;if(counts[id]>2)throw Error('CPU duplicate limit at '+n);}
-        const seed='complete-'+n+'-'+rep,g=B.newGame(seed,decks,6),log=[];
+        const seed='complete-'+n+'-'+rep,g=B.newGame(seed,decks,6,null,1),log=[];
         for(let step=0;step<1500&&g.phase!=='over';step++){
           const w=B.toMove(g),m=S.nextMove(g,w,w===0?'exp':n),r=B.play(g,w,m);if(!r.ok)throw Error('Invalid CPU move '+n+': '+r.why);log.push([w,m]);
         }
         if(g.phase!=='over')throw Error('match stalled');
         if(g.over.win>=0&&g.p[g.over.win].pts!==3)throw Error('match ended before three KOs');
         if(g.over.win<0)draws++;
-        const replay=B.newGame(seed,decks,6);for(const[w,m]of log){if(!B.play(replay,w,m).ok)throw Error('replay rejected');}
+        const replay=B.newGame(seed,decks,6,null,1);for(const[w,m]of log){if(!B.play(replay,w,m).ok)throw Error('replay rejected');}
         if(JSON.stringify(replay)!==JSON.stringify(g))throw Error('non-deterministic replay');count++;
       }
       return {count,draws};

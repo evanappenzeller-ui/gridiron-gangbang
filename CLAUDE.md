@@ -17,6 +17,12 @@ v6 table/boss features. No saves, collections, balances, or daily claims are res
 settings use `gg-rivals-{music|sfx}:<profileKey>:v1`, preserving Evan's original m_evan keys.
 Verify `check-rollout.cjs`, audio, table, ladder, deck, reveal, start, access, preview and scope checks.
 
+New solo games and friend challenges for these four profiles save `roundEnergy: 1` at creation.
+At the start of each side's turn, draw the top card if available and give matching energy to every
+active and benched player on that side. A special ability or an attached Energy Surge raises the
+grant from one to two. Energy Surge also gives two energy immediately and follows its player
+until replaced or discarded on knockout. Existing match records replay their original turn rules.
+
 
 ## Rivals sound effects (November 5, 2026)
 

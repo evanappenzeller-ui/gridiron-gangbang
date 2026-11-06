@@ -74,6 +74,11 @@ export const TRAINERS = {
   'S-lucasoil': {kind: 'stadium', name: 'Lucas Oil Stadium', team: 'IND', r: 'legendary', text: 'Fresh legs: at the start of each turn, heal 10 damage from that player’s active player.', heal: 10}
 };
 export const isTrainer = id => !!TRAINERS[id];
+export function trainerText(t, roundEnergy) {
+  return roundEnergy && t.id === 'I-charge'
+    ? 'Give one player 2 matching energy now. Keep this card attached so the player gets 2 energy each turn.'
+    : t.text;
+}
 
 // ---------------------------------------------------------------------------------------------------- abilities
 export const ABILITY = {
@@ -238,8 +243,10 @@ function shuffle(G, a) { for (let i = a.length - 1; i > 0; i--) { const j = Math
 // slot: {u (id), id (the card on top), under (what it evolved from), dmg, en [energy], stun, inj, shield, at (the turn it
 //  came into play)}
 /** A new game: seed (the match id), decks [[ids], [ids]]. */
-export function newGame(seed, decks, v = 1, chemistry = null) {
+export function newGame(seed, decks, v = 1, chemistry = null, roundEnergy = 0) {
   const G = {seed: String(seed), v: v >= 6 ? 6 : v >= 5 ? 5 : v >= 4 ? 4 : v >= 3 ? 3 : v >= 2 ? 2 : 1, rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
+  // Snapshot the turn rule separately: friend and solo matches use different decks and knockout rules.
+  if (roundEnergy === 1) G.roundEnergy = 1;
   G.first = coin(G) ? 0 : 1; G.cur = G.first;
   for (let i = 0; i < 2; i++) {
     const deck = shuffle(G, (decks[i] || []).slice());
@@ -309,11 +316,25 @@ function startTurn(G) {
     if (G.phase === 'over') return;
   }
   if (me.deck.length) { const c = me.deck.shift(); me.hand.push(c); say(G, who, 'draw', {id: c}); }
+  if (G.roundEnergy) {
+    for (const slot of slots(me)) {
+      const e = matchingEnergy(me, slot);
+      const count = stats(slot.id).ability || slot.attachment ? 2 : 1;
+      slot.en.push(e);
+      if (count === 2) slot.en.push(e);
+      say(G, who, 'energy', {u: slot.u, id: slot.id, e, count, auto: true});
+    }
+    return;
+  }
   if (G.v >= 2) {
     me.en = G.turn === 0 && who === G.first ? null : energyFor(G, who, me.n);
     me.next = energyFor(G, who, me.n + 1);
   } else me.en = G.turn === 0 && who === G.first ? null : me.types[Math.floor(rand(G) * me.types.length)];
   autoEnergy(G, who);
+}
+function matchingEnergy(side, slot) {
+  const e = TYPES[stats(slot.id).type].e;
+  return e === '*' ? side.types[0] : e;
 }
 /** How many of a cost's energy en still leaves unpaid. */
 export function unpaid(cost, en) {
@@ -352,6 +373,7 @@ function finish(G, win, why) { G.phase = 'over'; G.over = {win, why}; say(G, win
 function knockOut(G, who) {
   const me = G.p[who], s = me.active, st = stats(s.id), pts = G.v >= 6 ? 1 : st && st.ex ? 2 : 1;
   me.disc.push(...s.under, s.id); me.active = null;
+  if (s.attachment) me.disc.push(s.attachment);
   G.p[other(who)].pts += pts;
   say(G, who, 'ko', {id: s.id, u: s.u, pts, ...(G.v >= 6 ? {players: true} : {})});
   if (G.p[other(who)].pts >= WIN_POINTS) { finish(G, other(who), 'points'); return; }
@@ -487,9 +509,18 @@ function doMove(G, who, m) {
       say(G, who, 'coach', o); return;
     }
     case 'item': {
-      takeFromHand(me, m.id); me.disc.push(m.id);
+      takeFromHand(me, m.id);
+      const staysAttached = G.roundEnergy && m.id === 'I-charge';
+      if (!staysAttached) me.disc.push(m.id);
       const o = {id: m.id};
-      if (m.id === 'I-charge') { const s = findSlot(me, m.on), e = TYPES[stats(s.id).type].e; const energy = e === '*' ? me.types[0] : e; s.en.push(energy, energy); o.u = s.u; o.energy = 2; }
+      if (m.id === 'I-charge') {
+        const s = findSlot(me, m.on), e = matchingEnergy(me, s);
+        s.en.push(e, e); o.u = s.u; o.energy = 2;
+        if (staysAttached) {
+          if (s.attachment) me.disc.push(s.attachment);
+          s.attachment = m.id;
+        }
+      }
       else if (m.id === 'I-draw') { o.n = 0; while (o.n < 2 && me.deck.length) { me.hand.push(me.deck.shift()); o.n++; } }
       else if (m.id === 'I-recover') { const s = findSlot(me, m.on); o.heal = Math.min(30, s.dmg); s.dmg -= o.heal; s.stun = false; s.inj = false; o.u = s.u; }
       else if (m.id === 'I-focus') me.plan += 20;
@@ -596,8 +627,8 @@ function attack(G, who, n) {
 /** A match's game from its moves: seed, decks [[ids], [ids]], moves [[move lists of side 0's turns], [side 1's]] (each
  *  side's list: its setup first, then one list a turn), v (the rules' version: newGame's). Replays them in order (a
  *  turn's moves until it ends) and stops at the first bad move. Returns {G, bad: null | {who, i, why}}. */
-export function replay(seed, decks, moves, v = 1) {
-  const G = newGame(seed, decks, v);
+export function replay(seed, decks, moves, v = 1, roundEnergy = 0) {
+  const G = newGame(seed, decks, v, null, roundEnergy);
   const at = [0, 0]; // (each side's next turn in its list)
   const run = (who, list) => {
     for (const m of list || []) { const r = play(G, who, m); if (!r.ok) return r.why; }

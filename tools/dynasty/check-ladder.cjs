@@ -84,7 +84,7 @@ async function run(url) {
         const x=S.get(started.mid),r=JSON.parse(localStorage.getItem('gg-dys-m_evan'));
         ok(r.boss.v===2,'new match stores alternating reward version');
         ok(x.boss===cid&&x.G.p[1].active.id===cid,'boss actually fields reward card '+id);
-        const replay=B.newGame(r.seed,r.decks,r.v);r.log.forEach(([who,m])=>ok(B.play(replay,who,m).ok,'replay boss opening'));
+        const replay=B.newGame(r.seed,r.decks,r.v,r.chemistry,r.roundEnergy);r.log.forEach(([who,m])=>ok(B.play(replay,who,m).ok,'replay boss opening'));
         ok(snap(replay)===snap(x.G),'boss setup replays unchanged');
       }
       // Real winning logs for both prize types; settle through the normal match reader after reloading.
@@ -92,7 +92,7 @@ async function run(url) {
       for(const id of ['g5','g10']) {
         for(let attempt=0;attempt<20&&!fixtures[id];attempt++) {
           S.start(id);const r=JSON.parse(localStorage.getItem('gg-dys-m_evan'));
-          const G=B.newGame(r.seed,r.decks,r.v);r.log.forEach(([who,m])=>ok(B.play(G,who,m).ok,'saved setup'));
+          const G=B.newGame(r.seed,r.decks,r.v,r.chemistry,r.roundEnergy);r.log.forEach(([who,m])=>ok(B.play(G,who,m).ok,'saved setup'));
           for(let i=0;i<1200&&G.phase!=='over';i++) {
             const who=B.toMove(G), m=S.nextMove(G,who,who===0?'exp':Number(id.slice(1)));
             const got=B.play(G,who,m);ok(got.ok,'simulation legal: '+got.why);r.log.push([who,m]);
