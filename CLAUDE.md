@@ -390,6 +390,11 @@ indexes stay the cards' identity, so duplicates stay apart. New matches (solo an
 (`B.RULES_VERSION`): the turn's energy attaches itself as the turn starts (`autoEnergy`: the active player while it
 helps his signature play, else the bench player it brings nearest his; after a knockout, the one sent in). A v1-v3
 match keeps attaching by hand (Give energy on the lifted card).
+Deck piles (Nov 6 2026, Evan, with a Pokémon TCG Pocket screenshot: "place the rest of the players deck face down on the
+table"; the Rivals group via `tableOpen()`): `views/dynasty-battle.js` `deckPileHTML` lays each side's remaining deck on the
+felt as a stack of the printed back (`card-back-v1.webp`), yours right of your active player, theirs left of theirs, its edges
+thinning as it runs down and its count on a chip. Yours opens the deck sheet (contents, never the order) and replaces the old
+"in deck" button; theirs is a count only. Display only: no rules or save changes. `check-table.cjs` covers counts and the sheet.
 Solo is a 30-game ladder against the computer (Oct 30 2026, the owner: "focused on games against the cpu getting
 increasingly difficult. The beginning stage should be very easily ... around 15-20 games in there is a noticeable
 difference, where strategy must be applied to win"): `core/dynasty-solo.js` `STAGES` g1-g30 in six tiers, each won

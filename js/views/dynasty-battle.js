@@ -423,10 +423,10 @@ function draw(st) {
   const cpu = x.solo && x.opp.cpu;
   const kicker = cpu && cpu.n ? `GAME ${cpu.n} · ${cpu.tier.name.toUpperCase()}` : x.solo ? 'SOLO MATCH' : 'FRIEND MATCH';
   host.innerHTML = `<header class="db-top">${close}<div class="db-match-title"><small>${esc(kicker)}</small><b>${esc(x.opp.name)}</b></div><span class="db-score" aria-label="Score: you ${me.pts}, opponent ${op.pts}"><b>${me.pts}</b><i>:</i><b>${op.pts}</b><small>${G.v >= 6 ? 'KNOCKOUTS' : `First to ${B.WIN_POINTS}`}</small></span>${ui.iconButton({icon: 'list', label: 'Battle log and options', cls: 'db-more', attrs: 'data-db-more'})}</header>`
-    + `<div class="db-table">${enhanced ? `<div class="db-table-brand" aria-hidden="true">GRIDIRON <b>RIVALS</b></div><div class="db-turn-chip">${over ? 'FINAL' : x.state === 'setup' ? 'SET YOUR LINEUP' : x.state === 'theirs' ? 'OPPONENT’S TURN' : 'YOUR TURN'}</div>` : ''}<div class="db-opponent-hand" aria-label="${op.hand.length} cards in their hand · ${op.deck.length} in their deck">${Array.from({length: Math.min(op.hand.length, 8)}, () => enhanced ? '<button type="button" data-db-hidden aria-label="Opponent’s face-down card">R</button>' : '<span aria-hidden="true">R</span>').join('')}<small>${op.hand.length} in hand · ${op.deck.length} in deck</small></div>`
-    + `<section class="db-side is-opp" aria-label="${esc(x.opp.name)}’s players"><div class="db-row is-bench">${[0, 1, 2].map(i => theirs(op.bench[i], false)).join('')}</div><div class="db-row is-active">${theirs(op.active, true)}</div></section>`
+    + `<div class="db-table">${enhanced ? `<div class="db-table-brand" aria-hidden="true">GRIDIRON <b>RIVALS</b></div><div class="db-turn-chip">${over ? 'FINAL' : x.state === 'setup' ? 'SET YOUR LINEUP' : x.state === 'theirs' ? 'OPPONENT’S TURN' : 'YOUR TURN'}</div>` : ''}<div class="db-opponent-hand" aria-label="${op.hand.length} cards in their hand · ${op.deck.length} in their deck">${Array.from({length: Math.min(op.hand.length, 8)}, () => enhanced ? '<button type="button" data-db-hidden aria-label="Opponent’s face-down card">R</button>' : '<span aria-hidden="true">R</span>').join('')}<small>${enhanced ? `${op.hand.length} in hand` : `${op.hand.length} in hand · ${op.deck.length} in deck`}</small></div>`
+    + `<section class="db-side is-opp" aria-label="${esc(x.opp.name)}’s players"><div class="db-row is-bench">${[0, 1, 2].map(i => theirs(op.bench[i], false)).join('')}</div><div class="db-row is-active">${theirs(op.active, true)}${enhanced ? deckPileHTML(op.deck.length, false) : ''}</div></section>`
     + `<div class="db-mid" data-db-drop="play"><p class="db-status" aria-live="polite">${status}</p>${stadium}<button type="button" class="db-log" data-db-log aria-label="Open battle log">${log.map(l => `<span>${esc(l.t)}</span>`).join('') || (G.v >= 6 ? '<span>Lose three players and the match is over.</span>' : '<span>First to three touchdowns wins.</span>')}</button></div>`
-    + `<section class="db-side is-me" aria-label="Your players"><div class="db-row is-active">${mine(mySlots.active, true)}</div><div class="db-row is-bench">${[0, 1, 2].map(i => mine(mySlots.bench[i], false)).join('')}</div></section>${enhanced ? `<div class="db-table-bottom"><button data-db-table type="button">♧ ${esc(finish.name)}</button><button data-db-pile="deck" type="button">▤ ${me.deck.length} in deck</button><button data-db-pile="discard" type="button">${me.disc.length} discarded</button></div>` : ''}</div>`
+    + `<section class="db-side is-me" aria-label="Your players"><div class="db-row is-active">${mine(mySlots.active, true)}${enhanced ? deckPileHTML(me.deck.length, true) : ''}</div><div class="db-row is-bench">${[0, 1, 2].map(i => mine(mySlots.bench[i], false)).join('')}</div></section>${enhanced ? `<div class="db-table-bottom"><button data-db-table type="button">♧ ${esc(finish.name)}</button><button data-db-pile="discard" type="button">${me.disc.length} discarded</button></div>` : ''}</div>`
     + `<section class="db-hand-section" aria-label="Your hand: ${me.hand.length} cards, ${me.deck.length} in your deck"><div class="db-hand"><div class="db-hand-fan" style="--n:${Math.max(1, hand.length)}">${handHTML || `<span class="db-none">${x.state === 'setup' ? 'Every card is in your lineup' : 'No cards in hand'}</span>`}</div></div></section>`
     + `<footer class="db-bar">${barHTML(st, x, G, me, myMove, over, canAttack)}</footer>`;
   ui.hydrate(host);
@@ -599,6 +599,17 @@ function soloAgain(st, id) {
 
 function hiddenCard() {
   ui.openSheet({title: 'Opponent’s hand', body: '<p class="pk-note">These cards stay face down until played. Hold any player on the table to inspect their HP, energy and attacks.</p>', cls: 'pk-sheet', detents: ['fit']});
+}
+// The rest of each deck, face down on the felt beside its active player (Nov 6 2026, Evan: "place the rest of the
+// players deck face down on the table"): the printed back, a stack that thins as the deck runs down, and its count.
+// Yours opens the deck sheet (what's left, never the order); theirs is only a count.
+function deckPileHTML(n, mine) {
+  const layers = n ? Math.min(4, Math.ceil(n / 10)) : 0;
+  const body = `${Array.from({length: layers}, (_, k) => `<i style="--k:${layers - k}"></i>`).join('')}<span class="db-pile-top">${n ? '<img src="img/rivals/card-back-v1.webp" alt="" decoding="async" draggable="false">' : ''}</span><b>${n}</b>`;
+  const cls = `db-pile ${mine ? 'is-me' : 'is-opp'}${n ? '' : ' is-empty'}`;
+  return mine
+    ? `<button type="button" class="${cls}" data-db-pile="deck" aria-label="Your deck: ${n} card${n === 1 ? '' : 's'} left, face down">${body}</button>`
+    : `<div class="${cls}" role="img" aria-label="Their deck: ${n} card${n === 1 ? '' : 's'} left, face down">${body}</div>`;
 }
 function pileSheet(st, kind) {
   const side = st.x.G.p[st.x.you], ids = kind === 'deck' ? side.deck : side.disc, counts = {};

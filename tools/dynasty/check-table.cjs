@@ -150,6 +150,13 @@ async function browserTest(url) {
     await page.waitForSelector('.db-focus');assert.equal((await snapshot()).ev.length,rev);assert.equal(await page.locator('[data-db-attack]:not(:disabled)').count(),0);
     await page.waitForTimeout(600);await page.locator('.sheet.db-focus [data-sheet-close]').click();await page.waitForSelector('.sheet.db-focus',{state:'detached'});
     await page.screenshot({path:path.join(out,'table.png')});
+    // The rest of each deck lies face down on the felt beside its active player, with the real count; yours opens the deck list.
+    const piles=await snapshot(),pileDom=await page.evaluate(()=>[...document.querySelectorAll('.db-pile')].map(p=>({me:p.classList.contains('is-me'),n:Number(p.querySelector('b').textContent),back:!!p.querySelector('img[src*="card-back-v1"]'),inRow:!!p.closest('.db-row.is-active')})));
+    assert.deepEqual(pileDom,[{me:false,n:piles.p[1].deck.length,back:true,inRow:true},{me:true,n:piles.p[0].deck.length,back:true,inRow:true}],'face-down deck piles');
+    await page.locator('.db-pile.is-me').click();await page.waitForSelector('.sheet .rt-pile-card');
+    assert.match(await page.locator('.sheet .sheet-body').innerText(),new RegExp(piles.p[0].deck.length+' cards remaining'));
+    await page.locator('.sheet [data-sheet-close]').click();await page.waitForSelector('.sheet .rt-pile-card',{state:'detached'});
+    assert.deepEqual(await snapshot(),piles,'opening the deck changes nothing');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'no horizontal page overflow');
     const retained=await snapshot();await page.reload();await page.waitForSelector('.is-owner-table');assert.deepEqual(await snapshot(),retained,'exact saved match replay');
     // Finish unlocks and selection are saved, and failed opens do not advance packs.

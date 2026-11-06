@@ -376,3 +376,27 @@ html.is-dynasty-battle { --col-w: 640px; }
 .v-dynasty-battle .pk-sound-level { right: max(12px, calc((100% - 640px) / 2 + 12px)); }
 .v-dynasty-battle .pk-sound-menu { right: max(60px, calc((100% - 640px) / 2 + 60px)); }
 .v-dynasty-battle .pk-mini-player { right: max(12px, calc((100% - 640px) / 2 + 12px)); }
+
+/* The rest of each deck, face down on the felt (Nov 6 2026, Evan: "place the rest of the players deck face down on the
+   table"): yours to the right of your active player, theirs to the left of theirs, each centred in the space beside the
+   active card. The printed back on top, a few edges under it that thin as the deck runs down, and the count on a chip. */
+.v-dynasty-battle .is-owner-table .db-side .db-row.is-active { position: relative; align-self: stretch; }
+.v-dynasty-battle .db-pile {
+  --db-act-w: clamp(32px, min(calc(var(--db-fit) * 1.4), 100cqw), var(--db-active-max));
+  --db-pile-w: clamp(22px, min(calc(var(--db-fit) * .95), calc((100cqw - var(--db-act-w)) / 2 - 22px)), 70px);
+  --db-pile-gap: calc(((100cqw - var(--db-act-w)) / 2 - var(--db-pile-w)) / 2);
+  position: absolute; top: 50%; width: var(--db-pile-w); aspect-ratio: 63 / 88; padding: 0; border: 0; background: none;
+  color: inherit; transform: translateY(-50%) rotate(var(--db-pile-rot, 0deg)); -webkit-tap-highlight-color: transparent;
+}
+.v-dynasty-battle .db-pile.is-me { right: var(--db-pile-gap); --db-pile-rot: 4deg; cursor: pointer; }
+.v-dynasty-battle .db-pile.is-opp { left: var(--db-pile-gap); --db-pile-rot: -4deg; }
+.v-dynasty-battle .db-pile i { position: absolute; inset: 0; border: 1px solid #c9d8e6; border-radius: 5px; background: #20406f;
+  transform: translate(calc(var(--k) * 1.2px), calc(var(--k) * 1.6px)); box-shadow: 0 1px 2px #0006; }
+.v-dynasty-battle .db-pile-top { position: absolute; inset: 0; overflow: hidden; border: 1.5px solid #eef6ff; border-radius: 5px;
+  background: #1b3a6b; box-shadow: 0 3px 7px #0007; }
+.v-dynasty-battle .db-pile-top img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.v-dynasty-battle .db-pile.is-empty .db-pile-top { border: 1px dashed #eee0bb80; background: #ffffff0a; box-shadow: none; }
+.v-dynasty-battle .db-pile b { position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%); min-width: 22px; padding: 2px 6px;
+  border: 1px solid #eedca666; border-radius: 20px; background: #0b1d22e6; color: #f6edcf; font: 800 10px/1.2 var(--font-text); text-align: center; }
+.v-dynasty-battle .db-pile.is-me:active .db-pile-top { filter: brightness(1.12); }
+.v-dynasty-battle .db-pile:focus-visible { outline: 2px solid #f9e2ac; outline-offset: 5px; border-radius: 6px; }
