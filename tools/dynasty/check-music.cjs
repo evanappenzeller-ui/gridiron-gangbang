@@ -124,7 +124,11 @@ async function main() {
     await page.locator('[data-dy-music-menu]').focus(); await page.keyboard.press('Enter');
     await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).seek(30));
     await page.locator('.pk-mini-player [data-dy-music-skip]').click();
-    assert((await state()).position < 2, 'one-song queue skips back to its beginning');
+    assert((await state()).position < 2, 'skip starts the next song from its beginning');
+    assert.equal((await state()).track.id, 'praise-the-lord', 'skip moves to the next jukebox song');
+    await page.waitForFunction(() => document.querySelector('.pk-mini-player [data-mini-title]')?.textContent === 'Praise the Lord (Da Shine)');
+    await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).selectTrack('sundress'));
+    assert.equal((await state()).track.id, 'sundress');
     assert.equal((await state()).volume, 8, 'skip preserves the quiet default');
     assert.equal(await page.locator('.pk-mini-player:visible').count(), 1, 'skip keeps panel open');
     for (const [width,height] of [[320,568],[390,844],[768,1024]]) {
@@ -297,6 +301,8 @@ async function main() {
     await page.locator('.v-dynasty-battle [data-dy-music-menu]').click();
     await page.locator('.v-dynasty-battle [data-dy-music-skip]').click();
     assert.equal((await state()).enabled, false, 'skip preserves mute');
+    assert.match(await page.evaluate(() => mediaProbes[0].src), /cyber-funkwave-v1-02\.mp3$/, 'skip in a battle moves on to the next part of the mix');
+    assert.equal((await state()).track.id, 'battle');
     await page.locator('.db-match-title').click();
     assert.equal(await page.locator('.pk-mini-player:visible').count(), 0, 'outside tap closes panel');
     await battleSound.click(); await playing();
@@ -315,10 +321,12 @@ async function main() {
     assert.equal(await page.locator('[data-dy-music-track="battle"][aria-pressed="true"]').count(), 1);
     assert.equal(await page.locator('[data-dy-music-title]').innerText(), 'Cyber Funkwave');
     await page.waitForTimeout(800); await page.screenshot({path: path.join(root, 'output/rivals-music/battle-settings-390.png')});
+    const mixWas = await page.evaluate(() => ({src: mediaProbes[0].src, at: mediaProbes[0].currentTime}));
     await page.locator('[data-dy-music-track="troy"]').click(); await playing();
     assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /\/audio\/rivals\/troy-v1\.mp3$/, 'a song picked in battle plays');
     await page.locator('[data-dy-music-track="battle"]').click(); await playing();
-    assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /cyber-funkwave-v1-01\.mp3$/, 'and the mix comes back where it was');
+    const mixNow = await page.evaluate(() => ({src: mediaProbes[0].src, at: mediaProbes[0].currentTime}));
+    assert(mixNow.src === mixWas.src && mixNow.at >= mixWas.at - .5, 'and the mix comes back where it was: ' + JSON.stringify({mixWas, mixNow}));
     await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
     assert(await page.evaluate(() => mediaProbes[0].currentTime) >= hubAt - .5, 'the menu song carries on from where the battle interrupted it');
     await close();

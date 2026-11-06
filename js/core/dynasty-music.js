@@ -172,10 +172,11 @@ function load(force = false) {
   jump(next.at);
   updateMetadata();
 }
+// Before a new source's metadata loads, setting currentTime sets where it starts (its default playback start position),
+// so it never plays from 0 first. Browsers without that get the seek once the metadata arrives.
 function jump(at) {
-  seekTo = null;
-  if (media.readyState >= 1) { try { media.currentTime = at; } catch (_) {} }
-  else if (at > 0) seekTo = at;
+  seekTo = media.readyState < 1 && at > 0 ? at : null;
+  try { media.currentTime = at; } catch (_) {}
 }
 // A battle view that becomes visible for the first time rolls a new start in the mix.
 function checkScene() {
@@ -239,7 +240,7 @@ export function start() {
       media.addEventListener('loadedmetadata', () => {
         if (seekTo == null) return;
         const at = seekTo; seekTo = null;
-        try { media.currentTime = Math.min(at, Math.max(0, (media.duration || at) - 1)); } catch (_) {}
+        if (Math.abs(media.currentTime - at) > .5) { try { media.currentTime = Math.min(at, Math.max(0, (media.duration || at) - 1)); } catch (_) {} }
       });
       media.addEventListener('ended', () => {
         const part = partOf(loaded);
