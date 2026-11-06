@@ -89,6 +89,12 @@ async function main() {
     await nav('/puzzles/dynasty'); await page.waitForSelector('.pk-start.is-ready');
     assert.equal(await page.evaluate(() => audioProbes.length), 0, 'no audio context or autoplay before interaction');
     assert.equal(trackRequests.length, 0, 'no MP3 download before interaction');
+    await page.locator('[data-dy-music-menu]').click();
+    assert.equal(await page.locator('.pk-mini-player:visible [data-mini-title]').innerText(), 'Sundress');
+    assert.equal(await page.locator('.pk-mini-player:visible [data-mini-artist]').innerText(), 'A$AP Rocky');
+    assert.equal(trackRequests.length, 0, 'opening song controls does not start playback');
+    await page.locator('[data-dy-music-menu]').click();
+    assert.equal(await page.locator('.pk-mini-player:visible').count(), 0);
     await page.locator('[data-dy-sound]').click();
     assert.equal((await state()).enabled, false, 'corner mute saves the same preference as Settings');
     assert.equal(trackRequests.length, 0, 'muting on the title never briefly starts the track');
@@ -99,11 +105,13 @@ async function main() {
     for (const [width, height] of [[320,568], [390,844], [768,1024], [1280,800]]) {
       await page.setViewportSize({width,height});
       const button = await page.locator('[data-dy-sound]').boundingBox();
+      const chevron = await page.locator('[data-dy-music-menu]').boundingBox();
+      assert(chevron.x >= 0 && chevron.x + chevron.width <= button.x, 'chevron sits beside speaker');
       assert(button.width >= 44 && button.height >= 44 && button.x >= 0 && button.x + button.width <= width);
       assert(button.y >= 0 && button.y + button.height <= height);
       for (const tab of await page.locator('.pk-nav button').all()) {
         const box = await tab.boundingBox();
-        assert(box.x + box.width <= button.x, 'speaker clears bottom navigation');
+        assert(box.x + box.width <= chevron.x, 'song controls clear bottom navigation');
       }
     }
     await page.setViewportSize({width:390,height:844});
@@ -111,7 +119,25 @@ async function main() {
     await page.locator('[data-dy-sound]').click(); await silent();
     assert.equal(await page.locator('[data-dy-sound]').getAttribute('aria-label'), 'Unmute sound');
     await page.locator('[data-dy-sound]').focus(); await page.keyboard.press('Space'); await playing();
+    await page.locator('[data-dy-music-menu]').focus(); await page.keyboard.press('Enter');
+    await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).seek(30));
+    await page.locator('.pk-mini-player [data-dy-music-skip]').click();
+    assert((await state()).position < 2, 'one-song queue skips back to its beginning');
+    assert.equal((await state()).volume, 35, 'skip preserves volume');
+    assert.equal(await page.locator('.pk-mini-player:visible').count(), 1, 'skip keeps panel open');
+    for (const [width,height] of [[320,568],[390,844],[768,1024]]) {
+      await page.setViewportSize({width,height});
+      const panel = await page.locator('.pk-mini-player:visible').boundingBox();
+      assert(panel.x >= 0 && panel.y >= 0 && panel.x + panel.width <= width && panel.y + panel.height <= height);
+      if (process.env.SOUND_SHOTS && width < 400) await page.screenshot({path:path.join(process.env.SOUND_SHOTS,`song-panel-${width}.png`)});
+    }
+    await page.setViewportSize({width:390,height:844});
+    await page.locator('[data-dy-music-skip]').focus(); await page.keyboard.press('Escape');
+    assert.equal(await page.locator('.pk-mini-player:visible').count(), 0);
+    assert.equal(await page.locator('[data-dy-music-menu]').evaluate(b => b === document.activeElement), true);
+    await page.locator('[data-dy-music-menu]').click();
     const held = await holdVolume('[data-dy-sound]');
+    assert.equal(await page.locator('.pk-mini-player:visible').count(), 0, 'volume gesture dismisses song panel');
     const initial = (await state()).volume;
     await held.send('touchMove', {x:held.point.x - 30, y:held.point.y});
     await level(initial - 20);
@@ -231,16 +257,22 @@ async function main() {
     for (const [width,height] of [[320,568],[390,844],[768,1024]]) {
       await page.setViewportSize({width,height});
       const sound = await battleSound.boundingBox();
+      const menu = await page.locator('.v-dynasty-battle [data-dy-music-menu]').boundingBox();
       assert(sound.y >= 0 && sound.y + sound.height <= height && sound.x + sound.width <= width);
       const bar = page.locator('.db-bar');
       for (const action of await bar.locator('button').all()) {
         const b = await action.boundingBox();
-        assert(!b || b.x + b.width <= sound.x || b.y + b.height <= sound.y || b.y >= sound.y + sound.height, 'sound does not cover battle actions');
+        assert(!b || b.x + b.width <= menu.x || b.y + b.height <= sound.y || b.y >= sound.y + sound.height, 'sound does not cover battle actions');
       }
     }
     await page.setViewportSize({width:390,height:844});
     if (process.env.SOUND_SHOTS) await page.screenshot({path:path.join(process.env.SOUND_SHOTS,'battle.png')});
     await battleSound.click(); await silent();
+    await page.locator('.v-dynasty-battle [data-dy-music-menu]').click();
+    await page.locator('.v-dynasty-battle [data-dy-music-skip]').click();
+    assert.equal((await state()).enabled, false, 'skip preserves mute');
+    await page.locator('.db-match-title').click();
+    assert.equal(await page.locator('.pk-mini-player:visible').count(), 0, 'outside tap closes panel');
     await battleSound.click(); await playing();
     const battleHold = await holdVolume('.v-dynasty-battle [data-dy-sound]');
     await battleHold.send('touchMove', {x:battleHold.point.x, y:battleHold.point.y - 180});
@@ -263,6 +295,7 @@ async function main() {
     await page.evaluate(async () => (await import('/js/core/data.js')).setGuest('Ryan Stewart'));
     await silent(); await page.waitForFunction(() => !document.querySelector('[data-dy-music-toggle]'));
     assert.equal(await page.locator('[data-dy-sound]').count(), 0, 'profile change removes every corner control');
+    assert.equal(await page.locator('[data-dy-music-menu], .pk-mini-player').count(), 0, 'profile change removes song controls');
     assert.equal(await page.evaluate(() => navigator.audioSession.type),'ambient');
     assert.equal(await page.evaluate(() => Object.values(mediaHandlers).every(fn => fn === null)),true,'profile change clears native actions');
     await page.evaluate(async () => { const m = await import('/js/core/dynasty-music.js'); m.setEnabled(true); m.start(); });

@@ -151,6 +151,17 @@ export function seek(seconds) {
   try { media.currentTime = Math.max(0, Math.min(duration, Number(seconds))); } catch (_) {}
   notify();
 }
+export function skipTrack() {
+  if (!data.isOwner() || !visible()) return;
+  const next = TRACKS[(TRACKS.findIndex(t => t.id === selected) + 1) % TRACKS.length];
+  halt(true);
+  if (selected !== next.id) {
+    selected = next.id;
+    if (media) media.src = next.url;
+    updateMetadata();
+  }
+  save(); start();
+}
 function save() { try { localStorage.setItem(KEY, JSON.stringify({enabled, volume, track: selected})); } catch (_) {} }
 const visibility = () => sync();
 const pageHide = () => { away = true; halt(); };
@@ -173,7 +184,7 @@ export function attach(el, isVisible = true) {
   }
   const gesture = e => {
     if (!client.visible || !e.isTrusted || (e.type === 'keydown' && !['Enter', ' '].includes(e.key))) return;
-    if (e.target.closest('[data-dy-exit], [data-back], [data-dy-sound]')) return;
+    if (e.target.closest('[data-dy-exit], [data-back], [data-dy-sound], [data-dy-music-menu], [data-dy-music-skip]')) return;
     start();
   };
   el.addEventListener('click', gesture, true); el.addEventListener('keydown', gesture, true);

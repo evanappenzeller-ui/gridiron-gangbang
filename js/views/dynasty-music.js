@@ -8,6 +8,12 @@ let volumeId = 0;
 export function attachMusic(el, isVisible = true) {
   const transport = music.attach(el, isVisible);
   let button = null, bar = null, visible = isVisible, press = null, holdTimer = 0, suppressClick = false;
+  let chevron = null, player = null;
+  const closePlayer = () => {
+    if (player) player.hidden = true;
+    chevron?.setAttribute('aria-expanded', 'false');
+    chevron?.setAttribute('aria-label', 'Show song controls');
+  };
   const closeVolume = () => {
     clearTimeout(holdTimer);
     const pointer = press?.id; press = null;
@@ -18,6 +24,7 @@ export function attachMusic(el, isVisible = true) {
   const cancelVolume = () => { if (press) suppressClick = true; closeVolume(); };
   const openVolume = () => {
     if (!visible || !data.isOwner() || !bar) return;
+    closePlayer();
     bar.hidden = false; button.setAttribute('aria-expanded', 'true');
   };
   const setLevel = value => {
@@ -26,7 +33,8 @@ export function attachMusic(el, isVisible = true) {
   };
   const draw = () => {
     if (!data.isOwner()) {
-      cancelVolume(); button?.remove(); bar?.remove(); button = bar = null;
+      cancelVolume(); closePlayer(); button?.remove(); bar?.remove(); chevron?.remove(); player?.remove();
+      button = bar = chevron = player = null;
       el.classList.remove('has-rivals-sound'); return;
     }
     if (!button) {
@@ -37,6 +45,24 @@ export function attachMusic(el, isVisible = true) {
       bar.id = `rivals-volume-${++volumeId}`;
       bar.innerHTML = '<span>Volume <output></output></span><div class="pk-sound-track" role="meter" aria-label="Sound level" aria-valuemin="0" aria-valuemax="100"><i></i></div>';
       button.setAttribute('aria-controls', bar.id); button.setAttribute('aria-expanded', 'false');
+      chevron = document.createElement('button'); chevron.type = 'button'; chevron.className = 'pk-sound-menu';
+      chevron.dataset.dyMusicMenu = ''; chevron.setAttribute('aria-label', 'Show song controls');
+      chevron.setAttribute('aria-expanded', 'false'); chevron.setAttribute('aria-controls', `rivals-player-${volumeId}`);
+      chevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>';
+      player = document.createElement('section'); player.className = 'pk-mini-player'; player.id = `rivals-player-${volumeId}`;
+      player.hidden = true; player.setAttribute('aria-label', 'Song controls');
+      player.innerHTML = '<div class="pk-mini-song"><small data-mini-status></small><b data-mini-title></b><span data-mini-artist></span></div><button type="button" data-dy-music-skip aria-label="Skip song" title="Skip song"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 4v16l11-8zM17 4h3v16h-3z"/></svg></button>';
+      chevron.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!visible || !data.isOwner()) return;
+        if (!player.hidden) { closePlayer(); return; }
+        cancelVolume(); player.hidden = false;
+        chevron.setAttribute('aria-expanded', 'true'); chevron.setAttribute('aria-label', 'Hide song controls');
+      });
+      player.addEventListener('click', e => {
+        e.stopPropagation();
+        if (visible && data.isOwner() && e.target.closest('[data-dy-music-skip]')) music.skipTrack();
+      });
       button.addEventListener('pointerdown', e => {
         if (!e.isPrimary || e.button !== 0 || !visible || !data.isOwner()) return;
         cancelVolume(); suppressClick = false;
@@ -80,11 +106,12 @@ export function attachMusic(el, isVisible = true) {
         if (!on && !s.volume) music.setVolume(35);
         music.setEnabled(!on);
       });
-      el.append(button, bar); el.classList.add('has-rivals-sound');
+      el.append(button, bar, chevron, player); el.classList.add('has-rivals-sound');
     }
     const s = music.state(), on = s.enabled && s.volume > 0;
     const label = !s.supported ? 'Sound unavailable' : on ? 'Mute sound' : 'Unmute sound';
     button.hidden = !visible;
+    chevron.hidden = !visible;
     button.disabled = !s.supported;
     button.setAttribute('aria-label', label); button.title = label;
     button.setAttribute('aria-description', `Volume ${s.volume}%. Hold and drag right or up to raise volume, left or down to lower it. Arrow keys also adjust volume.`);
@@ -94,17 +121,31 @@ export function attachMusic(el, isVisible = true) {
     bar.querySelector('output').textContent = s.volume + '%';
     bar.querySelector('[role="meter"]').setAttribute('aria-valuenow', s.volume);
     bar.querySelector('i').style.width = s.volume + '%';
+    player.querySelector('[data-mini-title]').textContent = s.track.title;
+    player.querySelector('[data-mini-artist]').textContent = s.track.artist;
+    player.querySelector('[data-mini-status]').textContent = s.playing ? 'NOW PLAYING' : s.loading ? 'LOADING' : 'SELECTED SONG';
+    player.querySelector('[data-dy-music-skip]').disabled = !s.supported;
   };
-  const onVisibility = () => { if (document.hidden) cancelVolume(); };
+  const onOutside = e => { if (player && !player.hidden && !player.contains(e.target) && !chevron.contains(e.target)) closePlayer(); };
+  const onEscape = e => {
+    if (e.key !== 'Escape' || !player || player.hidden) return;
+    const focused = player.contains(document.activeElement); closePlayer();
+    if (focused) chevron.focus({preventScroll: true});
+    e.stopPropagation();
+  };
+  const onVisibility = () => { if (document.hidden) { cancelVolume(); closePlayer(); } };
+  document.addEventListener('pointerdown', onOutside, true);
+  document.addEventListener('keydown', onEscape, true);
   addEventListener('blur', cancelVolume);
   document.addEventListener('visibilitychange', onVisibility);
   const offMusic = music.subscribe(draw);
   const offProfile = data.subscribe(type => { if (type === 'me') draw(); });
   draw();
   return {
-    visible(value) { visible = !!value; if (!visible) cancelVolume(); transport.visible(value); draw(); },
+    visible(value) { visible = !!value; if (!visible) { cancelVolume(); closePlayer(); } transport.visible(value); draw(); },
     stop() {
-      cancelVolume(); offMusic(); offProfile(); button?.remove(); bar?.remove();
+      cancelVolume(); closePlayer(); offMusic(); offProfile(); button?.remove(); bar?.remove(); chevron?.remove(); player?.remove();
+      document.removeEventListener('pointerdown', onOutside, true); document.removeEventListener('keydown', onEscape, true);
       removeEventListener('blur', cancelVolume); document.removeEventListener('visibilitychange', onVisibility);
       el.classList.remove('has-rivals-sound'); transport.stop();
     }
