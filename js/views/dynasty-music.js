@@ -7,8 +7,9 @@ const time = seconds => { const n = Math.max(0, Math.floor(seconds || 0)); retur
 let volumeId = 0;
 
 // Keep the corner control outside panes that are replaced during navigation/battle updates.
-export function attachMusic(el, isVisible = true) {
-  const transport = music.attach(el, isVisible);
+// kind 'battle' (the battle view) plays the battle mix; see core/dynasty-music.js.
+export function attachMusic(el, isVisible = true, kind = 'hub') {
+  const transport = music.attach(el, isVisible, kind);
   let button = null, bar = null, visible = isVisible, press = null, holdTimer = 0, suppressClick = false;
   let chevron = null, player = null;
   const closePlayer = () => {
@@ -154,9 +155,13 @@ export function attachMusic(el, isVisible = true) {
   };
 }
 
+// A jukebox row. In a battle the battle mix heads the list, so a song picked there can be swapped back for it.
+const row = (id, title, sub) => `<li><button type="button" data-dy-music-track="${data.esc(id)}" aria-pressed="false"><span class="pk-juke-note" aria-hidden="true">♪</span><span><b>${data.esc(title)}</b><small>${data.esc(sub)}</small></span><span class="pk-juke-selected" data-dy-track-state></span></button></li>`;
+
 export function musicSheet() {
   if (!rivalsUpdated()) return;
   let offMusic, offSfx, offProfile, scrubbing = false;
+  const battle = music.state().battle, mix = music.BATTLE;
   const sh = ui.openSheet({title: 'Settings', cls: 'pk-sheet', detents: ['fit'],
     body: `<div class="pk-music">
       <div class="pk-juke-now"><span class="pk-juke-disc" aria-hidden="true">♪</span><div><small data-dy-music-now>NOW PLAYING</small><h3 data-dy-music-title></h3><p data-dy-music-artist></p></div></div>
@@ -168,7 +173,7 @@ export function musicSheet() {
         <input data-dy-music-volume type="range" min="0" max="100" step="1" aria-label="Music volume">
       </label><p class="pk-note pk-music-phone">Use your phone’s volume buttons for overall volume.</p>
       <section class="pk-juke" aria-label="Jukebox"><div class="pk-juke-heading"><h3>Jukebox</h3><span>${music.TRACKS.length} ${music.TRACKS.length === 1 ? 'song' : 'songs'}</span></div>
-        <ul>${music.TRACKS.map(t => `<li><button type="button" data-dy-music-track="${data.esc(t.id)}" aria-pressed="false"><span class="pk-juke-note" aria-hidden="true">♪</span><span><b>${data.esc(t.title)}</b><small>${data.esc(t.artist)}</small></span><span class="pk-juke-selected" data-dy-track-state></span></button></li>`).join('')}</ul>
+        <ul>${battle ? row(mix.id, mix.title, 'Battle music · ' + mix.artist) : ''}${music.TRACKS.map(t => row(t.id, t.title, t.artist)).join('')}</ul>
       </section><p class="pk-note" data-dy-music-status role="status"></p></div>
       <section class="pk-sfx" aria-label="Sound effects"><h3>Sound effects</h3>
         <button type="button" class="pk-btn" data-dy-sfx-toggle aria-pressed="true">Mute effects</button>
@@ -206,7 +211,7 @@ export function musicSheet() {
     range.value = s.volume; range.disabled = !s.supported;
     sh.body.querySelector('[data-dy-music-value]').textContent = s.volume + '%';
     const status = !s.supported ? 'Music is unavailable in this browser.'
-      : !s.enabled ? 'Music is paused.' : s.failure || (!s.volume ? 'Music level is muted.' : s.playing ? 'Loops automatically · pauses when you leave Rivals.' : s.loading ? 'Loading track…' : 'Ready · starts with your next tap in Rivals.');
+      : !s.enabled ? 'Music is paused.' : s.failure || (!s.volume ? 'Music level is muted.' : s.playing ? (s.track.id === mix.id ? 'Battle music · plays on through the mix · pauses when you leave Rivals.' : 'Loops automatically · pauses when you leave Rivals.') : s.loading ? 'Loading track…' : 'Ready · starts with your next tap in Rivals.');
     const statusEl = sh.body.querySelector('[data-dy-music-status]');
     if (statusEl.textContent !== status) statusEl.textContent = status;
   };
@@ -227,4 +232,7 @@ export function musicSheet() {
   offSfx = sfx.subscribe(draw);
   offProfile = data.subscribe(type => { if (type === 'me') sh.close(); });
   draw();
+  // Open the jukebox's scrolling list at the song that is playing.
+  const list = sh.body.querySelector('.pk-juke ul'), on = list.querySelector('[aria-pressed="true"]');
+  if (on) list.scrollTop = Math.max(0, on.getBoundingClientRect().top - list.getBoundingClientRect().top - 6);
 }

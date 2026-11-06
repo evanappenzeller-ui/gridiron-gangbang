@@ -203,19 +203,26 @@ async function main() {
     await page.evaluate(() => mediaHandlers.play()); await playing();
     await page.locator('[data-dy-music-toggle]').click(); await silent();
     await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
+    assert.equal(await page.locator('[data-dy-music-track]').count(), 31, 'the menu jukebox lists the 31 songs, not the battle mix');
+    await page.locator('[data-dy-music-track="lpfj2"]').click(); await playing();
+    assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /\/audio\/rivals\/lpfj2-v1\.mp3$/);
+    assert.equal(await page.locator('[data-dy-music-title]').innerText(), 'Lord Pretty Flacko Jodye 2');
+    assert.equal(await page.evaluate(() => navigator.mediaSession.metadata.title), 'Lord Pretty Flacko Jodye 2');
+    await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
+    assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /\/audio\/rivals\/sundress-v1\.mp3$/);
     console.log('PASS: named jukebox, track selection, seek/restart, native play/pause/seek and playback audio-session type');
     await page.locator('[data-dy-music-volume]').fill('62');
     assert.equal((await state()).volume, 62);
     for (const width of [320, 390, 768]) {
       await page.setViewportSize({width, height: 844});
-      const fits = await page.locator('.pk-music').evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; });
-      assert(fits, `settings fit at ${width}px`);
+      const box = await page.locator('.pk-music').evaluate(el => { const r = el.getBoundingClientRect(); return {fits: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight, top: Math.round(r.top), bottom: Math.round(r.bottom), list: Math.round(el.querySelector('.pk-juke ul').getBoundingClientRect().height)}; });
+      assert(box.fits, `settings fit at ${width}px: ` + JSON.stringify(box));
     }
     fs.mkdirSync(path.join(root, 'output/rivals-music'), {recursive: true});
     await page.setViewportSize({width:320,height:568});
-    for (const selector of ['[data-dy-music-toggle]','[data-dy-music-seek]','[data-dy-music-volume]','[data-dy-music-track]']) {
-      await page.locator(selector).scrollIntoViewIfNeeded();
-      const r=await page.locator(selector).boundingBox(); assert(r.x>=0 && r.x+r.width<=321 && r.y>=0 && r.y+r.height<=569, 'compact phone can reach '+selector);
+    for (const selector of ['[data-dy-music-toggle]','[data-dy-music-seek]','[data-dy-music-volume]','[data-dy-music-track]','[data-dy-music-track]:last-of-type >> nth=-1']) {
+      await page.locator(selector).first().scrollIntoViewIfNeeded();
+      const r=await page.locator(selector).first().boundingBox(); assert(r.x>=0 && r.x+r.width<=321 && r.y>=0 && r.y+r.height<=569, 'compact phone can reach '+selector);
     }
     await page.screenshot({path:path.join(root,'output/rivals-music/settings-320.png')});
     await page.setViewportSize({width: 390, height: 844});
@@ -255,7 +262,22 @@ async function main() {
       const s = D.mine(); D.CARDS.forEach(c => s.o[c.id] = 2); Object.keys(B.TRAINERS).forEach(id => s.o[id] = 2);
       s.dk = D.autoDeck(s.o); D.touch(); const r = S.start('g1'); if (!r.ok) throw Error(r.why); return r.mid;
     });
+    // A battle starts the battle mix at a random spot: half way through the 38:45 mix is part 4, 276.5 s in.
+    const hubAt = await page.evaluate(() => mediaProbes[0].currentTime);
+    await page.evaluate(() => { window.realRandom = Math.random; Math.random = () => .5; });
     await nav('/puzzles/dynasty/battle/' + mid); await playing();
+    await page.evaluate(() => { Math.random = window.realRandom; });
+    const mixAt = await page.evaluate(async () => { const s = (await import('/js/core/dynasty-music.js')).state(); return {src: mediaProbes[0].currentSrc, at: mediaProbes[0].currentTime, id: s.track.id, position: s.position, duration: s.duration, title: navigator.mediaSession.metadata.title}; });
+    assert.match(mixAt.src, /\/audio\/rivals\/cyber-funkwave-v1-04\.mp3$/, 'battle plays the mix: ' + JSON.stringify(mixAt));
+    assert(mixAt.at > 276 && mixAt.at < 290, 'the mix starts at the random spot: ' + JSON.stringify(mixAt));
+    assert(Math.abs(mixAt.duration - 2324.9) < 1 && mixAt.position > 1162 && mixAt.id === 'battle' && mixAt.title === 'Cyber Funkwave', JSON.stringify(mixAt));
+    // A part's end leads into the next; the last part leads back into the first.
+    await page.evaluate(() => { mediaProbes[0].currentTime = mediaProbes[0].duration - .3; });
+    await page.waitForFunction(() => /cyber-funkwave-v1-05\.mp3$/.test(mediaProbes[0].currentSrc) && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5);
+    await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).seek(2324.4));
+    await page.waitForFunction(() => /cyber-funkwave-v1-01\.mp3$/.test(mediaProbes[0].currentSrc) && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5);
+    await playing();
+    console.log('PASS: battle mix from a random spot, part to part and back to the start');
     await page.waitForFunction(() => !document.querySelector('[data-db-skip]'), null, {timeout: 15000});
     const battleSound = page.locator('.v-dynasty-battle [data-dy-sound]');
     for (const [width,height] of [[320,568],[390,844],[768,1024]]) {
@@ -288,8 +310,21 @@ async function main() {
     await battleHold.send('touchEnd'); await silent();
     await battleSound.click(); await playing();
     await page.locator('[data-db-more]').click(); await page.getByRole('button', {name: 'Settings', exact: true}).click();
-    await page.waitForSelector('[data-dy-music-toggle]'); await close();
+    await page.waitForSelector('[data-dy-music-toggle]');
+    assert.equal(await page.locator('[data-dy-music-track]').count(), 32, 'the battle jukebox heads with the mix');
+    assert.equal(await page.locator('[data-dy-music-track="battle"][aria-pressed="true"]').count(), 1);
+    assert.equal(await page.locator('[data-dy-music-title]').innerText(), 'Cyber Funkwave');
+    await page.waitForTimeout(800); await page.screenshot({path: path.join(root, 'output/rivals-music/battle-settings-390.png')});
+    await page.locator('[data-dy-music-track="troy"]').click(); await playing();
+    assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /\/audio\/rivals\/troy-v1\.mp3$/, 'a song picked in battle plays');
+    await page.locator('[data-dy-music-track="battle"]').click(); await playing();
+    assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /cyber-funkwave-v1-01\.mp3$/, 'and the mix comes back where it was');
+    await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
+    assert(await page.evaluate(() => mediaProbes[0].currentTime) >= hubAt - .5, 'the menu song carries on from where the battle interrupted it');
+    await close();
     await page.goBack(); await page.waitForSelector('.pk-hdr'); await playing();
+    assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /\/audio\/rivals\/sundress-v1\.mp3$/, 'the menus play the picked song');
+    console.log('PASS: battle jukebox: pick a song, back to the mix, menu song resumes');
     assert.equal(await page.evaluate(() => audioProbes.length), 1, 'hub/battle/back share transport');
     await nav('/puzzles'); await silent();
     assert.equal((await state()).playing, false);

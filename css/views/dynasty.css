@@ -754,7 +754,7 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 .pk-sheet .pk-juke-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .pk-sheet .pk-juke-heading h3 { margin: 0; font-size: 17px; }
 .pk-sheet .pk-juke-heading > span { color: var(--ink-2); font-size: 12px; }
-.pk-sheet .pk-juke ul { list-style: none; padding: 0; margin: 0; }
+.pk-sheet .pk-juke ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; max-height: 30vh; overflow-y: auto; overscroll-behavior: contain; }
 .pk-sheet .pk-juke button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 64px; padding: 10px 12px; border: 1px solid var(--separator); border-radius: 12px; text-align: left; color: var(--ink); background: var(--surface-2); }
 .pk-sheet .pk-juke button[aria-pressed="true"] { border-color: var(--tint); }
 .pk-sheet .pk-juke button b, .pk-sheet .pk-juke button small { display: block; }

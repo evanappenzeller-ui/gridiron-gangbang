@@ -57,6 +57,20 @@ for offline playback. Other profiles keep their existing silent game and menus a
 Verify `node tools/dynasty/check-music.cjs`, `node tools/dynasty/check-music-cache.cjs --browser`, the title-screen browser
 check and the stylesheet scope check.
 
+Jukebox and battle music (November 5, 2026, Evan sent YouTube links: "insert songs into rivals game", "add these songs
+after", and for the first of his list "use this one for music while in battles, music should start at random times in the
+song", then a second list: "import these songs as well"). `TRACKS` holds 31 songs in his lists' order after Sundress
+(`audio/rivals/<id>-v1.mp3`, 160 kbps MP3 made with yt-dlp);
+the menus loop the picked song and the Settings list scrolls (opening at the playing song). Battles
+(`attach(el, visible, 'battle')`) play Cyber Funkwave (Funkonaut Sound). Its two-hour video is one 38:45 playlist looped
+three times, so one pass is kept, cut at the gaps between its tunes into seven parts (`cyber-funkwave-v1-01…07.mp3`,
+128 kbps; lengths in `PARTS`), because the service worker caches a whole file before serving it: a phone fetches only the
+part that plays. Each new battle view starts the mix at a random spot; parts follow on, the last leading back to the first;
+returning to the same battle carries on. In a battle the Settings jukebox heads with the mix; a song picked there plays for
+the rest of that battle (and becomes the menu song), and a song the mix interrupted resumes where it was. To add a song: put
+`<id>-v1.mp3` in audio/rivals and a `song()` line in `TRACKS`; changed audio gets a new version number.
+`check-music.cjs` covers the 31-song jukebox, the random start, part chaining and the battle jukebox.
+
 ## Rivals deck shelf (November 5, 2026)
 
 The owner shelf now includes 16 additional recipes: eight position groups and eight attribute themes (Gunslinger
