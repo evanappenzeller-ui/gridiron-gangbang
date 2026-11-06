@@ -27,3 +27,14 @@ ordinary guests and other app users retain their previous shelf. `features.dynas
 Profile changes close the case and cancel pending launches. This uses the existing local profile
 selection, not verified per-person authentication. Preserve owner tools, pack/coin privileges and saves.
 Verify `node --experimental-vm-modules tools/dynasty/check-preview.cjs` and the existing access checks.
+
+## Standing Rivals updates (November 5, 2026)
+
+Evan explicitly authorized the updated Rivals game and all future Rivals updates for Evan (`evan`),
+Jayton Hull (`jayton`), Ryan Stewart (`ryan-stewart`, Ryan S), and Ryan Younggreen
+(`ryan-younggreen`, Ryan Y). Use `features.rivalsUpdated()` for Rivals gameplay/presentation,
+including Home, card table, deck shelf, boss ladder, pack art/reveals, music and sound effects.
+This supersedes Rivals-specific owner-only pilot restrictions. Keep other apps, owner/admin tools,
+and individual pack/coin privileges unchanged. Preserve saves and old match versions. Audio
+preferences belong to each stable profile key; Evan's existing audio preferences remain intact.
+Future Rivals changes go to this four-account group by default unless Evan specifies otherwise.

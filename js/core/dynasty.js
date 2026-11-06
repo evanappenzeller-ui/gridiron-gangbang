@@ -32,7 +32,7 @@ import * as daily from './daily.js';
 import * as data from './data.js';
 import {profileKey, visitWho} from './realm-active.js';
 import * as B from './dynasty-battle.js';
-import {dynastyOpen, dynastyKey, packsUnlimited, coinsUnlimited} from './features.js';
+import {dynastyOpen, dynastyKey, packsUnlimited, coinsUnlimited, rivalsUpdated} from './features.js';
 import {REAL} from './dynasty-real.js';
 import {ACTION} from './dynasty-action.js';
 
@@ -793,7 +793,7 @@ export function open(kind, {team = null, free = unlimited()} = {}, s = mine()) {
   s.lp = [...ids.slice().reverse(), ...s.lp].slice(0, 24);
   // (the Starter Pack's players make a deck that isn't ready: a new Dynasty's first)
   if (PACKS[kind].starter && !B.checkDeck(s.dk, s.o).ok) s.dk = autoDeck(s.o);
-  if (data.isOwner()) { s.table = TABLE.clean(s.table); s.table.packs++; }
+  if (rivalsUpdated()) { s.table = TABLE.clean(s.table); s.table.packs++; }
   touch('open');
   return {ok: true, cards: ids, dup};
 }
@@ -884,7 +884,7 @@ export const ladderPay = n => ({coins: 100 + 10 * n, first: LADDER_PACKS[n] || n
 // Stable featured players: every fifth battle fields an Epic-or-better boss.
 export const SOLO_BOSSES = Object.freeze({g5: 'L0036322', g10: 'G1-0032764', g15: 'L0036900',
   g20: 'Xjjwatt', g25: 'Xbarrysanders', g30: 'Xtombrady'});
-export const bossLadderOpen = () => data.isOwner();
+export const bossLadderOpen = () => rivalsUpdated();
 export function soloBoss(id) {
   if (!bossLadderOpen()) return null;
   const cid = SOLO_BOSSES[id], c = card(ALIAS.get(cid) || cid);
@@ -953,8 +953,8 @@ export function others(docs = daily.LB.raw || [], {withMe = false} = {}) {
   return out.sort((a, b) => b.tr - a.tr || b.cards - a.cards || a.name.localeCompare(b.name));
 }
 
-// Owner-only solo table loadout and cosmetics. Collection and friend deck stay intact.
-export const tableOpen = () => data.isOwner();
+// Shared Rivals solo table loadout and cosmetics. Collection and friend deck stay intact.
+export const tableOpen = () => rivalsUpdated();
 export const tableDeck = (s = mine()) => TABLE.deck(s);
 export const savedDecks = (s = mine()) => tableOpen() ? TABLE.loadouts(s) : [];
 export const activeDeckId = (s = mine()) => TABLE.activeId(s);

@@ -1,5 +1,23 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Standing Rivals updates (November 5, 2026)
+
+Evan explicitly authorized the updated Rivals game and all future Rivals updates for Evan (`evan`),
+Jayton Hull (`jayton`), Ryan Stewart (`ryan-stewart`, Ryan S), and Ryan Younggreen
+(`ryan-younggreen`, Ryan Y). Use `features.rivalsUpdated()` for Rivals gameplay/presentation,
+including Home, card table, deck shelf, boss ladder, pack art/reveals, music and sound effects.
+This supersedes Rivals-specific owner-only pilot restrictions. Keep other apps, owner/admin tools,
+and individual pack/coin privileges unchanged. Preserve saves and old match versions. Audio
+preferences belong to each stable profile key; Evan's existing audio preferences remain intact.
+Future Rivals changes go to this four-account group by default unless Evan specifies otherwise.
+
+This standing rollout overrides historical Rivals owner-pilot descriptions below. Existing solo
+and friend matches retain their saved rules and rewards; only new solo matches use the shared
+v6 table/boss features. No saves, collections, balances, or daily claims are reset. Music and effects
+settings use `gg-rivals-{music|sfx}:<profileKey>:v1`, preserving Evan's original m_evan keys.
+Verify `check-rollout.cjs`, audio, table, ladder, deck, reveal, start, access, preview and scope checks.
+
+
 ## Rivals sound effects (November 5, 2026)
 
 Owner-only under AGENTS.md: `data.isOwner()` enables the original generated Foley/stingers in

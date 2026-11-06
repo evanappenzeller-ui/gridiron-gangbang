@@ -1,3 +1,4 @@
+import {rivalsUpdated} from '../core/features.js';
 // Gridiron Dynasty's booster packs (views/dynasty.js shows them, views/dynasty-open.js opens them): Pocket's foil packs:
 // the brand bar across the top (where it tears), the pack's art full-bleed behind it, its name in a plate below.
 // Each pack comes in several artworks, swiped through on the Packs home as in Pocket, more detailed the rarer the pack
@@ -95,7 +96,7 @@ const plain = (u, k) => `<radialGradient id="${u}bg" cx="50%" cy="46%" r="70%"><
   + `<rect width="100" height="160" fill="url(#${u}bg)"/>${k.burst()}${k.fan()}${k.emblem()}`;
 /** A pack's art designs: [{id, name, svg}] (the art module's, or the plain emblem). */
 export function designsOf(kind) {
-  if (data.isOwner() && PRINTED[kind]) return PRINTED[kind];
+  if (rivalsUpdated() && PRINTED[kind]) return PRINTED[kind];
   const a = (Array.isArray(ART[kind]) ? ART[kind] : []).filter(d => d && typeof d.svg === 'function' && d.id);
   return a.length ? a : [{id: kind, name: D.PACKS[kind] ? D.PACKS[kind].name : kind, svg: plain}];
 }
@@ -129,7 +130,7 @@ export function packHTML(kind, {count, big, design = 0} = {}) {
   const name = esc(P.name.replace(' Pack', '').toUpperCase()), art = artOf(kind, d, list, u, kit(kind, u));
   // The same renderer serves the carousel, reflection, picker, rewards and all three tear pieces.
   // Re-evaluate the stable owner profile on each render; Epic and other profiles keep their original art.
-  if (data.isOwner() && PRINTED[kind]) {
+  if (rivalsUpdated() && PRINTED[kind]) {
     const cards = P.slots.reduce((n, slot) => n + slot.n, 0);
     return `<span class="pk-pack is-printed${big ? ' is-big' : ''} k-${kind} tier-${t}" style="--pc:${P.color}${d.paper ? `;--pack-paper:${d.paper}` : ''}" data-art="${esc(d.id)}"${art.by !== d.id ? ` data-art-fallback="${esc(art.by)}"` : ''} aria-hidden="true">`
       + '<span class="pk-print-card"><span class="pk-print-brand"><small>GRIDIRON</small><b>RIVALS</b><em>TRADING CARD GAME</em></span>'

@@ -1,3 +1,4 @@
+import {rivalsUpdated} from '../core/features.js';
 import * as data from '../core/data.js';
 import * as ui from '../core/ui.js';
 import * as music from '../core/dynasty-music.js';
@@ -5,7 +6,7 @@ import * as sfx from '../core/dynasty-sfx.js';
 const time = seconds => { const n = Math.max(0, Math.floor(seconds || 0)); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
 
 export function musicSheet() {
-  if (!data.isOwner()) return;
+  if (!rivalsUpdated()) return;
   let offMusic, offSfx, offProfile, scrubbing = false;
   const sh = ui.openSheet({title: 'Settings', cls: 'pk-sheet', detents: ['fit'],
     body: `<div class="pk-music">

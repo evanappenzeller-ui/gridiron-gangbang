@@ -1,3 +1,4 @@
+import {profileKey} from '../core/realm-active.js';
 // Owner's deck shelf. Existing cards and the existing table editor provide every face and edit action.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -38,6 +39,7 @@ export function handleDeckShelf(e, onChange, face) {
   if (e.target.closest('[data-rd-new]')) { tableDeckSheet(onChange, {name: '', ids: []}); return true; }
   const button = e.target.closest('[data-rd-deck], [data-rd-theme]');
   if (!button) return false;
+  const openedFor = profileKey();
   const s = D.mine(), theme = button.dataset.rdTheme;
   const slot = theme ? recipe(theme, s) : D.savedDecks(s).find(d => d.id === button.dataset.rdDeck);
   if (!slot) return true;
@@ -46,13 +48,14 @@ export function handleDeckShelf(e, onChange, face) {
   let stopProfile;
   const requirements = slot.group ? `<p class="rd-recipe"><b>${esc(slot.tag)}</b>${esc(slot.positions.join(' / '))} players only${slot.legends ? ' · selected mobile legends' : ''}. Every player must match.<br>${slot.matching} matching player cards · ${slot.distinct} different players. Requires 12 cards from 6 players.</p>` : '';
   const sh = ui.openSheet({onClose: () => stopProfile?.(), title: slot.name, cls: 'pk-sheet', detents: ['large'], body: `<div class="rd-detail"><p class="pk-note">${slot.ids.length}/40 cards · ${result.ok ? 'Ready for your next solo match' : esc(result.why)}</p>${requirements}${team ? `<p class="rd-bonus"><b>${esc(teamName(team))} chemistry</b>${chemistryText}</p>` : ''}<div class="rd-detail-actions">${theme ? `<button type="button" class="pk-btn is-go" data-rd-build-theme ${result.ok && D.savedDecks(s).length < T.DECK_LIMIT ? '' : 'disabled'}>Save themed deck</button>` : `<button type="button" class="pk-btn is-go" data-rd-use ${!result.ok || active ? 'disabled' : ''}>${active ? 'Active deck' : 'Use deck'}</button><button type="button" class="pk-btn" data-rd-edit>Edit deck</button>${!active ? '<button type="button" class="pk-btn" data-rd-delete>Delete deck</button>' : ''}`}</div>${theme ? `<p class="pk-note">Built from your collection and reusable playbook. No cards are spent. Saving adds a copy to My Decks.${D.savedDecks(s).length >= T.DECK_LIMIT ? ' All 30 deck slots are filled; delete an unused deck to make room.' : ''}</p>` : ''}<ul class="rd-card-list">${Object.entries(counts).map(([id, n]) => `<li><span>${esc(D.anyCard(id)?.name || id)}</span><b>×${n}</b></li>`).join('')}</ul></div>`});
-  stopProfile = data.subscribe(type => { if (type === 'me' && !D.tableOpen()) sh.close(); });
+  stopProfile = data.subscribe(type => { if (type === 'me') sh.close(); });
   sh.body.addEventListener('click', ev => {
+    if (profileKey() !== openedFor) return;
     if (ev.target.closest('[data-rd-edit]')) { sh.close(); tableDeckSheet(onChange, slot); }
     if (ev.target.closest('[data-rd-use]')) { const r = D.useDeckSlot(slot.id); if (r.ok) { sh.close(); ui.toast('Active deck updated'); onChange(); } else ui.toast(r.why); }
     if (ev.target.closest('[data-rd-build-theme]')) { const candidate = D.themedDeck(theme); if (!candidate.ok) { ui.toast(candidate.why); return; } const r = D.saveDeckSlot({name: slot.name, ids: candidate.ids}); if (r.ok) { sh.close(); ui.toast('Themed deck saved · select it in My Decks to use'); onChange(); } else ui.toast(r.why); }
     if (ev.target.closest('[data-rd-delete]')) {
-      ui.actionSheet({title: `Delete ${slot.name}? Your cards stay in your collection.`, cls: 'pk-sheet', actions: [{label: 'Delete deck', role: 'destructive', value: 'delete'}]}).then(v => { if (v === 'delete' && D.deleteDeckSlot(slot.id)) { sh.close(); onChange(); } });
+      ui.actionSheet({title: `Delete ${slot.name}? Your cards stay in your collection.`, cls: 'pk-sheet', actions: [{label: 'Delete deck', role: 'destructive', value: 'delete'}]}).then(v => { if (profileKey() === openedFor && v === 'delete' && D.deleteDeckSlot(slot.id)) { sh.close(); onChange(); } });
     }
   });
   return true;

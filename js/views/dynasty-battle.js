@@ -1,3 +1,4 @@
+import {rivalsUpdated} from '../core/features.js';
 import {bindTableTouch} from './dynasty-table-touch.js';
 import * as music from '../core/dynasty-music.js';
 import * as sfx from '../core/dynasty-sfx.js';
@@ -568,7 +569,7 @@ function endTurn(st) {
   ui.actionSheet({title: 'End your turn without attacking?', cls: 'pk-sheet', actions: [{label: 'End turn', role: 'primary', value: 'y'}]}).then(v => { if (v === 'y') send(st, {a: 'end'}); });
 }
 function more(st) {
-  ui.actionSheet({title: 'Battle', cls: 'pk-sheet', actions: [...(data.isOwner() ? [{label: 'Settings', value: 'music'}] : []), ...(D.tableOpen() ? [{label: 'Table finishes & challenges', value: 'table'}] : []), {label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
+  ui.actionSheet({title: 'Battle', cls: 'pk-sheet', actions: [...(rivalsUpdated() ? [{label: 'Settings', value: 'music'}] : []), ...(D.tableOpen() ? [{label: 'Table finishes & challenges', value: 'table'}] : []), {label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
     if (v === 'music' && !st.dead && !st.hidden) musicSheet();
     if (v === 'table') tableOptions(() => draw(st));
     if (v === 'log') logSheet(st);

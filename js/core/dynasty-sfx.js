@@ -1,15 +1,19 @@
+import {rivalsUpdated} from './features.js';
 // Original, locally synthesized Rivals Foley and stingers. No downloads or game-save writes.
 import * as data from './data.js';
-const KEY = 'gg-rivals-sfx:m_evan:v1';
+import {profileKey} from './realm-active.js';
+const KEY = () => `gg-rivals-sfx:${profileKey()}:v1`;
 const clients = new Set(), listeners = new Set(), voices = new Set(), buffers = new Map();
 let ctx, master, offProfile, enabled = true, volume = 55, unlocked = false, away = false;
 let epoch = 0, idleTimer, failure = '';
 const supported = () => !!(globalThis.AudioContext || globalThis.webkitAudioContext);
 const visible = () => [...clients].some(c => c.visible);
-const allowed = () => data.isOwner() && visible() && !document.hidden && !away && enabled && volume > 0;
+const allowed = () => rivalsUpdated() && visible() && !document.hidden && !away && enabled && volume > 0;
+let preferenceKey;
 function read() {
+  preferenceKey = KEY();
   enabled = true; volume = 55;
-  try { const s = JSON.parse(localStorage.getItem(KEY));
+  try { const s = JSON.parse(localStorage.getItem(KEY()));
     if (typeof s?.enabled === 'boolean') enabled = s.enabled;
     if (Number.isFinite(s?.volume)) volume = Math.max(0, Math.min(100, Math.round(s.volume)));
   } catch (_) {}
@@ -19,16 +23,17 @@ export const CUES = Object.freeze(['select', 'card', 'tear', 'coin', 'impact', '
 export const eventCue = e => e.k === 'attack' ? e.missed || !e.dmg ? 'miss' : e.knockout ? 'knockout' : e.dmg >= 70 ? 'heavy' : 'impact'
   : ['item', 'coach', 'stadium', 'evolve', 'energy'].includes(e.k) ? 'power' : 'card';
 export const revealCue = tier => tier >= 4 ? 'mythic' : tier === 3 ? 'legendary' : tier === 2 ? 'epic' : 'common';
-export function state() { return {enabled, volume, supported: supported(), failure}; }
+export function state() {
+  if (preferenceKey !== KEY()) read(); return {enabled, volume, supported: supported(), failure}; }
 export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 const notify = () => listeners.forEach(fn => fn());
-function save() { try { localStorage.setItem(KEY, JSON.stringify({enabled, volume})); } catch (_) {} notify(); }
+function save() { try { localStorage.setItem(KEY(), JSON.stringify({enabled, volume})); } catch (_) {} notify(); }
 export function setEnabled(value) {
-  if (!data.isOwner()) return;
+  if (!rivalsUpdated()) return;
   enabled = !!value; if (!enabled) silence(); save();
 }
 export function setVolume(value) {
-  if (!data.isOwner() || !Number.isFinite(Number(value))) return;
+  if (!rivalsUpdated() || !Number.isFinite(Number(value))) return;
   volume = Math.max(0, Math.min(100, Math.round(Number(value))));
   if (master && ctx) master.gain.setTargetAtTime(volume / 100 * .65, ctx.currentTime, .015);
   if (!volume) silence(); save();
@@ -128,12 +133,13 @@ function play(client, name, {delay=0, pan=0} = {}) {
 function visibility() { if(document.hidden) silence(); }
 function hide() { away=true; silence(); }
 function show() { away=false; }
-function storage(e) { if(e.key===KEY || e.key===null) { read(); silence(); if(master)master.gain.value=volume/100*.65; notify(); } }
+function storage(e) { if(e.key===KEY() || e.key===null) { read(); silence(); if(master)master.gain.value=volume/100*.65; notify(); } }
 export function attach(el, isVisible=true) {
   const c={el,visible:isVisible,last:new Map(),rev:0}; clients.add(c);
   if(clients.size===1) {
+    read(); if(master)master.gain.value=volume/100*.65;
     away=false;
-    offProfile=data.subscribe(type=>{if(type==='me'){unlocked=false;silence();}});
+    offProfile=data.subscribe(type=>{if(type==='me'){unlocked=false;silence();read();failure='';if(master)master.gain.value=volume/100*.65;notify();}});
     document.addEventListener('visibilitychange',visibility);
     for(const type of ['pointerdown','keydown','click']) document.addEventListener(type,unlock,true);
     addEventListener('pagehide',hide); addEventListener('pageshow',show); addEventListener('storage',storage);

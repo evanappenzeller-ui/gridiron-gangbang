@@ -1,3 +1,4 @@
+import {rivalsUpdated} from '../core/features.js';
 import {tableOptions, tableDeckSheet} from './dynasty-table-options.js';
 import * as music from '../core/dynasty-music.js';
 import * as sfx from '../core/dynasty-sfx.js';
@@ -71,9 +72,9 @@ const typeHTML = t => pipHTML(B.TYPES[t] ? B.TYPES[t].e : '*');
 export const isPhoto = h => /^w:/.test(String(h || ''));
 /** Whether a head is an Epic or better card's action photo (a cut-out of him in uniform). */
 export const isAction = h => /^a:/.test(String(h || ''));
-// New photo previews follow the current owner-only rollout rule, evaluated when rendering so switching profiles
-// never leaves the owner's photo on another player's card. Keep these outside action_photos.py's shared rebuild.
-const ownerActionUrl = c => data.isOwner() && c?.p === '0035276' && c.r !== 'common'
+// New photo previews follow the four-player Rivals rollout, evaluated when rendering so switching profiles
+// re-evaluates the selected profile on every card render. Keep these outside action_photos.py's shared rebuild.
+const ownerActionUrl = c => rivalsUpdated() && c?.p === '0035276' && c.r !== 'common'
   ? 'img/dynasty/owner/0035276-v1.webp' : '';
 /** The portrait for this viewer, shared by collection cards and battle pieces. */
 export function portraitOf(c, w = 300) {
@@ -232,9 +233,9 @@ const TABS = [
   {id: 'decks', label: 'Decks', title: 'Decks', ic: '<path d="M4 8h16v12H4zM7 4h10v4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 13h6M9 16h4" stroke="currentColor" stroke-width="1.8"/>'},
   {id: 'packs', label: 'Packs', title: 'Packs', ic: '<path d="M6 3h12v18H6zM6 7h12M6 17h12" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m12 9 2 3-2 3-2-3z" fill="currentColor"/>'}
 ];
-// The reference-inspired Home is an owner pilot. Existing profiles keep their four destinations.
+// The reference-inspired Home is shared by the four Rivals players.
 const HOME_TAB = {id: 'home', label: 'Home', title: 'Home', ic: '<path d="m3 10 9-7 9 7v10h-6v-7H9v7H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>'};
-const homeOpen = () => data.isOwner();
+const homeOpen = () => rivalsUpdated();
 const tabsOf = () => homeOpen() ? [HOME_TAB, {...TABS[0], label: 'Battle', title: 'Battle'}, TABS[3], {...TABS[1], label: 'Collection', title: 'Collection'}, TABS[2]] : TABS;
 const navHTML = () => tabsOf().map((t, i) => `<button type="button" class="pk-tab${i === 0 ? ' is-on' : ''}" data-dy-tab="${t.id}" aria-pressed="${i === 0}">`
   + `<svg viewBox="0 0 24 24" aria-hidden="true">${t.ic}</svg><span class="rh-tab-label">${t.label}</span><i class="pk-dot" hidden></i></button>`).join('');
@@ -265,7 +266,7 @@ function packsHTML(st) {
   // (the Starter Pack first while it waits; once opened, back to the Standard Pack)
   if (s.pk.start && !st.startShown) { st.pack = 'start'; st.startShown = true; }
   if (!D.PACKS[st.pack] || (D.PACKS[st.pack].starter && !s.pk[st.pack])) st.pack = D.DAILY_PACK;
-  if (data.isOwner()) return packShelfHTML(packKinds(s), st.pack, kind => artAt(st, kind));
+  if (rivalsUpdated()) return packShelfHTML(packKinds(s), st.pack, kind => artAt(st, kind));
   const kind = st.pack, P = D.PACKS[kind], have = s.pk[kind] || 0, free = D.dailyReady(s) && kind === D.DAILY_PACK;
   const wait = waitingOf(st), ready = D.claimable(s);
   const best = packBest(kind);
@@ -944,7 +945,7 @@ function showStart(st) {
 function menuSheet(st) {
   const s = D.status === 'ready' ? D.mine() : null, P = D.PACKS[st.pack] || D.PACKS[D.DAILY_PACK];
   const items = [
-    ...(data.isOwner() ? [{id: 'music', ic: 'gear', label: 'Settings', sub: 'Music, sound effects & jukebox'}] : []),
+    ...(rivalsUpdated() ? [{id: 'music', ic: 'gear', label: 'Settings', sub: 'Music, sound effects & jukebox'}] : []),
     {id: 'guide', ic: 'info', label: 'Guide', sub: 'How to play'},
     {id: 'coins', ic: 'sparkle', label: 'Coins', sub: s ? `${nf(D.balance(s))} · how you earn them` : 'How you earn them'},
     {id: 'rank', ic: 'trophy', label: 'Rankings', sub: s ? `${nf(s.tr)} trophies · ${s.rec.w}–${s.rec.l}` : 'The Rivals board'},
@@ -1007,7 +1008,7 @@ function updateChrome(st) {
   }
   if (st.tab === 'home' && !owner) st.tab = 'battle';
   shell.classList.toggle('is-home', owner && st.tab === 'home');
-  shell.classList.toggle('is-pack-shop', data.isOwner() && st.tab === 'packs');
+  shell.classList.toggle('is-pack-shop', rivalsUpdated() && st.tab === 'packs');
   shell.classList.toggle('is-ladder', D.bossLadderOpen() && st.tab === 'battle' && !['versus', 'rank'].includes(st.bv));
   if (hud !== st.hud) { el.querySelector('[data-dy-hud]').innerHTML = hud; st.hud = hud; }
   el.querySelector('[data-pk-title]').textContent = (tabsOf().find(t => t.id === st.tab) || TABS[0]).title;
@@ -1026,7 +1027,7 @@ function stopPackShelf(st) {
   st.packShelf = null;
 }
 function startPackShelf(st) {
-  if (!data.isOwner() || st.tab !== 'packs') return;
+  if (!rivalsUpdated() || st.tab !== 'packs') return;
   const root = st.el.querySelector('.pk-pack-shop');
   if (root) st.packShelf = mountPackShelf(root, st.pack, {
     onSelect: kind => { st.pack = kind; },

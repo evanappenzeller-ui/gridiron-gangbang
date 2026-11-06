@@ -132,7 +132,7 @@ async function arrivalPass(page) {
     }, profile);
     await openAll(page, 2);
     await rip(page, 'rise');
-    assert.equal((await backPose(page)).x, -1, `${JSON.stringify(profile)}: existing non-owner pose stays unchanged`);
+    assert.equal((await backPose(page)).x, profile.guest === 'Ryan Stewart' ? 1 : -1, `${JSON.stringify(profile)}: existing non-owner pose stays unchanged`);
     await page.keyboard.press('Enter');
     await close();
   }

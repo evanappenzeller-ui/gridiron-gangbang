@@ -232,9 +232,9 @@ export async function dynastyChecks(check) {
     const all = (src.match(/daily\.LB\.all/g) || []).length === 1 && (msrc.match(/daily\.LB\.all/g) || []).length === 1;
     return {pass: raw && all, detail: 'others() and the matches from LB.raw; LB.all only for your own saves'};
   });
-  check('Gridiron Rivals: the title screen keeps its logo, Tap to Start and support id; the owner opens Home with five destinations, other profiles keep four tabs opening Play', async () => {
+  check('Gridiron Rivals: the title screen keeps its logo, Tap to Start and support id; all four Rivals players open Home with five destinations', async () => {
     const V = await import('../views/dynasty.js');
-    const owner = (await import('./data.js')).isOwner();
+    const owner = (await import('./features.js')).rivalsUpdated();
     const shell = V.shellHTML(), start = V.startHTML();
     const root = document.createElement('div'); root.innerHTML = shell;
     const tabs = root.querySelectorAll('.pk-tab').length;

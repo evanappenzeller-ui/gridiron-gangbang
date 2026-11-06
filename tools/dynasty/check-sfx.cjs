@@ -170,7 +170,7 @@ async function main() {
     await page.waitForFunction(()=>sfxContexts.every(c=>c.state!=='running'));
     console.log('PASS: foil tear and mythic reveal in actual pack flow; close, hide, and navigation cancel audio');
     // Other profiles, guests and unselected players never create an effects context.
-    for(const profile of ['mason','jayton','user:ryan-stewart','user:ryan-younggreen','guest:Sound Test','guest:Evan Appenzeller','']) {
+    for(const profile of ['mason','user:ryan-dow','guest:Sound Test','guest:Evan Appenzeller','']) {
       await page.evaluate(profile=>localStorage.setItem('test-profile',profile || 'none'),profile);
       await page.reload();await page.waitForFunction(()=>window.__ggBooted);
       await page.evaluate(async profile=>{

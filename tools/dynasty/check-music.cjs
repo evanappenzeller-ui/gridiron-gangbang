@@ -178,13 +178,13 @@ async function main() {
     await silent(); await page.waitForFunction(() => !document.querySelector('[data-dy-music-toggle]'));
     assert.equal(await page.evaluate(() => navigator.audioSession.type),'ambient');
     assert.equal(await page.evaluate(() => Object.values(mediaHandlers).every(fn => fn === null)),true,'profile change clears native actions');
-    await page.evaluate(async () => { const m = await import('/js/core/dynasty-music.js'); m.setEnabled(true); m.start(); });
+    await page.evaluate(async () => { (await import('/js/core/data.js')).setMe('mason'); const m = await import('/js/core/dynasty-music.js'); m.setEnabled(true); m.start(); });
     await silent();
     console.log('PASS: battle menu, route/back/exit, one transport, immediate profile-switch silence');
     assert.deepEqual(errors, []);
     await context.close();
     // Fresh non-owner sessions never create audio or expose its new settings, even with an owner-like guest name.
-    for (const profile of [{me:'none',guest:'Ryan Stewart'}, {me:'mason'}, {me:'none'}, {me:'none',guest:'Evan Appenzeller'}]) {
+    for (const profile of [{me:'none',guest:'Ryan Dow'}, {me:'mason'}, {me:'none'}, {me:'none',guest:'Evan Appenzeller'}]) {
       const ctx = await browser.newContext({serviceWorkers:'block', reducedMotion:'reduce'});
       await ctx.route('**/*', r => r.request().url().startsWith(url) ? r.continue() : r.abort());
       await ctx.addInitScript(p => {
@@ -205,7 +205,7 @@ async function main() {
       assert.equal(downloads.length, 0, 'other profiles never request the MP3');
       await ctx.close();
     }
-    console.log('PASS: Ryan Stewart, another member, visitor and owner-name guest retain existing silent behavior');
+    console.log('PASS: Ryan Dow, another member, visitor and owner-name guest retain existing silent behavior');
     for (const mode of ['unavailable', 'blocked-resume', 'blocked-media', 'track-failed', 'slow-download', 'storage-denied', 'webkit', 'no-system-api', 'system-api-errors']) {
       const ctx = await browser.newContext({serviceWorkers:'block', reducedMotion:'reduce'});
       await ctx.route('**/*', r => r.request().url().startsWith(url) ? r.continue() : r.abort());

@@ -1,3 +1,5 @@
+import {profileKey} from '../core/realm-active.js';
+import {rivalsUpdated} from '../core/features.js';
 // Opening a Gridiron Dynasty booster pack, over everything (views/dynasty.js openPack calls openScene once the pack's
 // cards are drawn and kept), played as Pokémon TCG Pocket plays it (the owner, Oct 29 2026, with a recording of Pocket's:
 // "Opening packs should have this animation"). You rip it open with a swipe across its top (Oct 28 2026: "ripping it
@@ -121,12 +123,13 @@ export function dealHTML(c, R, cardHTML, isNew) {
  *  (the ids drawn), dup ({id: true} for copies already held), cardHTML (views/dynasty.js anyHTML), onClose (after it's
  *  gone), focusBack (optional: where focus goes after onClose when what had it is gone, an element or a selector)}. */
 export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onClose, focusBack}) {
+  const sceneProfile = profileKey();
   const r = {cards, dup}, P = D.PACKS[kind];
   // (the rarest last, as Pocket reveals: dealOrder)
   const order = dealOrder(r.cards.map(D.anyCard));
   const N = order.length, fresh = order.filter(c => !r.dup[c.id]).length;
   const ov = document.createElement('div');
-  ov.className = 'pk-open' + (data.isOwner() ? ' is-owner-reveal' : '');
+  ov.className = 'pk-open' + (rivalsUpdated() ? ' is-owner-reveal' : '');
   ov.dataset.phase = 'pick'; ov.dataset.tier = '';
   ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', `Opening a ${P.name}`);
   ov.style.setProperty('--pc', P.color);
@@ -740,7 +743,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     closed = true;
     fx.stop(); offSoundProfile();
     stopFoil();
-    D.markSeen([]);
+    if (profileKey() === sceneProfile) D.markSeen([]);
     timers.forEach(clearTimeout); timers.clear();
     clearTimeout(nudgeT); clearTimeout(ffHold); clearInterval(ffI);
     cancelAnimationFrame(anim); cancelAnimationFrame(raf); cancelAnimationFrame(inRaf); cancelAnimationFrame(pTw);
@@ -755,7 +758,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
       try { const el = typeof focusBack === 'string' ? document.querySelector(focusBack) : focusBack; if (el && el.focus) el.focus({preventScroll: true}); } catch (_) {}
     }
   };
-  const offSoundProfile = data.subscribe(type => { if (type === 'me') fx.visible(false); });
+  const offSoundProfile = data.subscribe(type => { if (type === 'me') close(); });
   const onKey = e => {
     if (e.key === 'Escape') { e.preventDefault(); close(); return; }
     const k = e.key, onButton = e.target && e.target.closest && e.target.closest('button');
