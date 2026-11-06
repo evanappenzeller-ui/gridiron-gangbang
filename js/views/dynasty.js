@@ -8,7 +8,7 @@ import * as PC from '../core/dynasty-pocket-cards.js';
 // Gridiron Rivals (legacy route/save identifiers remain dynasty). The four labeled tabs are
 // Play, Cards, Decks and Packs. Play opens first with a resume/solo action and the active deck.
 // The header menu holds settings/rules; the title screen and pack-opening flow remain available.
-// cardHTML/trainerHTML render collectible faces; the battle view renders compact game pieces.
+// cardHTML/trainerHTML share collectible faces with the current battle view.
 // Card details show the player's page (views/dynasty-stats.js). Match rules are versioned so old
 // turns replay unchanged while new matches use signature energy costs and predictable Juke.
 import * as ui from '../core/ui.js';
@@ -89,8 +89,8 @@ export function portraitOf(c, w = 300) {
  *  (a button: data-dy-card), cls}. */
 export function cardHTML(c, o = {}) {
   if (!c) return '';
-  const pc = rivalsUpdated() && (!o.rulesVersion || o.rulesVersion === 7) ? PC.card(c.id) : null;
-  const st = pc ? {hp:pc.hp, type:pc.types[0], ex:pc.classification !== 'regular', weak:pc.weakness, retreat:pc.retreat, ability:null, attacks:pc.attacks.map(a => ({...a,dmg:a.damage,fx:''}))} : B.stats(c.id), T = D.teamOf(c.team), m = D.markOf(c), S = D.SERIES[c.s];
+  const pc = rivalsUpdated() && (!o.rulesVersion || o.rulesVersion === 7) ? (o.pocketCard || PC.card(c.id)) : null;
+  const st = pc ? {hp:pc.hp, type:pc.types[0], ex:pc.classification !== 'regular', weak:pc.weakness, retreat:pc.retreat, ability:pc.ability, attacks:pc.attacks.map(a => ({...a,dmg:a.damage,fx:''}))} : B.stats(c.id), T = D.teamOf(c.team), m = D.markOf(c), S = D.SERIES[c.s] || D.SERIES.L;
   // Portraits give every series one clear visual language. 
   // Some legacy head values are complete card scans; use a jersey number instead of framing those twice.
   const portrait = portraitOf(c, o.size === 'l' ? 520 : 300);
@@ -98,16 +98,17 @@ export function cardHTML(c, o = {}) {
   const rarity = String(c.r || 'common'), stage = pc ? 0 : B.stageOf(c.id, o.rulesVersion || B.RULES_VERSION);
   const label = pc ? `${pc.canonicalName}, ${rarity}, ${pc.position}, ${pc.hp} HP, ${pc.types.join(' / ')}, ${PC.pointValue(pc)} knockout point, fictional balance values${o.count > 1 ? `, ${o.count} copies` : ''}` : `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const atk = st.attacks.map((a, n) => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}</em></span>`
-    + (n === 1 ? `<span class="pk-c-fx">${esc([B.fxText(a), pc ? '' : B.signatureText({v: o.rulesVersion || B.RULES_VERSION}, n)].filter(Boolean).join(' '))}</span>` : '')).join('');
-  const ability = st.ability ? `<span class="pk-c-ab"><i>Ability</i><b>${esc(B.ABILITY[st.ability].name)}</b></span>` : '';
+    + (pc ? a.text ? `<span class="pk-c-fx">${esc(a.text)}</span>` : '' : n === 1 ? `<span class="pk-c-fx">${esc([B.fxText(a), B.signatureText({v: o.rulesVersion || B.RULES_VERSION}, n)].filter(Boolean).join(' '))}</span>` : '')).join('');
+  const ability = st.ability ? `<span class="pk-c-ab"><i>Ability</i><b>${esc(pc ? pc.ability.name : B.ABILITY[st.ability].name)}</b></span>${pc?.ability.text ? `<span class="pk-c-fx">${esc(pc.ability.text)}</span>` : ''}` : '';
   const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
   const inner = `<span class="pk-c-face" aria-hidden="true">`
-    + `<span class="pk-c-head"><span class="pk-c-stage">${pc ? 'BASE' : stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${typeHTML(st.type, o.roundEnergy ?? currentEnergyRule())}</span></span>`
+    + `<span class="pk-c-head"><span class="pk-c-stage">${pc ? esc(pc.stage.toUpperCase()) : stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(pc?.athlete || c.name)}${pc && st.ex ? `<span class="pk-c-ex">${pc.classification === 'mega-ex' ? 'Mega ex' : 'ex'}</span>` : ''}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${typeHTML(st.type, o.roundEnergy ?? currentEnergyRule())}</span></span>`
+    + (pc?.predecessor ? `<span class="pk-c-evo">Develops from ${esc(PC.card(pc.predecessor)?.canonicalName || pc.predecessor)}</span>` : '')
     + `<span class="pk-c-art">${teamSceneHTML(c.team)}<span class="pk-c-num">${esc(String(c.num || c.pos))}</span>${photo}<span class="pk-c-art-team">${esc(c.team)}</span></span>`
     + `<span class="pk-c-strip">${esc(c.pos)} · ${esc(T.name)} · ${esc(S.short)}</span>`
     + `<span class="pk-c-body${st.ability ? ' has-ability' : ''}">${ability}${atk}</span>`
-    + `<span class="pk-c-foot"><span><small>weakness</small>${st.weak ? `${typeHTML(st.weak)}<b>+${B.WEAK_BONUS}</b>` : '<b>—</b>'}</span><span><small>retreat</small>${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : '<b>free</b>'}</span></span>`
-    + `<span class="pk-c-meta"><span class="pk-c-rar is-${m.kind}">${esc(rarity)}</span>${pc ? '<span class="pk-c-set">1 POINT</span>' : `<span class="pk-c-ovr"><b>${c.o}</b><small>OVR</small></span>`}${st.ex ? '<span class="pk-c-set">2 PT</span>' : ''}`
+    + `<span class="pk-c-foot"><span><small>weakness</small>${st.weak ? `${typeHTML(st.weak)}<b>+${B.WEAK_BONUS}</b>` : '<b>—</b>'}</span><span><small>retreat</small>${st.retreat ? Array.from({length: st.retreat}, () => pipHTML(pc ? 'Colorless' : '*')).join('') : '<b>free</b>'}</span></span>`
+    + `<span class="pk-c-meta"><span class="pk-c-rar is-${m.kind}">${esc(rarity)}</span>${pc ? `<span class="pk-c-set">${PC.pointValue(pc)} POINT${PC.pointValue(pc) === 1 ? '' : 'S'}</span>` : `<span class="pk-c-ovr"><b>${c.o}</b><small>OVR</small></span>${st.ex ? '<span class="pk-c-set">2 PT</span>' : ''}`}`
     + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
     + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + `</span>${finish}</span>`;
   const cls = `pk-card pk-rivals-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${rarity} s-${c.s} sz-${o.size || 'm'}${st.ex ? ' is-ex' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
@@ -130,9 +131,10 @@ export function trainerHTML(t, o = {}) {
   const T = t.team ? D.teamOf(t.team) : null, m = D.markOf(t);
   const rarity = D.RARITY.includes(t.r) ? t.r : 'common';
   const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
-  const legacy = rivalsUpdated() && (!o.rulesVersion || o.rulesVersion === 7);
-  const kind = legacy ? 'Legacy support' : t.kind === 'coach' ? 'Coach' : TRAINER_KIND[t.kind];
-  const text = B.trainerText(t, o.roundEnergy ?? currentEnergyRule());
+  const pc = rivalsUpdated() && (!o.rulesVersion || o.rulesVersion === 7) ? o.pocketCard : null;
+  const legacy = !pc && rivalsUpdated() && (!o.rulesVersion || o.rulesVersion === 7);
+  const kind = pc ? pc.kind[0].toUpperCase() + pc.kind.slice(1) : legacy ? 'Legacy support' : t.kind === 'coach' ? 'Coach' : TRAINER_KIND[t.kind];
+  const text = pc ? pc.text : B.trainerText(t, o.roundEnergy ?? currentEnergyRule());
   const label = `${t.name}, ${kind} card. ${text}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const inner = `<span class="pk-c-face" aria-hidden="true"><span class="pk-t-head"><b>RIVALS</b><i>${kind}</i></span>`
     + `<span class="pk-t-art">${T ? teamSceneHTML(t.team) : ''}${TRAINER_ART[t.kind] || ''}${T ? `<img class="pk-t-logo" src="${esc(logoUrl(t.team, 96))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : ''}</span>`

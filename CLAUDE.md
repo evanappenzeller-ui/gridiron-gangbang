@@ -1,5 +1,17 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals card gestures (November 6, 2026)
+
+The v7 table now uses the full collection card faces through `dynasty-pocket-card.js`, with
+explicit versioned stats for rental/development forms. Tap a card to center its printed face
+and inspect attacks. Hold to lift, slide across the fanned hand to preview, and drag onto
+highlighted legal targets. `dynasty-pocket-hand.js` owns pointer capture/cleanup only;
+`dynasty-pocket-battle.js` resolves drops through the existing engine legality checks.
+Setup placement stays provisional until confirmed. Invalid drops, cancelled pointers, leaving
+the route, hiding the page and profile changes never play cards. Keep keyboard actions and
+View all available. Run `check-pocket-touch.cjs` at 390 and 320 widths, plus pocket browser,
+rules/integration, preview and scope checks. New modules belong in the service-worker cache.
+
 ## Rivals portrait arena (November 6, 2026)
 
 The v7 battle view follows Evan's attached gameplay layout: opponent hand and three-slot Bench

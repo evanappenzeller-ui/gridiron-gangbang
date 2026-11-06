@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-rivals-arena-v7-20261106';
+const CACHE = 'gg-rivals-touch-v7-20261106';
 const CORE = ['ui', 'home-navigation', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'fantasy-live', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-layout', 'realm-battle', 'checks-realm', 'dynasty', 'dynasty-battle', 'dynasty-match', 'dynasty-table', 'dynasty-solo', 'dynasty-real', 'dynasty-legends', 'dynasty-action', 'checks-dynasty'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and live (Live). Keepfall opens from Daily Games.
 const VIEWS = ['dynasty-pack-shelf', 'welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -18,6 +18,7 @@ const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'colle
 const SHELL = [
   'js/core/dynasty-pocket.js', 'js/core/dynasty-pocket-cards.js',
   'js/views/dynasty-pocket-battle.js', 'js/views/dynasty-pocket-decks.js',
+  'js/views/dynasty-pocket-card.js', 'js/views/dynasty-pocket-hand.js',
   'css/views/dynasty-pocket.css', 'css/views/dynasty-pocket-decks.css',
   'js/core/dynasty-music.js', 'js/core/dynasty-sfx.js', 'js/views/dynasty-music.js',
   'js/views/dynasty-art-printed.js',
