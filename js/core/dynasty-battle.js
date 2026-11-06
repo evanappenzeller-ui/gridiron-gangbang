@@ -36,8 +36,11 @@ export const TYPES = {
   C: {name: 'Coverage', e: 'C', color: '#A970FF'},
   S: {name: 'Special Teams', e: '*', color: '#C9A227'}
 };
-export const ENERGY = {P: 'Pass', R: 'Run', B: 'Blitz', C: 'Coverage', '*': 'Any'};
-export const ENERGY_TYPE = {P: 'A', R: 'G', B: 'B', C: 'C'};
+export const ENERGY = {P: 'Pass', R: 'Run', B: 'Blitz', C: 'Coverage', K: 'Kick', '*': 'Any'};
+export const FRONT_ENERGY = 2;
+// Special Teams generates Kick energy. Its wildcard attack costs still accept any type.
+export const typeEnergy = (type, roundEnergy) => type === 'S' && roundEnergy === FRONT_ENERGY ? 'K' : TYPES[type].e;
+export const ENERGY_TYPE = {P: 'A', R: 'G', B: 'B', C: 'C', K: 'S'};
 export const POS_TYPE = {QB: 'A', WR: 'A', TE: 'A', RB: 'G', OL: 'G', DL: 'B', LB: 'B', CB: 'C', S: 'C', K: 'S'};
 /** What each type is weak to (takes +20 from). */
 export const WEAK = {A: 'C', G: 'B', B: 'A', C: 'G'};
@@ -75,6 +78,10 @@ export const TRAINERS = {
 };
 export const isTrainer = id => !!TRAINERS[id];
 export function trainerText(t, roundEnergy) {
+  if (roundEnergy === FRONT_ENERGY) {
+    if (t.id === 'I-charge') return 'Give one player 2 energy of your active player’s type now. Attach this card to double that player’s turn energy.';
+    if (t.id === 'I-cleats') return 'Your active player switches out for 1 less energy this turn. Attach Speed Cleats to that player to double their turn energy.';
+  }
   return roundEnergy && t.id === 'I-charge'
     ? 'Give one player 2 matching energy now. Keep this card attached so the player gets 2 energy each turn.'
     : t.text;
@@ -246,7 +253,7 @@ function shuffle(G, a) { for (let i = a.length - 1; i > 0; i--) { const j = Math
 export function newGame(seed, decks, v = 1, chemistry = null, roundEnergy = 0) {
   const G = {seed: String(seed), v: v >= 6 ? 6 : v >= 5 ? 5 : v >= 4 ? 4 : v >= 3 ? 3 : v >= 2 ? 2 : 1, rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
   // Snapshot the turn rule separately: friend and solo matches use different decks and knockout rules.
-  if (roundEnergy === 1) G.roundEnergy = 1;
+  if (roundEnergy === 1 || roundEnergy === FRONT_ENERGY) G.roundEnergy = roundEnergy;
   G.first = coin(G) ? 0 : 1; G.cur = G.first;
   for (let i = 0; i < 2; i++) {
     const deck = shuffle(G, (decks[i] || []).slice());
@@ -317,13 +324,7 @@ function startTurn(G) {
   }
   if (me.deck.length) { const c = me.deck.shift(); me.hand.push(c); say(G, who, 'draw', {id: c}); }
   if (G.roundEnergy) {
-    for (const slot of slots(me)) {
-      const e = matchingEnergy(me, slot);
-      const count = stats(slot.id).ability || slot.attachment ? 2 : 1;
-      slot.en.push(e);
-      if (count === 2) slot.en.push(e);
-      say(G, who, 'energy', {u: slot.u, id: slot.id, e, count, auto: true});
-    }
+    grantLineupEnergy(G, who);
     return;
   }
   if (G.v >= 2) {
@@ -335,6 +336,20 @@ function startTurn(G) {
 function matchingEnergy(side, slot) {
   const e = TYPES[stats(slot.id).type].e;
   return e === '*' ? side.types[0] : e;
+}
+function grantLineupEnergy(G, who) {
+  const me = G.p[who], front = G.roundEnergy === FRONT_ENERGY;
+  // After a knockout, the promotion supplies the type for the pending turn.
+  if (front && (!me.active || me.used.energy)) return;
+  const generated = front && typeEnergy(stats(me.active.id).type, G.roundEnergy);
+  for (const slot of slots(me)) {
+    const e = generated || matchingEnergy(me, slot);
+    const count = stats(slot.id).ability || slot.attachment ? 2 : 1;
+    slot.en.push(e);
+    if (count === 2) slot.en.push(e);
+    say(G, who, 'energy', {u: slot.u, id: slot.id, e, count, auto: true});
+  }
+  if (front) me.used.energy = true;
 }
 /** How many of a cost's energy en still leaves unpaid. */
 export function unpaid(cost, en) {
@@ -479,7 +494,10 @@ function doMove(G, who, m) {
     case 'promote': {
       const i = me.bench.findIndex(s => s.u === m.u);
       me.active = me.bench.splice(i, 1)[0]; me.promote = false;
-      say(G, who, 'promote', {u: m.u, id: me.active.id}); autoEnergy(G, who); return;
+      say(G, who, 'promote', {u: m.u, id: me.active.id});
+      if (G.roundEnergy === FRONT_ENERGY) grantLineupEnergy(G, who);
+      else autoEnergy(G, who);
+      return;
     }
     case 'bench': takeFromHand(me, m.id); me.bench.push(newSlot(G, m.id)); say(G, who, 'bench', {id: m.id}); return;
     case 'evolve': {
@@ -510,16 +528,17 @@ function doMove(G, who, m) {
     }
     case 'item': {
       takeFromHand(me, m.id);
-      const staysAttached = G.roundEnergy && m.id === 'I-charge';
-      if (!staysAttached) me.disc.push(m.id);
+      const attachmentTarget = G.roundEnergy && m.id === 'I-charge' ? findSlot(me, m.on)
+        : G.roundEnergy === FRONT_ENERGY && m.id === 'I-cleats' ? me.active : null;
+      if (attachmentTarget) {
+        if (attachmentTarget.attachment) me.disc.push(attachmentTarget.attachment);
+        attachmentTarget.attachment = m.id;
+      } else me.disc.push(m.id);
       const o = {id: m.id};
       if (m.id === 'I-charge') {
-        const s = findSlot(me, m.on), e = matchingEnergy(me, s);
+        const s = findSlot(me, m.on);
+        const e = G.roundEnergy === FRONT_ENERGY ? typeEnergy(stats(me.active.id).type, G.roundEnergy) : matchingEnergy(me, s);
         s.en.push(e, e); o.u = s.u; o.energy = 2;
-        if (staysAttached) {
-          if (s.attachment) me.disc.push(s.attachment);
-          s.attachment = m.id;
-        }
       }
       else if (m.id === 'I-draw') { o.n = 0; while (o.n < 2 && me.deck.length) { me.hand.push(me.deck.shift()); o.n++; } }
       else if (m.id === 'I-recover') { const s = findSlot(me, m.on); o.heal = Math.min(30, s.dmg); s.dmg -= o.heal; s.stun = false; s.inj = false; o.u = s.u; }

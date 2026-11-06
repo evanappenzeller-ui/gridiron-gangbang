@@ -198,6 +198,9 @@ export function nextMove(G, who, lv = 'int') {
   const tryAll = list => list.find(ok) || null;
   // Items
   let m;
+  if (G.roundEnergy === B.FRONT_ENERGY && K.items && act && !act.attachment && !B.stats(act.id).ability && me.hand.includes('I-cleats')) {
+    return {a: 'item', id: 'I-cleats'};
+  }
   if (G.v >= 6 && act) {
     if (me.hand.includes('I-charge') && needsEnergy(act)) return {a: 'item', id: 'I-charge', on: act.u};
     if (me.hand.includes('I-draw') && me.hand.length < 7 && me.deck.length) return {a: 'item', id: 'I-draw'};
@@ -332,7 +335,7 @@ export function start(id) {
   if (!theirs.length) return {ok: false, why: 'This opponent’s cards aren’t ready. Try again.'};
   const candidate = {id: mid, opp: o.id, seed: mid, v: table ? TABLE.VERSION : B.RULES_VERSION, decks: [dk.ids.slice(), theirs], log: [], at: Date.now(), z: '', paid: 0, pay: null};
   const chemistry = table && B.teamChemistry(dk.ids);
-  if (table) candidate.roundEnergy = 1;
+  if (table) candidate.roundEnergy = B.FRONT_ENERGY;
   if (chemistry) candidate.chemistry = {v: 1, team: chemistry};
   if (boss) {
     candidate.boss = {v: 2, card: boss.id};

@@ -73,7 +73,7 @@ async function main(){
       assert.equal(await page.evaluate(async()=>(await import('/js/core/dynasty.js')).deckThemes().length),16);
       await page.locator('.pk-tab[data-dy-tab="battle"]').click();await page.waitForSelector('.rl-ladder');
       const fresh=await page.evaluate(async()=>{const S=await import('/js/core/dynasty-solo.js'),D=await import('/js/core/dynasty.js');const r=S.start('g5');if(!r.ok)throw Error(r.why);const x=S.get(r.mid);return {v:x.G.v,roundEnergy:x.G.roundEnergy,boss:x.boss,cards:x.G.p[0].hand.length+x.G.p[0].deck.length,owned:JSON.stringify(D.mine().o)};});
-      assert.equal(fresh.v,6);assert.equal(fresh.roundEnergy,1);assert.equal(fresh.cards,40);assert.equal(fresh.boss,'L0036322');assert.equal(fresh.owned,JSON.stringify(JSON.parse(seed.before).o));
+      assert.equal(fresh.v,6);assert.equal(fresh.roundEnergy,2);assert.equal(fresh.cards,40);assert.equal(fresh.boss,'L0036322');assert.equal(fresh.owned,JSON.stringify(JSON.parse(seed.before).o));
       await page.locator('[data-dy-menu]').click();await page.locator('[data-dy-m="music"]').click();await page.waitForSelector('[data-dy-sfx-volume]');
       assert.equal(await page.locator('[data-dy-music-volume]').inputValue(),'8','default background music');
       assert.equal(await page.locator('[data-dy-sfx-volume]').inputValue(),'55','default foreground effects');

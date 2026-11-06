@@ -35,7 +35,7 @@ export function cleanSide(M) {
   return {o: M.o, k: Array.isArray(M.k) ? M.k.filter(x => typeof x === 'string').slice(0, B.DECK_SIZE) : [], m: Array.isArray(M.m) ? M.m.slice(0, 200) : [],
     ch: M.ch ? 1 : 0, z: ['decline', 'cancel', 'resign', 'claim'].includes(M.z) ? M.z : '', c: Number(M.c) || 0, at: Number(M.at) || 0, ...(M.done ? {done: 1} : {}),
     ...(Number(M.v) >= 2 ? {v: Math.min(5, Math.floor(Number(M.v)))} : {}),
-    ...(M.roundEnergy === 1 ? {roundEnergy: 1} : {})};
+    ...(M.roundEnergy === 1 || M.roundEnergy === B.FRONT_ENERGY ? {roundEnergy: M.roundEnergy} : {})};
 }
 function selectProfile() {
   const key = profileKey();
@@ -176,7 +176,7 @@ export function challenge(key) {
   const open = list().filter(x => x.opp.key === key && !['over', 'closed'].includes(x.state));
   if (open.length) return {ok: false, why: 'You already have a match with them.', mid: open[0].mid};
   const mid = newId(), now = Date.now();
-  mine()[mid] = {o: key, k: dk.ids, m: [], ch: 1, z: '', c: now, at: now, v: B.RULES_VERSION, ...(rivalsUpdated() ? {roundEnergy: 1} : {})};
+  mine()[mid] = {o: key, k: dk.ids, m: [], ch: 1, z: '', c: now, at: now, v: B.RULES_VERSION, ...(rivalsUpdated() ? {roundEnergy: B.FRONT_ENERGY} : {})};
   save('challenge'); return {ok: true, mid};
 }
 /** Accepts a challenge with your deck. */

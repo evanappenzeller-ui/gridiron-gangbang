@@ -157,7 +157,7 @@ function nextCinema(st) {
 // One card face for the felt, the hand and the lifted card: type pip, name and HP across the top, the portrait, then
 // (in play) the HP meter and the attached energy, or (in hand) what kind of card it is.
 // (the rules version of the battle on screen: from v5 nothing is an upgrade)
-let RV = B.RULES_VERSION;
+let RV = B.RULES_VERSION, energyRule = 0;
 function energyHTML(energy) {
   if (energy.length <= 3) return energy.map(pipHTML).join('');
   const counts = new Map();
@@ -169,7 +169,7 @@ function faceHTML(id, slot = null) {
   const team = c && D.teamOf(c.team), type = stats && B.TYPES[stats.type];
   const rarity = (c || t || {}).r || 'common';
   const hp = stats ? Math.max(0, stats.hp - (slot ? slot.dmg : 0)) : 0;
-  const pip = stats ? pipHTML(type.e) : `<span class="db-face-ic">${ui.icon(t.kind === 'stadium' ? 'star' : t.kind === 'coach' ? 'football' : 'bolt', {size: 12})}</span>`;
+  const pip = stats ? pipHTML(B.typeEnergy(stats.type, energyRule)) : `<span class="db-face-ic">${ui.icon(t.kind === 'stadium' ? 'star' : t.kind === 'coach' ? 'football' : 'bolt', {size: 12})}</span>`;
   const portrait = portraitOf(c);
   const art = c ? `<span class="db-face-art" data-team-scene="${esc(c.team)}" style="--team:${esc(team.pri)};--team-secondary:${esc(team.sec)}${teamSceneStyle(c.team)}"><span class="db-face-number">${esc(c.num || c.pos)}</span>${portrait.url ? `<img${portrait.photo ? ' class="is-photo"' : portrait.action ? ' class="is-action"' : ''} src="${esc(portrait.url)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`
     : `<span class="db-face-art is-tactic"${t.team ? ` data-team-scene="${esc(t.team)}" style="--team:${esc(D.teamOf(t.team).pri)};--team-secondary:${esc(D.teamOf(t.team).sec)}${teamSceneStyle(t.team)}"` : ''}>${ui.icon(t.kind === 'stadium' ? 'star' : t.kind === 'coach' ? 'football' : 'bolt', {size: 30})}</span>`;
@@ -280,8 +280,8 @@ function focusSheetHTML(st, x, mySlots) {
   }
   if (!id) return null;
   const stats = B.stats(id);
-  const state = slot && stats && !setup ? `<p class="pk-own">${Math.max(0, stats.hp - slot.dmg)} of ${stats.hp} HP left${slot.en.length ? ` · energy ${energyHTML(slot.en)}` : ' · no energy'}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}${slot.attachment ? ' · Energy Surge attached' : ''}${F.side === 'opp' ? ` · ${esc(x.opp.name)}’s` : ''}</p>` : '';
-  const html = `<div class="pk-zoom is-s db-focus-card">${anyHTML(id, {size: 'm', tag: false, rulesVersion: G.v, roundEnergy: !!G.roundEnergy})}</div>${state}`
+  const state = slot && stats && !setup ? `<p class="pk-own">${Math.max(0, stats.hp - slot.dmg)} of ${stats.hp} HP left${slot.en.length ? ` · energy ${energyHTML(slot.en)}` : ' · no energy'}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}${slot.attachment ? ` · ${esc(nameOf(slot.attachment))} attached` : ''}${F.side === 'opp' ? ` · ${esc(x.opp.name)}’s` : ''}</p>` : '';
+  const html = `<div class="pk-zoom is-s db-focus-card">${anyHTML(id, {size: 'm', tag: false, rulesVersion: G.v, roundEnergy: G.roundEnergy || 0})}</div>${state}`
     + plays + (moves ? `<div class="db-focus-acts">${moves}</div>` : '') + (why ? `<p class="db-focus-why">${esc(why)}</p>` : '')
     + battleHTML(id, G, {attacks: !plays});
   return {id, title: nameOf(id), html};
@@ -374,7 +374,7 @@ function draw(st) {
     return;
   }
   const finishedNow = st.evAt != null && st.x && st.x.state !== 'over' && x.state === 'over';
-  st.x = x; RV = x.G.v;
+  st.x = x; RV = x.G.v; energyRule = x.G.roundEnergy || 0;
   const enhanced = D.tableOpen(), finish = enhanced ? D.tableFinish() : null;
   host.classList.toggle('is-owner-table', enhanced);
   if (enhanced) {
@@ -424,7 +424,7 @@ function draw(st) {
   const last = G.ev.at(-1);
   if (G.roundEnergy && x.state === 'yours' && !me.promote && !mode && last?.k === 'energy' && last.who === you) {
     const draw = G.ev.find(e => e.n === G.turn && e.k === 'draw' && e.who === you);
-    status = esc(draw ? evText(draw, you, x.opp.name) : 'Your deck is empty.') + ' Your lineup gained energy.';
+    status = esc(draw ? evText(draw, you, x.opp.name) : 'Your deck is empty.') + (G.roundEnergy === B.FRONT_ENERGY ? ` Your lineup gained ${esc(B.ENERGY[last.e])} energy.` : ' Your lineup gained energy.');
   }
   const log = G.ev.map(e => ({e, t: evText(e, you, x.opp.name)})).filter(l => l.t).slice(-1);
   const lifted = (side, u) => st.focus && st.focus.kind !== 'hand' && (st.focus.side || 'me') === side && st.focus.u === u;
@@ -435,9 +435,9 @@ function draw(st) {
   const kicker = cpu && cpu.n ? `GAME ${cpu.n} · ${cpu.tier.name.toUpperCase()}` : x.solo ? 'SOLO MATCH' : 'FRIEND MATCH';
   host.innerHTML = `<header class="db-top">${close}<div class="db-match-title"><small>${esc(kicker)}</small><b>${esc(x.opp.name)}</b></div><span class="db-score" aria-label="Score: you ${me.pts}, opponent ${op.pts}"><b>${me.pts}</b><i>:</i><b>${op.pts}</b><small>${G.v >= 6 ? 'KNOCKOUTS' : `First to ${B.WIN_POINTS}`}</small></span>${ui.iconButton({icon: 'list', label: 'Battle log and options', cls: 'db-more', attrs: 'data-db-more'})}</header>`
     + `<div class="db-table">${enhanced ? `<div class="db-table-brand" aria-hidden="true">GRIDIRON <b>RIVALS</b></div><div class="db-turn-chip">${over ? 'FINAL' : x.state === 'setup' ? 'SET YOUR LINEUP' : x.state === 'theirs' ? 'OPPONENT’S TURN' : 'YOUR TURN'}</div>` : ''}<div class="db-opponent-hand" aria-label="${op.hand.length} cards in their hand · ${op.deck.length} in their deck">${Array.from({length: Math.min(op.hand.length, 8)}, () => enhanced ? '<button type="button" data-db-hidden aria-label="Opponent’s face-down card">R</button>' : '<span aria-hidden="true">R</span>').join('')}<small>${enhanced ? `${op.hand.length} in hand` : `${op.hand.length} in hand · ${op.deck.length} in deck`}</small></div>`
-    + `<section class="db-side is-opp" aria-label="${esc(x.opp.name)}’s players"><div class="db-row is-bench">${[0, 1, 2].map(i => theirs(op.bench[i], false)).join('')}</div><div class="db-row is-active">${theirs(op.active, true)}${enhanced ? deckPileHTML(op.deck.length, false) : ''}</div></section>`
+    + `<section class="db-side is-opp" aria-label="${esc(x.opp.name)}’s players"><div class="db-row is-bench">${[0, 1, 2].map(i => theirs(op.bench[i], false)).join('')}</div><div class="db-row is-active">${theirs(op.active, true)}${energySourceHTML(op.active, G, false)}${enhanced ? deckPileHTML(op.deck.length, false) : ''}</div></section>`
     + `<div class="db-mid" data-db-drop="play"><p class="db-status" aria-live="polite">${status}</p>${stadium}<button type="button" class="db-log" data-db-log aria-label="Open battle log">${log.map(l => `<span>${esc(l.t)}</span>`).join('') || (G.v >= 6 ? '<span>Lose three players and the match is over.</span>' : '<span>First to three touchdowns wins.</span>')}</button></div>`
-    + `<section class="db-side is-me" aria-label="Your players"><div class="db-row is-active">${mine(mySlots.active, true)}${enhanced ? deckPileHTML(me.deck.length, true) : ''}</div><div class="db-row is-bench">${[0, 1, 2].map(i => mine(mySlots.bench[i], false)).join('')}</div></section>${enhanced ? `<div class="db-table-bottom"><button data-db-table type="button">♧ ${esc(finish.name)}</button><button data-db-pile="discard" type="button">${me.disc.length} discarded</button></div>` : ''}</div>`
+    + `<section class="db-side is-me" aria-label="Your players"><div class="db-row is-active">${mine(mySlots.active, true)}${energySourceHTML(mySlots.active, G, true)}${enhanced ? deckPileHTML(me.deck.length, true) : ''}</div><div class="db-row is-bench">${[0, 1, 2].map(i => mine(mySlots.bench[i], false)).join('')}</div></section>${enhanced ? `<div class="db-table-bottom"><button data-db-table type="button">♧ ${esc(finish.name)}</button><button data-db-pile="discard" type="button">${me.disc.length} discarded</button></div>` : ''}</div>`
     + `<section class="db-hand-section" aria-label="Your hand: ${me.hand.length} cards, ${me.deck.length} in your deck"><div class="db-hand"><div class="db-hand-fan" style="--n:${Math.max(1, hand.length)}">${handHTML || `<span class="db-none">${x.state === 'setup' ? 'Every card is in your lineup' : 'No cards in hand'}</span>`}</div></div></section>`
     + `<footer class="db-bar">${barHTML(st, x, G, me, myMove, over, canAttack)}</footer>`;
   ui.hydrate(host);
@@ -512,9 +512,9 @@ function send(st, m) {
 }
 function detail(st, id, slot) {
   const st2 = B.stats(id);
-  const hp = slot && st2 ? `<p class="pk-own">${Math.max(0, st2.hp - slot.dmg)} of ${st2.hp} HP left${slot.en.length ? ` · energy ${energyHTML(slot.en)}` : ''}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}${slot.attachment ? ' · Energy Surge attached' : ''}</p>` : '';
+  const hp = slot && st2 ? `<p class="pk-own">${Math.max(0, st2.hp - slot.dmg)} of ${st2.hp} HP left${slot.en.length ? ` · energy ${energyHTML(slot.en)}` : ''}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}${slot.attachment ? ` · ${esc(nameOf(slot.attachment))} attached` : ''}</p>` : '';
   let stopFoil = () => {};
-  const sh = ui.openSheet({title: nameOf(id), body: `<div class="pk-zoom is-s">${anyHTML(id, {size: 'm', tag: false, rulesVersion: st.x.G.v, roundEnergy: !!st.x.G.roundEnergy})}</div>${hp}${battleHTML(id, st.x.G)}`, cls: 'pk-sheet', detents: ['large'], onClose: () => stopFoil()});
+  const sh = ui.openSheet({title: nameOf(id), body: `<div class="pk-zoom is-s">${anyHTML(id, {size: 'm', tag: false, rulesVersion: st.x.G.v, roundEnergy: st.x.G.roundEnergy || 0})}</div>${hp}${battleHTML(id, st.x.G)}`, cls: 'pk-sheet', detents: ['large'], onClose: () => stopFoil()});
   stopFoil = bindCardFoil(sh.body);
 }
 function lift(st, f) {
@@ -614,6 +614,11 @@ function hiddenCard() {
 // The rest of each deck, face down on the felt beside its active player (Nov 6 2026, Evan: "place the rest of the
 // players deck face down on the table"): the printed back, a stack that thins as the deck runs down, and its count.
 // Yours opens the deck sheet (what's left, never the order); theirs is only a count.
+function energySourceHTML(active, G, mine) {
+  if (G.roundEnergy !== B.FRONT_ENERGY || !active || G.phase === 'over') return '';
+  const e = B.typeEnergy(B.stats(active.id).type, G.roundEnergy);
+  return `<span class="db-energy-source is-${mine ? 'me' : 'opp'}" title="Next turn’s energy from ${esc(nameOf(active.id))}">${pipHTML(e)}<small>Next turn</small><b>${esc(B.ENERGY[e])}</b></span>`;
+}
 function deckPileHTML(n, mine) {
   const layers = n ? Math.min(4, Math.ceil(n / 10)) : 0;
   const body = `${Array.from({length: layers}, (_, k) => `<i style="--k:${layers - k}"></i>`).join('')}<span class="db-pile-top">${n ? '<img src="img/rivals/card-back-v1.webp" alt="" decoding="async" draggable="false">' : ''}</span><b>${n}</b>`;

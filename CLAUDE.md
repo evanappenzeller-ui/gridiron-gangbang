@@ -17,11 +17,15 @@ v6 table/boss features. No saves, collections, balances, or daily claims are res
 settings use `gg-rivals-{music|sfx}:<profileKey>:v1`, preserving Evan's original m_evan keys.
 Verify `check-rollout.cjs`, audio, table, ladder, deck, reveal, start, access, preview and scope checks.
 
-New solo games and friend challenges for these four profiles save `roundEnergy: 1` at creation.
-At the start of each side's turn, draw the top card if available and give matching energy to every
-active and benched player on that side. A special ability or an attached Energy Surge raises the
-grant from one to two. Energy Surge also gives two energy immediately and follows its player
-until replaced or discarded on knockout. Existing match records replay their original turn rules.
+New solo games and friend challenges save `roundEnergy: 2`. After drawing one card if available,
+each player in that side’s lineup gets the active player’s energy type. QB/WR/TE generate Pass,
+RB/OL Run, DL/LB Blitz, CB/S Coverage, and K Kick. On a knockout, draw once and wait for the
+replacement to set the type. Switching after the grant affects future turns. A special ability
+or an attached Energy Surge or Speed Cleats doubles its player’s grant to two. Energy Surge also
+gives two of the front player’s energy immediately. Speed Cleats attaches to the active player.
+Upgrades follow the player through switches and enter the discard pile on replacement or knockout.
+Records with `roundEnergy: 1` replay the earlier individual matching grants. Older records keep
+their original rules.
 
 
 ## Rivals sound effects (November 5, 2026)

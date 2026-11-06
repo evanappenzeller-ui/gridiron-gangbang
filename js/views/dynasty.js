@@ -57,13 +57,15 @@ const GLYPH = {
   R: '<path d="M4 6l6 6-6 6M11 6l6 6-6 6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
   B: '<path d="M12 2.5l2.4 5.6 6-1.3-3.9 4.8 3.9 4.8-6-1.3L12 20.7l-2.4-5.6-6 1.3 3.9-4.8-3.9-4.8 6 1.3z" fill="#fff"/>',
   C: '<path d="M12 3l7.5 3v5.5c0 4.4-3.1 8.2-7.5 9.5-4.4-1.3-7.5-5.1-7.5-9.5V6z" fill="#fff"/>',
+  K: '<path d="M5 4v7h14V4M12 11v9m-4 0h8" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>',
   '*': '<path d="M12 3.2l2.6 5.5 6 .7-4.4 4.1 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.4l6-.7z" fill="#fff"/>'
 };
-const ENERGY_COLOR = {P: '#3D9BE9', R: '#4FAE3E', B: '#E8573A', C: '#9562D9', '*': '#A9A391'};
-/** An energy symbol (e: P, R, B, C or *). */
+const ENERGY_COLOR = {P: '#3D9BE9', R: '#4FAE3E', B: '#E8573A', C: '#9562D9', K: '#B88911', '*': '#A9A391'};
+/** An energy symbol (e: P, R, B, C, K or *). */
 export const pipHTML = e => `<i class="pk-e" style="--ec:${ENERGY_COLOR[e] || '#999'}" title="${esc(B.ENERGY[e])}"><svg viewBox="0 0 24 24" aria-hidden="true">${GLYPH[e] || ''}</svg><span class="sr-only">${esc(B.ENERGY[e])}</span></i>`;
 /** A type's symbol (A, G, B, C, S). */
-const typeHTML = t => pipHTML(B.TYPES[t] ? B.TYPES[t].e : '*');
+const currentEnergyRule = () => rivalsUpdated() ? B.FRONT_ENERGY : 0;
+const typeHTML = (t, rule) => pipHTML(B.typeEnergy(t, rule));
 
 // ---------------------------------------------------------------------------------------------------- a card
 /** Whether a head is a photo (a Legend's: a rectangle filling the window), not a cut-out (a headshot, or a Epic or
@@ -97,7 +99,7 @@ export function cardHTML(c, o = {}) {
   const ability = st.ability ? `<span class="pk-c-ab"><i>Ability</i><b>${esc(B.ABILITY[st.ability].name)}</b></span>` : '';
   const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
   const inner = `<span class="pk-c-face" aria-hidden="true">`
-    + `<span class="pk-c-head"><span class="pk-c-stage">${stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${typeHTML(st.type)}</span></span>`
+    + `<span class="pk-c-head"><span class="pk-c-stage">${stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${typeHTML(st.type, o.roundEnergy ?? currentEnergyRule())}</span></span>`
     + `<span class="pk-c-art">${teamSceneHTML(c.team)}<span class="pk-c-num">${esc(String(c.num || c.pos))}</span>${photo}<span class="pk-c-art-team">${esc(c.team)}</span></span>`
     + `<span class="pk-c-strip">${esc(c.pos)} · ${esc(T.name)} · ${esc(S.short)}</span>`
     + `<span class="pk-c-body${st.ability ? ' has-ability' : ''}">${ability}${atk}</span>`
@@ -126,7 +128,7 @@ export function trainerHTML(t, o = {}) {
   const rarity = D.RARITY.includes(t.r) ? t.r : 'common';
   const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
   const kind = t.kind === 'coach' ? 'Coach' : TRAINER_KIND[t.kind];
-  const text = B.trainerText(t, o.roundEnergy ?? rivalsUpdated());
+  const text = B.trainerText(t, o.roundEnergy ?? currentEnergyRule());
   const label = `${t.name}, ${kind} card. ${text}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const inner = `<span class="pk-c-face" aria-hidden="true"><span class="pk-t-head"><b>RIVALS</b><i>${kind}</i></span>`
     + `<span class="pk-t-art">${T ? teamSceneHTML(t.team) : ''}${TRAINER_ART[t.kind] || ''}${T ? `<img class="pk-t-logo" src="${esc(logoUrl(t.team, 96))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : ''}</span>`
@@ -145,7 +147,7 @@ export const lockedHTML = (o = {}) => `<div class="pk-card pk-locked sz-${o.size
 export const anyHTML = (id, o = {}) => (D.card(id) ? cardHTML(D.card(id), o) : trainerHTML(D.trainer(id), o));
 /** A card's battle side in words: type, HP, weakness and retreat, its Ability, its attacks (o.attacks false: left out,
  *  where a battle's sheet shows them as buttons). */
-export function battleHTML(id, game = {v: B.RULES_VERSION, roundEnergy: rivalsUpdated()}, o = {}) {
+export function battleHTML(id, game = {v: B.RULES_VERSION, roundEnergy: currentEnergyRule()}, o = {}) {
   const t = D.trainer(id);
   if (t) return `<div class="pk-info"><p class="pk-info-k">${TRAINER_KIND[t.kind]} · ${TRAINER_RULE[t.kind]}</p><p>${esc(B.trainerText(t, game.roundEnergy))}</p></div>`;
   const st = B.stats(id), c = D.card(id);
@@ -155,7 +157,7 @@ export function battleHTML(id, game = {v: B.RULES_VERSION, roundEnergy: rivalsUp
   const atk = B.attacksOf(id, game.v).map((a, n) => `<li><span class="pk-cost">${a.cost.map(pipHTML).join('')}</span><span class="pk-an"><b>${esc(a.name)}</b>`
     + `${B.fxText(a) ? `<small>${esc(B.fxText(a))}</small>` : ''}${a.note ? `<small>${esc(a.note)}</small>` : ''}${a.flat ? '<small>Ignores weakness.</small>' : ''}${B.signatureText(game, n) ? `<small class="pk-signature-note">${esc(B.signatureText(game, n))}</small>` : ''}</span><em>${a.dmg}</em></li>`).join('');
   const stage = B.stageOf(id, game.v) ? `Stage 1: evolves from ${esc(c.name)}’s Basic card` : 'Basic';
-  return `<div class="pk-info"><div class="pk-info-h">${typeHTML(st.type)}<span>${esc(T.name)} · ${stage}${st.ex && game.v < 6 ? ' · ex: worth 2 points' : ''}</span><b>${st.hp} HP</b></div>`
+  return `<div class="pk-info"><div class="pk-info-h">${typeHTML(st.type, game.roundEnergy)}<span>${esc(T.name)} · ${stage}${st.ex && game.v < 6 ? ' · ex: worth 2 points' : ''}</span><b>${st.hp} HP</b></div>`
     + ab + (o.attacks === false ? '' : `<ul class="pk-atk">${atk}</ul>`)
     + `<p class="pk-foot">Weakness ${st.weak ? `${typeHTML(st.weak)} +${B.WEAK_BONUS}` : 'none'} · Retreat ${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : 'free'}</p></div>`;
 }
@@ -621,13 +623,14 @@ function decksHTML(st) {
   const order = id => (D.card(id) ? 0 : D.trainer(id).kind === 'coach' ? 1 : D.trainer(id).kind === 'item' ? 2 : 3);
   const uniq = Object.keys(counts).sort((a, b) => order(a) - order(b) || (D.card(b) ? D.card(b).o : 0) - (D.card(a) ? D.card(a).o : 0));
   const stars = uniq.filter(id => D.card(id)).slice(0, 2);
+  const types = rivalsUpdated() ? [...new Set(uniq.filter(id => D.card(id)).map(id => B.typeEnergy(B.stats(id).type, B.FRONT_ENERGY)))] : dk.types;
   let h = `<div class="pk-deckbox"><div class="pk-deckbox-cards">${stars.map((id, i) => `<span style="--i:${i}">${cardHTML(D.card(id), {size: 's', tag: false, noCount: true})}</span>`).join('')}</div>`
     + `<div class="pk-deckbox-t"><button type="button" class="pk-deckname" data-dy-rename>${esc(D.teamName(s))} ${ui.icon('gear', {size: 14})}</button>`
-    + `<span class="pk-deck-en">${dk.types.map(pipHTML).join('')}<small>${esc(dk.types.map(e => B.ENERGY[e]).join(' · '))}</small></span>`
+    + `<span class="pk-deck-en">${types.map(pipHTML).join('')}<small>${esc(types.map(e => B.ENERGY[e]).join(' · '))}</small></span>`
     + `<span class="pk-deck-n${dk.ok ? ' is-ok' : ''}">${dk.ids.length}/${B.DECK_SIZE}${dk.ok ? ' · Ready to battle' : ''}</span>${dk.ok ? '' : `<span class="pk-warn">${esc(dk.why)}</span>`}</div></div>`;
   h += `<div class="pk-actions is-deck"><button type="button" class="pk-pill" data-dy-addsheet>${ui.icon('plus', {size: 14})} Add cards</button>`
     + `<button type="button" class="pk-pill" data-dy-autodeck>${ui.icon('bolt', {size: 14})} Build my best deck</button></div>`;
-  h += `<p class="pk-note">20 cards, at most 2 of any player or card, at least one Basic player. Your players’ types decide your energy: one or two types work best. Tap a card to see it or take it out.</p>`;
+  h += `<p class="pk-note">20 cards, at most 2 of any player or card, at least one Basic player. Your active player determines which energy your lineup receives each turn. Tap a card to see it or take it out.</p>`;
   h += `<section class="rh-strategies"><h2>Find your play style</h2><p>Build from cards you own. Your current deck changes only when you choose a style.</p>${D.STRATEGIES.map(plan => {
     const candidate = D.strategyDeck(plan.id, s.o);
     return `<article class="rh-strategy"><div><h3>${esc(plan.name)}</h3><p>${esc(plan.description)}</p><small>${esc(plan.weakness)}</small></div><button type="button" class="pk-btn is-go" data-dy-strategy="${plan.id}"${candidate.ok ? '' : ' disabled'}>Use deck</button>${candidate.ok ? '' : `<p class="rh-strategy-missing">${esc(candidate.why)}</p>`}</article>`;
@@ -723,7 +726,7 @@ export function battleHome(st, s = D.mine()) {
     + `<div class="rh-section-head"><h2>Choose your matchup</h2><span>${nf(s.rec.w)} W · ${nf(s.rec.l)} L</span></div>`
     + `<div class="pk-modes"><button type="button" class="pk-mode" data-dy-bv="solo">${MODE_IC.solo}<b>Solo ladder</b><small>${at > SOLO.LADDER ? 'All 30 games won' : `Game ${at} of ${SOLO.LADDER} · ${esc(next.tier.name)}`}</small></button>`
     + `<button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Challenge a friend</b><small>${wait ? `${wait} ${wait === 1 ? 'match needs' : 'matches need'} your attention` : 'Take turns, on your schedule'}</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button></div>`
-    + `<details class="rh-how"><summary>Make every card count <span>How to play</span></summary><ol><li><b>Set your lineup.</b> One active player, up to three on the bench.</li><li><b>Tap a card.</b> It lifts up with its plays. Pick one, or put it back.</li><li><b>Start your turn.</b> Draw one card automatically. Your active player and each benched player gain one matching energy. A player with a special ability or an attached Energy Surge gains two.</li><li><b>Choose your moment.</b> Quick plays keep energy. Signature plays spend one energy for a bigger hit.</li></ol><p>${D.tableOpen() ? 'In new solo matches, hold and drag cards into play. Each defeated player counts once: lose three and the match ends.' : 'Knockouts score touchdowns. First to three wins.'} Matches already in progress keep their original rules.</p></details>`
+    + `<details class="rh-how"><summary>Make every card count <span>How to play</span></summary><ol><li><b>Set your lineup.</b> One active player, up to three on the bench.</li><li><b>Tap a card.</b> It lifts up with its plays. Pick one, or put it back.</li><li><b>Start your turn.</b> Draw one card automatically. Your active player sets the energy type for your whole lineup. Each player gains one, or two with a special ability or energy upgrade.</li><li><b>Choose your moment.</b> Quick plays keep energy. Signature plays spend one energy for a bigger hit.</li></ol><p>${D.tableOpen() ? 'In new solo matches, hold and drag cards into play. Each defeated player counts once: lose three and the match ends.' : 'Knockouts score touchdowns. First to three wins.'} Matches already in progress keep their original rules.</p></details>`
     + `<div class="pk-row-s"><button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Rules</span></button>`
     + `<button type="button" class="pk-mini" data-dy-tab="decks">${TILE.decks}<span>Decks</span></button>`
     + `<button type="button" class="pk-mini" data-dy-bv="rank">${MODE_IC.rank}<span>Rankings</span></button>`
@@ -772,7 +775,7 @@ function rankHTML() {
 }
 function guideSheet() {
   if (D.tableOpen()) {
-    ui.openSheet({title: 'Solo table rules', cls: 'pk-sheet', detents: ['large'], body: `<ol class="pk-guide"><li><b>Build your deck</b>40 cards, at least 6 players, up to 2 of each. Mix your collection with eight reusable match-playbook abilities in Decks.</li><li><b>Set your lineup</b>Hold a player in your hand, then drag to Active or one of three Bench spaces. Tap Start when ready.</li><li><b>Hold to inspect</b>Hold any face-up card, yours or theirs. Release to read its attacks. Opponent hand cards stay hidden. Tapping a card also opens its actions.</li><li><b>Play a card</b>Hold, move, then drop on a glowing space. Players go to your bench. Instant abilities go in the center; targeted ones go on your player. An invalid drop returns the card to your hand.</li><li><b>Make your play</b>At the start of your turn, draw one card automatically. Your active player and each benched player gain one matching energy, or two if they have a special ability or an attached Energy Surge. Energy Surge also gives two energy when played. Fresh Playbook draws two cards. Items play immediately; use at most one Coach each turn.</li><li><b>Attack</b>Tap your active player and choose an attack whose energy cost they can meet. Quick attacks keep energy; signature attacks spend one. All or Nothing flips a coin: heads hits hard, tails fails. Every attack ends your turn.</li><li><b>Three knockouts</b>Every player counts as one, including Legends. The first team to lose three players loses. If your bench is empty, a player from your hand or deck joins it as a reserve. A 100-turn stalemate is a draw.</li><li><b>Make the table yours</b>Unlock finishes through solo wins, challenge 10 and pack openings. Equip one in Decks or from the table. The felt changes with the turn.</li></ol><p class="pk-note">New friend matches use the same turn-start draw and energy rules. Matches already in progress follow their original rules.</p>`});
+    ui.openSheet({title: 'Solo table rules', cls: 'pk-sheet', detents: ['large'], body: `<ol class="pk-guide"><li><b>Build your deck</b>40 cards, at least 6 players, up to 2 of each. Mix your collection with eight reusable match-playbook abilities in Decks.</li><li><b>Set your lineup</b>Hold a player in your hand, then drag to Active or one of three Bench spaces. Tap Start when ready.</li><li><b>Hold to inspect</b>Hold any face-up card, yours or theirs. Release to read its attacks. Opponent hand cards stay hidden. Tapping a card also opens its actions.</li><li><b>Play a card</b>Hold, move, then drop on a glowing space. Players go to your bench. Instant abilities go in the center; targeted ones go on your player. An invalid drop returns the card to your hand.</li><li><b>Make your play</b>At the start of your turn, draw one card automatically. Your active player sets the energy type for your whole lineup: QB/WR/TE generate Pass, RB/OL Run, DL/LB Blitz, CB/S Coverage, and K Kick. Each player gains one. A special ability, Energy Surge, or Speed Cleats raises that player’s grant to two. A switch affects the next turn’s grant. Fresh Playbook draws two cards. Items play immediately; use at most one Coach each turn.</li><li><b>Attack</b>Tap your active player and choose an attack whose energy cost they can meet. Quick attacks keep energy; signature attacks spend one. All or Nothing flips a coin: heads hits hard, tails fails. Every attack ends your turn.</li><li><b>Three knockouts</b>Every player counts as one, including Legends. The first team to lose three players loses. If your bench is empty, a player from your hand or deck joins it as a reserve. A 100-turn stalemate is a draw.</li><li><b>Make the table yours</b>Unlock finishes through solo wins, challenge 10 and pack openings. Equip one in Decks or from the table. The felt changes with the turn.</li></ol><p class="pk-note">New friend matches use the same turn-start draw and energy rules. Matches already in progress follow their original rules.</p>`});
     return;
   }
   const body = `<ol class="pk-guide">`

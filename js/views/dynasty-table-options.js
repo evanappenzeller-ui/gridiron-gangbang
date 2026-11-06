@@ -2,7 +2,7 @@ import {profileKey} from '../core/realm-active.js';
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as D from '../core/dynasty.js';
-import {trainerText} from '../core/dynasty-battle.js';
+import {trainerText, FRONT_ENERGY} from '../core/dynasty-battle.js';
 import * as T from '../core/dynasty-table.js';
 const esc = data.esc;
 
@@ -28,7 +28,7 @@ export function tableDeckSheet(onChange = () => {}, slot = null) {
   const rows = () => Object.keys(pool).filter(id => D.anyCard(id) && (D.anyCard(id).name.toLowerCase().includes(filter.toLowerCase())))
     .sort((a, b) => (draft.includes(b) - draft.includes(a)) || D.anyCard(a).name.localeCompare(D.anyCard(b).name)).map(id => {
       const c = D.anyCard(id), count = draft.filter(x => x === id).length, cap = Math.min(2, pool[id]);
-      return `<div class="rt-deck-row"><div><b>${esc(c.name)}</b><small>${T.PLAYBOOK[id] ? 'Match playbook · reusable' : c.pos ? `${esc(c.pos)} · ${c.o} OVR` : esc(c.kind)}${c.text ? ` · ${esc(trainerText(c, true))}` : ''}</small></div><button type="button" data-rt-minus="${esc(id)}" aria-label="Remove ${esc(c.name)}" ${count ? '' : 'disabled'}>−</button><b>${count}</b><button type="button" data-rt-plus="${esc(id)}" aria-label="Add ${esc(c.name)}" ${count < cap && draft.length < T.SIZE ? '' : 'disabled'}>+</button></div>`;
+      return `<div class="rt-deck-row"><div><b>${esc(c.name)}</b><small>${T.PLAYBOOK[id] ? 'Match playbook · reusable' : c.pos ? `${esc(c.pos)} · ${c.o} OVR` : esc(c.kind)}${c.text ? ` · ${esc(trainerText(c, FRONT_ENERGY))}` : ''}</small></div><button type="button" data-rt-minus="${esc(id)}" aria-label="Remove ${esc(c.name)}" ${count ? '' : 'disabled'}>−</button><b>${count}</b><button type="button" data-rt-plus="${esc(id)}" aria-label="Add ${esc(c.name)}" ${count < cap && draft.length < T.SIZE ? '' : 'disabled'}>+</button></div>`;
     }).join('');
   let stopProfile;
   const sh = ui.openSheet({onClose: () => stopProfile?.(), title: slot ? slot.id ? 'Edit deck' : 'Build new deck' : 'Solo table deck', body: `${slot ? `<label class="rt-search">Deck name<input type="text" maxlength="32" data-rt-name value="${esc(slot.name || '')}" placeholder="Name your deck"></label>` : ''}<p class="pk-note">40 cards. At least 6 players. Up to 2 copies of cards you own. Eight reusable ability cards come with the match playbook. Editing applies to your next solo match.</p><div class="rt-deck-tools"><b data-rt-count></b><button class="pk-btn" data-rt-auto>Auto-fill deck</button><button class="pk-btn is-go" data-rt-save>Save deck</button></div><label class="rt-search">Find a card<input type="search" placeholder="Player or ability" data-rt-search></label><div data-rt-rows></div>`, cls: 'pk-sheet', detents: ['large']});

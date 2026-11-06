@@ -400,3 +400,11 @@ html.is-dynasty-battle { --col-w: 640px; }
   border: 1px solid #eedca666; border-radius: 20px; background: #0b1d22e6; color: #f6edcf; font: 800 10px/1.2 var(--font-text); text-align: center; }
 .v-dynasty-battle .db-pile.is-me:active .db-pile-top { filter: brightness(1.12); }
 .v-dynasty-battle .db-pile:focus-visible { outline: 2px solid #f9e2ac; outline-offset: 5px; border-radius: 6px; }
+.v-dynasty-battle .db-energy-source {
+  position: absolute; top: 50%; transform: translate(-50%, -50%); display: grid; justify-items: center;
+  gap: 2px; color: #fff5d7; font: 700 11px/1 var(--font-text); pointer-events: none;
+}
+.v-dynasty-battle .db-energy-source.is-me { left: 19%; }
+.v-dynasty-battle .db-energy-source.is-opp { left: 81%; }
+.v-dynasty-battle .db-energy-source .pk-e { font-size: clamp(15px, 3.5vw, 22px); }
+.v-dynasty-battle .db-energy-source small { font-size: 9px; font-weight: 500; }

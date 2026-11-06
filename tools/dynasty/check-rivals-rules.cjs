@@ -194,6 +194,47 @@ function board(B, version = 3, attacker = 'pass', defender = 'anchor') {
       assert.ok(me.disc.includes('I-charge'), 'knockout discards the attachment');
     }
   }
+  for (const v of [5, 6]) {
+    for (let i = 0; i < 12; i++) simulate(B, v, 'front-' + i, B.FRONT_ENERGY);
+    for (const [starter, energy] of [['pass','P'], ['run','R'], ['sack','B'], ['counter','C'], ['kick','K']]) {
+      const g = B.newGame('front-' + starter, decks, v, null, B.FRONT_ENERGY);
+      const first = g.first, next = 1 - first, me = g.p[first], them = g.p[next];
+      const move = (who, m) => assert.equal(B.play(g, who, m).ok, true);
+      me.hand = [starter, 'anchor', 'run', 'kick', 'I-cleats'];
+      them.hand = ['sack', 'run'];
+      move(first, {a:'setup', act:starter, bench:['anchor','run','kick']});
+      move(next, {a:'setup', act:'sack', bench:['run']});
+      assert.deepEqual(me.bench.map(s => s.en), [[energy,energy],[energy],[energy]]);
+      assert.deepEqual(them.bench[0].en, []);
+      move(first, {a:'item', id:'I-cleats'});
+      assert.equal(me.active.attachment, 'I-cleats');
+      const upgraded = me.active, rb = me.bench[1];
+      move(first, {a:'retreat', to:rb.u});
+      assert.equal(B.attackPreview(g, first, 0).ok, energy === 'R', 'RB requires Run for Off Tackle');
+      const banked = upgraded.en.slice();
+      move(first, {a:'end'});
+      assert.deepEqual(them.bench[0].en, ['B']);
+      move(next, {a:'end'});
+      assert.deepEqual(upgraded.en, [...banked,'R','R'], 'upgrade follows the player to the bench and caps the grant at two');
+      assert.deepEqual(rb.en, [energy,'R'], 'switch changes the next grant, not stored energy');
+      if (v === 6) {
+        me.hand.push('I-charge');
+        move(first, {a:'item', id:'I-charge', on:upgraded.u});
+        assert.equal(upgraded.attachment, 'I-charge');
+        assert.ok(me.disc.includes('I-cleats'));
+        assert.deepEqual(upgraded.en.slice(-2), ['R','R']);
+      }
+      rb.inj = true; rb.dmg = B.hpOf(rb) - 10;
+      move(first, {a:'end'}); move(next, {a:'end'});
+      assert.ok(me.promote);
+      const drawn = me.hand.slice(), before = upgraded.en.slice();
+      assert.equal(g.ev.filter(e => e.k === 'energy' && e.n === g.turn).length, 0);
+      move(first, {a:'promote', u:me.bench.find(s => s.id === 'kick' && s !== upgraded).u});
+      assert.deepEqual(upgraded.en, [...before,'K','K']);
+      assert.deepEqual(me.hand, drawn, 'promotion triggers no extra draw');
+      assert.equal(B.attackPreview(g, first, 0).ok, true, 'kicker can use Kick for a wildcard cost');
+    }
+  }
   const storage = new Map(); let profile = 'm_evan';
   const localStorage = {getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k)};
   const D = {tableOpen: () => false, status: 'ready', mayPlay: () => true, mine: () => ({}), deckOf: () => ({ok: true, ids: decks[0]}), CARDS: cards,
@@ -229,7 +270,8 @@ function board(B, version = 3, attacker = 'pass', defender = 'anchor') {
   assert.equal(JSON.parse(storage.get('gg-dyb-m_evan'))[challenge.mid].v, 5, 'new multiplayer challenge saves v5');
   daily.LB.raw.push({id: 'opponent', dyb: {'u_ryan-stewart': {[challenge.mid]: {o: 'm_evan', k: decks[1], m: [], ch: 0, c: 1, at: 1}}}});
   assert.equal(M.get(challenge.mid).G.v, 5, 'the accepter inherits the challenger’s version for replay');
-  assert.equal(M.get(challenge.mid).G.roundEnergy, 1, 'new challenge replays with per-player energy');
+  assert.equal(M.get(challenge.mid).G.roundEnergy, B.FRONT_ENERGY, 'new challenge replays with front-player energy');
+  assert.equal(M.cleanSide({o:'other', v:5, roundEnergy:1}).roundEnergy, 1, 'previous lineup grants survive cloud cleaning');
   assert.equal(M.cleanSide({o:'other', v:5}).roundEnergy, undefined, 'existing challenges keep their turn rules');
   console.log('PASS Rivals rules: legacy v1/v2 snapshots, v3 energy/Juke, v4 automatic energy, 432 previews, turn draws, lineup energy, attachments, replay, and save-version round trips');
 })().catch(e => { console.error(e); process.exitCode = 1; });
