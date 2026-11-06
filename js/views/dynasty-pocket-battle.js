@@ -35,7 +35,8 @@ function face(id, slot, G) {
   return `<span class="rp-card-heading"><span>${esc(c.stage)}${c.classification !== 'regular' ? ` · ${esc(c.classification === 'mega-ex' ? 'Mega ex' : 'ex')}` : ''}</span><b>${hp}<small> HP</small></b></span>`
     + `<span class="rp-card-art" style="--card-color:${color[c.type || c.types?.[0]] || color.Colorless}">${portrait(c)}<span>${esc(c.position || '')}</span></span>`
     + `<strong class="rp-card-name">${esc(c.athlete || c.name)}</strong><span class="rp-card-type">${esc(typeOf(c))} · ${points(c)} KO point${points(c) > 1 ? 's' : ''}</span>`
-    + (slot ? `<span class="rp-hp" aria-label="${hp} of ${max} HP remaining"><i style="width:${Math.max(0, Math.min(100, hp / max * 100))}%"></i></span><span class="rp-card-energy">${energy(slot.en)}</span>${statuses.length ? `<span class="rp-condition">${esc(statuses.join(' · '))}</span>` : ''}` : `<span class="rp-card-type">${esc(c.attacks[0].name)} · ${c.attacks[0].damage} damage</span>`);
+    + `<span class="rp-card-attack"><span>${esc(c.attacks[0].name)}</span><b>${c.attacks[0].damage}</b></span>`
+    + (slot ? `<span class="rp-hp" aria-label="${hp} of ${max} HP remaining"><i style="width:${Math.max(0, Math.min(100, hp / max * 100))}%"></i></span><span class="rp-card-energy">${energy(slot.en)}</span>${statuses.length ? `<span class="rp-condition">${esc(statuses.join(' · '))}</span>` : ''}` : '');
 }
 function piece(id, slot, G, attrs = '', selected = false) {
   const c = C.card(id);
@@ -147,14 +148,45 @@ function eventText(ev, you, opponent) {
 function help(st) {
   showSheet(st, 'How to play Gridiron Rivals', `<ol class="rp-rules"><li><b>Collect, build, battle.</b> Build a focused 20-card deck with at least one Base Player and at most two of each canonical name. Energy comes from the Energy Zone, never your deck.</li><li><b>Choose your lineup.</b> Start with five cards, including a Base Player. Choose one Active athlete and up to three Base Players for the Bench.</li><li><b>Prepare one turn ahead.</b> Draw one card. Attach one Energy to any athlete. The first manager skips normal Energy on the opening turn; legal zero-cost attacks and Supporters are still allowed.</li><li><b>Attack and keep Energy.</b> Meet the printed cost, then attack. Any type pays Colorless costs. The attack ends your turn. Energy stays attached unless a card says otherwise.</li><li><b>Develop your athletes.</b> Put the exact matching Breakout or Prime card from hand on an eligible athlete. Never on your first turn, on the turn it entered play, or twice on the same athlete in one turn. Keep damage, Energy and Tool.</li><li><b>Choose your support.</b> Use multiple eligible Items, one Supporter, one Tool per athlete and one Stadium per turn. There is one shared Stadium.</li><li><b>Retreat wisely.</b> Pay the Active athlete’s printed Energy cost and choose a Benched replacement, once per turn. A card-effect switch or free promotion after a knockout does not spend that retreat allowance.</li><li><b>Score three knockout points.</b> Regular players give 1 point, ex 2, Mega ex 3. You also win if your opponent has no athlete in play to replace a knocked-out Active athlete. Hand and deck cards cannot rescue that knockout.</li></ol><h3>Between-turn Checkup</h3><p>Poison: 10 damage each Checkup, no recovery flip. Burn: 20 damage, then heads clears it. Sleep: no attack or retreat; heads at Checkup wakes the athlete. Paralysis: no attack or retreat; clears after its owner’s next turn. Confusion: flip to attack; tails ends the turn without attacking or self-damage.</p><p>Development and moving to the Bench clear Special Conditions. Poison and Burn can coexist; Sleep, Paralysis and Confusion replace one another.</p><p>Plan your next attacker while your Active athlete keeps using its attached Energy. Every Bench slot matters. Match damage and knockouts never remove cards from your collection.</p>`);
 }
+function cardBack() {
+  return '<span class="rp-card-back" aria-hidden="true"><b>R</b><small>GRIDIRON<br>RIVALS</small></span>';
+}
 function lineupHTML(st, side) {
   const G = st.x.G, p = G.p[side], mine = side === st.x.you;
   const provisional = mine && G.phase === 'setup' && !p.ready;
-  if (!mine && G.phase === 'setup') return `<section class="rp-side is-opponent"><h2>${esc(st.x.opp.name)}</h2><div class="rp-active"><div class="rp-card rp-hidden" aria-label="Opponent’s opening athlete is face down">R<span>Opening lineup hidden</span></div></div><p class="rp-caption">Revealed after both managers finish setup</p></section>`;
-  const active = provisional ? st.setup.active == null ? null : {id:p.hand[st.setup.active],index:st.setup.active} : p.active;
-  const bench = provisional ? st.setup.bench.map(i => ({id:p.hand[i],index:i})) : p.bench;
+  const hidden = !mine && G.phase === 'setup';
+  const active = hidden ? null : provisional ? st.setup.active == null ? null : {id:p.hand[st.setup.active],index:st.setup.active} : p.active;
+  const bench = hidden ? [] : provisional ? st.setup.bench.map(i => ({id:p.hand[i],index:i})) : p.bench;
   const attrs = s => provisional ? `data-rp-hand="${s.index}"` : `data-rp-slot="${s.u}" data-rp-side="${side}"`;
-  return `<section class="rp-side ${mine ? 'is-mine' : 'is-opponent'}"><h2>${mine ? 'Your lineup' : esc(st.x.opp.name)}</h2><div class="rp-active"><span class="rp-zone-label">Active Spot</span>${active ? piece(active.id, provisional ? null : active, G, attrs(active)) : `<div class="rp-empty">${p.promote ? 'Choose a Benched replacement' : 'Choose a Base Player'}</div>`}</div><div class="rp-bench" aria-label="${mine ? 'Your' : 'Opponent’s'} Bench">${[0,1,2].map(i => bench[i] ? piece(bench[i].id, provisional ? null : bench[i], G, attrs(bench[i])) : '<div class="rp-bench-empty">Bench</div>').join('')}</div></section>`;
+  return `<section class="rp-side ${mine ? 'is-mine' : 'is-opponent'}" aria-label="${mine ? 'Your' : 'Opponent’s'} lineup"><div class="rp-active"><span class="rp-zone-label">${mine ? 'Your Active' : 'Opponent Active'}</span>${hidden ? `<div class="rp-hidden" aria-label="Opponent’s opening athlete is face down">${cardBack()}</div>` : active ? piece(active.id, provisional ? null : active, G, attrs(active)) : `<div class="rp-empty">${p.promote ? 'Choose a Benched replacement' : 'Choose a Base Player'}</div>`}</div><div class="rp-bench" aria-label="${mine ? 'Your' : 'Opponent’s'} Bench">${[0,1,2].map(i => bench[i] ? piece(bench[i].id, provisional ? null : bench[i], G, attrs(bench[i])) : '<div class="rp-bench-empty">Bench</div>').join('')}</div></section>`;
+}
+function manager(label, p, mine) {
+  return `<div role="group" class="rp-manager ${mine ? 'is-mine' : 'is-opponent'}" aria-label="${esc(label)}, ${p.points} of 3 knockout points"><span>${esc(label)}</span><span class="rp-points" aria-hidden="true">${[0,1,2].map(i=>`<i${p.points > i ? ' class="is-scored"' : ''}></i>`).join('')}</span></div>`;
+}
+function piles(p, side, mine) {
+  const label = mine ? 'Your' : 'Opponent', cls = mine ? 'is-mine' : 'is-opponent';
+  return `<div role="group" class="rp-deck ${cls}" aria-label="${label} deck: ${p.deck.length} cards">${cardBack()}<b>${p.deck.length}<small> Deck</small></b></div>`
+    + `<button type="button" class="rp-discard ${cls}" data-rp-discard="${side}" aria-label="${label} discard: ${p.discard.length} cards"><span aria-hidden="true">↗</span><b>${p.discard.length}</b><small>Discard</small></button>`;
+}
+function energyZone(p, mine) {
+  const ready = p.en && !p.used.energy, label = ready ? `${p.en} Energy available` : p.used.energy ? 'Energy attached this turn' : 'No Energy available';
+  const tag = mine ? 'button' : 'div';
+  return `<${tag} class="rp-energy-zone ${mine ? 'is-mine' : 'is-opponent'}${ready ? ' is-ready' : ''}" ${mine ? 'type="button" data-rp-energy' : 'role="group"'} aria-label="${mine ? 'Your' : 'Opponent’s'} Energy Zone: ${esc(label)}"><span class="rp-energy-orb">${ready ? energy([p.en]) : '<span aria-hidden="true">○</span>'}</span><small>Energy${mine && ready ? ' · Tap' : ''}</small></${tag}>`;
+}
+function handSheet(st) {
+  const {G,you} = st.x, chosen = [st.setup.active,...st.setup.bench];
+  showSheet(st, `Your hand · ${G.p[you].hand.length}`, `<p class="rp-caption">Tap a card to inspect it and choose an action.</p><div class="rp-hand-library">${G.p[you].hand.map((id,i)=>piece(id,null,G,`data-rp-hand="${i}"`,G.phase === 'setup' && chosen.includes(i))).join('') || '<p>Your hand is empty.</p>'}</div>`, e=>onClick(st,e));
+}
+function energySheet(st) {
+  const {G,you} = st.x, p = G.p[you], moves = B.legalActions(G,you).filter(m=>m.a === 'energy');
+  showSheet(st, 'Your Energy Zone', `<p>${G.phase === 'over' ? 'This battle is complete.' : moves.length ? `${energy([p.en])} Choose an athlete to receive ${esc(p.en)} Energy.` : p.used.energy ? 'You have already attached your Energy this turn.' : G.phase === 'setup' ? 'Finish setting your lineup to begin the battle.' : G.who !== you ? 'Your Energy becomes available on your turn.' : 'No normal Energy is available on the first manager’s opening turn.'}</p><div class="rp-actions">${moves.map((m,i)=>button(esc(moveLabel(G,m)),`data-rp-move="${i}"`)).join('')}</div><p class="rp-caption">One manual attachment per turn. Attached Energy stays after attacking unless a card says otherwise.</p>`, e=>{
+    const b=e.target.closest('[data-rp-move]');
+    if (b && moves[Number(b.dataset.rpMove)]) send(st,moves[Number(b.dataset.rpMove)]);
+  });
+}
+function battleMenu(st) {
+  const {G,you,state} = st.x, p = G.p[you], op=G.p[1-you];
+  showSheet(st, 'Battle options', `<p>${esc(prompt(st))}</p><p>Turn ${G.turn} · First to 3 knockout points</p><p>Supporter: ${p.used.supporter ? 'used' : 'available'} · Retreat: ${p.used.retreat ? 'used' : 'available'}</p><p>Your deck: ${p.deck.length} · Hand: ${p.hand.length}<br>Opponent deck: ${op.deck.length} · Hand: ${op.hand.length}</p><div class="rp-actions">${button('View your hand','data-rp-expand-hand')}${button('Battle log','data-rp-log')}${button('How to play','data-rp-help')}${button('Table finish','data-rp-table')}${button('Music & sound settings','data-rp-settings')}${state === 'over' ? '' : button('Concede','data-rp-concede')}</div>`, e=>onClick(st,e));
 }
 function prompt(st) {
   const {G, you, state, result, opp} = st.x, p = G.p[you];
@@ -164,6 +196,15 @@ function prompt(st) {
   if (p.promote) return 'Choose a Benched athlete to promote. No retreat cost.';
   if (G.pending?.kind === 'switch' && G.pending.who === you) return 'Matchup Change: you choose your Benched replacement.';
   return p.en && !p.used.energy ? `Your turn. Attach ${p.en} Energy to your Active or a Benched athlete.` : 'Your turn. Prepare your Bench, play support, attack or end your turn.';
+}
+function boardPrompt(st) {
+  const {G,you,state,result} = st.x, p=G.p[you];
+  if (state === 'over') return result === 'w' ? 'Victory' : result === 'd' ? 'Match drawn' : 'Match complete';
+  if (G.phase === 'setup') return p.ready ? 'Waiting for the opposing lineup' : 'Choose your Active athlete and Bench';
+  if (state === 'theirs') return 'Opponent’s turn';
+  if (p.promote) return 'Choose your next Active athlete';
+  if (G.pending?.kind === 'switch' && G.pending.who === you) return 'Choose a Benched replacement';
+  return p.en && !p.used.energy ? `Your turn · Attach ${p.en} Energy` : 'Your turn · Tap an athlete to attack';
 }
 function draw(st) {
   if (st.dead || st.hidden) return;
@@ -184,35 +225,36 @@ function draw(st) {
   st.eventAt = len;
   const scroll = host.querySelector('.rp-hand')?.scrollLeft || 0, focusKey = document.activeElement?.getAttribute('data-rp-hand');
   const finish = D.tableFinish();
-  host.style.setProperty('--rp-felt', (state === 'theirs' ? finish?.away : finish?.color) || '#183e36');
+  host.style.setProperty('--rp-home', finish?.color || '#183e36');
+  host.style.setProperty('--rp-away', finish?.away || '#714943');
   const legal = B.legalActions(G,you), needsChoice = p.promote || (G.pending?.kind === 'switch' && G.pending.who === you);
   const chosen = [st.setup.active,...st.setup.bench];
   const last = events.map(e => eventText(e,you,x.opp.name)).filter(Boolean).at(-1) || 'Set a lineup. Build a plan. Make every card count.';
-  host.innerHTML = `<header class="rp-top">${button('‹ <span>Rivals</span>','data-back')}<div><small>GRIDIRON RIVALS</small><b>Card duel</b></div>${button('Rules','data-rp-help')}</header>`
-    + `<div class="rp-scoreboard"><div><span>You</span><b>${p.points}<small> / 3</small></b></div><span class="rp-score-label">KNOCKOUT POINTS<br><small>${G.phase === 'setup' ? 'Opening setup' : `Turn ${G.turn}`}</small></span><div><span>Opponent</span><b>${op.points}<small> / 3</small></b></div></div>`
-    + `<p class="rp-status ${state === 'yours' ? 'is-yours' : ''}" role="status">${esc(prompt(st))}</p>`
-    + `<div class="rp-hand-jump">${button(G.phase === 'setup' ? 'Choose opening athletes ↓' : `Your hand (${p.hand.length}) ↓`,'data-rp-jump-hand')}</div>`
+  const yourName = data.guest() || data.name(data.me()) || 'You';
+  host.innerHTML = `<header class="rp-top">${button('‹ <span>Rivals</span>','data-back')}<div><small>GRIDIRON RIVALS</small><b>${G.phase === 'setup' ? 'Opening lineup' : over ? 'Match complete' : `Turn ${G.turn}`}</b></div>${button('Rules','data-rp-help')}</header>`
+    + `<div class="rp-arena"><div role="group" class="rp-opponent-hand" aria-label="Opponent hand: ${op.hand.length} cards">${Array.from({length:Math.min(5,op.hand.length)},(_,i)=>`<span style="--fan-angle:${(i-(Math.min(5,op.hand.length)-1)/2)*7}deg">${cardBack()}</span>`).join('')}<small>${op.hand.length} in hand</small></div>`
+    + manager(x.opp.name,op,false) + manager(yourName,p,true)
     + `<div class="rp-field">${lineupHTML(st,1-you)}${lineupHTML(st,you)}</div>`
-    + `<div class="rp-stadium"><span>Shared Stadium</span>${G.stadium ? `<button type="button" data-rp-stadium>${esc(name(typeof G.stadium === 'string' ? G.stadium : G.stadium.id))}</button>` : '<b>No Stadium in play</b>'}</div>`
-    + `<section class="rp-resources"><div><small>ENERGY ZONE</small><strong>${p.en && !p.used.energy ? `${energy([p.en])} ${esc(p.en)}` : p.used.energy ? 'Attached this turn' : G.phase === 'setup' ? 'Ready after setup' : 'No Energy available'}</strong><span>${G.phase !== 'setup' && G.first === you && p.turns === 1 && !p.en ? 'No normal Energy on the opening turn' : 'One manual attachment per turn'}</span><span>Supporter: ${p.used.supporter ? 'used' : 'available'} · Retreat: ${p.used.retreat ? 'used' : 'available'}</span></div><div><button type="button" data-rp-discard="${you}">Your discard <b>${p.discard.length}</b> · Deck ${p.deck.length}</button><button type="button" data-rp-discard="${1-you}">Opponent discard <b>${op.discard.length}</b></button><span>Opponent deck: ${op.deck.length} · Hand: ${op.hand.length}</span></div></section>`
+    + piles(op,1-you,false) + piles(p,you,true) + energyZone(op,false) + energyZone(p,true)
+    + `<div class="rp-stadium">${G.stadium ? `<button type="button" data-rp-stadium aria-label="Shared Stadium: ${esc(name(typeof G.stadium === 'string' ? G.stadium : G.stadium.id))}"><span aria-hidden="true">⌂</span><small>${esc(name(typeof G.stadium === 'string' ? G.stadium : G.stadium.id))}</small></button>` : '<span aria-label="No Stadium in play">⌂<small>Stadium</small></span>'}</div>`
+    + `<p class="rp-status ${state === 'yours' ? 'is-yours' : ''}" role="status">${esc(boardPrompt(st))}</p>`
+    + `<div class="rp-turn-action">${over ? button('Ladder','data-rp-ladder',false,'is-primary') + button('Play again','data-rp-again') : G.phase === 'setup' && !p.ready ? button('Confirm lineup','data-rp-ready',st.setup.active == null,'is-primary') : button('End turn','data-rp-end',!legal.some(m=>m.a==='end'),'is-primary')}</div>`
     + (needsChoice && !over ? `<div class="rp-choice">${legal.filter(m=>['promote','choose-switch'].includes(m.a)).map((m,i)=>button(esc(moveLabel(G,m)),`data-rp-choice="${i}"`,false,'is-primary')).join('')}</div>` : '')
-    + `<section class="rp-hand-section"><div class="rp-section-heading"><h2>Your hand <small>${p.hand.length}</small></h2><span>Tap a card to inspect & play</span></div><div class="rp-hand">${p.hand.map((id,i)=>piece(id,null,G,`data-rp-hand="${i}"`,G.phase === 'setup' && chosen.includes(i))).join('') || '<p>Your hand is empty.</p>'}</div></section>`
-    + `<div class="rp-bottom"><p class="rp-last-event" aria-live="polite">${esc(last)}</p><div class="rp-bottom-actions">${over ? button('Back to ladder','data-rp-ladder',false,'is-primary') + button('Play again','data-rp-again') : G.phase === 'setup' && !p.ready ? button('Confirm lineup','data-rp-ready',st.setup.active == null,'is-primary') : button('End turn','data-rp-end',!legal.some(m=>m.a==='end'),'is-primary')}${button('Battle log','data-rp-log')}${button('Table finish','data-rp-table')}${button('Settings','data-rp-settings')}${over ? '' : button('Concede','data-rp-concede')}</div></div>`
-    + '<p class="rp-footnote">Fictional card-balance values · Collection ownership is preserved</p>';
+    + `<section class="rp-hand-section"><div class="rp-section-heading"><h2>Your hand <small>${p.hand.length}</small></h2><button type="button" class="rp-expand-hand" data-rp-expand-hand aria-label="View all ${p.hand.length} cards in your hand">View all ↗</button></div><div class="rp-hand${p.hand.length > 5 ? ' is-large-hand' : ''}" style="--hand-count:${p.hand.length}">${p.hand.map((id,i)=>piece(id,null,G,`data-rp-hand="${i}" style="--fan-index:${i};--fan-angle:${(i-(p.hand.length-1)/2)*Math.min(5,22/Math.max(1,p.hand.length-1))}deg;--fan-lift:${Math.abs(i-(p.hand.length-1)/2)*3}px"`,G.phase === 'setup' && chosen.includes(i))).join('') || '<p>Your hand is empty.</p>'}</div></section>`
+    + '<button type="button" class="rp-menu" data-rp-menu aria-label="Battle options"><span aria-hidden="true">☰</span></button>'
+    + `<p class="rp-sr-only" aria-live="polite">${esc(last)}</p></div>`;
   host.querySelector('.rp-hand').scrollLeft = scroll;
-  if (focusKey != null) host.querySelector(`[data-rp-hand="${Number(focusKey)}"]`)?.focus({preventScroll:true});
+  if (focusKey != null) host.querySelector(`.rp-hand [data-rp-hand="${Number(focusKey)}"]`)?.focus({preventScroll:true});
 }
 function onClick(st,e) {
   const q = s => e.target.closest(s); let b;
   if (!st.x || st.hidden) return;
   if (q('[data-rp-help]')) return help(st);
-  if (q('[data-rp-jump-hand]')) {
-    const hand=st.el.querySelector('.rp-hand-section');
-    hand.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
-    hand.querySelector('button')?.focus({preventScroll:true});return;
-  }
-  if (q('[data-rp-table]')) return tableOptions(()=>draw(st));
-  if (q('[data-rp-settings]')) return musicSheet();
+  if (q('[data-rp-menu]')) return battleMenu(st);
+  if (q('[data-rp-expand-hand]')) return handSheet(st);
+  if (q('[data-rp-energy]')) return energySheet(st);
+  if (q('[data-rp-table]')) { closeSheet(st); return tableOptions(()=>draw(st)); }
+  if (q('[data-rp-settings]')) { closeSheet(st); return musicSheet(); }
   if ((b=q('[data-rp-hand]'))) return inspect(st,{hand:Number(b.dataset.rpHand)});
   if ((b=q('[data-rp-slot]'))) return inspect(st,{u:b.dataset.rpSlot,side:Number(b.dataset.rpSide)});
   if (q('[data-rp-ready]')) { const hand=st.x.G.p[st.x.you].hand; return send(st,{a:'setup',act:hand[st.setup.active],bench:st.setup.bench.map(i=>hand[i])}); }

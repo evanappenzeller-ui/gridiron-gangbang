@@ -1,5 +1,15 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals portrait arena (November 6, 2026)
+
+The v7 battle view follows Evan's attached gameplay layout: opponent hand and three-slot Bench
+above two centered Active athletes, your three-slot Bench and fanned hand below, with deck/discard
+piles, Energy Zones and three knockout-point markers around the edges. Cards still use Rivals art.
+Tap Energy to choose an eligible athlete, View all to inspect a crowded hand, and the circular
+Battle options menu for the log, table finish, audio settings and concession. Presentation only:
+keep the v7 rules, replay/save format, collection and four-profile access boundary unchanged.
+Verify `check-pocket-browser.cjs` for phone geometry and actual play, plus scope and preview checks.
+
 ## Rivals card-duel rules (November 6, 2026)
 
 The attached gameplay brief is now the baseline for new Rivals solo battles; its full text is

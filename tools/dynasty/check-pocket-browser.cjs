@@ -36,10 +36,46 @@ async function fit(page,width,stage) {
   await page.setViewportSize({width,height:width===320?568:844});
   await page.waitForTimeout(120);
   const measurement=await page.evaluate(()=>({page:document.documentElement.scrollWidth,viewport:innerWidth,
-    body:[...document.querySelectorAll('.rp-battle,.rp-field,.pocket-decks,.pd-editor,.sheet')].map(el=>({cls:el.className,left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right}))}));
+    body:[...document.querySelectorAll('.rp-battle,.rp-arena,.rp-top,.rp-field,.pocket-decks,.pd-editor,.sheet')].map(el=>({cls:el.className,left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right}))}));
   assert(measurement.page<=measurement.viewport+1,`${stage} page fits ${width}: ${JSON.stringify(measurement)}`);
   assert(measurement.body.every(b=>b.left>=-1&&b.right<=width+1),`${stage} containers fit ${width}: ${JSON.stringify(measurement)}`);
+  if(await page.locator('.rp-arena').count()) {
+    const layout=await page.evaluate(()=>{
+      const box=selector=>{const r=document.querySelector(selector).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,top:r.top,bottom:r.bottom,width:r.width,height:r.height};};
+      return {opBench:box('.rp-side.is-opponent .rp-bench'),opActive:box('.rp-side.is-opponent .rp-active'),
+        active:box('.rp-side.is-mine .rp-active'),bench:box('.rp-side.is-mine .rp-bench'),hand:box('.rp-hand'),
+        rows:[...document.querySelectorAll('.rp-bench')].map(el=>[...el.children].map(slot=>{const r=slot.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,width:r.width,height:r.height};})),
+        handCards:[...document.querySelectorAll('.rp-hand [data-rp-hand]')].map(el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom};}),height:innerHeight};
+    });
+    assert(layout.opBench.y<layout.opActive.y&&layout.opActive.y<layout.active.y&&layout.active.y<layout.bench.y&&layout.bench.y<layout.hand.y,
+      `${stage} face-to-face board order at ${width}: ${JSON.stringify(layout)}`);
+    assert(Math.abs(layout.active.x-width/2)<2,`${stage} arena stays centered after hand interactions at ${width}`);
+    assert(Math.abs(layout.opActive.x-layout.active.x)<25,`${stage} Active athletes face each other on the centerline`);
+    for(const row of layout.rows) {
+      assert.equal(row.length,3,`${stage} keeps three Bench slots`);
+      assert(row.every(r=>r.width>=44&&r.height>=44),`${stage} Bench slots remain tappable at ${width}`);
+      assert(row[0].x<row[1].x&&row[1].x<row[2].x&&Math.max(...row.map(r=>r.y))-Math.min(...row.map(r=>r.y))<6,
+        `${stage} Bench remains a horizontal row at ${width}`);
+    }
+    assert(layout.handCards.some(c=>c.top<layout.height-35&&c.bottom>0),`${stage} hand is visible without scrolling at ${width}`);
+  }
   if(shots) await page.screenshot({path:path.join(shots,`${stage}-${width}.png`)});
+}
+// A fanned card's center can be covered by its neighbor. Tap an actually exposed
+// part of the card, just as a player does, while retaining keyboard setup below.
+async function tapHandCard(page,index) {
+  const hit=await page.evaluate(index=>{
+    const card=document.querySelector(`.rp-hand [data-rp-hand="${index}"]`),r=card.getBoundingClientRect();
+    for(let y=Math.max(0,r.top)+8;y<Math.min(innerHeight,r.bottom)-4;y+=8)
+      for(let x=Math.max(0,r.left)+8;x<Math.min(innerWidth,r.right)-4;x+=8)
+        if(document.elementFromPoint(x,y)?.closest('[data-rp-hand]')===card)return {x,y};
+    return null;
+  },index);
+  assert(hit,`fanned hand card ${index} has an exposed pointer target`);
+  await page.mouse.click(hit.x,hit.y);
+}
+async function gameSnapshot(page) {
+  return page.evaluate(async()=>JSON.stringify((await import('/js/core/dynasty-solo.js')).get(window.__pocketMid).G));
 }
 async function closeSheet(page) {
   const close=page.locator('.sheet .sheet-close').last();if(await close.count()) await close.click();
@@ -78,16 +114,29 @@ async function run(url) {
     assert.equal(await page.locator('.rp-side.is-opponent [data-rp-slot]').count(),0,'opposing setup remains face down');
     for(const width of [390,320])await fit(page,width,'setup');
     await page.setViewportSize({width:390,height:844});
+    const beforeVisualControls=await gameSnapshot(page);
+    await page.locator('[data-rp-expand-hand]').click();
+    assert.equal(await page.locator('.rp-sheet [data-rp-hand]').count(),initial.hand.length,'expanded hand makes every card accessible');
+    await closeSheet(page);
+    await page.locator('[data-rp-menu]').click();
+    for(const selector of ['[data-rp-log]','[data-rp-table]','[data-rp-settings]','[data-rp-concede]'])
+      assert(await page.locator('.rp-sheet '+selector).isVisible(),`battle menu preserves ${selector}`);
+    await page.locator('.rp-sheet [data-rp-log]').click();
+    await page.waitForSelector('.rp-log');await closeSheet(page);
+    assert.equal(await gameSnapshot(page),beforeVisualControls,'hand and menu inspection do not alter the match');
     await page.locator(`.rp-hand [data-rp-hand="${initial.bases[0]}"]`).focus();await page.keyboard.press('Enter');
     await page.waitForSelector('[data-rp-place="active"]');
     await page.locator('[data-rp-place="active"]').focus();await page.keyboard.press('Enter');
     await page.waitForFunction(()=>!document.querySelector('.sheet'));
-    await page.locator(`.rp-hand [data-rp-hand="${initial.bases[1]}"]`).click();
+    await tapHandCard(page,initial.bases[1]);
     await page.locator('[data-rp-place="bench"]').click();
     await page.waitForFunction(()=>!document.querySelector('.sheet'));
     await page.locator('[data-rp-ready]').click();await settled(page);
     assert.equal(await page.locator('.rp-side.is-opponent [data-rp-hand]').count(),0,'no opponent hand cards in DOM');
-    assert.match(await page.locator('.rp-resources').innerText(),/Opponent deck: \d+ · Hand: \d+/,'opponent hand displays only its count');
+    assert.equal(await page.locator('.rp-opponent-hand [data-rp-hand],.rp-opponent-hand [data-rp-slot]').count(),0,'opponent hand contains no inspectable identities');
+    const publicCounts=await page.evaluate(async()=>{const G=(await import('/js/core/dynasty-solo.js')).get(window.__pocketMid).G;return {deck:G.p[1].deck.length,hand:G.p[1].hand.length};});
+    assert.match(await page.locator('.rp-deck.is-opponent').getAttribute('aria-label'),new RegExp(`\\b${publicCounts.deck}\\b`),'opponent deck shows its public count');
+    assert.match(await page.locator('.rp-opponent-hand').getAttribute('aria-label'),new RegExp(`\\b${publicCounts.hand}\\b`),'opponent hand shows only its public count');
     let attachments=0,attacks=0,turns=0;
     for(let step=0;step<16&&turns<4;step++) {
       await settled(page);
@@ -100,7 +149,8 @@ async function run(url) {
       });
       if(!move)break;
       if(move.a==='energy'||move.a==='attack') {
-        await page.locator(`[data-rp-slot="${move.a==='energy'?move.on:move.active}"][data-rp-side="0"]`).click();
+        if(move.a==='energy'&&attachments===0) await page.locator('[data-rp-energy]').click();
+        else await page.locator(`[data-rp-slot="${move.a==='energy'?move.on:move.active}"][data-rp-side="0"]`).click();
         const target=page.locator('.rp-sheet [data-rp-move]').filter({hasText:move.a==='energy'?/^Attach /:/^Attack:/}).first();
         await target.click();
         if(move.a==='energy')attachments++;else {attacks++;turns++;}
@@ -115,13 +165,13 @@ async function run(url) {
       const S=await import('/js/core/dynasty-solo.js'),x=S.get(window.__pocketMid);
       return {mid:window.__pocketMid,state:JSON.stringify(x.G),collection:JSON.stringify((await import('/js/core/dynasty.js')).mine().o)};
     });
-    await page.reload();await page.waitForSelector('.rp-scoreboard');await settled(page);
+    await page.reload();await page.waitForSelector('.rp-arena .rp-manager');await settled(page);
     assert.equal(await page.evaluate(async mid=>JSON.stringify((await import('/js/core/dynasty-solo.js')).get(mid).G),saved.mid),saved.state,'reload replays identical v7 state');
     assert.equal(await page.evaluate(async()=>JSON.stringify((await import('/js/core/dynasty.js')).mine().o)),saved.collection,'battle never consumes collection cards');
     await page.locator('[data-rp-help]').click();await page.waitForSelector('.rp-rules');
     assert.match(await page.locator('.rp-sheet').innerText(),/First to at least three|Score three knockout points/);
     await closeSheet(page);
-    console.log('PASS v7 battle: manual keyboard setup, Energy, attacks, hidden hand, replay and 320/390 layouts');
+    console.log('PASS v7 battle: keyboard/touch setup, arena Energy, attacks, hidden hand, menus, replay and 320/390 portrait layouts');
 
     await page.evaluate(async()=>{
       const D=await import('/js/core/dynasty.js'),C=await import('/js/core/dynasty-pocket-cards.js');
@@ -162,7 +212,7 @@ async function run(url) {
     await page.evaluate(async()=>{const d=await import('/js/core/data.js');d.setMe('evan');});
     // __pocketMid is intentionally absent after reload: navigate with the retained ID.
     await page.evaluate(async mid=>{await(await import('/js/app.js')).nav('/puzzles/dynasty/battle/'+mid);},saved.mid);
-    await page.waitForSelector('.rp-scoreboard');
+    await page.waitForSelector('.rp-arena .rp-manager');
     assert.equal(await page.evaluate(async()=>(await import('/js/core/dynasty.js')).pocketDeck().id),deck.id,'profile return preserves saved selected deck');
     assert.deepEqual(errors,[],'no browser exceptions');
     console.log('PASS v7 decks: owned20, edit/save/select/reload, Energy settings, keyboard and profile gate');
