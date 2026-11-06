@@ -52,7 +52,12 @@ async function main() {
           const create = this.createGain.bind(this);
           this.createGain = () => {
             const node = create(), connect = node.connect.bind(node);
-            node.connect = to => { const result = connect(to); if (to === this.destination) { connect(analyser); window.musicGain = node; } return result; };
+            node.connect = to => {
+              const result = connect(to);
+              if (to === this.destination) { connect(analyser); window.musicGain = node; }
+              if (to === window.musicGain) window.sceneGain = node;
+              return result;
+            };
             return node;
           };
           window.audioProbes.push({ctx: this, analyser});
@@ -66,6 +71,20 @@ async function main() {
     const state = () => page.evaluate(async () => (await import('/js/core/dynasty-music.js')).state());
     const playing = () => page.waitForFunction(async () => (await import('/js/core/dynasty-music.js')).state().playing);
     const silent = () => page.waitForFunction(() => audioProbes.every(p => p.ctx.state !== 'running') && mediaProbes.every(m => m.paused));
+    const watchFade = () => page.evaluate(() => {
+      window.fadeSamples = [];
+      window.fadeTimer = setInterval(() => {
+        if (!mediaProbes[0].paused && mediaProbes[0].readyState >= 3) fadeSamples.push(sceneGain.gain.value);
+      }, 30);
+    });
+    const checkFade = async () => {
+      await page.waitForFunction(() => {
+        const quiet = fadeSamples.findIndex(v => v < .2);
+        const rising = fadeSamples.findIndex((v, i) => i > quiet && v > .3 && v < .7);
+        return quiet >= 0 && rising > quiet && fadeSamples.slice(rising).includes(1);
+      }, null, {timeout: 8000});
+      await page.evaluate(() => clearInterval(fadeTimer));
+    };
     const level = async value => {
       await page.evaluate(async () => { window.soundTest = await import('/js/core/dynasty-music.js'); });
       await page.waitForFunction(value => soundTest.state().volume === value, value, {timeout:3000});
@@ -269,7 +288,14 @@ async function main() {
     // A battle starts the battle mix at a random spot: half way through the 38:45 mix is part 4, 276.5 s in.
     const hubAt = await page.evaluate(() => mediaProbes[0].currentTime);
     await page.evaluate(() => { window.realRandom = Math.random; Math.random = () => .5; });
+    // Delay the incoming mix longer than its fade: the audible ramp must wait for playback.
+    await page.route('**/cyber-funkwave-v1-04.mp3', async route => {
+      await new Promise(resolve => setTimeout(resolve, 2300));
+      await route.continue();
+    }, {times: 1});
+    await watchFade();
     await nav('/puzzles/dynasty/battle/' + mid); await playing();
+    await checkFade();
     await page.evaluate(() => { Math.random = window.realRandom; });
     const mixAt = await page.evaluate(async () => { const s = (await import('/js/core/dynasty-music.js')).state(); return {src: mediaProbes[0].currentSrc, at: mediaProbes[0].currentTime, id: s.track.id, position: s.position, duration: s.duration, title: navigator.mediaSession.metadata.title}; });
     assert.match(mixAt.src, /\/audio\/rivals\/cyber-funkwave-v1-04\.mp3$/, 'battle plays the mix: ' + JSON.stringify(mixAt));
@@ -280,7 +306,7 @@ async function main() {
       return Math.abs(musicGain.gain.value - v / 100 * .7 * 10 ** ((-16 + 14.2) / 20)) < .002; });
     // A part's end leads into the next; the last part leads back into the first.
     await page.evaluate(() => { mediaProbes[0].currentTime = mediaProbes[0].duration - .3; });
-    await page.waitForFunction(() => /cyber-funkwave-v1-05\.mp3$/.test(mediaProbes[0].currentSrc) && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5);
+    await page.waitForFunction(() => /cyber-funkwave-v1-05\.mp3$/.test(mediaProbes[0].currentSrc) && mediaProbes[0].readyState >= 3 && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5);
     await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).seek(2324.4));
     await page.waitForFunction(() => /cyber-funkwave-v1-01\.mp3$/.test(mediaProbes[0].currentSrc) && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5);
     await playing();
@@ -333,8 +359,18 @@ async function main() {
     await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
     assert(await page.evaluate(() => mediaProbes[0].currentTime) >= hubAt - .5, 'the menu song carries on from where the battle interrupted it');
     await close();
+    await watchFade();
     await page.goBack(); await page.waitForSelector('.pk-hdr'); await playing();
+    await checkFade();
     assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /\/audio\/rivals\/sundress-v1\.mp3$/, 'the menus play the picked song');
+    // Leave a fresh battle while its mix is still fading. Home gets its own full fade.
+    await nav('/puzzles/dynasty/battle/' + mid); await playing();
+    assert.equal((await state()).track.id, 'battle');
+    await watchFade();
+    await page.goBack(); await page.waitForSelector('.pk-hdr'); await playing();
+    await checkFade();
+    assert.equal((await state()).track.id, 'sundress');
+    console.log('PASS: delayed battle music and both same-song and mix-to-Home returns fade up during playback');
     console.log('PASS: battle jukebox: pick a song, back to the mix, menu song resumes');
     assert.equal(await page.evaluate(() => audioProbes.length), 1, 'hub/battle/back share transport');
     await nav('/puzzles'); await silent();

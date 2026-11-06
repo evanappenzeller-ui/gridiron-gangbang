@@ -13,6 +13,7 @@ const KEY = () => `gg-rivals-music:${profileKey()}:v1`;
 // hip-hop master and the quieter battle mix sound alike; MUSIC_LEVEL then lowers all music. The slider and its saved
 // value are unchanged: the output is slider × MUSIC_LEVEL × the track's level. Effects never lower the music.
 const REFERENCE_LUFS = -16, MUSIC_LEVEL = .7;
+const SCENE_FADE_SECONDS = 2;
 const levelFor = lufs => Math.min(1, 10 ** ((REFERENCE_LUFS - lufs) / 20));
 const song = (id, title, artist, lufs) => Object.freeze({id, title, artist, level: levelFor(lufs),
   url: new URL(`../../audio/rivals/${id}-v1.mp3`, import.meta.url).href});
@@ -73,6 +74,7 @@ const clients = new Set(), listeners = new Set();
 export const DEFAULT_MUSIC_VOLUME = 8;
 let enabled = true, volume = DEFAULT_MUSIC_VOLUME, started = false, away = false, failure = '';
 let audio = null, master = null, media = null, pending = 0, revision = 0, offProfile = null;
+let sceneGain = null, fadePending = false;
 let systemOwned = false, previousType = null;
 // shown: the visible scene ('hub', 'battle' or null). lastBattle: the battle view the mix last started for, so a new
 // battle rolls a new start while returning to the same one carries on. ownSong: a jukebox song replaces the mix in this
@@ -173,13 +175,32 @@ function jump(at) {
   seekTo = media.readyState < 1 && at > 0 ? at : null;
   try { media.currentTime = at; } catch (_) {}
 }
+// Hold the incoming scene silent through buffering. The separate gain lets the volume slider
+// and each track's loudness adjustment keep working throughout the fade.
+function armSceneFade() {
+  fadePending = true;
+  if (!sceneGain) return;
+  const now = audio.currentTime;
+  sceneGain.gain.cancelScheduledValues(now);
+  sceneGain.gain.setValueAtTime(0, now);
+}
+function fadeWhenPlaying() {
+  if (!fadePending || audio.state !== 'running' || media.paused || media.readyState < 3) return;
+  fadePending = false;
+  const now = audio.currentTime;
+  sceneGain.gain.setValueAtTime(0, now);
+  sceneGain.gain.linearRampToValueAtTime(1, now + SCENE_FADE_SECONDS);
+}
 // A battle view that becomes visible for the first time rolls a new start in the mix.
 function checkScene() {
   const battle = [...clients].find(c => c.visible && c.battle), now = battle ? 'battle' : visible() ? 'hub' : null;
-  if (battle && battle !== lastBattle) { lastBattle = battle; shown = now; ownSong = false; spot = randomSpot(); load(true); return; }
-  if (now === shown) return;
+  const newBattle = battle && battle !== lastBattle;
+  if (now === shown && !newBattle) return;
   shown = now;
-  if (now) load();
+  if (!now) return;
+  armSceneFade();
+  if (newBattle) { lastBattle = battle; ownSong = false; spot = randomSpot(); }
+  load(!!newBattle);
 }
 
 function halt(reset = false) {
@@ -197,13 +218,16 @@ function sync() {
   if (!audio) { notify(); return; }
   ownSystem();
   master.gain.setTargetAtTime(outputLevel(), audio.currentTime, .04);
-  if (pending || (audio.state === 'running' && !media.paused)) { notify(); return; }
+  if (pending || (audio.state === 'running' && !media.paused)) {
+    if (!pending) fadeWhenPlaying();
+    notify(); return;
+  }
   const request = ++revision; pending = request; failure = '';
   // Invoke both in the original gesture; waiting for resume first loses iOS's play permission.
   Promise.all([audio.resume(), media.play()]).then(() => {
     if (request !== revision) return;
     pending = 0;
-    if (!wanted()) halt(); else notify();
+    if (!wanted()) halt(); else { fadeWhenPlaying(); notify(); }
   }, () => {
     if (request !== revision) return; // a mute, hide, profile change or new source canceled that play
     failure = media.error ? 'The track couldn’t load. Pause, then play to retry.' : 'Playback was blocked. Pause, then play to retry.';
@@ -223,9 +247,11 @@ export function start() {
       ownSystem();
       audio = new AC(); master = audio.createGain(); master.gain.value = 0;
       master.connect(audio.destination);
+      sceneGain = audio.createGain(); sceneGain.gain.value = fadePending ? 0 : 1;
+      sceneGain.connect(master);
       media = new Audio(); media.preload = 'none'; loaded = '';
       checkScene(); load();
-      audio.createMediaElementSource(media).connect(master);
+      audio.createMediaElementSource(media).connect(sceneGain);
       media.addEventListener('loadedmetadata', () => {
         if (seekTo == null) return;
         const at = seekTo; seekTo = null;
@@ -236,7 +262,7 @@ export function start() {
         if (part < 0) return;
         spot = {part: (part + 1) % BATTLE.parts.length, at: 0}; load(); sync();
       });
-      media.addEventListener('playing', () => { if (!wanted()) halt(); else notify(); });
+      media.addEventListener('playing', () => { if (!wanted()) halt(); else { fadeWhenPlaying(); notify(); } });
       media.addEventListener('pause', notify); media.addEventListener('waiting', notify);
       for (const name of ['timeupdate', 'loadedmetadata', 'durationchange', 'seeked']) media.addEventListener(name, notify);
       media.addEventListener('error', () => { failure = 'The track couldn’t load. Pause, then play to retry.'; halt(); });
@@ -246,7 +272,7 @@ export function start() {
         else notify();
       };
     } catch (_) {
-      media?.pause(); audio?.close().catch(() => {}); audio = null; media = null; loaded = '';
+      media?.pause(); audio?.close().catch(() => {}); audio = null; sceneGain = null; media = null; loaded = '';
       releaseSystem();
       failure = 'Music is unavailable in this browser.'; notify(); return;
     }
