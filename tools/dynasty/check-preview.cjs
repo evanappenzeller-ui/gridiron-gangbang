@@ -49,6 +49,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
     member=c.member; user=c.user;
     const label=member || user?.id || 'visitor';
     assert.equal(f.dynastyOpen(),c.play,label + ' permission');
+    assert.equal(f.rivalsUpdated(),c.play,label + ' shared Rivals updates');
     assert.equal(g.gameOpen('dynasty'),c.play,label + ' play gate');
     assert.equal(g.gamesFor().some(x => x.id === 'dynasty'),c.visible,label + ' visible case');
     const key=member ? 'm_' + member : user ? 'u_' + user.id : 'g_guest';

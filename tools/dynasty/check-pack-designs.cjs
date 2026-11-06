@@ -45,15 +45,14 @@ const server = http.createServer((req, res) => {
         for (const kind of ['std', 'team', 'start', 'prem', 'gday', 'leg']) {
           for (let i = 0; i < P.designsOf(kind).length; i++) {
             const html = P.packHTML(kind, {big: true, count: 3, design: i});
-            const changed = who === 'evan' && ['std', 'team', 'start'].includes(kind);
+            const changed = ['evan','jayton'].includes(who) && ['std', 'team', 'start'].includes(kind);
             rows.push({who, kind, i, gate: html.includes('is-printed') === changed,
               same: changed || !old || norm(html) === norm(old.packHTML(kind, {big: true, count: 3, design: i}))});
           }
         }
       }
       data.setMe('none'); data.setGuest('Ryan Stewart');
-      const ryan = ['std', 'team', 'start', 'prem'].every(kind => !P.packHTML(kind).includes('is-printed')
-        && (!old || norm(P.packHTML(kind)) === norm(old.packHTML(kind))));
+      const ryan = ['std', 'team', 'start'].every(kind => P.packHTML(kind).includes('is-printed')) && !P.packHTML('prem').includes('is-printed');
       data.setGuest(''); data.setMe('evan');
       return {rows, ryan};
     }, !!baseline);

@@ -174,14 +174,14 @@ async function run(url) {
       await c.addInitScript(p=>{localStorage.setItem('gg-me',p==='mason'?'mason':'none');if(p==='ryan-stewart')localStorage.setItem('gg-guest','Ryan Stewart');if(p==='guest')localStorage.setItem('gg-guest','Evan Appenzeller');localStorage.setItem('gg-welcome','1');['evan','mason','user%3Aryan-stewart','visitor'].forEach(k=>localStorage.setItem('gg-release-3.0:'+k,'1'));},profile);
       const q=await c.newPage();await q.goto(url+'/#/puzzles');await q.waitForFunction(()=>window.__ggBooted);
       const scope=await q.evaluate(async()=>{const D=await import('/js/core/dynasty.js'),S=await import('/js/core/dynasty-solo.js');await D.load();if(!D.mayPlay())return {open:D.bossLadderOpen(),boss:D.soloBoss('g5'),plays:false};const s=D.mine();D.open('start',{free:false});for(let n=1;n<=4;n++)s.so['g'+n]=1;const r=S.start('g5'),before=JSON.stringify(s.o);D.paySolo('scope','g5',5,'w',s,D.SOLO_BOSSES.g5);return {open:D.bossLadderOpen(),boss:D.soloBoss('g5'),v:S.get(r.mid).G.v,unchanged:JSON.stringify(s.o)===before,receipt:s.bossRewards||null,plays:true};});
-      assert.equal(scope.open,false);assert.equal(scope.boss,null);
-      if(profile==='ryan-stewart') {assert.equal(scope.v,5);assert.equal(scope.unchanged,true);assert.equal(scope.receipt,null);
+      assert.equal(scope.open,profile==='ryan-stewart');if(profile!=='ryan-stewart')assert.equal(scope.boss,null);
+      if(profile==='ryan-stewart') {assert.equal(scope.v,6);assert.equal(scope.unchanged,false);assert.ok(scope.receipt);
         await q.evaluate(async()=>{await(await import('/js/app.js')).nav('/puzzles/dynasty');});await q.waitForSelector('.pk-start.is-ready');await q.locator('.pk-start').click({position:{x:195,y:640}});await q.waitForFunction(()=>!document.querySelector('.pk-start'));
-        await q.locator('[data-dy-bv="solo"]').click();await q.waitForSelector('.pk-solo');assert.equal(await q.locator('.rl-ladder').count(),0);
+        await q.locator('.pk-tab[data-dy-tab="battle"]').click();await q.waitForSelector('.rl-ladder');assert.equal(await q.locator('.rl-ladder').count(),1);
       } else assert.equal(scope.plays,false);
       await c.close();
     }
-    console.log('PASS actual pack/card wins and reloads, v1 saved rewards, next-battle unlock, compact rows with boss-only cards, resume, Ryan legacy UI and guest boundaries');
+    console.log('PASS actual pack/card wins and reloads, v1 saved rewards, next-battle unlock, compact rows with boss-only cards, resume, Ryan shared UI and guest boundaries');
   } finally {await browser.close();}
 }
 (async()=>{await new Promise(r=>server.listen(0,'127.0.0.1',r));try{await run('http://127.0.0.1:'+server.address().port);}finally{await new Promise(r=>server.close(r));}})().catch(e=>{console.error(e);process.exitCode=1;});

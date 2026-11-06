@@ -93,9 +93,9 @@ async function homeFlow(page, reduced) {
   assert.equal(after, before, 'Home navigation does not change cards, decks, balances or progress');
   // A live profile switch must remove the owner chrome and cached Home, including the new artwork.
   await page.evaluate(async () => { const d = await import('/js/core/data.js'); d.setGuest('Ryan Stewart'); });
-  await page.waitForFunction(() => !document.querySelector('.rh-home-enabled'));
-  assert.deepEqual(await page.locator('.pk-tab').allTextContents(), ['Play', 'Cards', 'Decks', 'Packs']);
-  assert.equal(await page.locator('.rh-home, .rh-home-art').count(), 0, 'Ryan keeps the deployed hub after switching');
+  await page.waitForSelector('.pk-start.is-ready');
+  assert.deepEqual(await page.locator('.pk-tab').allTextContents(), ['Home', 'Battle', 'Packs', 'Collection', 'Decks']);
+  assert.ok(await page.locator('.rh-home-enabled').count(), 'Ryan receives the shared Home after switching');
   await page.evaluate(async () => (await import('/js/core/data.js')).setMe('evan'));
   await page.waitForSelector('.rh-home-enabled');
   // The router remounts the game when the profile changes; its title screen still applies.
@@ -197,12 +197,12 @@ async function playerFlow(page, p, {reduced}) {
   await page.locator('.pk-start').click({position: {x: 195, y: 640}});
   await page.waitForFunction(() => !document.querySelector('.pk-start'), null, {timeout: 5000});
   assert.equal(await page.locator('.pk.is-start, [inert]').count(), 0, T + ': the shell is live again');
-  const owner = p.tag === 'evan';
+  const owner = p.plays;
   assert.deepEqual(await page.locator('.pk-tab').allTextContents(), owner ? ['Home', 'Battle', 'Packs', 'Collection', 'Decks'] : ['Play', 'Cards', 'Decks', 'Packs'], T + ': profile-scoped navigation');
   assert.equal(await page.locator('.pk-tab.is-on').getAttribute('data-dy-tab'), owner ? 'home' : 'battle', T + ': the right entry destination');
   assert.equal(await page.locator('[data-pk-title]').textContent(), owner ? 'Home' : 'Play', T + ': the current page');
   assert.equal(await page.locator('.rh-home-enabled, .rh-home').count(), owner ? 2 : 0, T + ': Home belongs only to the owner');
-  if (owner && !packsOnly) await homeFlow(page, reduced);
+  if (p.tag === 'evan' && !packsOnly) await homeFlow(page, reduced);
   assert.equal(await page.locator('.pk-hdr [data-dy-menu]').count(), 1, T + ': Menu is in the header');
   const labels = await page.locator('.pk-tab span:not(.pk-dot)').evaluateAll(nodes => nodes.map(n => {
     const s = getComputedStyle(n), r = n.getBoundingClientRect();
@@ -338,7 +338,7 @@ async function playerFlow(page, p, {reduced}) {
   // the Menu
   await page.locator('.pk-hdr [data-dy-menu]').click();
   await page.waitForSelector('.pk-menu');
-  assert.deepEqual(await page.locator('.pk-menu b').allTextContents(), [...(p.tag === 'evan' ? ['Settings'] : []), 'Guide', 'Coins', 'Rankings', 'Offering Rates', 'Title screen', 'Exit Gridiron Rivals'], T + ': the Menu’s items');
+  assert.deepEqual(await page.locator('.pk-menu b').allTextContents(), [...(p.plays ? ['Settings'] : []), 'Guide', 'Coins', 'Rankings', 'Offering Rates', 'Title screen', 'Exit Gridiron Rivals'], T + ': the Menu’s items');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-menu`);
   await page.locator('[data-dy-m="title"]').click();
   await page.waitForSelector('.pk-start.is-ready', {timeout: 5000});

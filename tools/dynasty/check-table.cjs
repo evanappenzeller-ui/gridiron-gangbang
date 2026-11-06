@@ -203,10 +203,10 @@ async function browserTest(url) {
       await c.addInitScript(p=>{localStorage.setItem('gg-me',p==='mason'?'mason':'none');if(p==='ryan-stewart')localStorage.setItem('gg-guest','Ryan Stewart');if(p==='guest')localStorage.setItem('gg-guest','Evan Appenzeller');localStorage.setItem('gg-welcome','1');},profile);
       const q=await c.newPage();await q.goto(url+'/#/puzzles');await q.waitForFunction(()=>window.__ggBooted);
       const result=await q.evaluate(async()=>{const D=await import('/js/core/dynasty.js'),S=await import('/js/core/dynasty-solo.js');await D.load();if(!D.mayPlay())return {owner:D.tableOpen(),plays:false};const s=D.mine();D.open('start',{free:false});const r=S.start('g1');return {owner:D.tableOpen(),plays:true,ok:r.ok,v:r.ok?S.get(r.mid).G.v:0,table:s.table||null};});
-      assert.equal(result.owner,false,profile);if(profile==='ryan-stewart'){assert.equal(result.ok,true);assert.equal(result.v,5);assert.equal(result.table,null);}else assert.equal(result.plays,false);
+      assert.equal(result.owner,profile==='ryan-stewart',profile);if(profile==='ryan-stewart'){assert.equal(result.ok,true);assert.equal(result.v,6);assert.ok(result.table);}else assert.equal(result.plays,false);
       await c.close();
     }
-    console.log('PASS scope: Ryan keeps v5/20 cards, other members/guests/visitors unchanged, typed owner name does not unlock');
+    console.log('PASS scope: Ryan receives v6/40 cards, other members/guests/visitors unchanged, typed owner name does not unlock');
     await ctx.close();
   } finally { await browser.close(); }
 }

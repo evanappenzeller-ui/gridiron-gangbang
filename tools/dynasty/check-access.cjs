@@ -51,7 +51,7 @@ try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.e
       }
       for (const id of [null,'','Jayton','Jayton Hull','unknown']) ok(!lay.isAdmin(id), 'No display-name admin: ' + id);
       ok(D.mayPlay() && lay.isAdmin() && !data.isOwner(), 'Jayton is an admin and player, not the owner');
-      ok(!D.tableOpen() && !D.bossLadderOpen(), 'Owner pilots stay scoped');
+      ok(D.tableOpen() && D.bossLadderOpen(), 'Jayton receives completed Rivals features without owner privileges');
       ok(app.parseRoute('/puzzles/dynasty').view === 'dynasty', 'Game route');
       ok(app.parseRoute('/puzzles/dynasty/battle/b1234abcd').view === 'dynasty-battle', 'Battle route');
       passed.push('all member/app-user permissions, game case, routes and owner boundaries');
@@ -107,14 +107,14 @@ try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.e
     await page.locator('.pk-start').click({position:{x:195,y:640}});
     await page.waitForFunction(() => !document.querySelector('.pk-start'));
     assert.equal(await page.locator('.pk-coin-n[aria-label="Unlimited coins"] b').textContent(),'∞');
-    assert.deepEqual(await page.locator('.pk-tab').allTextContents(),['Play','Cards','Decks','Packs']);
+    assert.deepEqual(await page.locator('.pk-tab').allTextContents(),['Home','Battle','Packs','Collection','Decks']);
     await page.locator('.pk-tab[data-dy-tab="packs"]').click();
-    await page.locator('[data-dy-earn]').click();
+    await page.locator('[data-dy-menu]').click();await page.locator('[data-dy-m="coins"]').click();
     await page.getByText('You have unlimited coins. Pack purchases leave your earned coins untouched.').waitFor();
     await page.locator('.sheet.pk-sheet .sheet-close').click();
     await page.locator('.sheet.pk-sheet').waitFor({state:'detached'});
     const pointsBefore = await page.evaluate(async () => (await import('/js/core/dynasty.js')).mine().pp);
-    await page.locator('.pk-open[data-dy-openhere]').click();
+    await page.locator('.pk-pack-buy[data-dy-openhere]').click();
     await page.getByRole('button',{name:'Open for 1,000',exact:true}).click();
     await page.waitForFunction(async before => (await import('/js/core/dynasty.js')).mine().pp === before + 5, pointsBefore);
     assert.equal(await page.evaluate(async () => (await import('/js/core/dynasty.js')).mine().sp),2591);

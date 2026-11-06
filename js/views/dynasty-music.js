@@ -1,6 +1,8 @@
+import {rivalsUpdated} from '../core/features.js';
 import * as data from '../core/data.js';
 import * as ui from '../core/ui.js';
 import * as music from '../core/dynasty-music.js';
+import * as sfx from '../core/dynasty-sfx.js';
 const time = seconds => { const n = Math.max(0, Math.floor(seconds || 0)); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
 let volumeId = 0;
 
@@ -23,7 +25,7 @@ export function attachMusic(el, isVisible = true) {
   };
   const cancelVolume = () => { if (press) suppressClick = true; closeVolume(); };
   const openVolume = () => {
-    if (!visible || !data.isOwner() || !bar) return;
+    if (!visible || !rivalsUpdated() || !bar) return;
     closePlayer();
     bar.hidden = false; button.setAttribute('aria-expanded', 'true');
   };
@@ -32,7 +34,7 @@ export function attachMusic(el, isVisible = true) {
     if (music.state().volume > 0 && !music.state().enabled) music.setEnabled(true);
   };
   const draw = () => {
-    if (!data.isOwner()) {
+    if (!rivalsUpdated()) {
       cancelVolume(); closePlayer(); button?.remove(); bar?.remove(); chevron?.remove(); player?.remove();
       button = bar = chevron = player = null;
       el.classList.remove('has-rivals-sound'); return;
@@ -54,17 +56,17 @@ export function attachMusic(el, isVisible = true) {
       player.innerHTML = '<div class="pk-mini-song"><small data-mini-status></small><b data-mini-title></b><span data-mini-artist></span></div><button type="button" data-dy-music-skip aria-label="Skip song" title="Skip song"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 4v16l11-8zM17 4h3v16h-3z"/></svg></button>';
       chevron.addEventListener('click', e => {
         e.stopPropagation();
-        if (!visible || !data.isOwner()) return;
+        if (!visible || !rivalsUpdated()) return;
         if (!player.hidden) { closePlayer(); return; }
         cancelVolume(); player.hidden = false;
         chevron.setAttribute('aria-expanded', 'true'); chevron.setAttribute('aria-label', 'Hide song controls');
       });
       player.addEventListener('click', e => {
         e.stopPropagation();
-        if (visible && data.isOwner() && e.target.closest('[data-dy-music-skip]')) music.skipTrack();
+        if (visible && rivalsUpdated() && e.target.closest('[data-dy-music-skip]')) music.skipTrack();
       });
       button.addEventListener('pointerdown', e => {
-        if (!e.isPrimary || e.button !== 0 || !visible || !data.isOwner()) return;
+        if (!e.isPrimary || e.button !== 0 || !visible || !rivalsUpdated()) return;
         cancelVolume(); suppressClick = false;
         press = {id: e.pointerId, x: e.clientX, y: e.clientY, level: music.state().volume, held: false};
         button.setPointerCapture(e.pointerId);
@@ -93,7 +95,7 @@ export function attachMusic(el, isVisible = true) {
       button.addEventListener('keydown', e => {
         if (e.key === 'Escape') { cancelVolume(); return; }
         const direction = {ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1}[e.key];
-        if (!direction || !visible || !data.isOwner()) return;
+        if (!direction || !visible || !rivalsUpdated()) return;
         e.preventDefault(); e.stopPropagation(); openVolume(); setLevel(music.state().volume + direction * 5);
       });
       button.addEventListener('keyup', e => { if (e.key.startsWith('Arrow')) closeVolume(); });
@@ -101,7 +103,7 @@ export function attachMusic(el, isVisible = true) {
       button.addEventListener('click', e => {
         e.stopPropagation();
         if (e.detail && suppressClick) { suppressClick = false; return; }
-        if (!visible || !data.isOwner()) return;
+        if (!visible || !rivalsUpdated()) return;
         const s = music.state(), on = s.enabled && s.volume > 0;
         if (!on && !s.volume) music.setVolume(35);
         music.setEnabled(!on);
@@ -139,7 +141,7 @@ export function attachMusic(el, isVisible = true) {
   addEventListener('blur', cancelVolume);
   document.addEventListener('visibilitychange', onVisibility);
   const offMusic = music.subscribe(draw);
-  const offProfile = data.subscribe(type => { if (type === 'me') draw(); });
+  const offProfile = data.subscribe(type => { if (type === 'me') { cancelVolume(); closePlayer(); draw(); } });
   draw();
   return {
     visible(value) { visible = !!value; if (!visible) { cancelVolume(); closePlayer(); } transport.visible(value); draw(); },
@@ -153,8 +155,8 @@ export function attachMusic(el, isVisible = true) {
 }
 
 export function musicSheet() {
-  if (!data.isOwner()) return;
-  let offMusic, offProfile, scrubbing = false;
+  if (!rivalsUpdated()) return;
+  let offMusic, offSfx, offProfile, scrubbing = false;
   const sh = ui.openSheet({title: 'Settings', cls: 'pk-sheet', detents: ['fit'],
     body: `<div class="pk-music">
       <div class="pk-juke-now"><span class="pk-juke-disc" aria-hidden="true">♪</span><div><small data-dy-music-now>NOW PLAYING</small><h3 data-dy-music-title></h3><p data-dy-music-artist></p></div></div>
@@ -167,9 +169,21 @@ export function musicSheet() {
       </label><p class="pk-note pk-music-phone">Use your phone’s volume buttons for overall volume.</p>
       <section class="pk-juke" aria-label="Jukebox"><div class="pk-juke-heading"><h3>Jukebox</h3><span>${music.TRACKS.length} ${music.TRACKS.length === 1 ? 'song' : 'songs'}</span></div>
         <ul>${music.TRACKS.map(t => `<li><button type="button" data-dy-music-track="${data.esc(t.id)}" aria-pressed="false"><span class="pk-juke-note" aria-hidden="true">♪</span><span><b>${data.esc(t.title)}</b><small>${data.esc(t.artist)}</small></span><span class="pk-juke-selected" data-dy-track-state></span></button></li>`).join('')}</ul>
-      </section><p class="pk-note" data-dy-music-status role="status"></p></div>`,
-    onClose: () => { offMusic?.(); offProfile?.(); }});
+      </section><p class="pk-note" data-dy-music-status role="status"></p></div>
+      <section class="pk-sfx" aria-label="Sound effects"><h3>Sound effects</h3>
+        <button type="button" class="pk-btn" data-dy-sfx-toggle aria-pressed="true">Mute effects</button>
+        <label class="pk-music-volume">Effects level <output data-dy-sfx-value></output>
+          <input data-dy-sfx-volume type="range" min="0" max="100" step="1" aria-label="Sound effects volume">
+        </label><p class="pk-note" data-dy-sfx-status role="status"></p></section>`,
+    onClose: () => { offMusic?.(); offSfx?.(); offProfile?.(); }});
   const draw = () => {
+    const fx = sfx.state(), toggle = sh.body.querySelector('[data-dy-sfx-toggle]');
+    toggle.textContent = fx.enabled ? 'Mute effects' : 'Enable effects';
+    toggle.setAttribute('aria-pressed', String(fx.enabled)); toggle.disabled = !fx.supported;
+    const fxRange = sh.body.querySelector('[data-dy-sfx-volume]');
+    fxRange.value = fx.volume; fxRange.disabled = !fx.supported;
+    sh.body.querySelector('[data-dy-sfx-value]').textContent = fx.volume + '%';
+    sh.body.querySelector('[data-dy-sfx-status]').textContent = !fx.supported ? 'Sound effects are unavailable in this browser.' : fx.failure || (!fx.enabled || !fx.volume ? 'Sound effects are muted.' : 'Card actions, attacks, pack reveals and match results.');
     const s = music.state(), button = sh.body.querySelector('[data-dy-music-toggle]');
     button.textContent = s.enabled ? 'Pause music' : 'Play music';
     button.setAttribute('aria-pressed', String(s.enabled)); button.disabled = !s.supported;
@@ -197,6 +211,7 @@ export function musicSheet() {
     if (statusEl.textContent !== status) statusEl.textContent = status;
   };
   sh.body.addEventListener('click', e => {
+    if (e.target.closest('[data-dy-sfx-toggle]')) sfx.setEnabled(!sfx.state().enabled);
     if (e.target.closest('[data-dy-music-toggle]')) music.setEnabled(!music.state().enabled);
     if (e.target.closest('[data-dy-music-restart]')) music.seek(0);
     const song = e.target.closest('[data-dy-music-track]'); if (song) music.selectTrack(song.dataset.dyMusicTrack);
@@ -204,10 +219,12 @@ export function musicSheet() {
   sh.body.addEventListener('pointerdown', e => { if (e.target.matches('[data-dy-music-seek]')) scrubbing = true; });
   for (const name of ['change', 'pointerup', 'pointercancel', 'focusout']) sh.body.addEventListener(name, () => { scrubbing = false; draw(); });
   sh.body.addEventListener('input', e => {
+    if (e.target.matches('[data-dy-sfx-volume]')) sfx.setVolume(e.target.value);
     if (e.target.matches('[data-dy-music-volume]')) music.setVolume(e.target.value);
     if (e.target.matches('[data-dy-music-seek]')) music.seek(e.target.value);
   });
   offMusic = music.subscribe(draw);
+  offSfx = sfx.subscribe(draw);
   offProfile = data.subscribe(type => { if (type === 'me') sh.close(); });
   draw();
 }

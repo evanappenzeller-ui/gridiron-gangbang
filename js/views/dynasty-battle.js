@@ -1,5 +1,7 @@
+import {rivalsUpdated} from '../core/features.js';
 import {bindTableTouch} from './dynasty-table-touch.js';
 import {musicSheet, attachMusic} from './dynasty-music.js';
+import * as sfx from '../core/dynasty-sfx.js';
 import {tableOptions} from './dynasty-table-options.js';
 // Gridiron Rivals match (/puzzles/dynasty/battle/<match id>). Rules and saved turns live in the core modules.
 // A card table (the owner, Oct 30 2026: "The gameplay is far too confusing. I want it to include the cards that are in
@@ -94,6 +96,7 @@ function athleteHTML(id, role) {
     </svg><b>${esc(nameOf(id))}</b><small>${role === 'attacker' ? 'On the attack' : 'Defending'}</small></div>`;
 }
 function clearCinema(st) {
+  st.sfx?.hush(); st.resultSound = null;
   clearTimeout(st.sceneRetry); st.sceneRetry = null;
   clearTimeout(st.coinTimer); st.coinTimer = null;
   clearTimeout(st.sceneTimer); st.sceneTimer = null;
@@ -103,6 +106,7 @@ function clearCinema(st) {
   if (host) { host.inert = false; host.classList.remove('is-presenting'); }
 }
 function finishCinema(st) {
+  st.sfx?.hush();
   clearTimeout(st.coinTimer); st.coinTimer = null;
   clearTimeout(st.sceneTimer); st.sceneTimer = null;
   st.el.querySelector('.db-cinema')?.remove(); st.scene = null;
@@ -363,6 +367,7 @@ function draw(st) {
     host.innerHTML = `<header class="db-top">${close}</header><div class="db-msg">${ui.empty({icon: 'versus', title: 'Battle', body: why})}</div>`;
     return;
   }
+  const finishedNow = st.evAt != null && st.x && st.x.state !== 'over' && x.state === 'over';
   st.x = x; RV = x.G.v;
   const enhanced = D.tableOpen(), finish = enhanced ? D.tableFinish() : null;
   host.classList.toggle('is-owner-table', enhanced);
@@ -442,13 +447,19 @@ function draw(st) {
     st.scenes.push({ev: {k: 'toss', heads: G.first === you}, you, opp: x.opp.name});
     nextCinema(st);
   }
+  if (!st.hidden && finishedNow) st.resultSound = x.result === 'w' ? 'victory' : x.result === 'l' ? 'defeat' : 'draw';
   if (!st.hidden && freshEvents.length) {
     freshEvents.filter(e => ['attack', 'bench', 'evolve', 'coach', 'item', 'stadium'].includes(e.k)).forEach(e => {
-      st.scenes.push({ev: {...e}, you, opp: x.opp.name});
+      const after = freshEvents.slice(freshEvents.indexOf(e) + 1);
+      const nextAttack = after.findIndex(n => n.k === 'attack');
+      const knockout = after.slice(0, nextAttack < 0 ? after.length : nextAttack).some(n => n.k === 'ko');
+      st.scenes.push({ev: {...e, knockout}, you, opp: x.opp.name});
     });
     if (freshEvents.some(e => e.k === 'ko')) ui.haptic('success');
+    if (!st.scenes.length && !st.scene && !st.resultSound && freshEvents.some(e => e.k === 'turn' && e.who === you)) st.sfx.play('turn');
     nextCinema(st);
   }
+  if (st.resultSound && !st.scene && !st.scenes.length) { st.sfx.play(st.resultSound); st.resultSound = null; }
   if (over && !st.cheered) {
     st.cheered = true;
     if (x.result === 'w') { try { ui.confetti(host.getBoundingClientRect()); } catch (_) {} }
@@ -497,6 +508,7 @@ function detail(st, id, slot) {
 }
 function lift(st, f) {
   st.focus = f; st.mode = null;
+  st.sfx.play('card');
   ui.haptic('selection');
   draw(st);
 }
@@ -535,7 +547,7 @@ function lineup(st, how) {
       S.act = id; S.actI = i;
     }
   }
-  st.focus = null; ui.haptic('selection'); draw(st);
+  st.focus = null; ui.haptic('selection'); st.sfx.play('card'); draw(st);
 }
 function slotTap(st, u, side) {
   const x = st.x, G = x.G, you = x.you, me = G.p[you];
@@ -556,7 +568,7 @@ function endTurn(st) {
   ui.actionSheet({title: 'End your turn without attacking?', cls: 'pk-sheet', actions: [{label: 'End turn', role: 'primary', value: 'y'}]}).then(v => { if (v === 'y') send(st, {a: 'end'}); });
 }
 function more(st) {
-  ui.actionSheet({title: 'Battle', cls: 'pk-sheet', actions: [...(data.isOwner() ? [{label: 'Settings', value: 'music'}] : []), ...(D.tableOpen() ? [{label: 'Table finishes & challenges', value: 'table'}] : []), {label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
+  ui.actionSheet({title: 'Battle', cls: 'pk-sheet', actions: [...(rivalsUpdated() ? [{label: 'Settings', value: 'music'}] : []), ...(D.tableOpen() ? [{label: 'Table finishes & challenges', value: 'table'}] : []), {label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
     if (v === 'music' && !st.dead && !st.hidden) musicSheet();
     if (v === 'table') tableOptions(() => draw(st));
     if (v === 'log') logSheet(st);
@@ -661,6 +673,7 @@ function tableScene(st, scene) {
   st.el.append(el); host.inert = true; host.classList.add('is-presenting');
   el.querySelector('button').focus({preventScroll: true});
   el.addEventListener('keydown', e => { if (e.key !== 'Tab') return; const btns = [...el.querySelectorAll('button:not(:disabled)')]; const next = (btns.indexOf(document.activeElement) + (e.shiftKey ? -1 : 1) + btns.length) % btns.length; e.preventDefault(); btns[next].focus(); });
+  if (!flips.length) st.sfx.play(sfx.eventCue(ev), {pan: ev.who === scene.you ? -.15 : .15});
   if (flips.length) st.coinTimer = setTimeout(() => revealCoin(st), 3500);
   else st.sceneTimer = setTimeout(() => finishCinema(st), matchMedia('(prefers-reduced-motion: reduce)').matches ? 600 : 1000);
 }
@@ -668,6 +681,8 @@ function revealCoin(st) {
   const el = st.el.querySelector('.is-table-scene'), coin = el?.querySelector('[data-db-coin]');
   if (!coin || coin.disabled) return;
   clearTimeout(st.coinTimer); coin.disabled = true; coin.classList.add('is-flipping');
+  st.sfx.play('coin');
+  if (st.scene.ev.k !== 'toss') st.sfx.play(sfx.eventCue(st.scene.ev), {delay: .55});
   coin.querySelector('span').textContent = st.scene.ev.heads === false ? 'T' : 'H';
   el.querySelector('.db-coin-results').hidden = false;
   el.querySelector('[data-db-coin-result]').textContent = st.scene.coinText;
@@ -687,6 +702,8 @@ export default {
     const st = {el, ctx, mid: String((ctx.params && ctx.params.id) || ''), mode: null, focus: null, scenes: [], scene: null, hidden: false, setup: {act: null, actI: -1, bench: [], benchI: []}, dead: false, stops: [], evAt: null};
     ST.set(ctx, st);
     st.music = attachMusic(el, ctx.visible);
+    st.sfx = sfx.attach(el, ctx.visible);
+    st.stops.push(() => st.sfx.stop());
     st.stops.push(() => st.music.stop());
     fullScreen(st, ctx.visible);
     st.touch = tableGestures(st);
@@ -727,9 +744,9 @@ export default {
     draw(st);
   },
 
-  onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; st.music.visible(true); fullScreen(st, true); draw(st); } },
+  onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; st.music.visible(true); st.sfx.visible(true); fullScreen(st, true); draw(st); } },
 
-  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; st.music.visible(false); st.touch?.cancel(); st.focus = null; closeFocus(st); clearCinema(st); fullScreen(st, false); } },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; st.music.visible(false); st.sfx.visible(false); st.touch?.cancel(); st.focus = null; closeFocus(st); clearCinema(st); fullScreen(st, false); } },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);

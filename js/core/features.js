@@ -14,6 +14,9 @@ export const DYNASTY = Object.freeze({members: Object.freeze([data.OWNER, 'jayto
 /** Whether a profile may play Gridiron Dynasty (member: a league member's id; user: an app user, data.user()). */
 export const dynastyOpen = (member = data.me(), user = member ? null : data.user()) =>
   member ? DYNASTY.members.includes(member) : !!user && DYNASTY.users.includes(user.id);
+// Standing Rivals rollout, Nov 5 2026: completed and future game updates go to these four players.
+// This grants no owner/admin privileges and does not change pack/coin entitlements.
+export const rivalsUpdated = () => dynastyOpen();
 /** Whether a saved profile key (m_<member>, u_<app user>: realm-active.js profileKey) is one of theirs. */
 export const dynastyKey = key => DYNASTY.members.some(m => key === 'm_' + m) || DYNASTY.users.some(u => key === 'u_' + u);
 // Unlimited packs (Evan, Oct 29 2026: "Give Ryan Stewart and I unlimited packs to open"): their Dynasties open any pack

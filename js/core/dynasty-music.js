@@ -1,8 +1,10 @@
+import {rivalsUpdated} from './features.js';
 // Rivals' owner-uploaded MP3. One streaming media element, with Web Audio volume control
 // (including on iOS), shared by the hub and battle views. Never touches game saves.
 import * as data from './data.js';
+import {profileKey} from './realm-active.js';
 
-const KEY = 'gg-rivals-music:m_evan:v1';
+const KEY = () => `gg-rivals-music:${profileKey()}:v1`;
 export const TRACKS = Object.freeze([Object.freeze({id: 'sundress', title: 'Sundress', artist: 'A$AP Rocky',
   url: new URL('../../audio/rivals/sundress-v1.mp3', import.meta.url).href})]);
 let selected = TRACKS[0].id;
@@ -13,11 +15,13 @@ let audio = null, master = null, media = null, pending = 0, revision = 0, offPro
 let systemOwned = false, previousType = null;
 const systemActions = ['play', 'pause', 'stop', 'seekto', 'seekbackward', 'seekforward'];
 
+let preferenceKey;
 function read() {
+  preferenceKey = KEY();
   enabled = true; volume = 35;
   selected = TRACKS[0].id;
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY));
+    const saved = JSON.parse(localStorage.getItem(KEY()));
     if (typeof saved?.enabled === 'boolean') enabled = saved.enabled;
     if (typeof saved?.volume === 'number' && Number.isFinite(saved.volume)) volume = Math.max(0, Math.min(100, Math.round(saved.volume)));
     if (TRACKS.some(t => t.id === saved?.track)) selected = saved.track;
@@ -25,9 +29,10 @@ function read() {
 }
 read();
 const visible = () => [...clients].some(c => c.visible);
-const wanted = () => data.isOwner() && visible() && !document.hidden && !away && started && enabled && volume > 0;
+const wanted = () => rivalsUpdated() && visible() && !document.hidden && !away && started && enabled && volume > 0;
 const notify = () => { updateSystem(); listeners.forEach(fn => fn()); };
 export function state() {
+  if (preferenceKey !== KEY()) read();
   return {enabled, volume, track: track(), position: Number.isFinite(media?.currentTime) ? media.currentTime : 0,
     duration: Number.isFinite(media?.duration) ? media.duration : 0,
     playing: !!media && !media.paused && media.readyState >= 3 && audio?.state === 'running',
@@ -44,7 +49,7 @@ function ownSystem() {
   const actions = {play: () => setEnabled(true), pause: () => setEnabled(false), stop: () => { setEnabled(false); seek(0); },
     seekto: e => seek(e.seekTime), seekbackward: e => seek(state().position - (e.seekOffset || 10)), seekforward: e => seek(state().position + (e.seekOffset || 10))};
   for (const name of systemActions) {
-    try { navigator.mediaSession?.setActionHandler(name, e => { if (data.isOwner() && visible() && !document.hidden && !away) actions[name](e || {}); }); } catch (_) {}
+    try { navigator.mediaSession?.setActionHandler(name, e => { if (rivalsUpdated() && visible() && !document.hidden && !away) actions[name](e || {}); }); } catch (_) {}
   }
   updateMetadata();
 }
@@ -61,7 +66,7 @@ function releaseSystem() {
   previousType = null;
 }
 function updateSystem() {
-  if (!data.isOwner() || !visible() || document.hidden || away) { releaseSystem(); return; }
+  if (!rivalsUpdated() || !visible() || document.hidden || away) { releaseSystem(); return; }
   if (!systemOwned) return;
   const s = state();
   try { if (navigator.mediaSession) navigator.mediaSession.playbackState = s.playing ? 'playing' : 'paused'; } catch (_) {}
@@ -98,7 +103,7 @@ function sync() {
 }
 // Called synchronously from a tap or keypress. No media element or MP3 request before it.
 export function start() {
-  if (!data.isOwner() || !visible()) return;
+  if (!rivalsUpdated() || !visible()) return;
   started = true;
   if (!enabled || !volume) { sync(); return; }
   if (!audio) {
@@ -129,15 +134,15 @@ export function start() {
   sync();
 }
 export function setEnabled(value) {
-  if (!data.isOwner()) return;
+  if (!rivalsUpdated()) return;
   enabled = !!value; save(); start();
 }
 export function setVolume(value) {
-  if (!data.isOwner() || !Number.isFinite(Number(value))) return;
+  if (!rivalsUpdated() || !Number.isFinite(Number(value))) return;
   volume = Math.max(0, Math.min(100, Math.round(Number(value)))); save(); start();
 }
 export function selectTrack(id) {
-  if (!data.isOwner() || !visible() || !TRACKS.some(t => t.id === id)) return;
+  if (!rivalsUpdated() || !visible() || !TRACKS.some(t => t.id === id)) return;
   if (selected !== id) {
     halt(true); selected = id;
     if (media) media.src = track().url;
@@ -147,12 +152,12 @@ export function selectTrack(id) {
 }
 export function seek(seconds) {
   const duration = state().duration;
-  if (!data.isOwner() || !visible() || !media || !duration || !Number.isFinite(Number(seconds))) return;
+  if (!rivalsUpdated() || !visible() || !media || !duration || !Number.isFinite(Number(seconds))) return;
   try { media.currentTime = Math.max(0, Math.min(duration, Number(seconds))); } catch (_) {}
   notify();
 }
 export function skipTrack() {
-  if (!data.isOwner() || !visible()) return;
+  if (!rivalsUpdated() || !visible()) return;
   const next = TRACKS[(TRACKS.findIndex(t => t.id === selected) + 1) % TRACKS.length];
   halt(true);
   if (selected !== next.id) {
@@ -162,12 +167,12 @@ export function skipTrack() {
   }
   save(); start();
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify({enabled, volume, track: selected})); } catch (_) {} }
+function save() { try { localStorage.setItem(KEY(), JSON.stringify({enabled, volume, track: selected})); } catch (_) {} }
 const visibility = () => sync();
 const pageHide = () => { away = true; halt(); };
 const pageShow = () => { away = false; sync(); };
 const storage = e => {
-  if (e.key !== KEY && e.key !== null) return;
+  if (e.key !== KEY() && e.key !== null) return;
   const before = selected; read();
   if (before !== selected && media) { halt(true); media.src = track().url; updateMetadata(); }
   sync();
@@ -177,8 +182,10 @@ const storage = e => {
 export function attach(el, isVisible = true) {
   const client = {visible: isVisible}; clients.add(client);
   if (clients.size === 1) {
+    read();
+    if (media && media.src !== track().url) media.src = track().url;
     away = false;
-    offProfile = data.subscribe(type => { if (type === 'me') { started = false; halt(true); } });
+    offProfile = data.subscribe(type => { if (type === 'me') { started = false; halt(true); releaseSystem(); read(); failure = ''; if (media && media.src !== track().url) media.src = track().url; notify(); } });
     document.addEventListener('visibilitychange', visibility);
     addEventListener('pagehide', pageHide); addEventListener('pageshow', pageShow); addEventListener('storage', storage);
   }

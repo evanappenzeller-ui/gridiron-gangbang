@@ -763,6 +763,8 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 .pk-sheet .pk-juke-selected { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--tint); }
 .pk-sheet .pk-music .pk-music-phone { margin-top: -6px; font-size: 12px; }
 
+.pk-sheet .pk-sfx { display: grid; gap: 12px; padding: 16px 4px 4px; border-top: 1px solid var(--separator, #d6dce2); }
+.pk-sheet .pk-sfx h3, .pk-sheet .pk-sfx .pk-note { margin: 0; }
 /* Corner sound control shares the jukebox preference and stays clear of navigation. */
 :where(.v-dynasty, .v-dynasty-battle) .pk-sound {
   position: absolute; z-index: 35; right: max(12px, var(--sa-r, 0px));
