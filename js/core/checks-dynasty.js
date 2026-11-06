@@ -8,6 +8,7 @@
 import * as D from './dynasty.js';
 import * as daily from './daily.js';
 import * as B from './dynasty-battle.js';
+import * as PC from './dynasty-pocket-cards.js';
 
 // (a new Dynasty with its Starter Pack opened, the same for a key every time: its deck built from what came out)
 const started = key => {
@@ -304,7 +305,7 @@ export async function dynastyChecks(check) {
     const n = P.designsOf('gday').length, wrap = /data-art="([^"]+)"/.exec(P.packHTML('gday', {design: n + 1}))[1] === P.designsOf('gday')[1].id;
     return {pass: ok && rises && own && wrap, detail: `${why}average elements by tier ${[1, 2, 3, 4, 5].map(t => Math.round(mean(t))).join(' < ')}; ids ${own ? 'its own' : 'shared'}; wrap ${wrap}`};
   });
-  check('Gridiron Rivals: collectible cards share a clear portrait, name, OVR and rarity layout; a card up close shows the player\u2019s page, not his real cards (the owner, Nov 2 2026: "Remove the real cards section"); collection identity, rarity and namesake matching are preserved', async () => {
+  check('Gridiron Rivals: collectible cards share a clear portrait, name, printed battle HP and cosmetic rarity layout; a card up close shows the player\u2019s page, not his real cards (the owner, Nov 2 2026: "Remove the real cards section"); collection identity, rarity and namesake matching are preserved', async () => {
     const [V, R, S] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-real.js'), import('../views/dynasty-stats.js')]);
     const keys = Object.keys(R.REAL), cards = D.CARDS.filter(c => R.REAL[c.p]);
     const known = keys.length >= 16 && keys.every(p => D.DATA.players[p] && D.CARDS.some(c => c.p === p) && R.REAL[p].length
@@ -314,7 +315,7 @@ export async function dynastyChecks(check) {
       const el = document.createElement('div'); el.innerHTML = h;
       const portrait = c.head && !/^https?:/.test(c.head);
       return !!c.real && R.REAL[c.p].includes(c.real) && D.markOf(c).full === (c.r !== 'common') && /class="pk-card [^"]*is-full r-/.test(h) === (c.r !== 'common')
-        && el.querySelector('.pk-c-name')?.textContent === c.name && el.querySelector('.pk-c-ovr b')?.textContent === String(c.o)
+        && el.querySelector('.pk-c-name')?.textContent === c.name && (D.pocketOpen() ? el.querySelector('.pk-c-hp b')?.textContent === String(PC.card(c.id).hp) && !el.querySelector('.pk-c-ovr') : el.querySelector('.pk-c-ovr b')?.textContent === String(c.o))
         && el.querySelector('.pk-c-rar')?.textContent === c.r && !el.querySelector('.pk-c-ph.is-real')
         && (portrait ? el.querySelector('.pk-c-ph')?.getAttribute('src') === V.headUrl(c.head) : !!el.querySelector('.pk-c-num'))
         && !S.pageHTML(c).includes(R.realUrl(c.p, c.real));

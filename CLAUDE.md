@@ -1,5 +1,32 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals card-duel rules (November 6, 2026)
+
+The attached gameplay brief is now the baseline for new Rivals solo battles; its full text is
+`docs/rivals/gameplay-brief.txt`. This supersedes the older 40-card table, automatic lineup Energy,
+position type matchups, team chemistry, Energy-spending signatures and one-point-for-every-player
+rules for NEW matches. `features.rivalsUpdated()` remains the four-profile rollout boundary.
+Friend battles remain paused. Existing v1–v6 logs use their original engine, presentation and rewards.
+
+New games save v7 and explicit Energy Zone choices in the existing solo record. The deterministic
+`core/dynasty-pocket.js` enforces 20 cards, canonical two-copy limits, one Active/three Bench,
+manual Energy, Base/Breakout/Prime development, Items/Supporters/Tools/Stadiums, printed Weakness,
+retreat, Checkup and knockout points (regular 1, ex 2, Mega ex 3). Attacks retain Energy unless
+their printed effect discards it. Empty decks do not lose; no emergency reserve recruitment or turn cap.
+Card stats in `dynasty-pocket-cards.js` are fictional balance designs independent of ratings,
+rarity, positions and team. Existing collection cards provide Base designs; matching development
+and support playbook cards are explicitly reusable rentals, not permanent collection grants.
+A fixed, labeled 20-card development rental lets managers try the rules without owning those cards.
+New loadouts live in additive `s.pocket`; `s.table`, old decks, collection, balances, claims and
+progress are retained. Boss reward schedule and permanent receipts remain unchanged.
+
+`views/dynasty-pocket-battle.js` renders only v7 records; `dynasty-pocket-decks.js` owns the new
+builder and guide. Preserve profile-scoped audio/preferences, artwork credits and table finishes.
+Validate `check-pocket-cards.cjs`, `check-pocket-rules.cjs`, `check-pocket-browser.cjs` and
+`node --experimental-vm-modules tools/dynasty/check-pocket-integration.cjs`, plus legacy rules,
+preview/access, scope, audio and collection checks. Collections and packs retain their existing
+economy; trading/sharing and live multiplayer are not added by this gameplay change.
+
 ## Standing Rivals updates (November 5, 2026)
 
 Evan explicitly authorized the updated Rivals game and all future Rivals updates for Evan (`evan`),

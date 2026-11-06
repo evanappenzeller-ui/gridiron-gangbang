@@ -1,4 +1,5 @@
 import * as TABLE from './dynasty-table.js';
+import * as POCKET from './dynasty-pocket-cards.js';
 // Gridiron Dynasty (the owner's ask, Oct 27 2026: "most comparable to Ultimate Team in Madden. Players can earn points to
 // open packs to unlock players. Players are based on real life [players]... inspiration [from] how MLB The Show does
 // their player cards with different types and collections"). A persistent game on Daily Games for Evan, Ryan
@@ -123,6 +124,7 @@ export function setData(d) {
   every.forEach(c => { if (ACTION[c.p] && (c.r !== 'common' || c.s === 'X')) c.head = 'a:' + c.p; });
   POOLS.clear();
   B.setCards(card);
+  POCKET.setCards(CARDS);
   COLLECTIONS = buildCollections();
 }
 /** A player card (null for anything else: a Coach or Stadium card is trainer()'s). */
@@ -528,6 +530,7 @@ export function clean(s) {
   Object.entries(obj(s.bt)).slice(-200).forEach(([k, v]) => { if (['w', 'l', 'd'].includes(v)) out.bt[k] = v; });
   Object.entries(obj(s.so)).slice(0, 80).forEach(([k, v]) => { if (n(v) > 0) out.so[k] = Math.min(9999, n(v)); });
   if (s.table) out.table = TABLE.clean(s.table);
+  if (s.pocket) out.pocket = cleanPocket(s.pocket);
   // Optional, permanent receipts for the owner boss ladder. Old saves keep all progress and receive no free cards.
   if (s.bossRewards && typeof s.bossRewards === 'object') {
     out.bossRewards = {};
@@ -955,11 +958,67 @@ export function others(docs = daily.LB.raw || [], {withMe = false} = {}) {
 
 // Shared Rivals solo table loadout and cosmetics. Collection and friend deck stay intact.
 export const tableOpen = () => rivalsUpdated();
+export const pocketOpen = () => rivalsUpdated();
+// v7 loadouts are additive. Reading a profile never rewrites its collection or legacy decks.
+export function cleanPocket(raw = {}) {
+  if (!raw || typeof raw !== 'object') raw = {};
+  const seen = new Set();
+  const decks = (Array.isArray(raw.decks) ? raw.decks : []).filter(d => d && typeof d.id === 'string'
+    && /^[a-z0-9-]{1,64}$/.test(d.id) && d.id !== 'rental' && !seen.has(d.id) && seen.add(d.id)).slice(0, 30)
+    .map(d => ({id: d.id, name: String(d.name || 'My deck').trim().slice(0, 32),
+      ids: (Array.isArray(d.ids) ? d.ids : []).filter(id => typeof id === 'string').slice(0, 20),
+      energy: (Array.isArray(d.energy) ? d.energy : []).filter(e => typeof e === 'string').slice(0, 3), rental: false}));
+  return {v: 1, decks, active: raw.active === 'rental' || decks.some(d => d.id === raw.active) ? raw.active : ''};
+}
+export function pocketLoadouts(s = mine()) {
+  const saved = cleanPocket(s.pocket).decks;
+  if (saved.length) return saved;
+  const built = POCKET.defaultDeck(s.o);
+  return built.rental ? [] : [{...built, id: 'original', name: 'My collection deck', rental: false}];
+}
+export function pocketDeck(s = mine()) {
+  const active = cleanPocket(s.pocket).active, decks = pocketLoadouts(s);
+  const selected = active === 'rental' ? null : decks.find(d => d.id === active) || decks[0];
+  const d = selected || {...POCKET.rentalDeck(), id: 'rental', rental: true};
+  return {...d, ...POCKET.checkDeck(d.ids, d.rental ? null : s.o, d.energy)};
+}
+export function savePocketDeck({id, name, ids, energy, rental = false}, s = mine()) {
+  if (!rivalsUpdated()) return {ok: false, why: 'Rivals decks are not available on this profile.'};
+  if (rental) return {ok: false, why: 'The rental deck is a fixed recipe. Build a deck from your collection to edit it.'};
+  const decks = pocketLoadouts(s), found = decks.find(d => d.id === id), counts = {};
+  if (!found && decks.length >= 30) return {ok: false, why: 'All 30 deck slots are filled.'};
+  if (!Array.isArray(ids) || ids.length > 20 || ids.some(cid => {
+    const c = POCKET.card(cid), k = c?.canonicalName;
+    return !c || (counts[k] = (counts[k] || 0) + 1) > 2 || ids.filter(x => x === cid).length > POCKET.availableCopies(s.o, cid);
+  })) return {ok: false, why: 'Choose up to two copies per canonical name from your collection and development playbook.'};
+  const allowed = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal'];
+  if (!Array.isArray(energy) || energy.length < 1 || energy.length > 3 || new Set(energy).size !== energy.length || energy.some(e => !allowed.includes(e)))
+    return {ok: false, why: 'Choose one to three different Energy types.'};
+  const slot = {id: found?.id || 'p-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+    name: String(name || 'My deck').trim().slice(0, 32) || 'My deck', ids: ids.slice(), energy: energy.slice(), rental: false};
+  const active = cleanPocket(s.pocket).active || pocketDeck(s).id;
+  s.pocket = {v: 1, decks: found ? decks.map(d => d.id === id ? slot : d) : [...decks, slot], active};
+  touch('pocket-decks'); return {ok: true, id: slot.id};
+}
+export function usePocketDeck(id, s = mine()) {
+  if (!rivalsUpdated()) return {ok: false, why: 'Rivals decks are not available on this profile.'};
+  const decks = pocketLoadouts(s), slot = id === 'rental' ? {...POCKET.rentalDeck(), rental: true} : decks.find(d => d.id === id);
+  const result = slot ? POCKET.checkDeck(slot.ids, slot.rental ? null : s.o, slot.energy) : {ok: false, why: 'That deck is no longer saved.'};
+  if (result.ok) { s.pocket = {v: 1, decks, active: id}; touch('pocket-decks'); }
+  return result;
+}
+export function deletePocketDeck(id, s = mine()) {
+  if (!rivalsUpdated() || id === 'rental' || pocketDeck(s).id === id) return false;
+  s.pocket = {...cleanPocket(s.pocket), decks: pocketLoadouts(s).filter(d => d.id !== id)};
+  touch('pocket-decks'); return true;
+}
 export const tableDeck = (s = mine()) => TABLE.deck(s);
 export const savedDecks = (s = mine()) => tableOpen() ? TABLE.loadouts(s) : [];
 export const activeDeckId = (s = mine()) => TABLE.activeId(s);
 function deckCopies(id, s) {
-  return Math.max(s.dk.filter(x => x === id).length, ...(tableOpen() ? TABLE.loadouts(s).map(d => d.ids.filter(x => x === id).length) : [0]));
+  return Math.max(s.dk.filter(x => x === id).length, ...(tableOpen() ? TABLE.loadouts(s).map(d => d.ids.filter(x => x === id).length) : [0]),
+    ...(rivalsUpdated() ? pocketLoadouts(s).filter(d => !d.rental).map(d => Math.max(d.ids.filter(x => x === id).length,
+      d.ids.some(x => POCKET.card(x)?.development && POCKET.card(x)?.collectionId === id) ? 1 : 0)) : [0]));
 }
 export function saveDeckSlot({id, name, ids}, s = mine()) {
   if (!tableOpen()) return {ok: false, why: 'Deck slots are not available on this profile.'};

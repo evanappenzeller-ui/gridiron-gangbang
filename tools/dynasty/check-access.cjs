@@ -18,7 +18,7 @@ try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.e
   const url = `http://127.0.0.1:${server.address().port}`;
   let browser;
   try {
-    browser = await pw.chromium.launch({channel:'chrome', headless:true});
+    browser = await pw.chromium.launch({...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {channel:'chrome'}), headless:true});
     const context = await browser.newContext({viewport:{width:390,height:844}, serviceWorkers:'block', reducedMotion:'reduce'});
     await context.route('**/*', r => new URL(r.request().url()).origin === url ? r.continue() : r.abort());
     await context.addInitScript(() => {

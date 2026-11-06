@@ -1,4 +1,5 @@
 import {rivalsUpdated, rivalsVersus} from '../core/features.js';
+import pocketView from './dynasty-pocket-battle.js';
 import {bindTableTouch} from './dynasty-table-touch.js';
 import {musicSheet, attachMusic} from './dynasty-music.js';
 import * as sfx from '../core/dynasty-sfx.js';
@@ -737,7 +738,7 @@ function revealCoin(st) {
   st.sceneTimer = setTimeout(() => finishCinema(st), 1600);
 }
 
-export default {
+const legacyView = {
   id: 'dynasty-battle',
   chrome: 'none',
   title: 'Battle',
@@ -805,4 +806,23 @@ export default {
     MT.flush(); D.flush();
     ST.delete(ctx);
   }
+};
+
+// Select by the saved rules, never by today's default. Legacy replays keep their original screen.
+const mounted = new WeakMap();
+export default {
+  id: 'dynasty-battle', chrome: 'none', title: 'Battle', render: () => legacyView.render(),
+  mount(el, ctx) {
+    const state = {dead: false, view: null, visible: ctx.visible}; mounted.set(ctx, state);
+    D.load().then(() => {
+      if (state.dead) return;
+      const match = SOLO.isSolo(ctx.params?.id) ? SOLO.get(ctx.params.id) : null;
+      state.view = match?.G.v === 7 ? pocketView : legacyView;
+      el.innerHTML = state.view.render(); state.view.mount(el, ctx);
+      if (!state.visible) state.view.onHide?.(ctx);
+    }, () => { if (!state.dead) el.innerHTML = '<p>Cards could not load. Return to Rivals and try again.</p>'; });
+  },
+  onShow(ctx) { const s = mounted.get(ctx); if (s) { s.visible = true; s.view?.onShow?.(ctx); } },
+  onHide(ctx) { const s = mounted.get(ctx); if (s) { s.visible = false; s.view?.onHide?.(ctx); } },
+  unmount(el, ctx) { const s = mounted.get(ctx); if (s) { s.dead = true; s.view?.unmount?.(el, ctx); mounted.delete(ctx); } }
 };

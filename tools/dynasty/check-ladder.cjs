@@ -23,7 +23,7 @@ async function run(url) {
     page.on('pageerror', e => errors.push(String(e)));
     await page.goto(url+'/#/puzzles'); await page.waitForFunction(() => window.__ggBooted);
     const result = await page.evaluate(async () => {
-      const D=await import('/js/core/dynasty.js'), S=await import('/js/core/dynasty-solo.js'), B=await import('/js/core/dynasty-battle.js'), T=await import('/js/core/dynasty-table.js');
+      const D=await import('/js/core/dynasty.js'), S=await import('/js/core/dynasty-solo.js'), B=await import('/js/core/dynasty-battle.js'), T=await import('/js/core/dynasty-table.js'), P=await import('/js/core/dynasty-pocket.js');
       await D.load();
       const ok=(v,m)=>{if(!v)throw Error(m);}, s=D.mine(), snap=x=>JSON.stringify(x), rows=[];
       ok(!(await import('/js/core/fire.js')).canWrite(),'live writes must be off');
@@ -84,15 +84,23 @@ async function run(url) {
         const x=S.get(started.mid),r=JSON.parse(localStorage.getItem('gg-dys-m_evan'));
         ok(r.boss.v===2,'new match stores alternating reward version');
         ok(x.boss===cid&&x.G.p[1].active.id===cid,'boss actually fields reward card '+id);
-        const replay=B.newGame(r.seed,r.decks,r.v,r.chemistry,r.roundEnergy);r.log.forEach(([who,m])=>ok(B.play(replay,who,m).ok,'replay boss opening'));
+        ok(r.v===7&&r.decks.every(d=>d.length===20),'new boss uses v7/20');
+        const replay=P.replay(r.seed,r.decks,r.log,{energy:r.energy});ok(!replay.bad,'replay v7 boss opening');
         ok(snap(replay)===snap(x.G),'boss setup replays unchanged');
       }
-      // Real winning logs for both prize types; settle through the normal match reader after reloading.
+      // Explicit historical v6 winning logs for both prize types; new launches above use v7.
+      // These preserve the old battle renderer, promised rewards and versioned replay coverage.
       const fixtures={};
       for(const id of ['g5','g10']) {
         for(let attempt=0;attempt<20&&!fixtures[id];attempt++) {
-          S.start(id);const r=JSON.parse(localStorage.getItem('gg-dys-m_evan'));
-          const G=B.newGame(r.seed,r.decks,r.v,r.chemistry,r.roundEnergy);r.log.forEach(([who,m])=>ok(B.play(G,who,m).ok,'saved setup'));
+          const boss=D.soloBoss(id),decks=[selected,S.bossDeckFor(id,'A')];
+          const r={id:'cpulegacy'+id+attempt,opp:id,seed:'',v:6,roundEnergy:B.FRONT_ENERGY,decks,log:[],at:Date.now(),z:'',paid:0,pay:null,boss:{v:2,card:boss.id}};
+          let G;
+          for(let seed=0;seed<256;seed++){r.seed='legacy-'+id+'-'+attempt+'-'+seed;G=B.newGame(r.seed,decks,6,null,r.roundEnergy);if(G.p[1].hand.includes(boss.id))break;}
+          ok(G.p[1].hand.includes(boss.id),'legacy seed deals boss');
+          const rest=G.p[1].hand.slice();rest.splice(rest.indexOf(boss.id),1);
+          const opening={a:'setup',act:boss.id,bench:rest.filter(cid=>B.basicIn(cid,6)).slice(0,Math.min(3,S.skillOf(Number(id.slice(1))).bench))};
+          ok(B.play(G,1,opening).ok,'saved v6 boss setup');r.log.push([1,opening]);
           for(let i=0;i<1200&&G.phase!=='over';i++) {
             const who=B.toMove(G), m=S.nextMove(G,who,who===0?'exp':Number(id.slice(1)));
             const got=B.play(G,who,m);ok(got.ok,'simulation legal: '+got.why);r.log.push([who,m]);
@@ -140,7 +148,7 @@ async function run(url) {
     await page.screenshot({path:path.join(out,'next-battle.png')});
     await page.evaluate(()=>{const p=document.querySelector('.pk-pane'),r=document.querySelector('[data-ladder-stage="g10"]');p.scrollTop+=r.getBoundingClientRect().top-p.getBoundingClientRect().top-80;});
     await page.screenshot({path:path.join(out,'boss-locked.png')});
-    await page.locator('[data-dy-solo="g6"]').click();await page.waitForSelector('.db');
+    await page.locator('[data-dy-solo="g6"]').click();await page.waitForSelector('.rp-battle');
     await page.goBack();await page.waitForSelector('.rl-ladder');
     assert.equal(await page.locator('.rl-resume').isVisible(),true);
     // Render the real boss victory after returning from the game without restarting anything.
@@ -167,7 +175,7 @@ async function run(url) {
     assert.equal(legacyAfter.card,'L0036322');assert.equal(legacyAfter.count,legacyBefore+1);
     assert.deepEqual(errors,[]);
     await ctx.close();
-    // Scope: Ryan retains the deployed list and 20-card game; guests cannot get this pilot by typing Evan's name.
+    // Scope: Ryan receives the shared v7/20-card game; guests cannot get this preview by typing Evan's name.
     for(const profile of ['ryan-stewart','mason','guest','visitor']) {
       const c=await browser.newContext({serviceWorkers:'block',viewport:{width:390,height:844},reducedMotion:'reduce'});
       await c.route('**/*',r=>r.request().url().startsWith(url)?r.continue():r.abort());
@@ -175,7 +183,7 @@ async function run(url) {
       const q=await c.newPage();await q.goto(url+'/#/puzzles');await q.waitForFunction(()=>window.__ggBooted);
       const scope=await q.evaluate(async()=>{const D=await import('/js/core/dynasty.js'),S=await import('/js/core/dynasty-solo.js');await D.load();if(!D.mayPlay())return {open:D.bossLadderOpen(),boss:D.soloBoss('g5'),plays:false};const s=D.mine();D.open('start',{free:false});for(let n=1;n<=4;n++)s.so['g'+n]=1;const r=S.start('g5'),before=JSON.stringify(s.o);D.paySolo('scope','g5',5,'w',s,D.SOLO_BOSSES.g5);return {open:D.bossLadderOpen(),boss:D.soloBoss('g5'),v:S.get(r.mid).G.v,unchanged:JSON.stringify(s.o)===before,receipt:s.bossRewards||null,plays:true};});
       assert.equal(scope.open,profile==='ryan-stewart');if(profile!=='ryan-stewart')assert.equal(scope.boss,null);
-      if(profile==='ryan-stewart') {assert.equal(scope.v,6);assert.equal(scope.unchanged,false);assert.ok(scope.receipt);
+      if(profile==='ryan-stewart') {assert.equal(scope.v,7);assert.equal(scope.unchanged,false);assert.ok(scope.receipt);
         await q.evaluate(async()=>{await(await import('/js/app.js')).nav('/puzzles/dynasty');});await q.waitForSelector('.pk-start.is-ready');await q.locator('.pk-start').click({position:{x:195,y:640}});await q.waitForFunction(()=>!document.querySelector('.pk-start'));
         await q.locator('.pk-tab[data-dy-tab="battle"]').click();await q.waitForSelector('.rl-ladder');assert.equal(await q.locator('.rl-ladder').count(),1);
       } else assert.equal(scope.plays,false);

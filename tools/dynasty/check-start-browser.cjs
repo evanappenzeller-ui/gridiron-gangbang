@@ -85,7 +85,7 @@ async function homeFlow(page, reduced) {
   await nav('home');
   await page.locator('.rh-home .is-collection').click(); await page.waitForSelector('.pk-binder');
   await nav('home');
-  await page.locator('.rh-home-tools [data-dy-tab="decks"]').click(); await page.waitForSelector('.rd-shelf');
+  await page.locator('.rh-home-tools [data-dy-tab="decks"]').click(); await page.waitForSelector('.pocket-decks');
   await nav('home');
   await page.locator('.rh-home [data-dy-guide]').click(); await page.waitForSelector('.sheet.pk-sheet');
   await page.locator('.sheet.pk-sheet .sheet-close').click();
@@ -370,7 +370,8 @@ async function playerFlow(page, p, {reduced}) {
     return r.mid;
   });
   assert.match(String(mid), /^cpu/, T + ': a Solo battle started: ' + mid);
-  await page.waitForSelector('.db', {timeout: 10000});
+  await page.waitForSelector('.rp-battle', {timeout: 10000});
+  assert.equal(await page.evaluate(async () => (await import('/js/core/dynasty-solo.js')).current().G.v), 7, T + ': new solo matches use v7');
   assert.equal(await page.locator('.pk-start').count(), 0, T + ': no title screen under a battle');
   await page.goBack();
   await page.waitForSelector('.pk-pane', {timeout: 10000});
@@ -388,7 +389,7 @@ async function playerFlow(page, p, {reduced}) {
 
 async function run(url) {
   const {chromium} = require('playwright');
-  const browser = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || undefined});
+  const browser = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--no-sandbox']});
   try {
     for (const p of PROFILES.filter(p => !packsOnly || p.tag === 'evan')) for (const reduced of (p.plays && p.tag === 'evan' ? [false, true] : [false])) {
       const context = await browser.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2, serviceWorkers: 'block', reducedMotion: reduced ? 'reduce' : 'no-preference'});

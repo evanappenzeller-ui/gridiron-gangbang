@@ -1,0 +1,198 @@
+// Gridiron Rivals v7 decks. Deck choices affect new matches; collection ownership is never changed here.
+import * as ui from '../core/ui.js';
+import * as data from '../core/data.js';
+import * as D from '../core/dynasty.js';
+import * as C from '../core/dynasty-pocket-cards.js';
+import {profileKey} from '../core/realm-active.js';
+import {rivalsUpdated} from '../core/features.js';
+import {actionCredit} from '../core/dynasty-action.js';
+import {legendCredit} from '../core/dynasty-legends.js';
+import {realName} from '../core/dynasty-real.js';
+
+const esc = data.esc;
+const ENERGIES = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal'];
+const label = c => c?.canonicalName || c?.name || 'Unknown card';
+const kind = c => c.kind === 'player' ? c.stage : ({item: 'Item', supporter: 'Supporter', tool: 'Tool', stadium: 'Stadium'}[c.kind] || c.kind);
+const points = c => c.classification === 'mega-ex' ? 3 : c.classification === 'ex' ? 2 : 1;
+const copies = ids => ids.reduce((out, id) => { out[id] = (out[id] || 0) + 1; return out; }, {});
+const canonicalCount = (ids, c) => ids.filter(id => label(C.card(id)) === label(c)).length;
+const check = (d, s) => C.checkDeck(d.ids, d.rental ? null : s.o, d.energy);
+const rental = () => ({...C.rentalDeck(), id: 'rental', rental: true});
+
+function art(c, portrait) {
+  const source = c?.sourceId && D.card(c.sourceId), p = source && portrait?.(source, 300);
+  return p?.url ? `<img src="${esc(p.url)}" alt="" loading="lazy" decoding="async" draggable="false">`
+    : `<span aria-hidden="true">${esc(c?.position || (c?.kind === 'player' ? 'NFL' : '◇'))}</span>`;
+}
+
+function credit(c, portrait) {
+  const source = c?.sourceId && D.card(c.sourceId), image = source && portrait?.(source, 300);
+  if (!source || image?.url?.startsWith('img/dynasty/owner/')) return '';
+  const head = String(source.head || ''), meta = head.startsWith('a:') ? actionCredit(source.p) : head.startsWith('w:') ? legendCredit(source.p) : null;
+  if (!meta || meta.own) return '';
+  if (meta.card) return `<p class="pd-note">Photo: ${esc(realName(meta.card))} trading card.</p>`;
+  return `<p class="pd-note">Photo: ${esc(meta.author)} · ${meta.licenceUrl ? `<a href="${esc(meta.licenceUrl)}" target="_blank" rel="noopener">${esc(meta.licence)}</a>` : esc(meta.licence)} · <a href="${esc(meta.page)}" target="_blank" rel="noopener">${esc(meta.site || 'Wikimedia Commons')}</a></p>`;
+}
+
+function cardFacts(c) {
+  if (c.kind !== 'player') return `<span>${esc(kind(c))} · ${c.kind === 'supporter' ? 'One per turn' : c.kind === 'tool' ? 'One per athlete' : c.kind === 'stadium' ? 'One shared Stadium' : 'Play when eligible'}</span><small>${esc(c.text || '')}</small>`;
+  const from = c.predecessor ? C.card(c.predecessor) : null;
+  return `<span>${esc(c.stage)} · ${c.hp} HP · ${esc((c.types || []).join(' / '))} · ${points(c)} KO point${points(c) === 1 ? '' : 's'}</span>`
+    + (from ? `<small>Develops from ${esc(label(from))}</small>` : '')
+    + `<small>${(c.attacks || []).map(a => `${esc(a.name)}: ${esc(a.cost?.length ? a.cost.join(' + ') : 'No Energy')} → ${a.damage} damage`).join('<br>')}</small>`;
+}
+
+function deckTile(d, active, s, portrait) {
+  const result = check(d, s), star = d.ids.map(C.card).find(c => c?.kind === 'player');
+  return `<button type="button" class="pd-deck${active ? ' is-active' : ''}" data-pd-deck="${esc(d.id)}" aria-label="${esc(d.name)}, ${active ? 'active, ' : ''}${d.rental ? 'rental, ' : ''}${d.ids.length} cards, ${result.ok ? 'ready' : 'draft'}">
+    <span class="pd-deck-art">${art(star, portrait)}<span class="pd-deck-mark">${active ? '✓ ACTIVE' : d.rental ? 'RENTAL' : 'YOUR DECK'}</span></span>
+    <span class="pd-deck-copy"><b>${esc(d.name)}</b><small>${d.ids.length}/20 cards · ${result.ok ? 'Ready' : 'Draft'}</small><small>${esc((d.energy || []).join(' / '))}</small></span></button>`;
+}
+
+export function deckShelfHTML(portrait) {
+  if (!rivalsUpdated()) return '';
+  const s = D.mine(), selected = D.pocketDeck(s), decks = D.pocketLoadouts(s).filter(d => !d.rental && d.id !== 'rental');
+  const active = selected.id || s.pocket?.active || 'rental';
+  return `<section class="pocket-decks"><header class="pd-heading"><div><small>BUILD YOUR NEXT WIN</small><h2>My decks</h2></div><b>20 cards</b></header>
+    <p class="pd-intro">One plan. One Active athlete. Three knockout points to win.</p>
+    <div class="pd-shelf">${deckTile(rental(), active === 'rental', s, portrait)}${decks.map(d => deckTile(d, d.id === active, s, portrait)).join('')}
+    <button type="button" class="pd-new" data-pd-new ${decks.length >= 30 ? 'disabled' : ''}><span aria-hidden="true">+</span><b>Build a deck</b><small>Use your collection</small></button></div>
+    <p class="pd-note">The starter rental is ready to try. It lends its cards only for battles. Your custom decks use collected Base Players, reusable Support Cards, and matching development forms from the rental playbook.</p>
+    <details class="pd-info"><summary>Deck-building rules</summary><p>Exactly 20 cards, at least one Base Player, and no more than two of the same canonical card name. Alternate artwork shares the same limit. Breakout and Prime are different card names with exact development requirements.</p><p>Choose one to three Energy types for your Energy Zone. Energy cards never go in the deck. Position, NFL team, rarity and real player statistics do not add battle bonuses.</p><p>Battle values are fictional game-balance examples. Old saved decks are preserved, and matches already in progress keep their original rules. This shelf prepares new matches.</p></details>
+    <button type="button" class="pk-pill" data-dy-table>Table finishes</button></section>`;
+}
+
+export function inspectCard(id, portrait) {
+  const c = C.card(id);
+  if (!c) return;
+  const from = c.predecessor && C.card(c.predecessor);
+  const attacks = (c.attacks || []).map(a => `<li><div><b>${esc(a.name)}</b><strong>${a.damage}</strong></div><small>${esc(a.cost?.length ? a.cost.join(' + ') : 'No Energy required')}</small>${a.text ? `<p>${esc(a.text)}</p>` : ''}</li>`).join('');
+  const body = `<article class="pd-inspect"><div class="pd-card-art">${art(c, portrait)}</div><h3>${esc(label(c))}</h3>
+    <p>${esc(kind(c))}${c.kind === 'player' ? ` · ${esc(c.position || '')} · ${esc(c.team || '')}` : ''}</p>
+    ${c.kind === 'player' ? `<div class="pd-card-stats"><b>${c.hp} HP</b><span>${esc((c.types || []).join(' / '))}</span><b>${points(c)} KO point${points(c) === 1 ? '' : 's'}</b></div>
+    <p>${from ? `Develops from <b>${esc(label(from))}</b>.` : 'Enters play as a Base Player.'} Classification: ${esc(c.classification === 'mega-ex' ? 'Mega ex' : c.classification)}.</p>
+    <ul class="pd-attacks">${attacks}</ul>${c.ability ? `<p><b>Ability · ${esc(c.ability.name || '')}</b><br>${esc(c.ability.text || '')}</p>` : ''}
+    <p>Weakness: ${esc(c.weakness || 'None')}${c.weakness ? ' +20' : ''} · Retreat: ${c.retreat} Energy</p>` : `<p>${esc(c.text || '')}</p>`}
+    <p class="pd-note">${c.kind === 'player' ? 'Fictional battle values. Rarity and artwork are cosmetic.' : 'Resolve the printed effect when eligible.'}${c.rental ? ' This card is supplied by the rental playbook; it does not add a card to your collection.' : ''}</p>${credit(c, portrait)}</article>`;
+  let stop;
+  const sh = ui.openSheet({title: 'Read the card', body, cls: 'pk-sheet pocket-deck-sheet', detents: ['large'], onClose: () => stop?.()});
+  stop = data.subscribe(type => { if (type === 'me') sh.close(); });
+}
+
+function editor(onChange, slot, portrait) {
+  if (!rivalsUpdated()) return;
+  const openedFor = profileKey(), s = D.mine(), starting = slot || C.defaultDeck(s.o);
+  let draft = starting.rental ? [] : starting.ids.slice(), energy = starting.rental ? ['Fire'] : (starting.energy || ['Fire']).slice();
+  let search = '', category = 'all', limit = 60;
+  const pool = C.availableCards(s.o);
+  const available = id => C.availableCopies(s.o, id);
+  const rows = () => {
+    const matched = pool.filter(c => (category === 'all' || category === 'selected' && draft.includes(c.id) || category === c.kind)
+      && `${label(c)} ${c.position || ''} ${c.stage || ''} ${(c.types || []).join(' ')}`.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => Number(draft.includes(b.id)) - Number(draft.includes(a.id)) || label(a).localeCompare(label(b)));
+    const html = matched.slice(0, limit).map(c => {
+      const n = draft.filter(id => id === c.id).length, cap = Math.min(2, available(c.id));
+      return `<div class="pd-row"><button type="button" class="pd-card-label" data-pd-inspect="${esc(c.id)}"><b>${esc(label(c))}</b>${cardFacts(c)}<small>${c.kind !== 'player' ? 'Reusable support playbook' : c.rental ? 'Development rental · Base owned' : `${available(c.id)} owned`}</small></button>
+      <div class="pd-stepper"><button type="button" data-pd-minus="${esc(c.id)}" aria-label="Remove ${esc(label(c))}" ${n ? '' : 'disabled'}>−</button><b aria-label="${n} copies in deck">${n}</b><button type="button" data-pd-plus="${esc(c.id)}" aria-label="Add ${esc(label(c))}" ${n < cap && canonicalCount(draft, c) < 2 && draft.length < 20 ? '' : 'disabled'}>+</button></div></div>`;
+    }).join('') || '<p class="pd-note">No matching cards. Try another search or collect more Base Players.</p>';
+    return html + (matched.length > limit ? `<p class="pd-note">Showing ${limit} of ${matched.length} cards. Search by name or show more.</p><button type="button" class="pk-btn" data-pd-more>Show more cards</button>` : '');
+  };
+  let stop;
+  const sh = ui.openSheet({title: slot ? 'Edit deck' : 'Build a deck', cls: 'pk-sheet pocket-deck-sheet', detents: ['large'], onClose: () => stop?.(), body: `<div class="pd-editor">
+    <label class="pd-field">Deck name<input type="text" data-pd-name maxlength="32" value="${esc(slot?.name || 'My new deck')}" autocomplete="off"></label>
+    <p class="pd-note">20 cards · at least one Base · two of each canonical name. Tap a name to read its card. Custom decks use your collection and the reusable playbook.</p>
+    <fieldset class="pd-energy"><legend>Energy Zone · choose 1–3 types</legend>${ENERGIES.map(t => `<label><input type="checkbox" data-pd-energy="${t}" ${energy.includes(t) ? 'checked' : ''}><span>${t}</span></label>`).join('')}</fieldset>
+    <p class="pd-note">Your normal Energy is random among your chosen types. Colorless costs accept any type.</p>
+    <div class="pd-editor-tools"><b data-pd-count role="status" aria-live="polite"></b><button type="button" class="pk-btn" data-pd-auto>Auto-build</button><button type="button" class="pk-btn is-go" data-pd-save>Save deck</button></div>
+    <label class="pd-field">Find a card<input type="search" data-pd-search placeholder="Athlete, stage or battle type"></label>
+    <label class="pd-field">Show<select data-pd-filter><option value="all">All available cards</option><option value="selected">Cards in this deck</option><option value="player">Players</option><option value="item">Items</option><option value="supporter">Supporters</option><option value="tool">Tools</option><option value="stadium">Stadiums</option></select></label>
+    <div data-pd-rows></div><p class="pd-note">Battle stats are fictional balance examples, independent of NFL ratings.</p></div>`});
+  stop = data.subscribe(type => { if (type === 'me') sh.close(); });
+  function draw() {
+    const result = C.checkDeck(draft, s.o, energy);
+    sh.body.querySelector('[data-pd-count]').textContent = `${draft.length}/20 · ${result.ok ? 'Ready to battle' : result.why}`;
+    sh.body.querySelector('[data-pd-rows]').innerHTML = rows();
+    sh.body.querySelectorAll('[data-pd-energy]').forEach(el => { el.checked = energy.includes(el.dataset.pdEnergy); el.disabled = energy.length >= 3 && !el.checked; });
+    sh.body.querySelector('[data-pd-save]').disabled = !energy.length;
+  }
+  sh.body.addEventListener('input', e => {
+    if (profileKey() !== openedFor) return;
+    if (e.target.matches('[data-pd-search]')) { search = e.target.value; limit = 60; draw(); }
+  });
+  sh.body.addEventListener('change', e => {
+    if (profileKey() !== openedFor) return;
+    if (e.target.matches('[data-pd-filter]')) { category = e.target.value; limit = 60; draw(); }
+    if (e.target.matches('[data-pd-energy]')) {
+      const type = e.target.dataset.pdEnergy;
+      energy = e.target.checked ? [...new Set([...energy, type])].slice(0, 3) : energy.filter(t => t !== type); draw();
+    }
+  });
+  sh.body.addEventListener('click', e => {
+    if (profileKey() !== openedFor || !rivalsUpdated()) return;
+    let b;
+    if (e.target.closest('[data-pd-more]')) { limit += 60; draw(); }
+    if ((b = e.target.closest('[data-pd-inspect]'))) inspectCard(b.dataset.pdInspect, portrait);
+    if ((b = e.target.closest('[data-pd-minus]'))) { const i = draft.indexOf(b.dataset.pdMinus); if (i >= 0) draft.splice(i, 1); draw(); }
+    if ((b = e.target.closest('[data-pd-plus]'))) {
+      const id = b.dataset.pdPlus, c = C.card(id);
+      if (c && draft.length < 20 && draft.filter(x => x === id).length < Math.min(2, available(id)) && canonicalCount(draft, c) < 2) draft.push(id); draw();
+    }
+    if (e.target.closest('[data-pd-auto]')) {
+      const built = C.defaultDeck(s.o);
+      if (built.rental) { ui.toast('Collect more Base Players to build a custom deck. The starter rental is ready in My decks.'); return; }
+      draft = built.ids.slice(); energy = built.energy.slice(); draw();
+    }
+    if (e.target.closest('[data-pd-save]')) {
+      const r = D.savePocketDeck({id: slot?.id, name: sh.body.querySelector('[data-pd-name]').value, ids: draft.slice(), energy: energy.slice(), rental: false});
+      if (r.ok) { sh.close(); ui.toast(C.checkDeck(draft, s.o, energy).ok ? 'Deck saved · select it to battle' : 'Draft saved · finish it before battling'); onChange(); } else ui.toast(r.why);
+    }
+  });
+  draw();
+}
+
+export function handleDeckShelf(e, onChange = () => {}, portrait) {
+  if (!rivalsUpdated()) return false;
+  if (e.target.closest('[data-pd-new]')) { editor(onChange, null, portrait); return true; }
+  const button = e.target.closest('[data-pd-deck]');
+  if (!button) return false;
+  const openedFor = profileKey(), s = D.mine();
+  const d = button.dataset.pdDeck === 'rental' ? rental() : D.pocketLoadouts(s).find(x => x.id === button.dataset.pdDeck);
+  if (!d) return true;
+  const result = check(d, s), active = (D.pocketDeck(s).id || s.pocket?.active || 'rental') === d.id;
+  let stop;
+  const sh = ui.openSheet({title: d.name, cls: 'pk-sheet pocket-deck-sheet', detents: ['large'], onClose: () => stop?.(), body: `<div class="pd-detail">
+    <p>${d.ids.length}/20 cards · ${result.ok ? 'Ready to battle' : esc(result.why)}</p><p>Energy Zone: <b>${esc((d.energy || []).join(' / '))}</b></p>
+    ${d.rental ? '<p class="pd-note">A fixed starter rental. Its cards are available for matches without being added to your collection. Build a custom deck to use the athletes you collect.</p>' : ''}
+    <div class="pd-detail-actions"><button type="button" class="pk-btn is-go" data-pd-use ${!result.ok || active ? 'disabled' : ''}>${active ? 'Active deck' : 'Use deck'}</button>${!d.rental ? '<button type="button" class="pk-btn" data-pd-edit>Edit deck</button>' : ''}${!d.rental && !active ? '<button type="button" class="pk-btn" data-pd-delete>Delete deck</button>' : ''}</div>
+    <div>${Object.entries(copies(d.ids)).map(([id, n]) => { const c = C.card(id); return c ? `<button type="button" class="pd-list-card" data-pd-inspect="${esc(id)}"><b>${n}× ${esc(label(c))}</b>${cardFacts(c)}</button>` : `<p>${esc(id)} · unavailable</p>`; }).join('')}</div></div>`});
+  stop = data.subscribe(type => { if (type === 'me') sh.close(); });
+  sh.body.addEventListener('click', ev => {
+    if (profileKey() !== openedFor || !rivalsUpdated()) return;
+    const inspect = ev.target.closest('[data-pd-inspect]');
+    if (inspect) inspectCard(inspect.dataset.pdInspect, portrait);
+    if (ev.target.closest('[data-pd-edit]')) { sh.close(); editor(onChange, d, portrait); }
+    if (ev.target.closest('[data-pd-use]')) { const r = D.usePocketDeck(d.id); if (r.ok) { sh.close(); ui.toast('Active deck updated'); onChange(); } else ui.toast(r.why); }
+    if (ev.target.closest('[data-pd-delete]')) ui.actionSheet({title: `Delete ${d.name}? Your collection stays intact.`, cls: 'pk-sheet', actions: [{label: 'Delete deck', role: 'destructive', value: 'delete'}]}).then(v => {
+      if (v === 'delete' && profileKey() === openedFor && D.deletePocketDeck(d.id)) { sh.close(); onChange(); }
+    });
+  });
+  return true;
+}
+
+export function guideHTML() {
+  return `<div class="pd-guide"><p><b>Collect. Build. Battle.</b> Open packs and grow your collection, build a focused 20-card deck, then manage a card duel. Your next Energy attachment, development card or Supporter can set up a win several turns ahead.</p>
+    <ol><li><b>Build a legal deck.</b> Exactly 20 Player and Support Cards, at least one Base Player, and at most two of each canonical name. Choose up to three of the eight Energy types. Energy comes from the Energy Zone, never the deck.</li>
+    <li><b>Set up.</b> The first manager is chosen before placement. Each manager gets five cards with at least one Base. Choose one Active Base Player and up to three Bases on the Bench.</li>
+    <li><b>Prepare each turn.</b> Draw one card when available. Manually attach the normal Energy to one athlete. The first manager gets no normal Energy on the opening turn, but may use a Supporter or any attack whose cost is met. Normal attachments do not bank across turns.</li>
+    <li><b>Choose where to invest.</b> Energy stays attached after ordinary attacks. Once your Active athlete can attack, prepare a Benched replacement. You may rearrange legal preparation actions: drawing before attaching may reveal a better choice.</li>
+    <li><b>Develop.</b> Play the matching Breakout or Prime from your hand onto its exact predecessor. Neither manager develops on their first turn, on the turn the athlete enters play, or twice on one athlete that turn. Energy, Tools and existing damage stay. A 60-HP Base with 30 damage that becomes a 100-HP Breakout has 70 HP remaining. Fast Track takes an eligible Base straight to its matching Prime already in hand.</li>
+    <li><b>Use Support Cards.</b> Play eligible Items freely, one Supporter per turn, one Tool per athlete, and one Stadium per turn. Only one shared Stadium is in play; a different one replaces it. Film Study draws two cards. Scouting Report finds a random Base. Recovery Kit heals 20. Matchup Change lets the opponent choose their Benched replacement.</li>
+    <li><b>Attack or pass.</b> An attack requires its printed attached Energy and normally ends your turn. Colorless accepts any type. Matching printed Weakness adds 20 against the opposing Active. Extra Energy, rarity, position and team grant no automatic damage.</li>
+    <li><b>Retreat.</b> Once per turn, discard the Active athlete’s retreat cost and choose a Benched replacement. Damage and remaining attachments stay. A card-effect switch and a knockout promotion do not spend your retreat allowance. Asleep and Paralyzed athletes cannot normally retreat.</li>
+    <li><b>Claim points.</b> A regular knockout scores 1, ex scores 2, and Mega ex scores 3. First to at least three wins. Losing your Active with no athlete left in play also loses; cards in your hand or deck cannot replace an empty Bench. An empty draw deck alone is not a loss.</li></ol>
+    <details><summary>Special Conditions and Checkup</summary><p>Checkup happens between every turn. Poisoned takes 10 damage with no recovery flip. Burned takes 20, then heads clears it. Asleep cannot attack or retreat and flips at each Checkup; heads wakes it. Paralyzed cannot attack or retreat and recovers after its owner’s next turn. Confused flips when attacking: tails fails and ends the turn, without self-damage.</p><p>Poison and Burn can coexist. Sleep, Paralysis and Confusion replace one another. Development and moving to the Bench clear conditions. These are fictional card states, not athlete injuries.</p></details>
+    <details><summary>A legal 20-card development deck</summary><p>Two each: Patrick Mahomes – Base; Patrick Mahomes – Breakout; Patrick Mahomes – Prime ex; Justin Jefferson – Base; Film Study; Scouting Report; Recovery Kit; Fast Track; Protective Gear; Matchup Change.</p><p>That is eight Player Cards and twelve Support Cards. Draw and search find your development line; Jefferson buys time while Mahomes develops. Each canonical name appears twice.</p></details>
+    <details><summary>Worked battle: prepare your next attacker</summary><p><b>Fictional balance example.</b> All costs are Colorless; assume no Weakness or effects. Your Jefferson (120 HP, 2 Energy, 50 damage) starts Active, Henry (160 HP, 3 Energy, 100 damage) Benched. Opposing Lamb (100 HP, 1 Energy, 30 damage) starts Active, Mahomes ex (160 HP, 2 Energy, 70 damage) Benched. The opponent goes first.</p>
+    <ol><li>Opponent gets no opening Energy. You attach one to Jefferson and pass.</li><li>Lamb attaches and deals 30. You attach Jefferson’s second Energy and deal 50.</li><li>Opponent attaches to Mahomes; Lamb deals 30. Jefferson has 60 HP. You attach to Henry; Jefferson knocks out Lamb. You lead 1–0.</li><li>Mahomes attaches its second Energy and knocks out Jefferson. Score: 1–1. Promote Henry and attach its second Energy; it cannot attack yet.</li><li>Mahomes deals 70. Henry has 90 HP. Attach Henry’s third Energy and deal 100; Mahomes has 60 HP.</li><li>Mahomes deals 70; Henry survives at 20 HP. Henry attacks again with its existing Energy, knocks out the ex, and earns two points. You win 3–1.</li></ol><p>You prepared the Bench while your Active kept attacking, then traded a one-point athlete for a two-point target. HP, attack costs and timing made that possible.</p></details>
+    <p class="pd-note">All battle values are fictional game-balance examples. Base, Breakout and Prime describe development; regular, ex and Mega ex describe knockout value. Rarity and artwork describe collectibility. Match damage, discards and development never destroy or permanently change owned cards.</p></div>`;
+}

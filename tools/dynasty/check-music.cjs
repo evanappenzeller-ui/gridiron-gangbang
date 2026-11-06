@@ -350,7 +350,7 @@ async function main() {
       const sound = await battleSound.boundingBox();
       const menu = await page.locator('.v-dynasty-battle [data-dy-music-menu]').boundingBox();
       assert(sound.y >= 0 && sound.y + sound.height <= height && sound.x + sound.width <= width);
-      const bar = page.locator('.db-bar');
+      const bar = page.locator('.db-bar, .rp-bottom-actions');
       for (const action of await bar.locator('button').all()) {
         const b = await action.boundingBox();
         assert(!b || b.x + b.width <= menu.x || b.y + b.height <= sound.y || b.y >= sound.y + sound.height, 'sound does not cover battle actions');
@@ -365,7 +365,7 @@ async function main() {
     assert.equal((await state()).enabled, false, 'skip preserves mute');
     assert.match(await page.evaluate(() => mediaProbes[0].src), part(skipPart), 'skip in a battle moves on to the next part of the shuffle');
     assert.equal((await state()).track.id, 'battle');
-    await page.locator('.db-match-title').click();
+    await page.locator('.db-match-title, .rp-top b').click();
     assert.equal(await page.locator('.pk-mini-player:visible').count(), 0, 'outside tap closes panel');
     await battleSound.click(); await playing();
     const battleHold = await holdVolume('.v-dynasty-battle [data-dy-sound]');
@@ -377,7 +377,8 @@ async function main() {
     assert.equal((await state()).volume, 0, 'volume clamps at zero');
     await battleHold.send('touchEnd'); await silent();
     await battleSound.click(); await playing();
-    await page.locator('[data-db-more]').click(); await page.getByRole('button', {name: 'Settings', exact: true}).click();
+    if(await page.locator('[data-rp-settings]').count()) await page.locator('[data-rp-settings]').click();
+    else {await page.locator('[data-db-more]').click(); await page.getByRole('button', {name: 'Settings', exact: true}).click();}
     await page.waitForSelector('[data-dy-music-toggle]');
     assert.equal(await page.locator('[data-dy-music-track]').count(), 32, 'the battle jukebox heads with the mix');
     assert.equal(await page.locator('[data-dy-music-track="battle"][aria-pressed="true"]').count(), 1);

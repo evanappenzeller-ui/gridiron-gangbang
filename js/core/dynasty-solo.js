@@ -1,4 +1,6 @@
 import * as TABLE from './dynasty-table.js';
+import * as POCKET from './dynasty-pocket.js';
+import * as PC from './dynasty-pocket-cards.js';
 // Gridiron Rivals' Solo battles against the computer. Since Oct 30 2026 (the owner: "This game mode should be focused on
 // games against the cpu getting increasingly difficult. The beginning stage should be very easily with very little
 // challenge. And around 15-20 games in there is a noticeable difference, where strategy must be applied to win") they are
@@ -39,12 +41,12 @@ export const OPPONENTS = [
 // ---------------------------------------------------------------------------------------------------- the ladder
 export const LADDER = 30;
 export const TIERS = [
-  {id: 'peewee', name: 'Pee Wee', from: 1, blurb: 'Warm-up games. Their players are weak to yours.'},
+  {id: 'peewee', name: 'Pee Wee', from: 1, blurb: 'Learn Energy attachments, attacks and preparing your Bench.'},
   {id: 'hs', name: 'High School', from: 6, blurb: 'A little tougher, still forgiving.'},
-  {id: 'college', name: 'College', from: 11, blurb: 'Fuller benches, Trainer cards and better players.'},
-  {id: 'pro', name: 'Pro', from: 16, blurb: 'They counter your main type, upgrade players and switch out. Plan ahead.'},
-  {id: 'allpro', name: 'All-Pro', from: 21, blurb: 'Legends join their lineups. Every energy counts.'},
-  {id: 'hof', name: 'Hall of Fame', from: 26, blurb: 'The best decks the computer can build.'}
+  {id: 'college', name: 'College', from: 11, blurb: 'Manage support cards and the risk of two-point ex knockouts.'},
+  {id: 'pro', name: 'Pro', from: 16, blurb: 'Face development decks and prepared replacements. Plan ahead.'},
+  {id: 'allpro', name: 'All-Pro', from: 21, blurb: 'Prepare for Prime players. Every Energy attachment counts.'},
+  {id: 'hof', name: 'Hall of Fame', from: 26, blurb: 'Take on the final development decks and featured bosses.'}
 ];
 const NAMES = ['Pee Wee Pups', 'Backyard Ballers', 'Flag Football Club', 'Pop Warner Panthers', 'Junior Varsity',
   'Homecoming Hopefuls', 'Friday Night Lights', 'Small-Town Stallions', 'County Champs', 'State Finalists',
@@ -289,6 +291,11 @@ function write() { try { if (REC) localStorage.setItem(KEY(), JSON.stringify(REC
 /** The game from the battle's log (the same one each time: kept while the log is). */
 function game(r) {
   if (CACHE && CACHE.id === r.id && CACHE.n === r.log.length) return CACHE.G;
+  if (r.v === 7) {
+    const G = POCKET.replay(r.seed, r.decks, r.log, {energy: r.energy});
+    CACHE = {id: r.id, n: r.log.length, G};
+    return G;
+  }
   // Older solo saves had no version and always used v2. Never reinterpret their recorded moves.
   const G = B.newGame(r.seed, r.decks, r.v >= 6 ? 6 : r.v >= 5 ? 5 : r.v >= 4 ? 4 : r.v >= 3 ? 3 : 2, r.chemistry, r.roundEnergy);
   for (const [w, m] of r.log) { if (!B.play(G, w, m).ok) break; }
@@ -302,13 +309,13 @@ function matchOf(r) {
   const base = {mid: r.id, solo: true, opp: {key: 'cpu', name: boss ? `${boss.name} · Boss` : o.name, member: null, guest: false, cpu: o}, boss: boss?.id || null, you: 0, G, at: r.at};
   let result = null, why = G.over && G.over.why;
   if (r.z === 'resign') { result = 'l'; why = 'resign'; }
-  else if (G.phase === 'over') result = G.over.win === -1 ? 'd' : G.over.win === 0 ? 'w' : 'l';
+  else if (G.phase === 'over') result = G.v === 7 ? (G.winner === 'draw' ? 'd' : G.winner === 0 ? 'w' : 'l') : G.over.win === -1 ? 'd' : G.over.win === 0 ? 'w' : 'l';
   if (result) {
     // (paid once: core/dynasty.js paySolo)
     if (!r.paid && D.status === 'ready' && D.mayPlay()) { r.pay = D.paySolo(r.id, o.id, o.lv, result, D.mine(), boss?.id || null, r.boss?.v) || null; r.paid = 1; write(); }
     return {...base, state: 'over', result, why, pay: r.pay || null};
   }
-  const state = G.phase === 'setup' ? (G.p[0].set ? 'theirs' : 'setup') : B.toMove(G) === 0 ? 'yours' : 'theirs';
+  const state = G.phase === 'setup' ? ((G.v === 7 ? G.p[0].ready : G.p[0].set) ? 'theirs' : 'setup') : (G.v === 7 ? POCKET.toMove(G) : B.toMove(G)) === 0 ? 'yours' : 'theirs';
   if (state === 'theirs') kick();
   return {...base, state};
 }
@@ -326,6 +333,7 @@ export function start(id) {
   const o = opponent(id);
   if (!o || !D.mayPlay() || D.status !== 'ready') return {ok: false, why: 'Solo battles aren’t open here.'};
   if (ladderN(id) && !unlocked(id)) return {ok: false, why: `Win game ${ladderAt()} first.`};
+  if (D.pocketOpen?.()) return startPocket(o);
   const table = D.tableOpen(), dk = table ? D.tableDeck() : D.deckOf();
   if (!dk.ok) return {ok: false, why: `Your deck isn’t ready: ${dk.why}`};
   rec();
@@ -363,7 +371,7 @@ export function start(id) {
 export function move(mid, m) {
   const x = get(mid);
   if (!x || !['setup', 'yours'].includes(x.state)) return {ok: false, why: 'It isn’t your move.'};
-  const r = B.play(x.G, 0, m);
+  const r = x.G.v === 7 ? POCKET.apply(x.G, 0, m) : B.play(x.G, 0, m);
   if (!r.ok) return r;
   REC.log.push([0, m]); REC.at = Date.now(); CACHE.n = REC.log.length;
   write(); emit('move'); kick();
@@ -383,11 +391,43 @@ function step() {
   const r = rec();
   if (!r || r.z || !D.mayPlay()) return;
   const G = game(r);
-  if (G.phase === 'over' || B.toMove(G) !== 1) { emit('cpu'); return; }
+  const engine = G.v === 7 ? POCKET : B;
+  const play = G.v === 7 ? POCKET.apply : B.play;
+  if (G.phase === 'over' || engine.toMove(G) !== 1) { emit('cpu'); return; }
   const o = opponent(r.opp);
-  let m = nextMove(G, 1, o.lv);
-  if (!B.play(G, 1, m).ok) { m = {a: 'end'}; if (!B.play(G, 1, m).ok) return; }
+  let m = G.v === 7 ? POCKET.nextMove(G, 1, o.lv) : nextMove(G, 1, o.lv);
+  if (!play(G, 1, m).ok) { m = {a: 'end'}; if (!play(G, 1, m).ok) return; }
   r.log.push([1, m]); r.at = Date.now(); CACHE.n = r.log.length;
   write(); emit('cpu');
-  if (G.phase !== 'over' && B.toMove(G) === 1) kick();
+  if (G.phase !== 'over' && engine.toMove(G) === 1) kick();
+}
+
+function startPocket(o) {
+  const dk = D.pocketDeck();
+  if (!dk.ok) return {ok: false, why: `Your deck isn’t ready: ${dk.why}`};
+  rec();
+  const boss = D.soloBoss(o.id), theirs = PC.cpuDeck(o.lv, boss?.id);
+  const legal = PC.checkDeck(theirs.ids, null, theirs.energy);
+  if (!legal.ok) return {ok: false, why: 'This opponent’s deck is not ready.'};
+  const mid = 'cpu' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
+  const candidate = {id: mid, opp: o.id, seed: mid, v: 7, decks: [dk.ids.slice(), theirs.ids.slice()],
+    energy: [dk.energy.slice(), theirs.energy.slice()], rental: !!dk.rental, log: [], at: Date.now(), z: '', paid: 0, pay: null};
+  if (boss && candidate.decks[1].includes(boss.id)) {
+    candidate.boss = {v: 2, card: boss.id};
+    let ready = false;
+    for (let i = 0; i < 256; i++) {
+      candidate.seed = `${mid}|boss|${i}`;
+      if (POCKET.newGame(candidate.seed, candidate.decks, {energy: candidate.energy}).p[1].hand.includes(boss.id)) { ready = true; break; }
+    }
+    if (!ready) return {ok: false, why: 'The boss couldn’t set its lineup. Try again.'};
+  }
+  REC = candidate; CACHE = null; clearTimeout(timer); timer = 0;
+  const G = game(REC), m = POCKET.nextMove(G, 1, o.lv);
+  if (candidate.boss) {
+    const rest = G.p[1].hand.slice(); rest.splice(rest.indexOf(boss.id), 1);
+    m.act = boss.id; m.bench = rest.filter(cid => PC.card(cid)?.kind === 'player' && PC.card(cid).stage === 'Base').slice(0, 3);
+  }
+  if (POCKET.apply(G, 1, m).ok) { REC.log.push([1, m]); CACHE.n = REC.log.length; }
+  write(); emit('start');
+  return {ok: true, mid};
 }

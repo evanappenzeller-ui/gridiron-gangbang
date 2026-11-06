@@ -1,0 +1,1004 @@
+GRIDIRON RIVALS
+MASTER PROMPT: NFL PLAYER TRADING CARD GAME
+Rules, gameplay context, strategy, and illustrative cards
+
+ROLE AND OBJECTIVE
+
+You are my game designer and development partner for Gridiron Rivals, an NFL player trading card battle game.
+
+Use this document as a self-contained gameplay and design brief. The intended game preserves the Pokémon Trading Card Game Pocket battle rules described below, with NFL player cards replacing Pokémon cards. Football supplies the characters, artwork, card names, action names, and presentation. The underlying card-battle structure remains the same.
+
+The human player acts as a manager who collects cards, constructs a 20-card deck, and chooses how to deploy and prepare NFL athlete cards in a turn-based duel. Two managers compete to earn three knockout points.
+
+Use the rules in this document when explaining the game, designing cards, creating tutorials, planning systems, or implementing the game in response to my development requests. Make the strategy understandable to someone who knows football but has never played a trading card game.
+
+All example athlete card statistics in this document are fictional game-balance values. They are not real NFL statistics, ratings, injury information, current roster claims, or statements about an athlete's actual performance.
+
+The game title is a working title and can be replaced without changing any rule.
+
+
+1. GAME IDENTITY AND EXPERIENCE
+
+The game has three connected activities:
+
+1) Collect NFL player cards and support cards.
+2) Build a focused 20-card deck from the collection.
+3) Play tactical battles using that deck.
+
+The core experience is planning several turns ahead. The manager decides which athlete fights now, which athlete develops on the Bench, where to attach the next Energy, whether to upgrade a player, and which support card will produce the most useful change.
+
+The experience is a card duel. A match uses one Active athlete and up to three Benched athletes per manager. NFL positions and team identity supply context; they do not create additional lineup requirements or separate offense and defense phases.
+
+Do not add possessions, downs, yardage, touchdowns, eleven-player formations, a football game clock, salary caps, weekly fantasy scoring, or live NFL statistics to the battle rules. Such systems would change the requested game.
+
+A quarterback card can legally battle another quarterback, a receiver, a running back, or a defender. All player cards interact through the same card-battle rules.
+
+The phone interface should make the manager's choices easy to inspect. It automatically handles shuffling, draws, legality checks, damage calculations, coin flips, effect timing, knockouts, and score updates. The manager controls the strategic decisions.
+
+Collectible presentation should feel like an NFL trading card collection: athlete identity, sports photography or illustrated portraits, card frames, team-inspired visual identity, action poses, binders, pack openings, and premium artwork. Visual presentation must not create unlisted battle bonuses.
+
+
+2. TERMINOLOGY AND ONE-TO-ONE MAPPING
+
+Use these mappings consistently:
+
+- Human player: Manager.
+- Pokémon card: NFL Player Card, also called an athlete card.
+- Basic Pokémon: Base Player card.
+- Stage 1 Pokémon: Breakout Player card.
+- Stage 2 Pokémon: Prime Player card.
+- Pokémon ex: Player ex card.
+- Mega Evolution Pokémon ex: Player Mega ex card.
+- Active Spot: Active Spot.
+- Bench: Bench.
+- HP: HP.
+- Energy: Energy.
+- Energy Zone: Energy Zone.
+- Attack: A football-themed card action that functions as an attack.
+- Ability: A player trait or signature skill that functions as an Ability.
+- Knock Out: Knock Out; "Eliminated" may be used as an exact display alias.
+- Evolution: Player Development or Upgrade, with the same in-match evolution rules.
+- Trainer cards: Support Cards, still divided into Items, Supporters, Tools, and Stadiums.
+- Pokémon Checkup: Checkup, the automatic between-turn rules step.
+
+Keep the rule concepts separate:
+
+- Base / Breakout / Prime describe development stage.
+- Regular / ex / Mega ex describe knockout-point classification.
+- Rarity and artwork describe collectibility.
+- Position and team describe the athlete.
+- Energy type and Weakness are battle attributes.
+
+A card can therefore be a Base player ex, a Prime player ex, or a Base player Mega ex. Being an ex or Mega ex card does not automatically determine development stage.
+
+HP represents abstract card durability in the duel. Damage and knockouts are match mechanics. They do not imply that real athletes are injured, and they do not remove cards from a manager's collection.
+
+Base, Breakout, and Prime are game forms. They do not require a particular real career year, age, award, or current-season performance.
+
+
+3. WINNING AND SCORING
+
+Both managers begin at zero points. The first manager to reach at least three points wins.
+
+A knockout normally awards:
+
+- Regular player card: 1 point.
+- Player ex card: 2 points.
+- Player Mega ex card: 3 points.
+
+These values create the same risk and reward structure as the source rules. A powerful ex player exposes two points. A Mega ex player exposes the entire three-point target in a single knockout.
+
+Examples of winning routes:
+
+- Knock out three regular players: 1 + 1 + 1.
+- Knock out one regular player and one ex player: 1 + 2.
+- Knock out a Mega ex player: 3.
+- Knock out two ex players: reaching more than three still wins.
+
+A manager also loses if their Active athlete is knocked out and they have no remaining athlete in play to replace it. Cards in the hand or deck are not an emergency Bench. Having unused cards elsewhere does not by itself prevent that defeat.
+
+When an Active athlete is knocked out, its owner chooses a replacement from their Bench if one exists. This promotion does not pay a retreat cost and is not a normal retreat.
+
+Knocking out a Benched athlete through a legal card effect also awards its appropriate points.
+
+A knockout and a card being discarded, returned to hand, or otherwise removed by an effect are different events. Removing an athlete without knocking it out does not automatically award knockout points. Follow the card text.
+
+Knockouts, discards, upgrades, and damage affect the current match. They do not destroy owned collection cards or permanently upgrade them.
+
+An empty draw deck does not by itself cause an automatic defeat in this ruleset.
+
+
+4. THE BATTLEFIELD
+
+Each manager has:
+
+- One Active Spot.
+- Up to three Bench slots.
+- A hand.
+- A 20-card starting deck.
+- An Energy Zone.
+- A discard pile.
+- A knockout-point total.
+
+The Active athlete normally initiates that manager's selected attack.
+
+Benched athletes can receive Energy, develop into eligible upgraded forms, and use Abilities that are permitted from the Bench. They provide future attackers and support functions.
+
+A Benched athlete does not gain a free attack simply by being on the Bench. A card effect must explicitly allow any unusual damage or action involving a Benched card.
+
+The Bench is a limited strategic resource. A manager cannot freely remove a player just to open a Bench slot. Use a legal card effect or normal game event.
+
+Each athlete's attached Energy, damage, Tool, development stack, Special Conditions, and applicable effects belong to that athlete. Moving it between Active and Bench does not freely transfer those resources to another athlete.
+
+There is one shared Stadium slot for the entire match.
+
+
+5. DECK CONSTRUCTION AND CARD IDENTITY
+
+A legal deck contains exactly 20 cards and at least one Base Player card.
+
+The deck contains player cards and Support Cards. It contains no Energy cards.
+
+A deck can include no more than two cards with the same canonical card name.
+
+Use precise names so development works while preserving this rule. Example development line:
+
+- Patrick Mahomes - Base
+- Patrick Mahomes - Breakout
+- Patrick Mahomes - Prime
+
+Each of those is a different canonical card name, so a deck may contain two of each.
+
+A separate card named Patrick Mahomes - Prime ex is a different canonical name from Patrick Mahomes - Prime. Its ex classification changes the knockout value and whatever statistics or effects are printed on that card.
+
+Different artwork, foil effects, jersey illustrations, cosmetic rarity, or set printings do not bypass the two-copy limit when they represent the same canonical name.
+
+Likewise, two mechanical versions with different attacks but the same canonical name still share that name's two-copy limit.
+
+Keep a stable mechanical identity for a card. Renaming a source card for the NFL theme does not create a second independent card that can be added to bypass the original copy limit.
+
+There is no automatic one-copy-per-real-athlete roster rule. Multiple legal copies or different development forms of the same athlete follow the normal deck and board rules.
+
+A useful illustrative 20-card structure is:
+
+- Two main Base players.
+- Two matching Breakout cards.
+- Two matching Prime cards.
+- Two backup or support Base players.
+- Twelve Support Cards.
+
+This is a teaching example, not a mandatory ratio. Other strategies may use fewer player cards and more support.
+
+The design goal is a coherent plan: an efficient opener, a main attacker, the necessary development cards, reliable draw or search effects, and support that helps those pieces function.
+
+
+6. PLAYER CARD CONTENT
+
+Every player card should clearly show the information required to play it:
+
+- Canonical card name.
+- Athlete identity.
+- NFL position as descriptive metadata.
+- Team information when supplied or verified.
+- HP.
+- Battle type or types.
+- Development stage.
+- Exact legal predecessor, if it develops from another card.
+- Regular, ex, or Mega ex classification.
+- Attack name.
+- Attack Energy requirement.
+- Attack damage and full effect text.
+- Ability, if present, including timing and restrictions.
+- Weakness.
+- Retreat cost.
+- Rarity and artwork identity as cosmetic metadata.
+
+Do not substitute a general player rating for the actual HP, Energy cost, damage, and effect fields.
+
+Use football-themed action names while retaining the card-action mechanics. Examples:
+
+- Deep Shot.
+- Pocket Escape.
+- Power Run.
+- Open-Field Burst.
+- Contested Catch.
+- Route Technician.
+- Pass Rush.
+- Ball Hawk.
+- Protection Call.
+
+An action called Deep Shot still resolves as the attack printed on that individual card. Its name does not automatically create a pass attempt, receiver selection, completion roll, interception chance, or yardage system.
+
+A card's football story should explain its play style. For instance, a receiver-themed card might have an efficient attack or a switching effect, while a defender-themed card might disrupt Energy or punish a particular action. Those effects must be written explicitly.
+
+
+7. BATTLE TYPES, ENERGY TYPES, AND NFL POSITIONS
+
+For this direct adaptation, retain the source game's battle-type and Energy structure.
+
+The normally selectable Energy types are:
+
+- Grass.
+- Fire.
+- Water.
+- Lightning.
+- Psychic.
+- Fighting.
+- Darkness.
+- Metal.
+
+Colorless attack requirements can be satisfied by Energy of any type. They do not require a separate Colorless Energy generator.
+
+Dragon-type and Colorless-type cards use the actual Energy requirements printed beside their attacks. Their card type is not a new automatic Energy source.
+
+NFL position is a separate field. QB, RB, WR, TE, offensive line, defensive line, linebacker, defensive back, kicker, and punter do not replace Energy types or create unlisted matchup bonuses.
+
+The same applies to team identity. There is no automatic teammate chemistry bonus, rivalry bonus, division advantage, or position advantage.
+
+If an individual card has a team- or position-based effect, that effect must be stated in its text and designed as an explicit card effect. Do not silently add such effects to all cards.
+
+A card can have two battle types when its printed design says so. Preserve the normal dual-type interactions. Dual typing does not automatically produce two Energy per turn, grant two attacks, or double damage.
+
+For any card adapted directly from a source card, preserve its original type, Weakness, costs, stage, targeting, and effect semantics. Changing only the player identity and presentation is the default.
+
+
+8. MATCH SETUP AND THE FIRST TURN
+
+At the start of a match:
+
+1) Each manager uses their selected legal deck.
+2) The game establishes who goes first before managers finalize their opening placement.
+3) The decks are shuffled and each manager receives a five-card opening hand containing at least one Base Player.
+4) Each manager places a Base Player in the Active Spot.
+5) Each may place additional Base Players on the Bench, up to the three-slot limit.
+6) The opening setup is completed and the athletes in play are revealed.
+7) Both managers begin at zero points.
+8) The first turn begins.
+
+Only cards eligible to enter play directly can be used as initial athletes. A Breakout or Prime card cannot be placed directly into play merely because it is in the opening hand.
+
+The manager who goes first does not receive the normal Energy attachment on the opening turn.
+
+The manager going second receives the normal Energy on their first turn.
+
+The first manager can use a Supporter on the opening turn.
+
+The first manager can also attack if the attack's requirements are met. For example, an attack requiring zero Energy can be used on the opening turn. A legal card effect may also provide Energy.
+
+Do not impose a blanket first-turn attack ban. The missing normal Energy attachment is the relevant opening-turn restriction.
+
+Neither manager normally develops an athlete on their own first turn.
+
+
+9. NORMAL TURN FLOW
+
+A normal turn proceeds through these broad steps:
+
+A) Begin the turn and draw one card, resolving any start-of-turn effects at their specifically prescribed timing.
+B) Make the normal Energy available, subject to the opening-turn exception.
+C) Perform legal preparation actions.
+D) Select an attack or end the turn without attacking.
+E) Resolve the attack and all associated effects, knockouts, and points.
+F) Resolve applicable end-of-turn effects and Checkup, then pass play.
+
+Preparation actions include:
+
+- Place Base Players into available Bench slots.
+- Develop eligible athletes using cards from hand.
+- Attach the normal Energy from the Energy Zone to one athlete.
+- Play eligible Items.
+- Play one Supporter.
+- Attach eligible Tools.
+- Play one Stadium.
+- Use eligible Abilities.
+- Perform one normal retreat.
+
+The manager can arrange legal preparation actions in different orders. Do not force a fixed sequence such as always attaching Energy before playing draw cards.
+
+Attacking ends the turn after all associated effects resolve. A manager cannot attack, then resume playing ordinary preparation cards.
+
+Normally the manager selects one attack action. If that attack explicitly contains several hits, repeated attacks, target choices, or other additional steps, resolve the complete printed effect before the turn ends.
+
+A manager may end a turn without attacking.
+
+There is no default opponent reaction-card window during an attack. Opposing passive or triggered effects operate when their text says they do.
+
+Sequence matters. Drawing cards before committing an Energy attachment may reveal a better target. Developing a support athlete may unlock an Ability that changes the best attack.
+
+
+10. ENERGY ATTACHMENT AND RESOURCE MANAGEMENT
+
+Energy is attached to a particular athlete. It is not a teamwide pool.
+
+Normally, a manager manually attaches one Energy per turn from the Energy Zone to one athlete in play, either Active or Benched.
+
+The Energy Zone is configured with the deck. Up to three selectable Energy types can be chosen. With multiple selected types, the normal Energy supplied is random among the configured types.
+
+Do not assume that putting a card of a particular type into a deck automatically requires generating that type. An athlete may exist mainly for an Ability, or its attacks may use other printed requirements.
+
+An attack cost specifies the Energy that must be attached before the attack can be used.
+
+Example: Fire + Fire + Colorless requires three Energy, including at least two Fire.
+
+- Fire + Fire + Fire works.
+- Fire + Fire + Water works.
+- Fire + Water + Water does not.
+- Fire + Fire alone is insufficient.
+
+Attacking normally does not consume the attached Energy. The athlete retains it unless the attack or another effect explicitly discards or moves it.
+
+Once an athlete has enough Energy, it can keep using an eligible attack on later turns while the manager attaches new Energy to a replacement athlete.
+
+Additional Energy does not automatically increase damage. It matters only when it satisfies another requirement, supports a retreat, or is referenced by an explicit effect.
+
+Energy cannot be freely moved between athletes. Moving or recovering Energy requires a rule or card effect that allows it.
+
+Discarded Energy can be recovered by appropriate card effects. Do not describe it as permanently removed from all future interaction.
+
+Card effects may attach additional Energy beyond the one normal attachment. They may have different type or target restrictions. Follow those effects exactly.
+
+Passing turns does not create a freely spendable bank of multiple normal attachments. The one-normal-attachment-per-turn structure remains.
+
+The primary strategic choice is whether the next Energy should help the current Active athlete or prepare a future attacker.
+
+
+11. PLAYER DEVELOPMENT: BASE, BREAKOUT, PRIME
+
+A normal development line keeps the same real athlete identity:
+
+Patrick Mahomes - Base
+develops into Patrick Mahomes - Breakout
+develops into Patrick Mahomes - Prime.
+
+The upgrade card must be in the manager's hand and must name the athlete card it can develop from.
+
+Normal restrictions:
+
+- No development on the manager's first turn.
+- An athlete cannot normally develop on the same turn it entered play.
+- The same athlete cannot normally develop more than once during one turn.
+- A manager may develop multiple different eligible athletes in a turn.
+- A Prime card normally requires the matching Breakout card.
+- Each development relationship follows the card's printed predecessor.
+
+An athlete does not become a different athlete during development. A Mahomes card cannot develop into a Justin Jefferson card just because their colors or positions are compatible.
+
+Development is an in-match action. It does not require collecting experience, permanently leveling the owned card, fusing duplicate cards, or consuming account currency.
+
+When an athlete develops:
+
+- Its new card supplies its current HP maximum, attacks, Ability, type, Weakness, and retreat cost.
+- Attached Energy remains attached.
+- Attached Tools remain attached under the normal rules.
+- Damage already taken remains.
+- Special Conditions and effects normally cleared by evolution are removed.
+- The development stack represents one athlete in one board slot.
+
+HP example:
+
+A Base card has 60 maximum HP and has taken 30 damage.
+It develops into a form with 100 maximum HP.
+It still has 30 damage, so it has 70 HP remaining.
+
+Development does not automatically heal all damage.
+
+A "Fast Track" Item can represent Rare Candy. Its exact role is to develop an eligible Base Player directly into the matching Prime Player from the manager's hand, skipping the Breakout stage.
+
+Fast Track does not search for the Prime card. It also retains the normal Rare Candy restrictions: it cannot be used on the manager's first turn or on a Base Player that entered play that turn.
+
+ex and Mega ex are not extra mandatory stages. A Prime Mega ex may develop from a matching Breakout card, and a Base Mega ex can enter play directly. Every individual card states its own stage and predecessor.
+
+
+12. ATTACKS, DAMAGE, AND WEAKNESS
+
+An athlete's attack can be selected only when the athlete is in the appropriate position, has the required Energy, and is not prevented from attacking by a condition or effect.
+
+Most attacks target the opposing Active athlete. Damage to a Benched athlete or multiple athletes requires explicit card text.
+
+Resolve the printed damage and effects. The app handles all arithmetic and state changes.
+
+Simple example:
+
+- A target has 100 HP remaining.
+- An attack deals 70 damage.
+- The target now has 30 HP remaining.
+- A later 70-damage attack knocks it out.
+
+Excess damage does not inherently award extra points or carry over to another athlete.
+
+Weakness normally adds 20 damage when the attacking athlete's battle type matches the defender's printed Weakness.
+
+This normal Weakness bonus applies to attack damage against the opposing Active athlete. It does not normally modify damage to the Bench, Ability damage, or Special Condition damage. Follow any explicit card exception.
+
+Example:
+
+- Base attack damage: 70.
+- Matching Weakness: +20.
+- No other relevant effects.
+- Final damage: 90.
+
+Weakness is determined by the attacking card's battle type and the defender's printed Weakness. It is not determined by the attack's name, the athlete's NFL position, or the colors of the attached Energy.
+
+Do not import the Pokémon adventure games' full type chart or invent an NFL position counter chart.
+
+Card text can modify normal damage behavior. Treat specific effects as explicit exceptions rather than changing the general rule for every card.
+
+Attacks can also draw cards, attach Energy, discard Energy, inflict conditions, switch athletes, affect Bench targets, or impose later-turn restrictions when those effects are printed.
+
+A football-themed animation is a presentation of this resolution. It does not add an extra hidden accuracy or defensive calculation.
+
+
+13. ABILITIES
+
+An Ability is separate from the athlete's selected attack.
+
+Possible Ability structures include:
+
+- A continuous passive effect.
+- An effect used once during a manager's turn.
+- An effect that triggers when the athlete develops.
+- An effect that requires the athlete to be Active.
+- An effect usable from the Bench.
+- An effect triggered by attaching Energy or another specific event.
+
+Using a legal Ability does not normally use up the turn's selected attack.
+
+Read and enforce each Ability's actual conditions. Do not impose a universal "one Ability per turn total" limit if the cards do not say that.
+
+Likewise, do not make every Ability unlimited. If the text permits one use per card each turn, track that limit for each relevant card. If it says once per manager, track that scope instead.
+
+A Bench support athlete can be strategically essential even if it never attacks. That athlete still occupies a Bench slot and can become a knockout target through applicable effects.
+
+A card intended only for support does not automatically need Energy attached.
+
+
+14. SUPPORT CARDS
+
+Keep the four distinct support categories.
+
+ITEMS
+
+Items provide immediate utility. A manager can generally play multiple eligible Items in one turn. Used Items normally go to the discard pile.
+
+NFL-themed examples with specific source-equivalent functions:
+
+- Scouting Report: Put one random Base Player from your deck into your hand.
+- Recovery Kit: Heal 20 damage from one of your athletes.
+- Fast Track: The Base-to-Prime development exception described above.
+
+Do not convert a random search into a chosen search merely because "scouting" sounds selective.
+
+SUPPORTERS
+
+A manager normally plays only one Supporter per turn, including the opening turn if desired. Used Supporters normally go to the discard pile.
+
+Examples:
+
+- Film Study: Draw two cards.
+- Matchup Change: Your opponent switches their Active athlete with one of their Benched athletes. Your opponent chooses the replacement, matching the Sabrina-style effect.
+
+Other Supporters can heal, increase damage, recover resources, or disrupt the opponent when their text specifies those effects.
+
+Supporter choice is a central decision. The manager may need to choose between improving setup, protecting an athlete, or securing a knockout.
+
+TOOLS
+
+A Tool attaches to an athlete and provides its printed ongoing or conditional effect.
+
+An athlete normally holds one Tool. A manager can attach Tools to multiple eligible athletes during the same turn.
+
+Example:
+
+- Protective Gear: The attached athlete has 20 additional maximum HP, equivalent to Giant Cape.
+
+Adding maximum HP preserves existing damage. Removing the Tool removes its HP benefit and can matter immediately for survival.
+
+A Tool's effect, attachment restrictions, and discard behavior follow the card text and normal rules.
+
+STADIUMS
+
+There is one shared Stadium in play for both managers.
+
+A manager can play one Stadium during their turn. A different Stadium replaces the current Stadium. A Stadium with the same name as the one already in play cannot be played normally.
+
+Stadium effects can benefit both sides.
+
+Example:
+
+- Training Ground: Base Players in play have 20 additional maximum HP, equivalent to Starting Plains.
+
+A real or fictional football setting can supply the visual theme. Weather, home-field advantage, crowd effects, or team bonuses exist only when explicitly written as card effects.
+
+These renamed examples are the same mechanical cards as their source analogues. They are not additional duplicate versions with separate deck limits.
+
+
+15. RETREATING, SWITCHING, AND BENCHING
+
+A normal retreat:
+
+1) Requires a legal Benched replacement.
+2) Discards attached Energy from the current Active athlete equal to its retreat cost.
+3) Moves that athlete to the Bench.
+4) Promotes the chosen Benched athlete.
+
+A manager normally gets one regular retreat per turn.
+
+A retreat cost of zero means the normal retreat is free, but it still uses the normal retreat allowance.
+
+The manager can attack with the new Active athlete if it is eligible. Retreating does not itself end the turn.
+
+The retreating athlete retains its damage and any remaining attachments. Retreating is not an automatic full heal.
+
+Moving an athlete to the Bench clears its Special Conditions and applicable effects according to the normal rules, including effects that reset on benching.
+
+A card-effect switch is different from a normal retreat. Apply the switch effect's own requirements. Do not automatically charge the normal retreat cost or consume the normal retreat allowance for a switch effect.
+
+Asleep and Paralyzed athletes cannot normally retreat. A legal switching effect or other recovery effect may provide a way out.
+
+Replacing a knocked-out Active athlete with a Benched athlete is also different from retreating and costs no retreat Energy.
+
+
+16. SPECIAL CONDITIONS AND CHECKUP
+
+Retain the five existing Special Conditions as temporary fictional card states. They are not real athlete injuries.
+
+Checkup occurs between each manager's turns. It can therefore happen twice over a complete you/opponent turn cycle.
+
+POISONED
+
+The affected Active athlete takes 10 damage at each Checkup.
+There is no automatic recovery coin flip.
+
+BURNED
+
+The affected Active athlete takes 20 damage at each Checkup.
+Then flip a coin.
+Heads removes Burn.
+Tails leaves Burn in place.
+
+ASLEEP
+
+The athlete cannot attack or normally retreat.
+Flip a coin at each Checkup.
+Heads wakes it.
+Tails leaves it Asleep.
+
+PARALYZED
+
+The athlete cannot attack or normally retreat.
+It normally recovers at Checkup after its owner's next turn.
+
+CONFUSED
+
+When attempting an attack, flip a coin.
+Heads allows the attack.
+Tails makes the attack fail and ends the turn.
+The failed flip causes no self-damage.
+
+Development, moving to the Bench, or suitable card effects can remove Special Conditions according to the normal rules.
+
+Poison and Burn can coexist with other conditions. Sleep, Paralysis, and Confusion replace one another rather than all remaining active together.
+
+Do not replace these conditions with real injury diagnoses, suspensions, or permanent debuffs. If football-themed display labels are added later, each must map to exactly one existing condition with unchanged timing, damage, and recovery behavior.
+
+
+17. COLLECTION, PACKS, AND PROGRESSION
+
+The collection loop provides cards and long-term goals without changing the battle engine.
+
+PACK OPENING
+
+Managers open digital packs containing athlete and Support Cards. Different pack options may contain different card pools.
+
+The ordinary free-pack rhythm follows the described Pocket model: enough regular pack stamina for one opening about every 12 hours, or two per day. Hourglasses or equivalent earned accelerators reduce the wait.
+
+Special packs and events can have their own explicit availability or timers. Do not assume every pack product has identical contents or a five-card count.
+
+WONDER PICK
+
+A manager views eligible pack results from other players, chooses a selection, spends the relevant resource, and receives a random card through the selection process.
+
+The original owner keeps their cards. This is not a direct trade or theft.
+
+For the ordinary five-card selection, the cards are turned face down and shuffled before the manager chooses. Seeing a desired card among the possibilities does not guarantee receiving that card.
+
+PACK POINTS
+
+Opening eligible boosters earns points associated with that expansion. These can be exchanged for eligible cards in the same expansion, helping complete a deck or collection.
+
+BINDERS AND COSMETICS
+
+Managers organize cards in binders and display boards and use sleeves, playmats, visual effects, and alternate artwork.
+
+A cosmetic rarity upgrade does not automatically increase HP, damage, or Ability strength. Mechanically identical art variants perform identically.
+
+TRADING AND SHARING
+
+These are separate social collection features with explicit eligibility, rarity, resource, and availability rules.
+
+The described current model unlocks trading and sharing after 14 days. Trades occur between friends with compatible eligible cards; sharing permits one received shared card per day.
+
+Treat economic and social eligibility as configurable collection rules. They must not silently modify match rules or athlete statistics.
+
+PROGRESSION
+
+Account progress, missions, events, and ranked seasons can unlock collection rewards and cosmetics.
+
+An athlete's battlefield strength comes from its printed card and current match state. It does not grow automatically because the account gained levels or because the real NFL athlete played well that week.
+
+Match damage, Energy attachments, Special Conditions, and development state reset after the match. The manager keeps their owned cards.
+
+
+18. GAME MODES AND ONBOARDING
+
+The game can provide:
+
+- A guided rules tutorial.
+- Solo challenges against AI.
+- Casual versus battles.
+- Private matches with friends.
+- Seasonal ranked play.
+- Events with explicitly stated deck restrictions or rewards.
+- Auto-build assistance.
+- Rental decks to help managers try coherent strategies.
+
+Rental deck availability should be explicit and can rotate with expansions, matching the current collection model.
+
+Every normal battle mode uses the same core rules unless an event clearly announces a particular variation.
+
+A beginner tutorial should teach these actions in an order that makes their purpose clear:
+
+1) Read HP and an attack requirement.
+2) Place an Active athlete and a Bench athlete.
+3) Attach Energy.
+4) Attack and observe damage.
+5) Prepare a Benched replacement while the Active athlete keeps attacking.
+6) Develop a player.
+7) Play an Item and understand the one-Supporter limit.
+8) Retreat or use a switching effect.
+9) Earn knockout points.
+10) Win at three points or through the opponent having no athlete remaining.
+
+Explain each rule using the NFL player cards shown on the screen. The user should not need prior Pokémon knowledge.
+
+The tutorial must make clear that the number of athletes knocked out and the number of points earned can differ because of ex and Mega ex cards.
+
+
+19. STRATEGY AND WHY THE GAME HAS DEPTH
+
+Explain the following ideas using specific board states and understandable language.
+
+A) DECK CONSISTENCY
+
+A 20-card deck should pursue a recognizable plan. Every unrelated card competes with the athlete forms and support effects required for that plan.
+
+Two copies of an important canonical card, efficient draw effects, and appropriate search effects make a plan more reliable.
+
+A strong card that never reaches the hand or cannot be developed is not helping the current match.
+
+B) TEMPO
+
+Tempo is how quickly a manager creates useful pressure while the opponent is still preparing.
+
+A low-cost opener may attack while Energy is being invested in a stronger Benched athlete.
+
+A development-heavy deck may accept some early damage in return for a stronger later attacker.
+
+C) ENERGY INVESTMENT
+
+Ask where the next attachment changes what the manager can do.
+
+If the Active athlete already has the Energy it needs, another attachment may be more valuable on the Bench.
+
+Spreading attachments across too many athletes can leave none ready to attack. Concentrating everything on one athlete can leave no usable replacement.
+
+D) POINT TRADES
+
+Judge an exchange by points, preparation, and the following board state.
+
+Losing a one-point athlete can be acceptable if it enables a two-point knockout.
+
+An ex athlete is strong but exposes two points. A Mega ex athlete exposes all three.
+
+When only one point is needed, an accessible regular support athlete may be a better target than the opponent's most durable attacker.
+
+E) DAMAGE THRESHOLDS
+
+If an attack deals 70 and the target has 80 HP remaining, a 10-damage increase secures a knockout.
+
+If the target instead has 150 HP, that same increase may not change how many attacks are needed.
+
+Evaluate effects by whether they change the outcome, not just by whether they add a positive number.
+
+F) SURVIVAL THRESHOLDS
+
+If an athlete has 40 HP remaining and the opposing attack deals 50:
+
+- Healing 10 still allows the knockout.
+- Healing 20 lets the athlete survive.
+
+That difference can produce an additional attack, preserve points, or buy a turn to prepare the Bench.
+
+G) SUPPORTER OPPORTUNITY COST
+
+Only one Supporter is normally available each turn.
+
+Drawing, healing, boosting damage, and changing the matchup compete for that allowance. Choose the effect that changes the turn or match most meaningfully.
+
+H) SEQUENCING
+
+Gather information before committing flexible resources when doing so is beneficial.
+
+A draw effect may reveal a better Energy target. An upgrade may reveal a useful Ability. A switching effect may change which attacker should be prepared.
+
+There is no universal action order that is best for every hand.
+
+I) BENCH MANAGEMENT
+
+Every Bench slot has a cost. A support athlete can be useful while also presenting a vulnerable scoring target.
+
+Leave room for required development lines and future attackers.
+
+J) RETREAT AND SWITCHING
+
+Saving an athlete may deny points, but paying retreat Energy can delay the next attack.
+
+A free switch effect can therefore be valuable even when it deals no damage.
+
+K) LUCK AND RELIABILITY
+
+Draw order, coin-flip effects, and multi-type Energy generation introduce uncertainty.
+
+Good deck construction and play reduce avoidable uncertainty and prepare for unfavorable outcomes.
+
+Compare a guaranteed useful play with a riskier play that has a larger possible payoff. The right choice depends on the score and board state.
+
+L) ARCHETYPES
+
+Describe example strategies as choices built from the same rules:
+
+- Fast pressure: efficient Base players with cheap attacks.
+- Development: protect a Base player until its Prime form is ready.
+- Energy acceleration: use explicit effects to prepare expensive attacks faster.
+- Durable attacker: combine survival tools and healing.
+- Disruption: interfere with the opponent's hand, Energy, or Active position.
+- Flexible finishing: prepare several ways to claim the last required point.
+
+Do not make these archetypes new game modes or grant automatic bonuses merely for selecting an archetype.
+
+
+20. COMPLETE ILLUSTRATIVE BATTLE
+
+Use the following example to teach Energy preparation and point trading.
+
+These are fictional card designs for instruction. Their numbers are not athlete evaluations. Assume all attack requirements are Colorless and can be met by the same chosen Energy type. Assume no relevant Weakness, Tools, Trainers, Abilities, or Special Conditions.
+
+YOUR TEAM
+
+Justin Jefferson - Base
+- Regular card, worth 1 point when knocked out.
+- 120 HP.
+- Attack: Route Break.
+- Cost: 2 Energy.
+- Damage: 50.
+- Starts Active.
+
+Derrick Henry - Base
+- Regular card, worth 1 point when knocked out.
+- 160 HP.
+- Attack: Power Run.
+- Cost: 3 Energy.
+- Damage: 100.
+- Starts on your Bench.
+
+OPPONENT'S TEAM
+
+CeeDee Lamb - Base
+- Regular card, worth 1 point when knocked out.
+- 100 HP.
+- Attack: Quick Separation.
+- Cost: 1 Energy.
+- Damage: 30.
+- Starts Active.
+
+Patrick Mahomes - Base ex
+- ex card, worth 2 points when knocked out.
+- 160 HP.
+- Attack: Deep Shot.
+- Cost: 2 Energy.
+- Damage: 70.
+- Starts on the opponent's Bench.
+
+Your opponent goes first.
+
+FIRST PAIR OF TURNS
+
+The opponent gets no normal Energy on the opening turn and cannot use the listed attack.
+
+You attach your first Energy to Jefferson. Route Break needs two, so you cannot attack yet.
+
+SECOND PAIR
+
+The opponent attaches an Energy to Lamb and attacks for 30.
+Jefferson has 90 HP remaining.
+
+You attach Jefferson's second Energy and attack for 50.
+Lamb has 50 HP remaining.
+
+THIRD PAIR
+
+The opponent attaches an Energy to Mahomes on the Bench.
+Lamb attacks again using its existing Energy.
+Jefferson has 60 HP remaining.
+
+You attach your Energy to Henry on your Bench.
+Jefferson still has its two Energy and attacks for 50.
+Lamb is knocked out.
+You score 1 point.
+The opponent promotes Mahomes.
+
+FOURTH PAIR
+
+The opponent attaches Mahomes's second Energy and attacks for 70.
+Jefferson is knocked out.
+The opponent scores 1 point.
+
+You promote Henry and attach its second Energy.
+Henry requires three Energy, so it cannot attack yet.
+The score is 1-1.
+
+FIFTH PAIR
+
+Mahomes attacks Henry for 70.
+Henry has 90 HP remaining.
+
+You attach Henry's third Energy.
+Power Run deals 100 damage.
+Mahomes has 60 HP remaining.
+
+SIXTH PAIR
+
+Mahomes attacks Henry for another 70.
+Henry survives with 20 HP.
+
+Henry attacks again using its existing Energy and knocks out Mahomes.
+You gain 2 points for the ex knockout.
+Your total reaches 3 points and you win.
+
+Explain why this worked:
+
+- Energy already attached to Jefferson continued to power its attack.
+- You used a later attachment to prepare Henry.
+- Henry's readiness and HP mattered several turns before the win.
+- You gave up a one-point athlete while pursuing a two-point target.
+- The score came from knockout values, not NFL touchdowns or fantasy statistics.
+- Henry being a Base card is legal; Base is a development category, not a restriction that all Base cards must have low HP or damage.
+
+
+21. A LEGAL ILLUSTRATIVE 20-CARD DECK
+
+This example demonstrates a consistent structure. Its new athlete statistics would require balance work; it is not presented as an optimized competitive deck.
+
+PLAYER CARDS: 8
+
+2 x Patrick Mahomes - Base
+2 x Patrick Mahomes - Breakout
+2 x Patrick Mahomes - Prime ex
+2 x Justin Jefferson - Base
+
+SUPPORT CARDS: 12
+
+2 x Film Study
+2 x Scouting Report
+2 x Recovery Kit
+2 x Fast Track
+2 x Protective Gear
+2 x Matchup Change
+
+TOTAL: 20
+
+Development requirements:
+
+- Patrick Mahomes - Breakout develops from Patrick Mahomes - Base.
+- Patrick Mahomes - Prime ex develops from Patrick Mahomes - Breakout.
+- Fast Track can take an eligible Patrick Mahomes - Base directly into Patrick Mahomes - Prime ex from hand under its normal restrictions.
+
+This example includes both normal development and Fast Track routes. They are alternative ways to prepare the same main attacker.
+
+Jefferson can serve as an opener or backup according to its printed card design.
+
+Configure the Energy Zone to match the actual printed attack costs. Do not infer Energy requirements from NFL position or athlete name.
+
+All listed canonical names appear exactly twice, so the deck respects the two-copy limit.
+
+
+22. RULES THAT MUST REMAIN INTACT
+
+Before producing a design or implementation, check that it preserves all of these:
+
+- Exactly 20 cards per deck.
+- At least one Base Player.
+- At most two cards with the same canonical name.
+- One Active athlete and at most three Benched athletes per manager.
+- Five-card opening hand with at least one Base Player.
+- No normal opening-turn Energy for the manager going first.
+- First manager may use a Supporter and may attack when requirements are met.
+- Normally one manual Energy attachment per turn.
+- Energy belongs to individual athletes and normally remains after attacks.
+- Development is an in-match card action with timing and predecessor restrictions.
+- ex and Mega ex are classifications independent of development stage.
+- Normally one Supporter and one regular retreat per turn.
+- Tool and Stadium limits remain distinct.
+- An attack ends the turn after its complete resolution.
+- Special Conditions retain their exact damage and recovery behavior.
+- Knockouts award 1, 2, or 3 points according to the relevant card.
+- Reaching at least three points wins.
+- Having no athlete remaining in play can lose the match.
+- Removal without knockout does not automatically award points.
+- Collection ownership survives match knockouts and discards.
+- NFL position, team, real statistics, and cosmetic rarity do not create automatic battle effects.
+
+When a specific card modifies a normal rule, implement the exception that is written on that card. Do not expand it into an unlisted global rule.
+
+
+23. WHAT I WANT YOU TO PRODUCE FROM THIS BRIEF
+
+Use this document as the source of truth for subsequent work.
+
+When explaining or designing the game:
+
+1) Give a clear description of the collect-build-battle loop.
+2) Explain the rules in NFL-card language without requiring Pokémon knowledge.
+3) Explain why the central decisions matter.
+4) Present a readable card structure and consistent terminology.
+5) Show a legal deck and a correct turn-by-turn example.
+6) Clearly label any invented card statistics as fictional balance examples.
+7) Separate optional future ideas from the required core rules.
+
+When I specifically request implementation in a project:
+
+1) Inspect the existing project and adapt its established structure.
+2) Implement the core turn-based battle loop defined here.
+3) Model development stage, knockout classification, card identity, position metadata, and cosmetic rarity as separate concepts.
+4) Enforce actions from game state rather than relying only on disabled buttons.
+5) Make point totals, Energy costs, HP, attachments, and development requirements visible.
+6) Keep the phone layout readable and interactions understandable.
+7) Preserve the game's existing unrelated features.
+8) Explain completed behavior and any remaining limitations clearly.
+
+If a rare interaction is genuinely unspecified, identify that narrow ambiguity and consult the corresponding current Pocket rule. Do not invent a new football rule to fill the gap.
+
+The finished result should be recognizable as an NFL player card collection and duel while retaining the strategic structure described throughout this document.
+
+
+REFERENCE NOTES
+
+The NFL names, development labels, action names, and example athlete statistics above are proposed adaptations. They are not claims that an official NFL version of Pokémon TCG Pocket exists.
+
+The underlying explanation was checked against Pocket rules and official materials available as of November 5, 2026. Collection features can change independently of battle rules. The explicit specification above is the intended design baseline.
+
+Selected underlying references:
+
+Pokémon TCG Pocket Battle Rules FAQ
+https://support.pokemon.com/hc/en-us/articles/38906248102292-Pok%C3%A9mon-TCG-Pocket-Battle-Rules-FAQ
+
+Pokémon TCG Pocket Gameplay FAQ
+https://support.pokemon.com/hc/en-us/articles/30330309361172-Pok%C3%A9mon-TCG-Pocket-Gameplay-FAQ
+
+Apple App Store: 5 deck-building tips for Pokémon TCG Pocket
+https://apps.apple.com/in/iphone/story/id1807904492
+
+Official Mega Blaziken ex strategy: Mega knockout value and printed development relationship
+https://www.pokemon.com/uk/features/pokemon-tcg-pocket-mega-blaziken-ex-deck-list-strategy
+
+Official Solgaleo ex strategy: Rare Candy and switching effects
+https://www.pokemon.com/uk/strategy/pokemon-tcg-pocket-solgaleo-ex-deck-list-strategy
+
+Official collecting and Wonder Pick guide
+https://www.pokemon.com/uk/strategy/a-guide-to-collecting-cards-and-using-wonder-picks-in-pokemon-trading-card-game-pocket
+
+Pokémon TCG Pocket Trading FAQ
+https://support.pokemon.com/hc/en-us/articles/34322874608660-Pok%C3%A9mon-TCG-Pocket-Trading-FAQ
+
+Pokémon TCG Pocket Sharing and Social FAQ
+https://support.pokemon.com/hc/en-us/articles/30332621133204-Pok%C3%A9mon-TCG-Pocket-Sharing-and-Social-FAQ

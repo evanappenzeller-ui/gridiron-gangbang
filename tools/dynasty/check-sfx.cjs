@@ -129,11 +129,12 @@ async function main() {
     console.log('PASS: separate controls persist; pending/active audio cancels; profile switch immediately silences effects');
     await page.evaluate(async()=>{localStorage.removeItem('test-profile');(await import('/js/core/data.js')).setMe('evan');fx.setEnabled(true);fx.setVolume(55);testFx.stop();});
     const fixture=await page.evaluate(async()=>{
-      const D=await import('/js/core/dynasty.js'),B=await import('/js/core/dynasty-battle.js'),S=await import('/js/core/dynasty-solo.js'),T=await import('/js/core/dynasty-table.js');
+      const D=await import('/js/core/dynasty.js'),B=await import('/js/core/dynasty-battle.js'),T=await import('/js/core/dynasty-table.js');
       await D.load(); const s=D.mine(), players=D.CARDS.filter(c=>c.pos==='QB').slice(0,20).map(c=>c.id);
       players.forEach(id=>s.o[id]=2);D.setDeck([...players.slice(0,9).flatMap(id=>[id,id]),'C-twomin','C-twomin']);
-      const old=JSON.stringify(s.dk),newgame=S.start('g1');if(!newgame.ok)throw Error(newgame.why);
-      const check=S.get(newgame.mid);if(check.G.v!==6||check.G.p[0].deck.length+check.G.p[0].hand.length!==40)throw Error('owner start needs v6/40');
+      // This regression intentionally resumes a v6 table to verify its existing cues.
+      // New v7 starts and manual Energy are covered by check-pocket-integration.cjs.
+      const old=JSON.stringify(s.dk);
       const deck=[...players.slice(0,16).flatMap(id=>[id,id]),...Object.keys(T.PLAYBOOK).flatMap(id=>[id,id])];
       let g,seed;for(let n=0;n<5000;n++){seed='ui'+n;g=B.newGame(seed,[deck,deck],6);const h=g.p[0].hand;if(g.first===0&&h.includes('I-charge')&&h.includes('I-draw')&&h.filter(B.isBasic).length>=2)break;}
       const h=g.p[0].hand;if(!h.includes('I-charge')||!h.includes('I-draw'))throw Error('no fixture seed');

@@ -3,6 +3,8 @@ import {tableOptions, tableDeckSheet} from './dynasty-table-options.js';
 import {musicSheet, attachMusic} from './dynasty-music.js';
 import * as sfx from '../core/dynasty-sfx.js';
 import {deckShelfHTML, handleDeckShelf} from './dynasty-decks.js';
+import {deckShelfHTML as pocketShelfHTML, handleDeckShelf as handlePocketShelf, guideHTML as pocketGuideHTML} from './dynasty-pocket-decks.js';
+import * as PC from '../core/dynasty-pocket-cards.js';
 // Gridiron Rivals (legacy route/save identifiers remain dynasty). The four labeled tabs are
 // Play, Cards, Decks and Packs. Play opens first with a resume/solo action and the active deck.
 // The header menu holds settings/rules; the title screen and pack-opening flow remain available.
@@ -60,12 +62,12 @@ const GLYPH = {
   K: '<path d="M5 4v7h14V4M12 11v9m-4 0h8" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>',
   '*': '<path d="M12 3.2l2.6 5.5 6 .7-4.4 4.1 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.4l6-.7z" fill="#fff"/>'
 };
-const ENERGY_COLOR = {P: '#3D9BE9', R: '#4FAE3E', B: '#E8573A', C: '#9562D9', K: '#B88911', '*': '#A9A391'};
+const ENERGY_COLOR = {Grass:'#4c963e',Fire:'#ce513c',Water:'#337cb8',Lightning:'#b18d10',Psychic:'#9451aa',Fighting:'#ab6b42',Darkness:'#43556b',Metal:'#697c85',Colorless:'#8a857b',P: '#3D9BE9', R: '#4FAE3E', B: '#E8573A', C: '#9562D9', K: '#B88911', '*': '#A9A391'};
 /** An energy symbol (e: P, R, B, C, K or *). */
-export const pipHTML = e => `<i class="pk-e" style="--ec:${ENERGY_COLOR[e] || '#999'}" title="${esc(B.ENERGY[e])}"><svg viewBox="0 0 24 24" aria-hidden="true">${GLYPH[e] || ''}</svg><span class="sr-only">${esc(B.ENERGY[e])}</span></i>`;
+export const pipHTML = e => `<i class="pk-e" style="--ec:${ENERGY_COLOR[e] || '#999'}" title="${esc(B.ENERGY[e] || e)}"><svg viewBox="0 0 24 24" aria-hidden="true">${GLYPH[e] || `<text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${esc(String(e).slice(0,1))}</text>`}</svg><span class="sr-only">${esc(B.ENERGY[e] || e)}</span></i>`;
 /** A type's symbol (A, G, B, C, S). */
 const currentEnergyRule = () => rivalsUpdated() ? B.FRONT_ENERGY : 0;
-const typeHTML = (t, rule) => pipHTML(B.typeEnergy(t, rule));
+const typeHTML = (t, rule) => pipHTML(B.TYPES[t] ? B.typeEnergy(t, rule) : t);
 
 // ---------------------------------------------------------------------------------------------------- a card
 /** Whether a head is a photo (a Legend's: a rectangle filling the window), not a cut-out (a headshot, or a Epic or
@@ -87,28 +89,29 @@ export function portraitOf(c, w = 300) {
  *  (a button: data-dy-card), cls}. */
 export function cardHTML(c, o = {}) {
   if (!c) return '';
-  const st = B.stats(c.id), T = D.teamOf(c.team), m = D.markOf(c), S = D.SERIES[c.s];
+  const pc = rivalsUpdated() && (!o.rulesVersion || o.rulesVersion === 7) ? PC.card(c.id) : null;
+  const st = pc ? {hp:pc.hp, type:pc.types[0], ex:pc.classification !== 'regular', weak:pc.weakness, retreat:pc.retreat, ability:null, attacks:pc.attacks.map(a => ({...a,dmg:a.damage,fx:''}))} : B.stats(c.id), T = D.teamOf(c.team), m = D.markOf(c), S = D.SERIES[c.s];
   // Portraits give every series one clear visual language. 
   // Some legacy head values are complete card scans; use a jersey number instead of framing those twice.
   const portrait = portraitOf(c, o.size === 'l' ? 520 : 300);
   const photo = portrait.url ? `<img class="pk-c-ph${portrait.photo ? ' is-photo' : portrait.action ? ' is-action' : ''}" src="${esc(portrait.url)}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async" draggable="false" onerror="this.remove()">` : '';
-  const rarity = String(c.r || 'common'), stage = B.stageOf(c.id, o.rulesVersion || B.RULES_VERSION);
-  const label = `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
+  const rarity = String(c.r || 'common'), stage = pc ? 0 : B.stageOf(c.id, o.rulesVersion || B.RULES_VERSION);
+  const label = pc ? `${pc.canonicalName}, ${rarity}, ${pc.position}, ${pc.hp} HP, ${pc.types.join(' / ')}, ${PC.pointValue(pc)} knockout point, fictional balance values${o.count > 1 ? `, ${o.count} copies` : ''}` : `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const atk = st.attacks.map((a, n) => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}</em></span>`
-    + (n === 1 ? `<span class="pk-c-fx">${esc([B.fxText(a), B.signatureText({v: o.rulesVersion || B.RULES_VERSION}, n)].filter(Boolean).join(' '))}</span>` : '')).join('');
+    + (n === 1 ? `<span class="pk-c-fx">${esc([B.fxText(a), pc ? '' : B.signatureText({v: o.rulesVersion || B.RULES_VERSION}, n)].filter(Boolean).join(' '))}</span>` : '')).join('');
   const ability = st.ability ? `<span class="pk-c-ab"><i>Ability</i><b>${esc(B.ABILITY[st.ability].name)}</b></span>` : '';
   const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
   const inner = `<span class="pk-c-face" aria-hidden="true">`
-    + `<span class="pk-c-head"><span class="pk-c-stage">${stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${typeHTML(st.type, o.roundEnergy ?? currentEnergyRule())}</span></span>`
+    + `<span class="pk-c-head"><span class="pk-c-stage">${pc ? 'BASE' : stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${typeHTML(st.type, o.roundEnergy ?? currentEnergyRule())}</span></span>`
     + `<span class="pk-c-art">${teamSceneHTML(c.team)}<span class="pk-c-num">${esc(String(c.num || c.pos))}</span>${photo}<span class="pk-c-art-team">${esc(c.team)}</span></span>`
     + `<span class="pk-c-strip">${esc(c.pos)} · ${esc(T.name)} · ${esc(S.short)}</span>`
     + `<span class="pk-c-body${st.ability ? ' has-ability' : ''}">${ability}${atk}</span>`
     + `<span class="pk-c-foot"><span><small>weakness</small>${st.weak ? `${typeHTML(st.weak)}<b>+${B.WEAK_BONUS}</b>` : '<b>—</b>'}</span><span><small>retreat</small>${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : '<b>free</b>'}</span></span>`
-    + `<span class="pk-c-meta"><span class="pk-c-rar is-${m.kind}">${esc(rarity)}</span><span class="pk-c-ovr"><b>${c.o}</b><small>OVR</small></span>${st.ex ? '<span class="pk-c-set">2 PT</span>' : ''}`
+    + `<span class="pk-c-meta"><span class="pk-c-rar is-${m.kind}">${esc(rarity)}</span>${pc ? '<span class="pk-c-set">1 POINT</span>' : `<span class="pk-c-ovr"><b>${c.o}</b><small>OVR</small></span>`}${st.ex ? '<span class="pk-c-set">2 PT</span>' : ''}`
     + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
     + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + `</span>${finish}</span>`;
   const cls = `pk-card pk-rivals-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${rarity} s-${c.s} sz-${o.size || 'm'}${st.ex ? ' is-ex' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
-  const style = `--tp:${T.pri};--ts:${T.sec};--type-color:${B.TYPES[st.type].color}${teamSceneStyle(c.team)}`;
+  const style = `--tp:${T.pri};--ts:${T.sec};--type-color:${B.TYPES[st.type]?.color || ENERGY_COLOR[st.type] || '#697c85'}${teamSceneStyle(c.team)}`;
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(c.id)}" aria-label="${esc(label)}">${inner}</button>`;
 }
@@ -127,7 +130,8 @@ export function trainerHTML(t, o = {}) {
   const T = t.team ? D.teamOf(t.team) : null, m = D.markOf(t);
   const rarity = D.RARITY.includes(t.r) ? t.r : 'common';
   const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
-  const kind = t.kind === 'coach' ? 'Coach' : TRAINER_KIND[t.kind];
+  const legacy = rivalsUpdated() && (!o.rulesVersion || o.rulesVersion === 7);
+  const kind = legacy ? 'Legacy support' : t.kind === 'coach' ? 'Coach' : TRAINER_KIND[t.kind];
   const text = B.trainerText(t, o.roundEnergy ?? currentEnergyRule());
   const label = `${t.name}, ${kind} card. ${text}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const inner = `<span class="pk-c-face" aria-hidden="true"><span class="pk-t-head"><b>RIVALS</b><i>${kind}</i></span>`
@@ -147,8 +151,11 @@ export const lockedHTML = (o = {}) => `<div class="pk-card pk-locked sz-${o.size
 export const anyHTML = (id, o = {}) => (D.card(id) ? cardHTML(D.card(id), o) : trainerHTML(D.trainer(id), o));
 /** A card's battle side in words: type, HP, weakness and retreat, its Ability, its attacks (o.attacks false: left out,
  *  where a battle's sheet shows them as buttons). */
-export function battleHTML(id, game = {v: B.RULES_VERSION, roundEnergy: currentEnergyRule()}, o = {}) {
+export function battleHTML(id, game = {v: rivalsUpdated() ? 7 : B.RULES_VERSION, roundEnergy: currentEnergyRule()}, o = {}) {
+  const pc = game.v === 7 ? PC.card(id) : null;
+  if (pc) return `<div class="pk-info"><div class="pk-info-h"><span>${esc(pc.canonicalName)} · ${esc(pc.types.join(' / '))} · ${PC.pointValue(pc)} knockout point</span><b>${pc.hp} HP</b></div><ul class="pk-atk">${pc.attacks.map(a => `<li><span class="pk-cost">${a.cost.map(pipHTML).join('')}</span><span class="pk-an"><b>${esc(a.name)}</b><small>${esc(a.text || '')}</small></span><em>${a.damage}</em></li>`).join('')}</ul><p>Weakness: ${esc(pc.weakness || 'None')}${pc.weakness ? ' +20' : ''} · Retreat: ${pc.retreat} Energy</p><p>Develops into ${esc(PC.card(id + '~breakout')?.canonicalName || '—')}. Matching development cards are available in My decks.</p><p class="pk-note">${esc(PC.BALANCE_NOTE)} Energy stays attached after attacks unless the card says otherwise. Rarity and athlete stats are cosmetic or informational.</p></div>`;
   const t = D.trainer(id);
+  if (t && game.v === 7) return '<div class="pk-info"><p>This is a legacy support card, retained in your collection and old matches. New battles use the support playbook in My decks.</p></div>';
   if (t) return `<div class="pk-info"><p class="pk-info-k">${TRAINER_KIND[t.kind]} · ${TRAINER_RULE[t.kind]}</p><p>${esc(B.trainerText(t, game.roundEnergy))}</p></div>`;
   const st = B.stats(id), c = D.card(id);
   if (!st) return '';
@@ -175,16 +182,17 @@ export function creditHTML(c) {
 function cardSheet(st, id) {
   const c = D.anyCard(id);
   if (!c) return;
-  const s = D.mine(), n = s.o[id] || 0, inDeck = s.dk.filter(x => x === id).length;
+  const s = D.mine(), n = s.o[id] || 0, inDeck = (rivalsUpdated() ? D.pocketDeck(s).ids : s.dk).filter(x => x === id).length;
   if (D.isNew(id, s)) invalidatePanes(st);
   D.markSeen([id]);
   const acts = [];
-  if (n > inDeck && s.dk.length < B.DECK_SIZE) acts.push(ui.button({label: 'Add to my deck', kind: 'primary', block: true, attrs: {'data-dy-add': id}}));
-  if (inDeck) acts.push(ui.button({label: 'Take out of my deck', kind: 'secondary', block: true, attrs: {'data-dy-rm': id}}));
+  if (!rivalsUpdated() && n > inDeck && s.dk.length < B.DECK_SIZE) acts.push(ui.button({label: 'Add to my deck', kind: 'primary', block: true, attrs: {'data-dy-add': id}}));
+  if (!rivalsUpdated() && inDeck) acts.push(ui.button({label: 'Take out of my deck', kind: 'secondary', block: true, attrs: {'data-dy-rm': id}}));
   if (n > inDeck) acts.push(ui.button({label: `Quick sell for ${nf(D.sellValue(c))} coins`, kind: 'secondary', block: true, attrs: {'data-dy-sell': id}}));
   if (!n && D.ppCost(c)) acts.push(ui.button({label: `Get it for ${nf(D.ppCost(c))} pack points`, kind: s.pp >= D.ppCost(c) ? 'primary' : 'secondary', block: true, attrs: {'data-dy-pp': id}, disabled: s.pp < D.ppCost(c)}));
   const body = `<div class="pk-zoom">${anyHTML(id, {size: 'l', tag: false, ghost: !n, noCount: true})}</div>`
     + `<p class="pk-own">${n ? `${n} in your collection${inDeck ? ` · ${inDeck} in your deck` : ''}` : 'Not in your collection yet'}</p>`
+    + (rivalsUpdated() ? '<p class="pk-note">Build your 20-card battle deck in My decks. Card balance values are fictional; athlete stats and rarity do not add battle bonuses.</p>' : '')
     + (acts.length ? `<div class="pk-acts">${acts.join('')}</div>` : '') + battleHTML(id) + (D.card(id) ? pageHTML(c) : '') + (D.card(id) ? creditHTML(c) : '');
   let stopFoil = () => {};
   const sh = ui.openSheet({title: 'Card details', body, cls: 'pk-sheet', detents: ['large'], onClose: () => stopFoil()});
@@ -616,6 +624,7 @@ function claimIt(st, id) {
 
 // ---------------------------------------------------------------------------------------------------- Decks
 function decksHTML(st) {
+  if (rivalsUpdated() && !st.friendDeck) return pocketShelfHTML(portraitOf);
   if (D.tableOpen() && !st.friendDeck) return deckShelfHTML(cardHTML);
   const s = D.mine(), dk = D.deckOf(s);
   const counts = {};
@@ -708,7 +717,7 @@ function homeHTML(st) {
 const ago = ms => { const m = Math.round(ms / 60000); return m < 60 ? `${Math.max(1, m)}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
 const avatarOf = (o, size = 36) => (o.member ? ui.avatar(o.member, {size}) : ui.nickAvatar(o.name, {size}));
 export function battleHome(st, s = D.mine()) {
-  const wait = waitingOf(st), cur = SOLO.current(), dk = D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), ready = D.claimable(s).length;
+  const wait = waitingOf(st), cur = SOLO.current(), dk = rivalsUpdated() ? D.pocketDeck(s) : D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), ready = D.claimable(s).length;
   const move = matchesOf(st).find(x => ['setup', 'yours'].includes(x.state));
   const resume = move || cur;
   const stars = dk.ids.map(id => D.card(id)).filter(Boolean).filter((c, i, a) => a.findIndex(x => x.id === c.id) === i).slice(0, 3);
@@ -719,14 +728,14 @@ export function battleHome(st, s = D.mine()) {
   return `<section class="rh-hero" aria-label="Play Rivals"><div class="rh-kicker"><span class="rh-live"></span> ${at > SOLO.LADDER ? 'LADDER COMPLETE · REPLAY THE FINAL' : `SOLO LADDER · GAME ${next.n} OF ${SOLO.LADDER}`}</div>`
     + `<h2>${esc(next.name)}</h2><p>${resume ? `Your match against ${esc(resume.opp.name)} is waiting.` : `${esc(next.tier.name)}: ${esc(next.tier.blurb)}`}</p>`
     + `<button type="button" class="rh-play" ${action}>${ui.icon('play-fill', {size: 18})}${label}${ui.icon('chevron-right', {size: 18})}</button>`
-    + `<span class="rh-hero-note">${resume ? 'Your cards and progress are saved' : starter ? 'Your first pack builds a ready-to-play deck' : D.tableOpen() ? 'Win by knocking out three players · 40-card solo deck' : 'Each win unlocks the next game · First to three touchdowns'}</span>`
+    + `<span class="rh-hero-note">${resume ? 'Your cards and progress are saved' : rivalsUpdated() ? (dk.rental ? 'Starter rental · 20 cards · First to three knockout points' : '20-card decks · First to three knockout points') : starter ? 'Your first pack builds a ready-to-play deck' : D.tableOpen() ? 'Win by knocking out three players · 40-card solo deck' : 'Each win unlocks the next game · First to three touchdowns'}</span>`
     + `<div class="rh-yard" aria-hidden="true"><span>20</span><span>40</span><span>50</span><span>40</span><span>20</span></div></section>`
     + `<button type="button" class="rh-active-deck" data-dy-tab="decks"><span class="rh-deck-art" aria-hidden="true">${stars.slice(0, 2).map((c, i) => `<span style="--i:${i}">${cardHTML(c, {size: 's', tag: false, noCount: true})}</span>`).join('')}</span>`
-    + `<span class="rh-deck-copy"><small>ACTIVE DECK</small><b>${esc(D.teamName(s))}</b><span>${dk.ids.length}/${D.tableOpen() ? 40 : 20} cards · ${dk.ok ? 'Ready to play' : esc(dk.why)}</span></span>${ui.icon('chevron-right', {size: 18})}</button>`
+    + `<span class="rh-deck-copy"><small>ACTIVE DECK</small><b>${esc(rivalsUpdated() ? dk.name : D.teamName(s))}</b><span>${dk.ids.length}/${rivalsUpdated() ? 20 : D.tableOpen() ? 40 : 20} cards · ${dk.ok ? 'Ready to play' : esc(dk.why)}</span></span>${ui.icon('chevron-right', {size: 18})}</button>`
     + `<div class="rh-section-head"><h2>Choose your matchup</h2><span>${nf(s.rec.w)} W · ${nf(s.rec.l)} L</span></div>`
     + `<div class="pk-modes"><button type="button" class="pk-mode" data-dy-bv="solo">${MODE_IC.solo}<b>Solo ladder</b><small>${at > SOLO.LADDER ? 'All 30 games won' : `Game ${at} of ${SOLO.LADDER} · ${esc(next.tier.name)}`}</small></button>`
     + (rivalsVersus() ? `<button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Challenge a friend</b><small>${wait ? `${wait} ${wait === 1 ? 'match needs' : 'matches need'} your attention` : 'Take turns, on your schedule'}</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button>` : '') + '</div>'
-    + `<details class="rh-how"><summary>Make every card count <span>How to play</span></summary><ol><li><b>Set your lineup.</b> One active player, up to three on the bench.</li><li><b>Tap a card.</b> It lifts up with its plays. Pick one, or put it back.</li><li><b>Start your turn.</b> Draw one card automatically. Your active player sets the energy type for your whole lineup. Each player gains one, or two with a special ability or energy upgrade.</li><li><b>Choose your moment.</b> Quick plays keep energy. Signature plays spend one energy for a bigger hit.</li></ol><p>${D.tableOpen() ? 'In new solo matches, hold and drag cards into play. Each defeated player counts once: lose three and the match ends.' : 'Knockouts score touchdowns. First to three wins.'} Matches already in progress keep their original rules.</p></details>`
+    + `<details class="rh-how"><summary>Make every card count <span>How to play</span></summary><ol><li><b>Prepare your team.</b> One Active athlete and up to three on the Bench.</li><li><b>Invest your Energy.</b> Attach one Energy each turn to your Active athlete or a future attacker. The first manager receives none on the opening turn.</li><li><b>Develop your players.</b> Play matching Breakout and Prime cards from your hand. Keep attached Energy and existing damage.</li><li><b>Choose your moment.</b> Play support cards, then attack. Energy normally stays attached; attacking ends your turn.</li></ol><p>Regular knockouts earn 1 point, ex earns 2, Mega ex earns 3. Reach three points or leave your opponent with no athlete in play to win. Existing matches retain their original rules.</p></details>`
     + `<div class="pk-row-s"><button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Rules</span></button>`
     + `<button type="button" class="pk-mini" data-dy-tab="decks">${TILE.decks}<span>Decks</span></button>`
     + `<button type="button" class="pk-mini" data-dy-bv="rank">${MODE_IC.rank}<span>Rankings</span></button>`
@@ -774,6 +783,7 @@ function rankHTML() {
       + `<span class="pk-tro">${MODE_IC.rank}<b>${nf(r.tr)}</b></span></li>`).join('')}</ol>` : ui.empty({icon: 'trophy', title: 'No rankings yet', body: 'Win battles to climb.'}));
 }
 function guideSheet() {
+  if (rivalsUpdated()) { ui.openSheet({title: 'Gridiron Rivals · How to play', cls: 'pk-sheet', detents: ['large'], body: pocketGuideHTML()}); return; }
   if (D.tableOpen()) {
     ui.openSheet({title: 'Solo table rules', cls: 'pk-sheet', detents: ['large'], body: `<ol class="pk-guide"><li><b>Build your deck</b>40 cards, at least 6 players, up to 2 of each. Mix your collection with eight reusable match-playbook abilities in Decks.</li><li><b>Set your lineup</b>Hold a player in your hand, then drag to Active or one of three Bench spaces. Tap Start when ready.</li><li><b>Hold to inspect</b>Hold any face-up card, yours or theirs. Release to read its attacks. Opponent hand cards stay hidden. Tapping a card also opens its actions.</li><li><b>Play a card</b>Hold, move, then drop on a glowing space. Players go to your bench. Instant abilities go in the center; targeted ones go on your player. An invalid drop returns the card to your hand.</li><li><b>Make your play</b>At the start of your turn, draw one card automatically. Your active player sets the energy type for your whole lineup: QB/WR/TE generate Pass, RB/OL Run, DL/LB Blitz, CB/S Coverage, and K Kick. Each player gains one. A special ability, Energy Surge, or Speed Cleats raises that player’s grant to two. A switch affects the next turn’s grant. Fresh Playbook draws two cards. Items play immediately; use at most one Coach each turn.</li><li><b>Attack</b>Tap your active player and choose an attack whose energy cost they can meet. Quick attacks keep energy; signature attacks spend one. All or Nothing flips a coin: heads hits hard, tails fails. Every attack ends your turn.</li><li><b>Three knockouts</b>Every player counts as one, including Legends. The first team to lose three players loses. If your bench is empty, a player from your hand or deck joins it as a reserve. A 100-turn stalemate is a draw.</li><li><b>Make the table yours</b>Unlock finishes through solo wins, challenge 10 and pack openings. Equip one in Decks or from the table. The felt changes with the turn.</li></ol>${rivalsVersus() ? '<p class="pk-note">New friend matches use the same turn-start draw and energy rules. Matches already in progress follow their original rules.</p>' : ''}`});
     return;
@@ -792,7 +802,7 @@ function guideSheet() {
 // Solo: your battle in play, then the ladder by tier: each game won, the next one to play, or locked, with what it pays.
 function soloHTML() {
   if (D.bossLadderOpen()) return soloLadderHTML();
-  const s = D.mine(), dk = D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), cur = SOLO.current(), at = SOLO.ladderAt(s);
+  const s = D.mine(), dk = rivalsUpdated() ? D.pocketDeck(s) : D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), cur = SOLO.current(), at = SOLO.ladderAt(s);
   let h = `<button type="button" class="pk-backrow" data-dy-bv="">${ui.icon('chevron-left', {size: 16})} Play</button>`;
   if (!dk.ok) h += `<button type="button" class="pk-alert is-gold" data-dy-tab="decks">${ui.icon('info', {size: 18})}<span>Your deck isn’t ready: ${esc(dk.why)}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
   if (cur) h += `<button type="button" class="pk-alert" data-dy-go="${cur.mid}">${MODE_IC.solo}<span>Your battle against ${esc(cur.opp.name)}: ${cur.state === 'theirs' ? 'its move' : 'your move'} · ${cur.G.p[0].pts}–${cur.G.p[1].pts}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
@@ -814,7 +824,7 @@ function soloHTML() {
 
 // Owner ladder: compact numbered matches, with collectible artwork reserved for every fifth battle.
 function soloLadderHTML() {
-  const s = D.mine(), dk = D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), cur = SOLO.current();
+  const s = D.mine(), dk = rivalsUpdated() ? D.pocketDeck(s) : D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), cur = SOLO.current();
   const at = SOLO.ladderAt(s), done = SOLO.STAGES.filter(g => s.so[g.id]).length;
   const colors = ['#5cbf70', '#39b3cf', '#648ee1', '#a275d3', '#d4a23c', '#db77ae'];
   let h = `<section class="rl-ladder" aria-label="Solo battle ladder">${rivalsVersus() ? `<div class="rl-switch" aria-label="Battle mode"><button type="button" class="is-on" data-dy-bv="solo" aria-pressed="true">${MODE_IC.solo}Solo ladder</button><button type="button" data-dy-bv="versus" aria-pressed="false">${MODE_IC.versus}Versus</button></div>` : ''}`
@@ -1137,7 +1147,8 @@ export default {
       const t = e.target;
       const q = sel => t.closest(sel);
       let b;
-      if (handleDeckShelf(e, () => scheduleRefresh(st), cardHTML)) return;
+      if (rivalsUpdated() && handlePocketShelf(e, () => scheduleRefresh(st), portraitOf)) return;
+      if (!rivalsUpdated() && handleDeckShelf(e, () => scheduleRefresh(st), cardHTML)) return;
       if (D.tableOpen() && rivalsVersus() && q('[data-rd-friends]')) { st.friendDeck = true; refresh(st); return; }
       if (D.tableOpen() && q('[data-rd-back]')) { st.friendDeck = false; refresh(st); return; }
       if (D.tableOpen() && e.target.closest('[data-dy-table-deck]')) { tableDeckSheet(() => scheduleRefresh(st)); return; }

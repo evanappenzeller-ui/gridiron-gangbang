@@ -1,0 +1,66 @@
+/* Isolated Rivals v7 deck shelf and sheets. */
+.v-dynasty .pocket-decks{padding:16px 12px 28px;max-width:1000px;margin:auto;color:#153844}
+.v-dynasty .pocket-decks .pd-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.v-dynasty .pocket-decks .pd-heading small{font-size:10px;letter-spacing:.16em;font-weight:800;color:#607b82}
+.v-dynasty .pocket-decks .pd-heading h2{font-size:27px;margin:4px 0}
+.v-dynasty .pocket-decks .pd-heading>b{border:1px solid #adc0c3;border-radius:99px;padding:7px 10px;white-space:nowrap;font-size:12px}
+.v-dynasty .pocket-decks .pd-intro{font-size:14px;line-height:1.5;margin:0 0 18px;color:#48636b}
+.v-dynasty .pocket-decks .pd-shelf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.v-dynasty .pocket-decks .pd-deck,.v-dynasty .pocket-decks .pd-new{font:inherit;text-align:left;appearance:none;border:1px solid #bdcbcf;border-radius:16px;overflow:hidden;padding:0;background:#f8fcfb;color:inherit;cursor:pointer;min-width:0}
+.v-dynasty .pocket-decks .pd-deck.is-active{border:2px solid #207d68;box-shadow:0 0 0 3px #207d6812}
+.v-dynasty .pocket-decks .pd-deck-art{height:136px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 80%,#568d97,#163e49);color:#eaf6f4}
+.v-dynasty .pocket-decks .pd-deck-art>img{width:100%;height:100%;object-fit:contain;object-position:center bottom}
+.v-dynasty .pocket-decks .pd-deck-art>span:not(.pd-deck-mark){font-size:46px;font-weight:900;opacity:.8}
+.v-dynasty .pocket-decks .pd-deck-mark{position:absolute;top:10px;left:8px;background:#102d36e8;color:#f2fffb;border:1px solid #c2dcd356;border-radius:5px;font-size:9px;font-weight:850;letter-spacing:.08em;padding:5px 7px}
+.v-dynasty .pocket-decks .pd-deck.is-active .pd-deck-mark{background:#136b57}
+.v-dynasty .pocket-decks .pd-deck-copy{display:flex;flex-direction:column;gap:4px;padding:12px 10px}
+.v-dynasty .pocket-decks .pd-deck-copy b{font-size:15px;line-height:1.3;overflow-wrap:anywhere}
+.v-dynasty .pocket-decks .pd-deck-copy small{font-size:11px;color:#57717a}
+.v-dynasty .pocket-decks .pd-new{min-height:220px;border-style:dashed;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;background:#ffffff62}
+.v-dynasty .pocket-decks .pd-new>span{font-size:38px;font-weight:300;color:#478778}
+.v-dynasty .pocket-decks .pd-new>small{font-size:12px;color:#647a80}
+.v-dynasty .pocket-decks .pd-note,.pk-sheet.pocket-deck-sheet .pd-note{font-size:12px;line-height:1.6;color:#56717a}
+.v-dynasty .pocket-decks .pd-info{border:1px solid #baccd0;border-radius:12px;padding:14px;margin:16px 0}
+.v-dynasty .pocket-decks .pd-info summary{font-weight:750;cursor:pointer}
+.v-dynasty .pocket-decks .pd-info p{font-size:13px;line-height:1.65}
+.pk-sheet.pocket-deck-sheet .pd-editor,.pk-sheet.pocket-deck-sheet .pd-detail,.pk-sheet.pocket-deck-sheet .pd-inspect{color:#163b46;font-size:14px;line-height:1.55}
+.pk-sheet.pocket-deck-sheet .pd-field{display:flex;flex-direction:column;gap:5px;margin:12px 0;font-weight:750;font-size:12px}
+.pk-sheet.pocket-deck-sheet .pd-field input,.pk-sheet.pocket-deck-sheet .pd-field select{font:inherit;font-size:16px;min-height:44px;border:1px solid #afc4c8;background:#fff;color:#173d47;border-radius:9px;padding:9px 11px;max-width:100%;width:100%;box-sizing:border-box}
+.pk-sheet.pocket-deck-sheet .pd-energy{border:1px solid #bed0d2;border-radius:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:10px;margin:16px 0 8px}
+.pk-sheet.pocket-deck-sheet .pd-energy legend{font-size:12px;font-weight:800;padding:0 5px}
+.pk-sheet.pocket-deck-sheet .pd-energy label{display:flex;align-items:center;gap:7px;min-height:38px;font-size:13px}
+.pk-sheet.pocket-deck-sheet .pd-energy input{accent-color:#16715e;width:18px;height:18px;flex-shrink:0}
+.pk-sheet.pocket-deck-sheet .pd-editor-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 0;border-bottom:1px solid #d2dedf}
+.pk-sheet.pocket-deck-sheet .pd-editor-tools>b{flex:1 1 100%;font-size:13px;line-height:1.5}
+.pk-sheet.pocket-deck-sheet .pd-row{display:flex;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid #d9e3e4}
+.pk-sheet.pocket-deck-sheet .pd-card-label,.pk-sheet.pocket-deck-sheet .pd-list-card{font:inherit;text-align:left;color:inherit;background:none;border:0;padding:0;min-width:0;cursor:pointer;display:flex;flex-direction:column;gap:3px;flex:1}
+.pk-sheet.pocket-deck-sheet .pd-card-label b,.pk-sheet.pocket-deck-sheet .pd-list-card b{font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+.pk-sheet.pocket-deck-sheet .pd-card-label span,.pk-sheet.pocket-deck-sheet .pd-list-card span{font-size:11px;color:#43636c}
+.pk-sheet.pocket-deck-sheet .pd-card-label small,.pk-sheet.pocket-deck-sheet .pd-list-card small{font-size:10px;line-height:1.5;color:#5f7379}
+.pk-sheet.pocket-deck-sheet .pd-stepper{display:grid;grid-template-columns:36px 15px 36px;align-items:center;gap:4px;text-align:center;flex-shrink:0}
+.pk-sheet.pocket-deck-sheet .pd-stepper button{font:inherit;font-size:20px;min-height:44px;width:36px;border:1px solid #b7cbd0;border-radius:8px;background:#eff8f5;color:#175f50;cursor:pointer}
+.pk-sheet.pocket-deck-sheet button:disabled,.v-dynasty .pocket-decks button:disabled{opacity:.45;cursor:default}
+.pk-sheet.pocket-deck-sheet .pd-detail-actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.pk-sheet.pocket-deck-sheet .pd-list-card{width:100%;padding:13px 0;border-bottom:1px solid #d9e3e4}
+.pk-sheet.pocket-deck-sheet .pd-card-art{height:185px;border-radius:12px;background:radial-gradient(ellipse at 50% 80%,#588f96,#193d48);display:flex;align-items:center;justify-content:center;color:white;overflow:hidden}
+.pk-sheet.pocket-deck-sheet .pd-card-art img{height:100%;width:100%;object-fit:contain;object-position:center bottom}
+.pk-sheet.pocket-deck-sheet .pd-card-art>span{font-size:52px;font-weight:900}
+.pk-sheet.pocket-deck-sheet .pd-inspect h3{font-size:22px;line-height:1.3;margin:14px 0 6px}
+.pk-sheet.pocket-deck-sheet .pd-card-stats{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:10px 0;border-top:1px solid #b9cdd0;border-bottom:1px solid #b9cdd0}
+.pk-sheet.pocket-deck-sheet .pd-attacks{list-style:none;padding:0;margin:12px 0}
+.pk-sheet.pocket-deck-sheet .pd-attacks li{padding:12px;background:#edf5f3;border-radius:10px;margin:8px 0}
+.pk-sheet.pocket-deck-sheet .pd-attacks li>div{display:flex;justify-content:space-between;gap:12px}
+.pk-sheet.pocket-deck-sheet .pd-attacks strong{font-size:22px;line-height:1}
+.pk-sheet.pocket-deck-sheet .pd-attacks small{display:block;margin-top:5px;font-size:11px;color:#577179}
+.pk-sheet.pocket-deck-sheet .pd-attacks p{font-size:12px;margin:7px 0 0}
+.pk-sheet .pd-guide{font-size:14px;line-height:1.7;color:#214550}
+.pk-sheet .pd-guide>ol{padding-left:24px}
+.pk-sheet .pd-guide>ol>li{padding:0 0 13px 3px}
+.pk-sheet .pd-guide>ol>li>b{display:block;color:#163a43}
+.pk-sheet .pd-guide details{border:1px solid #c4d4d6;border-radius:10px;margin:12px 0;padding:13px}
+.pk-sheet .pd-guide summary{cursor:pointer;font-weight:750}
+.pk-sheet .pd-guide details ol{padding-left:23px}
+.pk-sheet .pd-guide details li{margin-bottom:8px}
+.pk-sheet .pd-guide .pd-note{font-size:12px;color:#5e767d}
+.v-dynasty .pocket-decks button:focus-visible,.pk-sheet.pocket-deck-sheet button:focus-visible,.pk-sheet.pocket-deck-sheet input:focus-visible,.pk-sheet.pocket-deck-sheet select:focus-visible{outline:3px solid #1f9e83;outline-offset:3px}
+@media(min-width:650px){.v-dynasty .pocket-decks .pd-shelf{grid-template-columns:repeat(3,minmax(0,1fr))}.pk-sheet.pocket-deck-sheet .pd-energy{grid-template-columns:repeat(4,minmax(0,1fr))}.pk-sheet.pocket-deck-sheet .pd-stepper{grid-template-columns:40px 20px 40px}}

@@ -1,4 +1,4 @@
-// Owner table rules and offline browser interactions. Never contacts the live board.
+// Legacy v6 table rules and offline browser interactions, plus current v7 launch scope. Never contacts the live board.
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), assert = require('node:assert/strict');
 const {pathToFileURL} = require('node:url');
 let pw; try { pw = require('playwright'); } catch { pw = require(path.join(process.env.USERPROFILE, '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright')); }
@@ -69,7 +69,7 @@ async function browserTest(url) {
       await D.load(); const s=D.mine(), players=D.CARDS.filter(c=>c.pos==='QB').slice(0,20).map(c=>c.id);
       players.forEach(id=>s.o[id]=2);D.setDeck([...players.slice(0,9).flatMap(id=>[id,id]),'C-twomin','C-twomin']);
       const old=JSON.stringify(s.dk),newgame=S.start('g1');if(!newgame.ok)throw Error(newgame.why);
-      const check=S.get(newgame.mid);if(check.G.v!==6||check.G.p[0].deck.length+check.G.p[0].hand.length!==40)throw Error('owner start needs v6/40');
+      const check=S.get(newgame.mid);if(check.G.v!==7||check.G.p[0].deck.length+check.G.p[0].hand.length!==20)throw Error('new matches need v7/20; legacy fixture below stays v6/40');
       const deck=[...players.slice(0,16).flatMap(id=>[id,id]),...Object.keys(T.PLAYBOOK).flatMap(id=>[id,id])];
       let g,seed;for(let n=0;n<5000;n++){seed='ui'+n;g=B.newGame(seed,[deck,deck],6);const h=g.p[0].hand;if(g.first===0&&h.includes('I-charge')&&h.includes('I-draw')&&h.filter(B.isBasic).length>=2)break;}
       const h=g.p[0].hand;if(!h.includes('I-charge')||!h.includes('I-draw'))throw Error('no fixture seed');
@@ -203,7 +203,9 @@ async function browserTest(url) {
     assert.equal(simulations.count,60);console.log('PASS complete ladder matches and deterministic replays:',simulations);
     await page.evaluate(async()=>{const app=await import('/js/app.js');await app.nav('/puzzles/dynasty');});
     if(await page.locator('.pk-start').count())await page.locator('.pk-start').click();
-    await page.locator('.pk-tab[data-dy-tab="decks"]').click();await page.locator('.rd-tile.is-active').click();await page.locator('[data-rd-edit]').click();
+    // The current Decks tab edits v7 loadouts. Exercise the retained v6 editor directly
+    // against its separate saved table deck; no legacy loadout is migrated on reading.
+    await page.evaluate(async()=>{const T=await import('/js/views/dynasty-table-options.js');T.tableDeckSheet();});
     await page.waitForSelector('[data-rt-save]');assert.equal(await page.locator('[data-rt-save]').isDisabled(),false);await page.locator('[data-rt-save]').click();
     await page.waitForTimeout(500);
     const savedDeck=await page.evaluate(async()=>{const D=await import('/js/core/dynasty.js');const s=D.mine();return {saved:s.table.deck,clean:D.clean(s).table.deck};});
@@ -216,10 +218,10 @@ async function browserTest(url) {
       await c.addInitScript(p=>{localStorage.setItem('gg-me',p==='mason'?'mason':'none');if(p==='ryan-stewart')localStorage.setItem('gg-guest','Ryan Stewart');if(p==='guest')localStorage.setItem('gg-guest','Evan Appenzeller');localStorage.setItem('gg-welcome','1');},profile);
       const q=await c.newPage();await q.goto(url+'/#/puzzles');await q.waitForFunction(()=>window.__ggBooted);
       const result=await q.evaluate(async()=>{const D=await import('/js/core/dynasty.js'),S=await import('/js/core/dynasty-solo.js');await D.load();if(!D.mayPlay())return {owner:D.tableOpen(),plays:false};const s=D.mine();D.open('start',{free:false});const r=S.start('g1');return {owner:D.tableOpen(),plays:true,ok:r.ok,v:r.ok?S.get(r.mid).G.v:0,table:s.table||null};});
-      assert.equal(result.owner,profile==='ryan-stewart',profile);if(profile==='ryan-stewart'){assert.equal(result.ok,true);assert.equal(result.v,6);assert.ok(result.table);}else assert.equal(result.plays,false);
+      assert.equal(result.owner,profile==='ryan-stewart',profile);if(profile==='ryan-stewart'){assert.equal(result.ok,true);assert.equal(result.v,7);assert.ok(result.table);}else assert.equal(result.plays,false);
       await c.close();
     }
-    console.log('PASS scope: Ryan receives v6/40 cards, other members/guests/visitors unchanged, typed owner name does not unlock');
+    console.log('PASS scope: Ryan starts v7/20 cards while saved v6 tables replay, other members/guests/visitors unchanged, typed owner name does not unlock');
     await ctx.close();
   } finally { await browser.close(); }
 }
