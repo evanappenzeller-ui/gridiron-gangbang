@@ -41,6 +41,11 @@ async function main() {
       const AC=window.AudioContext;
       window.AudioContext=class extends AC {
         constructor(...args){ super(...args);sfxContexts.push(this);
+          // Music's last gain feeds the destination. Effects use a compressor at their output.
+          const gain=this.createGain.bind(this);
+          this.createGain=()=>{const node=gain(),connect=node.connect.bind(node);node.connect=to=>{
+            if(to===this.destination)window.musicOutputGain=node;return connect(to);
+          };return node;};
           const original=this.createBufferSource.bind(this);
           this.createBufferSource=()=>{const s=original(),start=s.start.bind(s),stop=s.stop.bind(s);
             s.start=(...args)=>{const samples=s.buffer.getChannelData(0); let peak=0,energy=0;
@@ -68,6 +73,17 @@ async function main() {
       assert(p.peak>.02 && p.peak<.71 && p.rms>.005 && p.duration<1.6,cue+JSON.stringify(p));
       await page.evaluate(()=>testFx.hush());
     }
+    await page.evaluate(async()=>{
+      const music=await import('/js/core/dynasty-music.js');music.setVolume(8);music.setEnabled(true);
+    });
+    await page.waitForFunction(async()=>(await import('/js/core/dynasty-music.js')).state().playing);
+    await page.evaluate(()=>{window.endCard=testFx.play('card');window.endImpact=testFx.play('heavy');});
+    await page.waitForFunction(()=>musicOutputGain.gain.value<.3);
+    await page.evaluate(()=>endCard());
+    assert((await page.evaluate(()=>musicOutputGain.gain.value))<.31,'overlapping impact still lowers music');
+    await page.evaluate(()=>endImpact());await page.waitForFunction(()=>musicOutputGain.gain.value>.98);
+    await page.evaluate(async()=>{const m=await import('/js/core/dynasty-music.js');if(m.state().volume!==8)throw Error('effect changed slider');m.setEnabled(false);});
+    console.log('PASS: music plays under overlapping card and impact sounds and returns to the chosen level');
     const quietCount=await page.evaluate(()=>sfxProbes.length);
     await page.evaluate(()=>{fx.setVolume(0);testFx.play('victory');});await page.waitForTimeout(80);
     assert.equal(await page.evaluate(()=>sfxProbes.length),quietCount,'zero volume skips playback');

@@ -125,7 +125,7 @@ async function main() {
     await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).seek(30));
     await page.locator('.pk-mini-player [data-dy-music-skip]').click();
     assert((await state()).position < 2, 'one-song queue skips back to its beginning');
-    assert.equal((await state()).volume, 35, 'skip preserves volume');
+    assert.equal((await state()).volume, 8, 'skip preserves the quiet default');
     assert.equal(await page.locator('.pk-mini-player:visible').count(), 1, 'skip keeps panel open');
     for (const [width,height] of [[320,568],[390,844],[768,1024]]) {
       await page.setViewportSize({width,height});
@@ -138,6 +138,8 @@ async function main() {
     assert.equal(await page.locator('.pk-mini-player:visible').count(), 0);
     assert.equal(await page.locator('[data-dy-music-menu]').evaluate(b => b === document.activeElement), true);
     await page.locator('[data-dy-music-menu]').click();
+    // Exercise both drag directions away from the zero-volume boundary.
+    await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).setVolume(35));
     const held = await holdVolume('[data-dy-sound]');
     assert.equal(await page.locator('.pk-mini-player:visible').count(), 0, 'volume gesture dismisses song panel');
     const initial = (await state()).volume;
@@ -367,7 +369,7 @@ async function main() {
       await p.waitForSelector('.pk-start.is-ready'); await p.locator('.pk-start').click({position:{x:170,y:420}});
       await p.locator('.pk-hdr [data-dy-menu]').click(); await p.locator('[data-dy-m="music"]').click();
       await p.waitForSelector('[data-dy-music-toggle]');
-      assert.equal(await p.locator('[data-dy-music-volume]').inputValue(), '35', mode + ': safe default');
+      assert.equal(await p.locator('[data-dy-music-volume]').inputValue(), '8', mode + ': quiet default');
       if (mode === 'unavailable') assert.equal(await p.locator('[data-dy-music-toggle]').isDisabled(), true);
       else if (mode === 'blocked-resume' || mode === 'blocked-media') assert.match(await p.locator('[data-dy-music-status]').innerText(), /play to retry/);
       else if (mode === 'track-failed') assert.match(await p.locator('[data-dy-music-status]').innerText(), /couldn’t load/);

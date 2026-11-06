@@ -105,7 +105,7 @@ export function attachMusic(el, isVisible = true) {
         if (e.detail && suppressClick) { suppressClick = false; return; }
         if (!visible || !rivalsUpdated()) return;
         const s = music.state(), on = s.enabled && s.volume > 0;
-        if (!on && !s.volume) music.setVolume(35);
+        if (!on && !s.volume) music.setVolume(music.DEFAULT_MUSIC_VOLUME);
         music.setEnabled(!on);
       });
       el.append(button, bar, chevron, player); el.classList.add('has-rivals-sound');

@@ -37,7 +37,7 @@ async function main(){
         if(!localStorage.getItem('gg-me')) {localStorage.setItem('gg-me',p.me || 'none');if(p.guest)localStorage.setItem('gg-guest',p.guest);}
         localStorage.setItem('gg-welcome','1');sessionStorage.setItem('gg-skip-title','1');
         for(const k of ['evan','jayton','user%3Aryan-stewart','user%3Aryan-younggreen'])localStorage.setItem('gg-release-3.0:'+k,'1');
-        const key='gg-rivals-music:'+p.key+':v1';if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({enabled:false,volume:35}));
+        const key='gg-rivals-music:'+p.key+':v1';if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({enabled:false}));
         window.effectStarts=0;const AC=window.AudioContext;window.AudioContext=class extends AC{
           constructor(...a){super(...a);const create=this.createBufferSource.bind(this);this.createBufferSource=()=>{const n=create(),start=n.start.bind(n);n.start=(...a)=>{effectStarts++;return start(...a);};return n;};}
         };
@@ -75,6 +75,8 @@ async function main(){
       const fresh=await page.evaluate(async()=>{const S=await import('/js/core/dynasty-solo.js'),D=await import('/js/core/dynasty.js');const r=S.start('g5');if(!r.ok)throw Error(r.why);const x=S.get(r.mid);return {v:x.G.v,boss:x.boss,cards:x.G.p[0].hand.length+x.G.p[0].deck.length,owned:JSON.stringify(D.mine().o)};});
       assert.equal(fresh.v,6);assert.equal(fresh.cards,40);assert.equal(fresh.boss,'L0036322');assert.equal(fresh.owned,JSON.stringify(JSON.parse(seed.before).o));
       await page.locator('[data-dy-menu]').click();await page.locator('[data-dy-m="music"]').click();await page.waitForSelector('[data-dy-sfx-volume]');
+      assert.equal(await page.locator('[data-dy-music-volume]').inputValue(),'8','default background music');
+      assert.equal(await page.locator('[data-dy-sfx-volume]').inputValue(),'55','default foreground effects');
       await page.locator('[data-dy-music-volume]').fill(String(20+index));await page.locator('[data-dy-music-toggle]').click();
       await page.waitForFunction(async()=>(await import('/js/core/dynasty-music.js')).state().playing);
       await page.locator('[data-dy-sfx-volume]').fill(String(40+index));await page.locator('[data-dy-sfx-toggle]').click();

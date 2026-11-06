@@ -1,3 +1,4 @@
+import {makeRoomForEffect} from './dynasty-music.js';
 import {rivalsUpdated} from './features.js';
 // Original, locally synthesized Rivals Foley and stingers. No downloads or game-save writes.
 import * as data from './data.js';
@@ -47,6 +48,7 @@ function idle() {
 function stopVoice(v) {
   if (v.stopped) return;
   v.stopped = true;
+  v.releaseMusic?.();
   try { v.source.stop(); } catch (_) {}
   v.source.disconnect(); v.pan?.disconnect(); voices.delete(v); idle();
 }
@@ -126,6 +128,7 @@ function play(client, name, {delay=0, pan=0} = {}) {
       v={source,pan:stereo,client,stopped:false}; voices.add(v);
       source.onended=()=>stopVoice(v);
       source.start(ctx.currentTime+Math.max(0,Math.min(2,delay)));
+      v.releaseMusic = makeRoomForEffect();
     }).catch(()=>{});
   } catch (_) { /* Audio must never block a game action. */ }
   return cancel;

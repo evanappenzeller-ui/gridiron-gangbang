@@ -10,15 +10,18 @@ export const TRACKS = Object.freeze([Object.freeze({id: 'sundress', title: 'Sund
 let selected = TRACKS[0].id;
 const track = () => TRACKS.find(t => t.id === selected) || TRACKS[0];
 const clients = new Set(), listeners = new Set();
-let enabled = true, volume = 35, started = false, away = false, failure = '';
+export const DEFAULT_MUSIC_VOLUME = 8;
+let enabled = true, volume = DEFAULT_MUSIC_VOLUME, started = false, away = false, failure = '';
 let audio = null, master = null, media = null, pending = 0, revision = 0, offProfile = null;
+let effectGain = null;
+const audibleEffects = new Set();
 let systemOwned = false, previousType = null;
 const systemActions = ['play', 'pause', 'stop', 'seekto', 'seekbackward', 'seekforward'];
 
 let preferenceKey;
 function read() {
   preferenceKey = KEY();
-  enabled = true; volume = 35;
+  enabled = true; volume = DEFAULT_MUSIC_VOLUME;
   selected = TRACKS[0].id;
   try {
     const saved = JSON.parse(localStorage.getItem(KEY()));
@@ -73,7 +76,26 @@ function updateSystem() {
   try { if (s.duration > 0) navigator.mediaSession?.setPositionState?.({duration: s.duration, position: Math.min(s.position, s.duration), playbackRate: 1}); } catch (_) {}
 }
 
+// Effects share one temporary reduction. Releasing the last cue brings the music
+// back to its chosen level. This gain never changes the slider or the saved preference.
+export function makeRoomForEffect() {
+  if (!effectGain || !wanted()) return;
+  const effect = {};
+  if (!audibleEffects.size) effectGain.gain.setTargetAtTime(.25, audio.currentTime, .004);
+  audibleEffects.add(effect);
+  return () => {
+    if (audibleEffects.delete(effect) && !audibleEffects.size) {
+      effectGain.gain.setTargetAtTime(1, audio.currentTime, .10);
+    }
+  };
+}
+
 function halt(reset = false) {
+  audibleEffects.clear();
+  if (effectGain) {
+    effectGain.gain.cancelScheduledValues(audio.currentTime);
+    effectGain.gain.setValueAtTime(1, audio.currentTime);
+  }
   revision++; pending = 0;
   if (media) { media.pause(); if (reset) { try { media.currentTime = 0; } catch (_) {} } }
   if (audio) {
@@ -112,7 +134,8 @@ export function start() {
     try {
       ownSystem();
       audio = new AC(); master = audio.createGain(); master.gain.value = 0;
-      master.connect(audio.destination);
+      effectGain = audio.createGain();
+      master.connect(effectGain); effectGain.connect(audio.destination);
       media = new Audio(); media.preload = 'none'; media.loop = true; media.src = track().url;
       audio.createMediaElementSource(media).connect(master);
       media.addEventListener('playing', () => { if (!wanted()) halt(); else notify(); });
@@ -125,7 +148,7 @@ export function start() {
         else notify();
       };
     } catch (_) {
-      media?.pause(); audio?.close().catch(() => {}); audio = null; media = null;
+      media?.pause(); audio?.close().catch(() => {}); audio = null; media = null; effectGain = null;
       releaseSystem();
       failure = 'Music is unavailable in this browser.'; notify(); return;
     }
