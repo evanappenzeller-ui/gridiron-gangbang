@@ -29,7 +29,7 @@ async function main() {
   const url = 'http://127.0.0.1:' + server.address().port;
   const browser = await pw.chromium.launch({executablePath: process.env.CHROMIUM_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe'});
   try {
-    const context = await browser.newContext({viewport: {width: 390, height: 844}, serviceWorkers: 'block', reducedMotion: 'reduce'});
+    const context = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce'});
     await context.route('**/*', r => r.request().url().startsWith(url) ? r.continue() : r.abort());
     await context.addInitScript(() => {
       if (!localStorage.getItem('gg-me')) localStorage.setItem('gg-me', 'evan');
@@ -64,6 +64,20 @@ async function main() {
     const state = () => page.evaluate(async () => (await import('/js/core/dynasty-music.js')).state());
     const playing = () => page.waitForFunction(async () => (await import('/js/core/dynasty-music.js')).state().playing);
     const silent = () => page.waitForFunction(() => audioProbes.every(p => p.ctx.state !== 'running') && mediaProbes.every(m => m.paused));
+    const level = async value => {
+      await page.evaluate(async () => { window.soundTest = await import('/js/core/dynasty-music.js'); });
+      await page.waitForFunction(value => soundTest.state().volume === value, value, {timeout:3000});
+    };
+    const touch = await context.newCDPSession(page);
+    const holdVolume = async selector => {
+      const box = await page.locator(selector).boundingBox();
+      const point = {x:box.x + box.width / 2, y:box.y + box.height / 2};
+      const send = (type, p = point) => touch.send('Input.dispatchTouchEvent', {type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{...p, id:1}]});
+      await send('touchStart');
+      assert.equal(await page.locator('.pk-sound-level:visible').count(), 0, 'bar stays hidden on initial press');
+      await page.waitForSelector('.pk-sound-level:visible');
+      return {point, send};
+    };
     const close = async () => { await page.locator('.sheet-close').last().click(); await page.waitForFunction(() => !document.querySelector('.sheet')); };
     const settings = async () => {
       await page.locator('.pk-hdr [data-dy-menu]').click();
@@ -97,6 +111,35 @@ async function main() {
     await page.locator('[data-dy-sound]').click(); await silent();
     assert.equal(await page.locator('[data-dy-sound]').getAttribute('aria-label'), 'Unmute sound');
     await page.locator('[data-dy-sound]').focus(); await page.keyboard.press('Space'); await playing();
+    const held = await holdVolume('[data-dy-sound]');
+    const initial = (await state()).volume;
+    await held.send('touchMove', {x:held.point.x - 30, y:held.point.y});
+    await level(initial - 20);
+    assert.equal((await state()).volume, initial - 20, 'left drag lowers volume');
+    await held.send('touchMove', {x:held.point.x, y:held.point.y});
+    await level(initial);
+    assert.equal((await state()).volume, initial, 'right drag raises volume');
+    await held.send('touchMove', {x:held.point.x, y:held.point.y - 60});
+    await level(initial + 40);
+    assert.equal((await state()).volume, initial + 40, 'up drag raises volume');
+    await held.send('touchMove', {x:held.point.x, y:held.point.y - 30});
+    await level(initial + 20);
+    assert.equal((await state()).volume, initial + 20, 'down drag lowers volume');
+    if (process.env.SOUND_SHOTS) await page.screenshot({path:path.join(process.env.SOUND_SHOTS,'volume-held.png')});
+    await held.send('touchEnd');
+    assert.equal(await page.locator('.pk-sound-level:visible').count(), 0, 'release hides bar');
+    assert.equal(await page.locator('[data-dy-sound]:visible').count(), 1, 'release keeps speaker');
+    assert.equal((await state()).enabled, true, 'long press does not trigger mute on release');
+    assert.equal(JSON.parse(await page.evaluate(key => localStorage.getItem(key), KEY)).volume, initial + 20);
+    await page.locator('[data-dy-sound]').focus(); await page.keyboard.down('ArrowDown');
+    assert.equal(await page.locator('.pk-sound-level:visible').count(), 1, 'keyboard exposes volume bar');
+    await page.keyboard.up('ArrowDown');
+    assert.equal((await state()).volume, initial + 15);
+    assert.equal(await page.locator('.pk-sound-level:visible').count(), 0);
+    const cancel = await holdVolume('[data-dy-sound]'); await cancel.send('touchCancel');
+    assert.equal(await page.locator('.pk-sound-level:visible').count(), 0, 'canceled touch closes bar');
+    await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).setVolume(35));
+    console.log('PASS: real touch hold, both drag axes, release, saved level, keyboard and touch cancellation');
     await page.waitForFunction(() => navigator.mediaSession.playbackState === 'playing');
     assert.equal(await page.evaluate(() => navigator.audioSession.type), 'playback');
     assert.deepEqual(await page.evaluate(() => ({title:navigator.mediaSession.metadata.title, artist:navigator.mediaSession.metadata.artist, state:navigator.mediaSession.playbackState})), {title:'Sundress',artist:'A$AP Rocky',state:'playing'});
@@ -198,6 +241,15 @@ async function main() {
     await page.setViewportSize({width:390,height:844});
     if (process.env.SOUND_SHOTS) await page.screenshot({path:path.join(process.env.SOUND_SHOTS,'battle.png')});
     await battleSound.click(); await silent();
+    await battleSound.click(); await playing();
+    const battleHold = await holdVolume('.v-dynasty-battle [data-dy-sound]');
+    await battleHold.send('touchMove', {x:battleHold.point.x, y:battleHold.point.y - 180});
+    await level(100);
+    assert.equal((await state()).volume, 100, 'volume clamps at 100');
+    await battleHold.send('touchMove', {x:battleHold.point.x - 180, y:battleHold.point.y - 180});
+    await level(0);
+    assert.equal((await state()).volume, 0, 'volume clamps at zero');
+    await battleHold.send('touchEnd'); await silent();
     await battleSound.click(); await playing();
     await page.locator('[data-db-more]').click(); await page.getByRole('button', {name: 'Settings', exact: true}).click();
     await page.waitForSelector('[data-dy-music-toggle]'); await close();

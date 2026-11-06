@@ -373,3 +373,4 @@ html.is-dynasty-battle { --col-w: 640px; }
 /* Leave a touch-sized space beside the battle actions for the sound toggle. */
 .v-dynasty-battle .has-rivals-sound .db-bar { padding-right: 72px; min-height: 64px; }
 .v-dynasty-battle .pk-sound { z-index: 65; right: max(12px, calc((100% - 640px) / 2 + 12px)); }
+.v-dynasty-battle .pk-sound-level { right: max(12px, calc((100% - 640px) / 2 + 12px)); }

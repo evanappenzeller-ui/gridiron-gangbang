@@ -769,7 +769,7 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
   bottom: max(10px, var(--sa-b, 0px)); width: 44px; height: 44px; padding: 10px;
   display: grid; place-items: center; border: 1px solid #ffffff70; border-radius: 50%;
   background: #163b46; color: #fff; box-shadow: 0 3px 12px #102a3833;
-  cursor: pointer; touch-action: manipulation;
+  cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 :where(.v-dynasty, .v-dynasty-battle) .pk-sound[hidden] { display: none; }
 :where(.v-dynasty, .v-dynasty-battle) .pk-sound svg { width: 24px; height: 24px; pointer-events: none; }
@@ -779,3 +779,13 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 :where(.v-dynasty, .v-dynasty-battle) .pk-sound:disabled { opacity: .55; cursor: default; }
 .v-dynasty .has-rivals-sound .pk-nav { padding-right: 64px; }
 .v-dynasty .has-rivals-sound:has(.pk-start) > .pk-sound { bottom: max(12px, var(--sa-b, 0px)); }
+:where(.v-dynasty, .v-dynasty-battle) .pk-sound-level {
+  position: absolute; z-index: 65; right: max(12px, var(--sa-r, 0px));
+  bottom: calc(max(10px, var(--sa-b, 0px)) + 54px); width: 180px; padding: 12px;
+  border: 1px solid #ffffff70; border-radius: 14px; background: #163b46; color: #fff;
+  box-shadow: 0 4px 16px #102a3844; pointer-events: none;
+}
+:where(.v-dynasty, .v-dynasty-battle) .pk-sound-level[hidden] { display: none; }
+:where(.v-dynasty, .v-dynasty-battle) .pk-sound-level > span { display: flex; justify-content: space-between; font: 700 12px/1.4 var(--font-text); }
+:where(.v-dynasty, .v-dynasty-battle) .pk-sound-track { height: 8px; margin-top: 8px; overflow: hidden; border-radius: 8px; background: #ffffff30; }
+:where(.v-dynasty, .v-dynasty-battle) .pk-sound-track i { display: block; height: 100%; border-radius: inherit; background: #55e6ed; }

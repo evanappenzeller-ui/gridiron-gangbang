@@ -9,6 +9,9 @@ a gesture, pauses when the view or document is hidden, and stops immediately on 
 and Battle options → Settings include a named jukebox, play/pause/restart, music-level and song-position sliders.
 The bottom-right speaker in the hub and battle uses the same saved on/off preference; its icon and accessible
 label stay in sync with Settings. Muting on the title screen does not start playback or dismiss the title.
+Hold the speaker for 300 ms to reveal the volume bar above it. Drag right/up to raise volume or left/down
+to lower it; release/cancel hides the bar and keeps the speaker. A hold never also toggles mute. Arrow keys
+adjust by five percent while focused. Route/profile changes and backgrounding cancel the gesture.
 Phone buttons remain device media volume; the music slider controls only the in-game gain. Request the optional
 Audio Session `playback` type and publish Media Session song metadata, play/pause and seek controls; restore the
 prior session type and remove native handlers on hide, exit or profile change. Unsupported system APIs must not
