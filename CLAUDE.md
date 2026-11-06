@@ -1,5 +1,20 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals sound effects (November 5, 2026)
+
+Owner-only under AGENTS.md: `data.isOwner()` enables the original generated Foley/stingers in
+`core/dynasty-sfx.js`. No external audio assets or game-save changes. Hub, battle and pack scene clients
+share one effects context with cached buffers, six-voice limit, short repeat cooldown and output limiter.
+Card actions, foil tearing, resolved coin/attack results (including misses and knockouts), rarity reveals,
+and fresh match outcomes have distinct cues. Never replay events when opening a saved battle.
+Effects start after a trusted gesture; hide/exit, backgrounding and profile changes cancel active/pending
+sounds. Pack skip/close uses its existing animation clock and cancels stale cues. Missing audio support
+must not block gameplay. Music stays separately controlled. Menu/ Battle options → Settings adds
+an effects toggle and volume slider, saved only in `gg-rivals-sfx:m_evan:v1`.
+Verify `node tools/dynasty/check-sfx.cjs`, `check-music.cjs`, `check-music-cache.cjs --browser`,
+`check-table.cjs`, `check-reveal.cjs`, `check-start-browser.cjs`, rules, decks and scope checks.
+The music-only regression explicitly mutes effects to isolate the music context lifecycle.
+
 ## Rivals music (November 5, 2026)
 
 Owner-only under AGENTS.md: `data.isOwner()` enables Evan's uploaded Sundress MP3 by A$AP Rocky

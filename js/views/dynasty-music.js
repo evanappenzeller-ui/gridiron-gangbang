@@ -1,11 +1,12 @@
 import * as data from '../core/data.js';
 import * as ui from '../core/ui.js';
 import * as music from '../core/dynasty-music.js';
+import * as sfx from '../core/dynasty-sfx.js';
 const time = seconds => { const n = Math.max(0, Math.floor(seconds || 0)); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
 
 export function musicSheet() {
   if (!data.isOwner()) return;
-  let offMusic, offProfile, scrubbing = false;
+  let offMusic, offSfx, offProfile, scrubbing = false;
   const sh = ui.openSheet({title: 'Settings', cls: 'pk-sheet', detents: ['fit'],
     body: `<div class="pk-music">
       <div class="pk-juke-now"><span class="pk-juke-disc" aria-hidden="true">♪</span><div><small data-dy-music-now>NOW PLAYING</small><h3 data-dy-music-title></h3><p data-dy-music-artist></p></div></div>
@@ -18,9 +19,21 @@ export function musicSheet() {
       </label><p class="pk-note pk-music-phone">Use your phone’s volume buttons for overall volume.</p>
       <section class="pk-juke" aria-label="Jukebox"><div class="pk-juke-heading"><h3>Jukebox</h3><span>${music.TRACKS.length} ${music.TRACKS.length === 1 ? 'song' : 'songs'}</span></div>
         <ul>${music.TRACKS.map(t => `<li><button type="button" data-dy-music-track="${data.esc(t.id)}" aria-pressed="false"><span class="pk-juke-note" aria-hidden="true">♪</span><span><b>${data.esc(t.title)}</b><small>${data.esc(t.artist)}</small></span><span class="pk-juke-selected" data-dy-track-state></span></button></li>`).join('')}</ul>
-      </section><p class="pk-note" data-dy-music-status role="status"></p></div>`,
-    onClose: () => { offMusic?.(); offProfile?.(); }});
+      </section><p class="pk-note" data-dy-music-status role="status"></p></div>
+      <section class="pk-sfx" aria-label="Sound effects"><h3>Sound effects</h3>
+        <button type="button" class="pk-btn" data-dy-sfx-toggle aria-pressed="true">Mute effects</button>
+        <label class="pk-music-volume">Effects level <output data-dy-sfx-value></output>
+          <input data-dy-sfx-volume type="range" min="0" max="100" step="1" aria-label="Sound effects volume">
+        </label><p class="pk-note" data-dy-sfx-status role="status"></p></section>`,
+    onClose: () => { offMusic?.(); offSfx?.(); offProfile?.(); }});
   const draw = () => {
+    const fx = sfx.state(), toggle = sh.body.querySelector('[data-dy-sfx-toggle]');
+    toggle.textContent = fx.enabled ? 'Mute effects' : 'Enable effects';
+    toggle.setAttribute('aria-pressed', String(fx.enabled)); toggle.disabled = !fx.supported;
+    const fxRange = sh.body.querySelector('[data-dy-sfx-volume]');
+    fxRange.value = fx.volume; fxRange.disabled = !fx.supported;
+    sh.body.querySelector('[data-dy-sfx-value]').textContent = fx.volume + '%';
+    sh.body.querySelector('[data-dy-sfx-status]').textContent = !fx.supported ? 'Sound effects are unavailable in this browser.' : fx.failure || (!fx.enabled || !fx.volume ? 'Sound effects are muted.' : 'Card actions, attacks, pack reveals and match results.');
     const s = music.state(), button = sh.body.querySelector('[data-dy-music-toggle]');
     button.textContent = s.enabled ? 'Pause music' : 'Play music';
     button.setAttribute('aria-pressed', String(s.enabled)); button.disabled = !s.supported;
@@ -48,6 +61,7 @@ export function musicSheet() {
     if (statusEl.textContent !== status) statusEl.textContent = status;
   };
   sh.body.addEventListener('click', e => {
+    if (e.target.closest('[data-dy-sfx-toggle]')) sfx.setEnabled(!sfx.state().enabled);
     if (e.target.closest('[data-dy-music-toggle]')) music.setEnabled(!music.state().enabled);
     if (e.target.closest('[data-dy-music-restart]')) music.seek(0);
     const song = e.target.closest('[data-dy-music-track]'); if (song) music.selectTrack(song.dataset.dyMusicTrack);
@@ -55,10 +69,12 @@ export function musicSheet() {
   sh.body.addEventListener('pointerdown', e => { if (e.target.matches('[data-dy-music-seek]')) scrubbing = true; });
   for (const name of ['change', 'pointerup', 'pointercancel', 'focusout']) sh.body.addEventListener(name, () => { scrubbing = false; draw(); });
   sh.body.addEventListener('input', e => {
+    if (e.target.matches('[data-dy-sfx-volume]')) sfx.setVolume(e.target.value);
     if (e.target.matches('[data-dy-music-volume]')) music.setVolume(e.target.value);
     if (e.target.matches('[data-dy-music-seek]')) music.seek(e.target.value);
   });
   offMusic = music.subscribe(draw);
+  offSfx = sfx.subscribe(draw);
   offProfile = data.subscribe(type => { if (type === 'me') sh.close(); });
   draw();
 }

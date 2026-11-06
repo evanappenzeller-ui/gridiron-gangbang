@@ -1,5 +1,6 @@
 import {tableOptions, tableDeckSheet} from './dynasty-table-options.js';
 import * as music from '../core/dynasty-music.js';
+import * as sfx from '../core/dynasty-sfx.js';
 import {musicSheet} from './dynasty-music.js';
 import {deckShelfHTML, handleDeckShelf} from './dynasty-decks.js';
 // Gridiron Rivals (legacy route/save identifiers remain dynasty). The four labeled tabs are
@@ -943,7 +944,7 @@ function showStart(st) {
 function menuSheet(st) {
   const s = D.status === 'ready' ? D.mine() : null, P = D.PACKS[st.pack] || D.PACKS[D.DAILY_PACK];
   const items = [
-    ...(data.isOwner() ? [{id: 'music', ic: 'gear', label: 'Settings', sub: 'Music, volume & jukebox'}] : []),
+    ...(data.isOwner() ? [{id: 'music', ic: 'gear', label: 'Settings', sub: 'Music, sound effects & jukebox'}] : []),
     {id: 'guide', ic: 'info', label: 'Guide', sub: 'How to play'},
     {id: 'coins', ic: 'sparkle', label: 'Coins', sub: s ? `${nf(D.balance(s))} · how you earn them` : 'How you earn them'},
     {id: 'rank', ic: 'trophy', label: 'Rankings', sub: s ? `${nf(s.tr)} trophies · ${s.rec.w}–${s.rec.l}` : 'The Rivals board'},
@@ -1111,6 +1112,11 @@ export default {
     const st = {el, ctx, tab: homeOpen() ? 'home' : 'battle', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: '', sort: sortLoad()}, shown: PAGE, dead: false, starting: false, stops: [], panes: new Map(), revision: 0, refreshFrame: 0, hidden: false};
     ST.set(ctx, st);
     st.music = music.attach(el, ctx.visible);
+    st.sfx = sfx.attach(el, ctx.visible);
+    el.addEventListener('click', e => {
+      if (e.target.closest('[data-dy-tab], [data-dy-menu], [data-dy-start]')) st.sfx.play('select');
+    });
+    st.stops.push(() => st.sfx.stop());
     st.stops.push(() => st.music.stop());
     fullScreen(st, ctx.visible);
     ctx.setBackTitle('Rivals');
@@ -1254,9 +1260,9 @@ export default {
   },
 
   // (back from a battle: the matches as they stand now; the title screen doesn't come again)
-  onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; st.music.visible(true); invalidatePanes(st, true); fullScreen(st, true); refresh(st); } },
+  onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; st.music.visible(true); st.sfx.visible(true); invalidatePanes(st, true); fullScreen(st, true); refresh(st); } },
 
-  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; st.music.visible(false); stopPackShelf(st); clearTimeout(st.qT); cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; fullScreen(st, false); } },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; st.music.visible(false); st.sfx.visible(false); stopPackShelf(st); clearTimeout(st.qT); cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; fullScreen(st, false); } },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);

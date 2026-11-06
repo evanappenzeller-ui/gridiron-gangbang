@@ -32,6 +32,7 @@ import {bindCardFoil} from './dynasty-foil.js';
 import * as ui from '../core/ui.js';
 import * as D from '../core/dynasty.js';
 import * as data from '../core/data.js';
+import * as sfx from '../core/dynasty-sfx.js';
 import {packHTML} from './dynasty-packs.js';
 
 const RM = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -165,6 +166,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     + `<p class="sr-only" aria-live="polite" data-dy-say></p>`;
   document.body.appendChild(ov);
   const stopFoil = bindCardFoil(ov);
+  const fx = sfx.attach(ov);
   const prevFocus = document.activeElement;
   // (the app behind it is out of reach while it's open, as under a sheet: Tab stays in here)
   const behind = ['stage', 'tabbar'].map(id => document.getElementById(id)).filter(el => el && !el.inert);
@@ -200,7 +202,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   };
   // ---- a card's reveal, by its rarity (rv: the one playing; its haptics and confetti on the CSS's clock, --hold and
   // --flip; a tap finishes it: everything at its end, is-skip)
-  let rv = null;
+  let rv = null, revealSound = () => {};
   const rvT = [];
   // (confetti from the card's two top corners, out and down round it: not a bar across its face)
   const burst = (R, again) => {
@@ -217,7 +219,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     if (!rv) return;
     const el = rv;
     rv = null; delete ov.dataset.rv; drop(rvT);
-    if (skip) { const A = finite(el); if (A) A.forEach(a => { try { a.finish(); } catch (_) {} }); else el.classList.add('is-skip'); ui.haptic('light'); }
+    if (skip) { revealSound(); const A = finite(el); if (A) A.forEach(a => { try { a.finish(); } catch (_) {} }); else el.classList.add('is-skip'); ui.haptic('light'); }
     kick();
   };
   const begin = (fast = false) => {
@@ -239,6 +241,9 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     el.classList.add('is-go');
     if (fast) { deal.classList.add('is-skip', 'is-fast'); return; }
     const when = ms => (RM() ? 0 : ms);
+    let heard = false;
+    revealSound = () => { if (!heard) { heard = true; fx.play(sfx.revealCue(R.tier)); } };
+    rvT.push(later(revealSound, when(R.hold + R.flip / 2)));
     R.haptics.forEach(([t, k]) => rvT.push(later(() => ui.haptic(k), when(t))));
     if (R.confetti) rvT.push(later(() => burst(R), when(R.hold + R.flip / 2)));
     if (R.tier >= 6) rvT.push(later(() => burst(R, true), when(R.hold + R.flip / 2 + 650)));
@@ -251,7 +256,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   const opening = [];
   const torn = () => {
     if (closed) return;
-    ui.haptic('medium');
+    ui.haptic('medium'); fx.play('tear');
     setPhase('open');
     const rr = rip.getBoundingClientRect(), dr = deck.getBoundingClientRect();
     // (the strip spins about its own middle from where the slit left it: the same pose (css .dy-rip-top: LIFT° about the
@@ -319,7 +324,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   };
   const showResults = () => {
     if (closed || phase === 'results') return;
-    endReveal(); clearInterval(ffI); drop(opening);
+    endReveal(); fx.hush(); clearInterval(ffI); drop(opening);
     setPhase('results'); ov.dataset.tier = '';
     stage.hidden = true; skipB.hidden = true; ffB.hidden = true;
     ov.classList.add('is-results');
@@ -733,6 +738,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   const close = () => {
     if (closed) return;
     closed = true;
+    fx.stop(); offSoundProfile();
     stopFoil();
     D.markSeen([]);
     timers.forEach(clearTimeout); timers.clear();
@@ -749,6 +755,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
       try { const el = typeof focusBack === 'string' ? document.querySelector(focusBack) : focusBack; if (el && el.focus) el.focus({preventScroll: true}); } catch (_) {}
     }
   };
+  const offSoundProfile = data.subscribe(type => { if (type === 'me') fx.visible(false); });
   const onKey = e => {
     if (e.key === 'Escape') { e.preventDefault(); close(); return; }
     const k = e.key, onButton = e.target && e.target.closest && e.target.closest('button');

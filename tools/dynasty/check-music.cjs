@@ -35,6 +35,8 @@ async function main() {
       if (!localStorage.getItem('gg-me')) localStorage.setItem('gg-me', 'evan');
       localStorage.setItem('gg-welcome', '1'); sessionStorage.setItem('gg-skip-title', '1');
       ['evan','mason','user%3Aryan-stewart','visitor'].forEach(k => localStorage.setItem('gg-release-3.0:' + k, '1'));
+      // Isolate music lifecycle assertions from independently controlled effects.
+      localStorage.setItem('gg-rivals-sfx:m_evan:v1', JSON.stringify({enabled:false,volume:55}));
       window.audioProbes = [];
       Object.defineProperty(navigator, 'audioSession', {configurable: true, value: {type: 'ambient'}});
       window.mediaHandlers = {};
