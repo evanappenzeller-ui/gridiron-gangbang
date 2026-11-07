@@ -1,5 +1,16 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals rarity scale and NFL headshots (November 7, 2026)
+
+Evan: "adjust the rarity of the cards. Epic is players with ratings 85-89. Legendary is 90-95. Mythic is 96-99. Use the
+players official nfl headshots for common and epic cards". `core/dynasty.js` `SCALE` is Epic 85, Legendary 90, Mythic 96
+(Common 84 or less); rarity is still by OVR alone, so 80-84 players are now Common (1,404 Common, 116 Epic, 173 Legendary,
+47 Mythic players). Pack odds, prices, collections, saves and battle stats are unchanged. Common and Epic cards wear the
+player's official NFL.com headshot (`players[key][4]` = `n:<id>` or `n:private/<id>`), with ESPN's id in `players[key][8]`
+as the image fallback (`views/dynasty.js` `portraitOf().alt`, `imgFallback`); only Legendary, Mythic and Legend cards wear
+action photos (`D.actionRarity`). `tools/dynasty/nfl_heads.py` rewrites only those headshot fields from nflverse (roster
+first, then players.csv) and never touches ratings. The kit checks "the cards…" and "action photos…" cover it.
+
 ## Rivals hold preview and support flash (November 7, 2026)
 
 Evan, with a gameplay video: "when a user presses and holds onto cards in their hand, there should be a preview of the

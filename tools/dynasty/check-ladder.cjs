@@ -35,7 +35,7 @@ async function run(url) {
       ok(S.start('g6').ok===false,'start API rejects skipping boss');
       for (const [id,cid] of Object.entries(D.SOLO_BOSSES)) {
         const n=Number(id.slice(1)), c=D.soloBoss(id), t=D.fresh('m_boss',1000);
-        ok(c?.id===cid&&c.o>=80,'real Epic+ boss '+id);
+        ok(c?.id===cid&&c.o>=D.SCALE.epic&&c.r!=='common','real Epic+ boss '+id);
         const owned=snap(t.o);
         for(const res of ['l','d']) { D.paySolo(id+res,id,n,res,t,cid); ok(snap(t.o)===owned&&!t.bossRewards,'no prize for '+res); }
         // An old fifth-stage win never earns a card; the upgraded boss can still be replayed for it.

@@ -13,7 +13,7 @@ import * as POCKET from './dynasty-pocket-cards.js';
 // "the common cards should use the images we have now with the player headshots. use the new cards for the rare and
 // above. create a new player ranking scale using this"). One card a player (Nov 2 2026, the owner: "There should be no
 // two cards for the same player. A player needs to fall into one of the following categories: common (79 overall or
-// less. Use the current card design), epic (80-89), legendary (90-95), mythic (96+)"): each player keeps his best card
+// less. Use the current card design), epic (80-89), legendary (90-95), mythic (96+)"; Nov 7 2026: Epic 85-89): each player keeps his best card
 // (highest OVR; his other cards are aliases of it: ALIAS, and a save's copies fold onto it: fold()), its rarity by OVR
 // alone (rarityOf, SCALE). Rare is retired. And the battles' Coach and Stadium cards (core/dynasty-battle.js
 // TRAINERS: Pokémon's Trainer and Stadium cards).
@@ -59,9 +59,11 @@ export const SERIES = {
 export const SERIES_ORDER = ['X', 'P', 'A', 'G', 'R', 'L'];
 export const RARITY = ['common', 'epic', 'legendary', 'mythic'];
 export const RARITY_NAME = {common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary', mythic: 'Mythic'};
-/** The lowest OVR of each rarity above Common (the owner, Nov 2 2026: Common 79 or less, Epic 80-89, Legendary 90-95,
- *  Mythic 96+). */
-export const SCALE = Object.freeze({mythic: 96, legendary: 90, epic: 80});
+/** The lowest OVR of each rarity above Common (the owner, Nov 7 2026: "Epic is players with ratings 85-89. Legendary is
+ *  90-95. Mythic is 96-99"; Common is 84 or less. It was Epic 80-89 from Nov 2). */
+export const SCALE = Object.freeze({mythic: 96, legendary: 90, epic: 85});
+/** Whether a rarity's cards wear action photos (Legendary and Mythic; Common and Epic wear headshots). */
+export const actionRarity = r => r === 'legendary' || r === 'mythic';
 /** A card's rarity, by its OVR alone. */
 export const rarityOf = ovr => (ovr >= SCALE.mythic ? 'mythic' : ovr >= SCALE.legendary ? 'legendary' : ovr >= SCALE.epic ? 'epic' : 'common');
 export const POS_NAME = {QB: 'Quarterback', RB: 'Running back', WR: 'Wide receiver', TE: 'Tight end', OL: 'Offensive line', DL: 'Defensive line',
@@ -98,7 +100,7 @@ export function setData(d) {
   const every = (d.cards || []).map(c => {
     const pl = d.players[c[2]] || ['?', '', 'QB', 0, '', 0, '', 0];
     const card = {id: c[0], s: c[1], p: c[2], o: c[3], a: c[4] || [], ln: c[5] || [], t: c[6] || '', tm: c[7] || pl[1], w: c[8] || 0,
-      name: pl[0], team: c[7] || pl[1], pos: pl[2], num: pl[3], head: pl[4] || '', exp: pl[5], college: pl[6], draft: pl[7], real: null};
+      name: pl[0], team: c[7] || pl[1], pos: pl[2], num: pl[3], head: pl[4] || '', alt: pl[8] || '', exp: pl[5], college: pl[6], draft: pl[7], real: null};
     BY_ID.set(card.id, card);
     return card;
   });
@@ -118,10 +120,11 @@ export function setData(d) {
   });
   CARDS = every.filter(c => best.get(c.p) === c);
   every.forEach(c => { if (best.get(c.p) !== c) ALIAS.set(c.id, best.get(c.p).id); });
-  // (an Epic or better card wears its player's action photo, cut out on its team's colours; a Common keeps its headshot; a
-  // Legend never wears a headshot or portrait, only his action photo, else his number: the owner, Oct 31 2026,
-  // core/dynasty-action.js)
-  every.forEach(c => { if (ACTION[c.p] && (c.r !== 'common' || c.s === 'X')) c.head = 'a:' + c.p; });
+  // (a Legendary or Mythic card wears its player's action photo, cut out on its team's colours; Common and Epic cards wear
+  // his official NFL headshot (the owner, Nov 7 2026: "Use the players official nfl headshots for common and epic cards";
+  // tools/dynasty/nfl_heads.py, ESPN's as the fallback: alt); a Legend never wears a headshot or portrait, only his action
+  // photo, else his number: the owner, Oct 31 2026, core/dynasty-action.js)
+  every.forEach(c => { if (ACTION[c.p] && (actionRarity(c.r) || c.s === 'X')) c.head = 'a:' + c.p; });
   POOLS.clear();
   B.setCards(card);
   POCKET.setCards(CARDS);

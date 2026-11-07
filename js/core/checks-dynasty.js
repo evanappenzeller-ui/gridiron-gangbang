@@ -32,16 +32,18 @@ export async function dynastyChecks(check) {
     return {pass: who.join() === 'true,true,false,true,false,false,true' && lists.join() === 'true,true,true' && keys.join() === 'true,true,true,false,false,false,true' && routed && D.mayPlay() === mine && shown,
       detail: `Evan, Jayton, Mason, Ryan S, Ryan D, a guest, Ryan Y: ${who.join(', ')}`};
   });
-  check('Gridiron Dynasty: the cards: real players in six series, every position, one card a player (the owner, Nov 2 2026: "There should be no two cards for the same player ... common (79 overall or less ...), epic (80-89), legendary (90-95), mythic (96+)"): his best card, the rest aliases of it; rarity by OVR alone; every rarity of active players has cards to draw', () => {
+  check('Gridiron Dynasty: the cards: real players in six series, every position, one card a player (the owner, Nov 2 2026: "There should be no two cards for the same player ... common (79 overall or less ...), epic (80-89), legendary (90-95), mythic (96+)"; Nov 7 2026: "Epic is players with ratings 85-89. Legendary is 90-95. Mythic is 96-99"): his best card, the rest aliases of it; rarity by OVR alone; every rarity of active players has cards to draw', () => {
     const series = new Set(D.CARDS.map(c => c.s)), pos = new Set(D.CARDS.filter(c => c.s === 'L').map(c => c.pos));
-    const rar = D.CARDS.every(c => c.r === D.rarityOf(c.o) && c.o >= 40 && c.o <= 99);
+    const rar = D.CARDS.every(c => c.r === D.rarityOf(c.o) && c.o >= 40 && c.o <= 99)
+      && D.SCALE.epic === 85 && D.SCALE.legendary === 90 && D.SCALE.mythic === 96
+      && [[84, 'common'], [85, 'epic'], [89, 'epic'], [90, 'legendary'], [95, 'legendary'], [96, 'mythic'], [99, 'mythic']].every(([o, r]) => D.rarityOf(o) === r);
     const one = new Set(D.CARDS.map(c => c.p)).size === D.CARDS.length && D.ALIAS.size > 0
       && [...D.ALIAS].every(([old, to]) => D.card(old) && D.card(to) && D.card(old).p === D.card(to).p && D.card(old).o <= D.card(to).o && D.CARDS.includes(D.card(to)) && !D.CARDS.includes(D.card(old)));
     const live = D.RARITY.map(r => D.CARDS.filter(c => c.s !== 'X' && c.r === r).length), drawable = live.every(n => n > 0);
     const ids = new Set(D.CARDS.map(c => c.id)).size === D.CARDS.length;
     const ok = ['L', 'R', 'P', 'G', 'A', 'X'].every(s => series.has(s)) && ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'].every(p => pos.has(p));
     const tr = D.TRAINER_IDS.length >= 10 && D.TRAINER_IDS.every(id => D.trainer(id).name && ['epic', 'legendary'].includes(D.trainer(id).r));
-    const names = D.RARITY.join() === 'common,epic,legendary,mythic' && [79, 80, 89, 90, 95, 96].map(o => D.rarityOf(o)).join() === 'common,epic,epic,legendary,legendary,mythic';
+    const names = D.RARITY.join() === 'common,epic,legendary,mythic' && [84, 85, 89, 90, 95, 96].map(o => D.rarityOf(o)).join() === 'common,epic,epic,legendary,legendary,mythic';
     return {pass: ok && rar && one && ids && tr && names && drawable,
       detail: `${D.CARDS.length} cards (${D.ALIAS.size} retired into them), ${pos.size} positions, ${D.TRAINER_IDS.length} Coach and Stadium cards; active players ${D.RARITY.map((r, i) => `${r} ${live[i]}`).join(', ')}`};
   });
@@ -373,13 +375,13 @@ export async function dynastyChecks(check) {
     return {pass: legends.length > 100 && !wrong.length && !portraits.length && cut,
       detail: `${legends.length} Legend cards, ${legends.filter(c => A.ACTION[c.p]).length} with an action photo${wrong.length ? `; wrong: ${wrong.map(c => c.name).join(', ')}` : ''}; showing his number: ${[...new Set(legends.filter(c => !A.ACTION[c.p]).map(c => c.name))].join(', ') || 'none'}${portraits.length ? `; portraits on ${portraits.map(c => c.name).join(', ')}` : ''}`};
   });
-  check('Gridiron Rivals: action photos (the owner, Oct 31 2026: "There should be a clean cutout of the player in game ... All cards aside from the common \u201cbasic\u201d cards should have an action photo of them in their playing days"): every Rare, Epic, Legendary or Mythic card of a player with one, and every Legend card, wears it cut out over its team\u2019s colours; up close it names the trading card the photo is from, or credits the Commons photo (author, licence, page); every Common card but a Legend\u2019s keeps its headshot; every photo loads', async () => {
+  check('Gridiron Rivals: action photos (the owner, Oct 31 2026: "There should be a clean cutout of the player in game"; Nov 7 2026: "Use the players official nfl headshots for common and epic cards"): every Legendary or Mythic card of a player with one, and every Legend card, wears it cut out over its team\u2019s colours; up close it names the trading card the photo is from, or credits the Commons photo (author, licence, page); every Common and Epic card but a Legend\u2019s wears his official NFL headshot (ESPN\u2019s as the fallback); every photo loads', async () => {
     const [V, A, R, data] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-action.js'), import('./dynasty-real.js'), import('./data.js')]);
     const keys = Object.keys(A.ACTION);
-    // (one card a player, Nov 2 2026: a player under 80 is Common, so he keeps his headshot though he has a photo)
+    // (Nov 7 2026: a Common or Epic player, under 90, wears his NFL headshot though he has a photo)
     const known = keys.length >= 150 && keys.every(p => D.DATA.players[p] && A.ACTION[p].length === 6 && A.actionCredit(p) && D.CARDS.some(c => c.p === p));
-    const wears = c => A.ACTION[c.p] && (c.r !== 'common' || c.s === 'X');
-    const rare = D.CARDS.filter(c => c.r !== 'common'), wearing = D.CARDS.filter(wears), common = D.CARDS.filter(c => c.r === 'common' && c.s !== 'X');
+    const wears = c => A.ACTION[c.p] && (D.actionRarity(c.r) || c.s === 'X');
+    const rare = D.CARDS.filter(c => D.actionRarity(c.r)), wearing = D.CARDS.filter(wears), common = D.CARDS.filter(c => !D.actionRarity(c.r) && c.s !== 'X');
     const shows = wearing.length > 0 && wearing.every(c => {
       const el = document.createElement('div'); el.innerHTML = V.cardHTML(c);
       const img = el.querySelector('.pk-c-ph'), cr = V.creditHTML(c), r = A.actionCredit(c.p), T = D.teamOf(c.team);
@@ -388,11 +390,18 @@ export async function dynastyChecks(check) {
         && /\.webp$/.test(A.actionUrl(c.p)) && el.firstElementChild.style.getPropertyValue('--tp') === T.pri && credited;
     });
     const kept = common.every(c => c.head === (D.DATA.players[c.p][4] || '') && !V.cardHTML(c).includes('is-action'));
+    // (the official NFL.com headshot on every Common and Epic card NFL has one for, ESPN's in data-alt behind it)
+    const headed = common.filter(c => c.head), official = headed.filter(c => /^n:/.test(c.head));
+    const nfl = official.length >= headed.length - 5 && common.some(c => c.r === 'epic') && official.every(c => {
+      const el = document.createElement('div'); el.innerHTML = V.cardHTML(c);
+      const img = el.querySelector('.pk-c-ph'), src = img?.getAttribute('src') || '';
+      return src.startsWith('https://static.www.nfl.com/image/') && src === V.headUrl(c.head, 300) && (!c.alt || img.dataset.alt === V.headUrl(c.alt, 300));
+    });
     const fromCards = keys.filter(p => A.ACTION[p][1].startsWith('card:')).length;
     const without = [...new Set(rare.filter(c => !A.ACTION[c.p]).map(c => c.name))];
     const urls = keys.map(A.actionUrl);
     const got = await Promise.all(urls.map(u => fetch(u, {method: 'HEAD', cache: 'no-store'}).then(r => r.ok).catch(() => false)));
-    return {pass: known && shows && kept && got.every(Boolean),
-      detail: `${keys.length} players (${fromCards} from their trading cards) on ${wearing.length} cards; ${common.length} Common cards keep their headshot; Rare+ without one: ${without.join(', ') || 'none'}; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
+    return {pass: known && shows && kept && nfl && got.every(Boolean),
+      detail: `${keys.length} players (${fromCards} from their trading cards) on ${wearing.length} cards; ${common.length} Common and Epic cards keep their headshot (${official.length} of ${headed.length} NFL.com's); Legendary+ without one: ${without.join(', ') || 'none'}; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
   });
 }

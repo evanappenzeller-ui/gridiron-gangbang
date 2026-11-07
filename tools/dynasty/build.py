@@ -18,6 +18,7 @@ Rarity is by OVR: Mythic 85+, Legendary 80-84, Epic 75-79, Rare 65-74, Common 64
 Oct 29 2026: a card with a real trading card is Rare or better, every other Common: core/dynasty.js rarityOf.)
 """
 import csv, json, math, os, sys, urllib.request, datetime
+from nfl_heads import nfl_head
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, 'data', 'dynasty.json')
@@ -403,10 +404,12 @@ def main():
             p['attrs'] = out
 
     def head_of(r):
-        if r.get('espn_id'):
-            return r['espn_id']
-        u = r.get('headshot_url') or ''
-        return 'n:' + u.rsplit('/', 1)[-1] if u else ''
+        # (the official NFL.com headshot first, Nov 7 2026; ESPN's id is kept as the fallback, alt_of; nfl_heads.py)
+        h = nfl_head(r.get('headshot_url'))
+        return h or r.get('espn_id') or ''
+
+    def alt_of(r):
+        return r.get('espn_id') or '' if nfl_head(r.get('headshot_url')) else ''
 
     cards, P = [], {}
     pid = {}
@@ -416,7 +419,7 @@ def main():
         pid[r['gsis_id']] = key
         h = head_of(r)
         P[key] = [r['full_name'], r['team'], p['pos'], int(num(r['jersey_number'])) if r['jersey_number'] else 0, h,
-                  int(num(r['years_exp'])), r['college'].split(';')[0], p['draft']]
+                  int(num(r['years_exp'])), r['college'].split(';')[0], p['draft'], alt_of(r)]
         lines = [line(p['pos'], p['b']) if p['b'] else '', line(p['pos'], p['a']) if p['a'] else '']
         cards.append({'id': 'L' + key, 's': 'L', 'p': key, 'o': p['ovr'], 'a': p['attrs'], 'ln': lines})
         p['key'] = key

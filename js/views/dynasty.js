@@ -41,9 +41,14 @@ export const headUrl = (h, w = 300) => {
   if (/^https?:\/\//.test(s)) return s;
   // (a Legend's photo, from Wikimedia Commons: core/dynasty-legends.js)
   if (s.startsWith('w:')) return legendUrl(s.slice(2));
-  // (an Epic or better card's action photo, cut out, from Wikimedia Commons: core/dynasty-action.js)
+  // (a Legendary or Mythic card's action photo, cut out: core/dynasty-action.js)
   if (s.startsWith('a:')) return actionUrl(s.slice(2));
-  if (s.startsWith('n:')) return `https://static.www.nfl.com/image/upload/f_auto,q_auto,w_${w}/league/${encodeURIComponent(s.slice(2))}`;
+  // (his official NFL.com headshot, Common and Epic cards: 'n:<id>', or 'n:private/<id>' in NFL's private bucket;
+  // tools/dynasty/nfl_heads.py)
+  if (s.startsWith('n:')) {
+    const [kind, id] = s.startsWith('n:private/') ? ['private', s.slice(10)] : ['upload', s.slice(2)];
+    return `https://static.www.nfl.com/image/${kind}/f_auto,q_auto,w_${w}/league/${encodeURIComponent(id)}`;
+  }
   return `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${s.replace(/[^0-9]/g, '')}.png&w=${w}&h=${Math.round(w * 436 / 600)}`;
 };
 // (a real card that won't load gives way to the headshot it carries, else to the window beneath: a Legend's number)
@@ -69,22 +74,26 @@ export const pipHTML = e => `<i class="pk-e" style="--ec:${ENERGY_COLOR[e] || '#
 const currentEnergyRule = () => rivalsUpdated() ? B.FRONT_ENERGY : 0;
 const typeHTML = (t, rule) => pipHTML(B.TYPES[t] ? B.typeEnergy(t, rule) : t);
 
-// ---------------------------------------------------------------------------------------------------- a card
-/** Whether a head is a photo (a Legend's: a rectangle filling the window), not a cut-out (a headshot, or a Epic or
- *  better card's action photo). */
+/** Whether a head is a photo (a Legend's: a rectangle filling the window), not a cut-out (a headshot, or a Legendary or
+ *  Mythic card's action photo). */
 export const isPhoto = h => /^w:/.test(String(h || ''));
-/** Whether a head is an Epic or better card's action photo (a cut-out of him in uniform). */
+/** Whether a head is a Legendary or Mythic card's action photo (a cut-out of him in uniform). */
 export const isAction = h => /^a:/.test(String(h || ''));
 // New photo previews follow the four-player Rivals rollout, evaluated when rendering so switching profiles
 // re-evaluates the selected profile on every card render. Keep these outside action_photos.py's shared rebuild.
-const ownerActionUrl = c => rivalsUpdated() && c?.p === '0035276' && c.r !== 'common'
+const ownerActionUrl = c => rivalsUpdated() && c?.p === '0035276' && D.actionRarity(c.r)
   ? 'img/dynasty/owner/0035276-v1.webp' : '';
-/** The portrait for this viewer, shared by collection cards and battle pieces. */
+/** The portrait for this viewer, shared by collection cards and battle pieces (alt: ESPN's headshot, for when the
+ *  official NFL one won't load). */
 export function portraitOf(c, w = 300) {
   const owner = ownerActionUrl(c), h = c?.head;
-  return {url: owner || (h && !/^https?:/.test(h) ? headUrl(h, w) : ''),
+  const url = owner || (h && !/^https?:/.test(h) ? headUrl(h, w) : '');
+  return {url, alt: url && !owner && String(h).startsWith('n:') && c.alt ? headUrl(c.alt, w) : '',
     photo: !owner && isPhoto(h), action: !!owner || isAction(h)};
 }
+/** An <img>'s alt-source attribute and error handler: falls back to data-alt once, then removes itself. */
+export const imgFallback = p => (p.alt ? ` data-alt="${esc(p.alt)}"` : '') + ` onerror="${HEAD_FAIL}"`;
+const HEAD_FAIL = "if(this.dataset.alt){this.src=this.dataset.alt;this.removeAttribute('data-alt')}else this.remove()";
 /** A player card, laid out as a Pokémon card. o: {size: 's'|'m'|'l', count (copies held), ghost (not held), isNew, tag
  *  (a button: data-dy-card), cls}. */
 export function cardHTML(c, o = {}) {
@@ -94,7 +103,7 @@ export function cardHTML(c, o = {}) {
   // Portraits give every series one clear visual language. 
   // Some legacy head values are complete card scans; use a jersey number instead of framing those twice.
   const portrait = portraitOf(c, o.size === 'l' ? 520 : 300);
-  const photo = portrait.url ? `<img class="pk-c-ph${portrait.photo ? ' is-photo' : portrait.action ? ' is-action' : ''}" src="${esc(portrait.url)}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async" draggable="false" onerror="this.remove()">` : '';
+  const photo = portrait.url ? `<img class="pk-c-ph${portrait.photo ? ' is-photo' : portrait.action ? ' is-action' : ''}" src="${esc(portrait.url)}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async" draggable="false"${imgFallback(portrait)}>` : '';
   const rarity = String(c.r || 'common'), stage = pc ? 0 : B.stageOf(c.id, o.rulesVersion || B.RULES_VERSION);
   const label = pc ? `${pc.canonicalName}, ${rarity}, ${pc.position}, ${pc.hp} HP, ${pc.types.join(' / ')}, ${PC.pointValue(pc)} knockout point, fictional balance values${o.count > 1 ? `, ${o.count} copies` : ''}` : `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const atk = st.attacks.map((a, n) => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}</em></span>`
@@ -329,7 +338,7 @@ function oddsSheet(kind) {
   const pool = {live: 'any active player (one card each, his best)', trainer: 'a Trainer card (Supporter, Item or Stadium)', all: 'any active player, more often a Rookie, Gameday, Prime or Award card', gameday: 'a Gameday card (this week’s three times as likely)', elite: 'Legend 25%, Prime 30%, Award 20%, Gameday 25%, all 90+'};
   const body = D.packOdds(kind).map(g => `<section class="pk-odds"><h3>${g.n === 1 ? '1 card' : `${g.n} cards`}: ${esc(pool[g.pool] || g.pool)}</h3>`
     + `<ul>${g.odds.map(o => `<li><span class="pk-sym">${g.pool === 'trainer' ? (o.r === 'legendary' ? '◆◆◆' : '◆◆') : g.pool === 'elite' || g.pool === 'gameday' ? '★★ ♛' : RAR_SYM[o.r]}</span>${esc(g.pool === 'trainer' ? (o.r === 'legendary' ? 'Legendary' : 'Epic') : D.RARITY_NAME[o.r])}<b>${o.pct}%</b></li>`).join('')}</ul></section>`).join('')
-    + `<p class="pk-note">One card a player, its rarity by his OVR: ◆ Common (under ${D.SCALE.epic}, his headshot) · ◆◆◆ Epic (${D.SCALE.epic}–${D.SCALE.legendary - 1}) · ◆◆◆◆ Legendary (${D.SCALE.legendary}–${D.SCALE.mythic - 1}) · ★ Mythic (${D.SCALE.mythic}+) · ★★ Prime, Gameday and Award cards · ♛ Legends. No pack holds the same card or player twice. Every pack also gives 5 pack points.</p>`;
+    + `<p class="pk-note">One card a player, its rarity by his OVR: ◆ Common (${D.SCALE.epic - 1} or less, his NFL headshot) · ◆◆◆ Epic (${D.SCALE.epic}–${D.SCALE.legendary - 1}, his NFL headshot) · ◆◆◆◆ Legendary (${D.SCALE.legendary}–${D.SCALE.mythic - 1}, an action photo) · ★ Mythic (${D.SCALE.mythic}–99, an action photo) · ★★ Prime, Gameday and Award cards · ♛ Legends. No pack holds the same card or player twice. Every pack also gives 5 pack points.</p>`;
   ui.openSheet({title: 'Offering Rates', body: `<p class="pk-note">${esc(P.name)}</p>` + body, cls: 'pk-sheet', detents: ['fit']});
 }
 /** The packs on the home, in Pocket's order: the Starter Pack first while it waits, then the rest. */

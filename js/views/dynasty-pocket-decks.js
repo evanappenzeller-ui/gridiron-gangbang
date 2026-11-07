@@ -21,7 +21,7 @@ const rental = () => ({...C.rentalDeck(), id: 'rental', rental: true});
 
 function art(c, portrait) {
   const source = c?.sourceId && D.card(c.sourceId), p = source && portrait?.(source, 300);
-  return p?.url ? `<img src="${esc(p.url)}" alt="" loading="lazy" decoding="async" draggable="false">`
+  return p?.url ? `<img src="${esc(p.url)}" alt="" loading="lazy" decoding="async" draggable="false"${p.alt ? ` data-alt="${esc(p.alt)}" onerror="if(this.dataset.alt){this.src=this.dataset.alt;this.removeAttribute('data-alt')}"` : ''}>`
     : `<span aria-hidden="true">${esc(c?.position || (c?.kind === 'player' ? 'NFL' : '◇'))}</span>`;
 }
 
