@@ -98,7 +98,7 @@ function drawHTML(root, ev, you, opponent, rev) {
       + `<p class="rp-sr-only" role="status">${who} ${verb} ${n === 1 ? 'a card' : n + ' cards'}.</p><button type="button" class="rp-draw-skip" data-rp-skip>Skip</button>`;
   }
   const deck = rectOf(root, '.rp-deck.is-mine') || {left:innerWidth - 70, top:innerHeight * .55, width:56, height:78};
-  const dc = center(deck), names = ev.ids.map(id => C.card(id)?.name || 'a card');
+  const dc = center(deck), names = ev.ids.map(id => C.card(id)?.athlete || C.card(id)?.name || 'a card');
   const cards = drawLayout(n).map((r, i) => {
     const c = center(r), id = ev.ids[i];
     return `<div class="rp-draw-card is-${esc(C.card(id)?.rarity || 'common')}" style="${box(r)};--i:${i};--dx:${(dc.x - c.x).toFixed(1)}px;--dy:${(dc.y - c.y).toFixed(1)}px;--s0:${(deck.width / r.width).toFixed(3)}" aria-hidden="true"><div class="rp-draw-turn"><span class="rp-draw-face"><span class="rp-card-print">${printedCard(id, rev)}</span><i class="rp-draw-shine"></i></span><span class="rp-draw-reverse">${BACK}</span></div></div>`;

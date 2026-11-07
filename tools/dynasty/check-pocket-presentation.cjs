@@ -16,7 +16,7 @@ const server=http.createServer((req,res)=>{
 async function drain(page){
   // Each CPU play now waits for presentation and a full reading interval.
   for(let i=0;i<600;i++){
-    const skip=page.locator('[data-rp-skip]');if(await skip.count())await skip.click();
+    const skip=page.locator('[data-rp-skip]');if(await skip.count())await skip.first().click({timeout:1500}).catch(()=>{});
     const done=await page.evaluate(async()=>{const x=(await import('/js/core/dynasty-solo.js')).current();return x.state!=='theirs'&&!document.querySelector('.rp-cinema');});
     if(done)return;
     await page.waitForTimeout(100);
@@ -169,11 +169,11 @@ async function run(url){
       // Your drawn card turns over at center, then flies into its place in the fan; it waits hidden there until it lands.
       const drawn=await page.evaluate(async()=>{
         const C=await import('/js/core/dynasty-pocket-cards.js'),id=window.testX.G.p[0].hand.at(-1);
-        window.testPresentation.enqueue([{k:'draw',who:0,id}],window.testX);return C.card(id).name;
+        window.testPresentation.enqueue([{k:'draw',who:0,id}],window.testX);return C.card(id).athlete||C.card(id).name;
       });
       await page.waitForSelector('[data-rp-scene="draw"].is-mine');
       assert.match(await page.locator('.rp-draw-pill').innerText(),new RegExp('You drew '+drawn.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
-      assert((await page.locator('.rp-draw-card .rp-draw-face').innerText()).includes(drawn),'the drawn card is previewed');
+      {const faces=await page.locator('.rp-draw-card .rp-draw-face').allInnerTexts(),dbg=await page.evaluate(()=>[...document.querySelectorAll('.rp-cinema')].map(s=>s.dataset.rpScene+' '+s.className+' '+s.innerText.slice(0,80)));assert(faces.length===1&&faces[0].includes(drawn),'the drawn card is previewed '+drawn+' '+JSON.stringify({faces,dbg}));}
       assert(await page.locator('.rp-hand>[data-rp-hand]').last().evaluate(el=>el.classList.contains('is-incoming')&&getComputedStyle(el).visibility==='hidden'),'the drawn card waits hidden in the fan');
       assert(await page.locator('[data-rp]').evaluate(el=>el.inert),'table cannot send moves during the draw');
       if(label==='evan'){await page.waitForTimeout(800);await page.screenshot({path:path.join(out,'draw-preview.png')});}
