@@ -28,8 +28,11 @@ import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import * as R from '../core/return.js';
+import * as customize from '../core/return-customize.js';
+import * as locker from './return-customize.js';
 import * as SP from './drill-sprites.js';
 import * as D3 from './return-3d.js';
+import {drawRide} from './return-rides.js';
 import * as intro from './return-intro.js';
 import * as W from './return-world.js';
 import * as life from './return-life.js';
@@ -43,7 +46,7 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The version mark css/views/return.css carries (--rm-css): an older cached stylesheet gets the new one linked.
-const CSS_V = '12';
+const CSS_V = '13';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim() === CSS_V) return;
@@ -105,6 +108,7 @@ const koLabel = k => (k ? `Run ${k + 1} today` : 'Today’s kickoff');
 // board shows it on another of this person's (core ranElsewhere); then there's no kickoff till tomorrow's course.
 // Test play's sandbox runs as often as he likes.
 const doneToday = st => !R.testing() && (st.day.done || R.ranElsewhere(st.n));
+const customizeButton = () => features.returnManUpdated() ? '<button type="button" class="rm-customize-link" data-rm-customize>CUSTOMIZE <span>Skins &amp; rides</span></button>' : '';
 /** The card over the stage: before a kickoff (the first of the day: how to play), after he's run down, or paused. */
 function cardHTML(st) {
   const d = st.day, k = d.next;
@@ -129,7 +133,7 @@ function cardHTML(st) {
       + `<p class="rm-big"><span class="n1">${esc(nf(y))}</span><small>yards</small></p>`
       + `<p class="rm-card-s">${esc(`${R.endOf(run)} ${WHERE[th.id]}.${tds ? ` ${plural(tds, 'touchdown')}!` : ''}`)}</p>`
       + coinsLine(st, run) + best + note
-      + (done ? `<p class="rm-card-s">That’s your return for today.</p>${sb()}${nextKick()}` : again() + sb()) + `</div>`;
+      + (done ? `<p class="rm-card-s">That’s your return for today.</p>${sb()}${nextKick()}` : again() + sb()) + customizeButton() + `</div>`;
   }
   if (done) {
     // today's return run: its yards (or, run on another phone, that it was), and when the next kickoff comes
@@ -137,7 +141,7 @@ function cardHTML(st) {
       + (d.runs ? `<p class="rm-big"><span class="n1">${esc(nf(d.best))}</span><small>yards today</small></p>` : '')
       + `<h2 class="rm-card-t">That’s today’s return</h2>`
       + `<p class="rm-card-s">${esc(d.runs ? 'One kickoff a day. Come back tomorrow for the next one.' : 'You ran today’s kickoff on another phone. One a day: come back tomorrow for the next one.')}</p>`
-      + sb() + nextKick() + `</div>`;
+      + sb() + nextKick() + customizeButton() + `</div>`;
   }
   if (features.returnManUpdated() && st.mode === 'ready') {
     return `<div class="rm-card-in rm-start"><p class="rm-start-eyebrow">GRIDIRON ARCADE · ${R.testing() ? 'PRACTICE' : 'DAILY KICKOFF'}</p>`
@@ -145,8 +149,10 @@ function cardHTML(st) {
       + '<div class="rm-start-tunnel" aria-hidden="true"><i class="rm-start-light"></i><i class="rm-start-ball"></i></div>'
       + '<p class="rm-start-dare">FIELD THE PUNT.<br>TAKE IT TO THE HOUSE.</p>'
       + `<button type="button" class="rm-start-play" data-rm-go${st.goOn3D ? ' disabled aria-busy="true"' : ''}>${st.goOn3D ? 'GETTING READY…' : 'PLAY!'}<span>${R.testing() ? 'Practice · unlimited runs' : 'One return. Make it count.'}</span></button>`
+      + customizeButton()
       + '<div class="rm-start-menu"><details class="rm-start-help"><summary>HOW TO PLAY</summary>'
-      + '<ul class="rm-start-controls"><li><b>← →</b> Swipe to change lanes</li><li><b>↑</b> Jump onto roofs</li><li><b>↓</b> Slide under obstacles</li></ul>'
+      + '<ul class="rm-start-controls"><li><b>← →</b> Swipe to change lanes</li><li><b>↑</b> Jump onto roofs</li><li><b>↓</b> Slide under obstacles</li><li><b>2×</b> Double tap to ride (keyboard: R)</li></ul>'
+      + '<p>A ride lasts 12 seconds and takes one hit for you, then recharges for 20 seconds. Choose your scooter or hoverboard in Customize. Daily-run coins buy skins; practice does not earn coins.</p>'
       + `<p>All boosts give 2× points. Smelling salts expire when their speed boost ends. With a jetpack, swipe to barrel roll through coins. While the chaser is visible, your next unprotected hit ends the run. Stay clean until he leaves the screen.</p></details>`
       + '<button type="button" data-rm-sb>SCOREBOARD</button></div>'
       + `<p class="rm-start-date">${esc(R.dayLabel(st.n))}${R.testing() ? ' · Scores are not posted' : ''}</p></div>`;
@@ -258,10 +264,11 @@ function autoGo(st) {
 const playing = st => !st.day.runs || st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused';
 function bodyHTML(st) {
   return `<div class="rm${playing(st) ? ' is-playing' : ''}${features.returnManUpdated() ? ' is-updated-return' : ''}" data-rm>`
-    + `<div class="rm-stage" data-rm-stage data-hscroll aria-label="Return Man: swipe left or right to juke, up to jump, down to slide">`
+    + `<div class="rm-stage" data-rm-stage data-hscroll aria-label="Return Man: swipe left or right to juke, up to jump, down to slide, double tap to ride">`
     + `<div class="rm-layers" data-rm-layers><canvas class="rm-cv" data-rm-cv></canvas><div class="rm-gl" data-rm-gl></div><canvas class="rm-fx" data-rm-fx></canvas></div>${hudHTML()}`
     + `<div class="rm-pop" data-rm-pop aria-hidden="true"></div>`
     + `<div class="rm-intro-caption" data-rm-intro hidden role="status"></div>`
+    + `<button type="button" class="rm-ride-control" data-rm-ride hidden><span data-rm-ride-label>RIDE READY</span><small data-rm-ride-hint>Double tap · R</small><i aria-hidden="true"><b data-rm-ride-bar></b></i></button>`
     + `<div class="rm-card" data-rm-card role="group" aria-live="polite"${autoGoes(st) ? ' hidden' : ''}>${cardHTML(st)}</div></div>`
     + `<div class="rm-fill" data-rm-fill></div>`
     + `<div class="rm-board-w" data-rm-board>${boardHTML(st)}</div>`
@@ -316,6 +323,7 @@ function shadow(st, c, x, y, z, w = .55) {
 /** A picture of a move (a: {f, flip, mo (his stride's give: drill-sprites.js giveOf), ex (the move's own lift, squeeze,
  *  lean)}) at his feet (x, y, z). */
 function sprite(st, c, a, team, x, y, z, alpha = 1) {
+  if (team === US && st.skin?.jersey != null) team = ['#' + st.skin.jersey.toString(16).padStart(6, '0')];
   if (z < st.camZ + W.NEAR) return;
   const p = P(st, x, y, z), tall = p.s * TALL_YD;
   if (p.y < st.y0 - 40 || tall < 2) return;
@@ -637,7 +645,11 @@ function drawLanes(st, c, now) {
     if (sink > 0) { const road = P(st, bx, 0, az).y; c.beginPath(); c.rect(-1e4, -1e4, 2e4, road + 1e4); c.clip(); }
     const me = (x, z, alpha) => {
       if (R.flying(run) && R.airPoseOf(run) > .4) drawFlightRunner(st, c, x, ry, z, runner3(st, now), P, W.ICONS.jetpack);
-      else sprite(st, c, an, US, x, ry - sink, z, alpha);
+      else {
+        const riding = R.riding(run);
+        if (riding) drawRide(st, c, x, ry - sink, z, run.ride, P);
+        sprite(st, c, riding && !run.slide && !run.vy ? {f: 'rb.r_b0', ex: {sy: .93}} : an, US, x, ry - sink + (riding ? .35 : 0), z, alpha);
+      }
     };
     // a cut's and a spin's afterimages, behind him
     (an.ghosts || []).forEach(gh => sprite(st, c, {f: gh.f, flip: gh.flip, mo: an.mo, ex: an.ex}, US, bx + gh.dx, ry, az + .05, gh.a));
@@ -774,6 +786,7 @@ function recheckCoins(st) {
 /** He's run through a coin: its sparkle (where it was on him: it rides with him), the counter's tick, a tap. */
 function coinGot(st, e, now) {
   const run = st.run;
+  bankCoins(st);
   st.coinGot.add(e.coin.i);
   st.sparks.push({at: now, dx: R.xOf(run, e.coin.lane) - run.x, dy: e.coin.y - run.y, i: e.coin.i});
   if (st.sparks.length > 10) st.sparks.shift();
@@ -1009,6 +1022,32 @@ function setDay(st, n) {
   st.n = n;
   st.day = R.dayState(n);
 }
+function syncCustomize(st, state = customize.snapshot()) {
+  const changed = st.cosmetics?.skin !== state.skin;
+  st.cosmetics = state;
+  st.skin = customize.skinOf(state.skin).kit;
+  D3.setSkin(st.skin);
+  if (changed) st.warmed = false;
+}
+function bankCoins(st) {
+  if (st.walletRun && st.run) customize.credit(st.walletRun, st.run.c);
+}
+function openCustomize(st) {
+  if (!features.returnManUpdated() || (st.mode !== 'ready' && st.mode !== 'tackled')) return;
+  st.lastTap = null; st.ptr = null; st.goOn3D = false; st.customizing = true;
+  locker.open({
+    onChange: state => { if (!st.dead) { syncCustomize(st, state); draw(st); st.prepare?.(); } },
+    onClose: () => { st.customizing = false; if (!st.dead) { syncCustomize(st); draw(st); } }
+  });
+}
+function summonRide(st) {
+  st.lastTap = null;
+  if (st.mode !== 'run' || !st.run || st.customizing) return false;
+  const kind = (st.cosmetics || customize.snapshot()).ride;
+  if (!R.summonRide(st.run, kind)) return false;
+  ui.haptic('success'); ui.announce(`${kind === 'hoverboard' ? 'Hoverboard' : 'Scooter'} ready. Ride for 12 seconds with one-hit protection.`);
+  patchHud(st); return true;
+}
 function patchHud(st) {
   const shot = intro.shot(st, performance.now()), root = st.el.querySelector('[data-rm]');
   root?.classList.toggle('is-punt-intro', !!shot && st.mode === 'catch');
@@ -1042,6 +1081,23 @@ function patchHud(st) {
     }
     if (on) pw.querySelectorAll('[data-rm-bar]').forEach(b => { const k = b.dataset.rmBar, of = k === 'burst' ? R.burstSecs(run) : R.POWER[k].s; b.style.transform = `scaleX(${Math.max(0, Math.min(1, run[k] / of)).toFixed(3)})`; });
   }
+  const ride = el.querySelector('[data-rm-ride]');
+  if (ride) {
+    ride.hidden = !features.returnManUpdated() || st.mode !== 'run' || !run || run.over;
+    if (!ride.hidden) {
+      const active = R.riding(run), cooldown = run.rideCooldown || 0, flying = R.flying(run);
+      const name = (active ? run.ride.kind : st.cosmetics?.ride) === 'hoverboard' ? 'HOVERBOARD' : 'SCOOTER';
+      const label = active ? `${name} · ${Math.ceil(run.ride.left)}s` : cooldown > 0 ? `RECHARGE · ${Math.ceil(cooldown)}s` : flying ? 'LAND TO RIDE' : `${name} READY`;
+      const hint = active ? 'One-hit protection' : cooldown > 0 ? 'Charging your ride' : 'Double tap · R';
+      const l = ride.querySelector('[data-rm-ride-label]'), h = ride.querySelector('[data-rm-ride-hint]');
+      if (l.textContent !== label) l.textContent = label;
+      if (h.textContent !== hint) h.textContent = hint;
+      ride.disabled = active || cooldown > 0 || flying;
+      ride.classList.toggle('is-riding', active);
+      ride.setAttribute('aria-label', label + '. ' + hint);
+      ride.querySelector('[data-rm-ride-bar]').style.transform = `scaleX(${active ? run.ride.left / R.RIDE.s : cooldown > 0 ? 1 - cooldown / R.RIDE.cooldown : 1})`;
+    }
+  }
 }
 function setCard(st, show) {
   const card = st.el.querySelector('[data-rm-card]');
@@ -1070,6 +1126,7 @@ function pop(st, text, cls = '', sub = '') {
 }
 /** A kickoff: the ball comes down into his hands, then he's off. */
 function go(st) {
+  if (st.customizing) return;
   if (st.mode === 'run' || st.mode === 'catch') return;
   if (doneToday(st)) { st.mode = 'ready'; st.run = null; setCard(st, true); return; } // (one a day: today's is run)
   // (the 3D still coming: the kickoff waits for it, mount's settle3D; a run begun without it stays in the pictures)
@@ -1083,6 +1140,9 @@ function go(st) {
   // (the owner's: the hard course; the coins on the day's first run alone, core coinsOpen)
   const own = features.available(), k = st.day.next, coins = own && R.coinsOpen(st.n, k, own);
   st.run = R.startRun(st.n, k, own, coins, features.returnManUpdated());
+  syncCustomize(st);
+  st.walletRun = customize.beginRun(st.run, {practice: R.testing()});
+  st.lastTap = null; st.ptr = null;
   // (his first run here, but the board shows another of his phones ran the day's first: the end card says so)
   if (own && !coins && !k && !R.testing() && R.ranElsewhere(st.n)) st.run.elsewhere = true;
   st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0; st.edgeAt = 0; st.fall = null; st.splash = null; st.lagOut = null; st.dip = 0;
@@ -1101,6 +1161,7 @@ function go(st) {
   loop(st);
 }
 function tackled(st) {
+  bankCoins(st); st.lastTap = null; st.ptr = null;
   st.mode = 'tackled'; st.downAt = performance.now();
   ungot(st); clearPickupPop(st);
   ui.haptic('error');
@@ -1181,6 +1242,8 @@ function onEvents(st, evs) {
   const now = performance.now();
   const quiet = !!(st.run && st.run.co && st.run.co.hard), say = (...a) => { if (!quiet) pop(st, ...a); };
   evs.forEach(e => {
+    if (e.type === 'rideHit') { ui.haptic('warning'); ui.announce('Your ride took the hit. Keep running while it recharges.'); }
+    if (e.type === 'rideEnd' && e.reason !== 'hit') ui.announce('Ride finished. Recharging.');
     if (e.type === 'traffic') {
       ui.announce('Incoming train. Swipe to an open lane.'); ui.haptic('warning');
     }
@@ -1254,7 +1317,7 @@ function frame(st, now) {
  *  uncounted, onEvents, and a run on his hard course is whistled dead at the next frame, frame), so a run ended by a
  *  profile change keeps the ones he took: they're posted only from his profile (core coinsToPost). */
 const runCoins = st => (st.run && st.run.coins ? st.run.c : undefined);
-const keep = st => R.keepLive(st.n, st.run.k, st.run.yards, st.run.z, runCoins(st));
+const keep = st => { bankCoins(st); R.keepLive(st.n, st.run.k, st.run.yards, st.run.z, runCoins(st)); };
 function loop(st) {
   if (st.raf || st.dead) return;
   st.last = 0;
@@ -1276,6 +1339,7 @@ function pause(st) {
   if (st.mode !== 'run' && st.mode !== 'catch') return;
   if (intro.enabled(st)) { st.pausedMode = st.mode; st.pausedAt = performance.now(); }
   st.mode = 'paused';
+  st.lastTap = null; st.ptr = null;
   if (st.raf) { cancelAnimationFrame(st.raf); st.raf = 0; }
   keep(st);
   setCard(st, true);
@@ -1292,6 +1356,7 @@ function resume(st) {
 }
 /** A swipe (or a key): the move. */
 function swipe(st, dir) {
+  st.lastTap = null;
   if (st.mode !== 'run' || !st.run) return;
   if (R.move(st.run, dir)) ui.haptic(dir === 'left' || dir === 'right' ? 'selection' : 'light');
 }
@@ -1299,8 +1364,8 @@ function swipe(st, dir) {
 const SWIPE = 22; // px before a drag counts as a swipe (it goes the moment it does, not on lifting)
 function onDown(st, e) {
   // only on the field while a return's on (a card's buttons keep their taps: a captured pointer would take them)
-  if (e.button > 0 || !e.isPrimary || (st.mode !== 'run' && st.mode !== 'catch') || e.target.closest('[data-rm-card]')) return;
-  st.ptr = {id: e.pointerId, x: e.clientX, y: e.clientY, fired: false};
+  if (e.button > 0 || !e.isPrimary || st.customizing || (st.mode !== 'run' && st.mode !== 'catch') || e.target.closest('[data-rm-card], button, a, input, summary')) return;
+  st.ptr = {id: e.pointerId, x: e.clientX, y: e.clientY, at: performance.now(), fired: false};
   try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
 }
 function onMove(st, e) {
@@ -1315,13 +1380,21 @@ function onUp(st, e) {
   const p = st.ptr;
   if (!p || p.id !== e.pointerId) return;
   st.ptr = null;
+  try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
   if (p.fired) return;
   const dx = e.clientX - p.x, dy = e.clientY - p.y;
-  if (Math.max(Math.abs(dx), Math.abs(dy)) >= 12) swipe(st, Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down'));
+  if (Math.max(Math.abs(dx), Math.abs(dy)) >= 12) { swipe(st, Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down')); return; }
+  const now = performance.now(), last = st.lastTap;
+  if (st.mode !== 'run' || now - p.at > 250) { st.lastTap = null; return; }
+  if (last && now - last.at <= 320 && Math.hypot(p.x - last.x, p.y - last.y) < 48) summonRide(st);
+  else st.lastTap = {at: now, x: p.x, y: p.y};
 }
+function cancelPointer(st) { st.ptr = null; st.lastTap = null; }
 const KEYS = {ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'up', w: 'up', W: 'up', ' ': 'up', ArrowDown: 'down', s: 'down', S: 'down'};
 function onKey(st, e) {
-  if (!st.ctx.visible || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (!st.ctx.visible || st.customizing || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+  if ((e.key === 'r' || e.key === 'R') && st.mode === 'run') { e.preventDefault(); if (!e.repeat) summonRide(st); return; }
   const dir = KEYS[e.key];
   if (!dir || (st.mode !== 'run' && st.mode !== 'catch')) return;
   if (e.target && e.target.closest && e.target.closest('input, textarea, select')) return;
@@ -1369,8 +1442,10 @@ function testPlay(st, on) {
   if (auto) go(st);
 }
 function onClick(st, e) {
-  const t = e.target.closest('[data-rm-go], [data-rm-resume], [data-rm-sb], [data-rm-test]');
+  const t = e.target.closest('[data-rm-go], [data-rm-resume], [data-rm-sb], [data-rm-test], [data-rm-customize], [data-rm-ride]');
   if (!t || !st.el.contains(t)) return;
+  if (t.hasAttribute('data-rm-customize')) { openCustomize(st); return; }
+  if (t.hasAttribute('data-rm-ride')) { summonRide(st); return; }
   if (t.hasAttribute('data-rm-go')) { if (st.mode === 'tackled') { st.mode = 'ready'; st.run = null; } go(st); return; }
   if (t.hasAttribute('data-rm-resume')) { resume(st); return; }
   if (t.hasAttribute('data-rm-sb')) {
@@ -1405,6 +1480,7 @@ export function mount(el, ctx) {
   ensureCss();
   const st = {el, ctx, mode: 'ready', sbMode: 'today', run: null, knocked: new Map(), got: new Set(), coinGot: new Set(), sparks: [], dead: false, raf: 0, camX: null, camF: null, cheer: 0, lift: 0, mountAt: performance.now()};
   STATE.set(el, st);
+  syncCustomize(st);
   // a return left under way (the app closed mid-run) ends where it was
   R.settle(R.todayNumber());
   setDay(st, R.todayNumber());
@@ -1420,7 +1496,7 @@ export function mount(el, ctx) {
   size(st); patchHud(st); draw(st);
   const stage = el.querySelector('[data-rm-stage]');
   st.on = {
-    down: e => onDown(st, e), move: e => onMove(st, e), up: e => onUp(st, e), key: e => onKey(st, e), click: e => onClick(st, e),
+    down: e => onDown(st, e), move: e => onMove(st, e), up: e => onUp(st, e), cancel: () => cancelPointer(st), key: e => onKey(st, e), click: e => onClick(st, e),
     change: e => {
       if (!e.detail || e.detail.name !== 'rm-sb') return;
       e.stopPropagation();
@@ -1438,7 +1514,7 @@ export function mount(el, ctx) {
   stage.addEventListener('pointerdown', st.on.down);
   stage.addEventListener('pointermove', st.on.move);
   stage.addEventListener('pointerup', st.on.up);
-  stage.addEventListener('pointercancel', st.on.up);
+  stage.addEventListener('pointercancel', st.on.cancel);
   el.addEventListener('click', st.on.click);
   el.addEventListener('ui:change', st.on.change);
   addEventListener('keydown', st.on.key);
@@ -1457,6 +1533,11 @@ export function mount(el, ctx) {
   st.iconOwner = features.available();
   st.updatedReturn = features.returnManUpdated();
   st.unsubIcons = data.subscribe(type => {
+    if (type === 'me' && !st.dead && st.cosmetics?.profile !== customize.profileKey()) {
+      st.lastTap = null; st.ptr = null; st.walletRun = null;
+      locker.close(); syncCustomize(st); draw(st);
+      st.prepare?.();
+    }
     if (type === 'me' && !st.dead && st.updatedReturn !== features.returnManUpdated()) {
       st.updatedReturn = features.returnManUpdated();
       if (st.mode === 'ready') st.goOn3D = false;
@@ -1489,12 +1570,15 @@ export function mount(el, ctx) {
   // (the 3D in, or not to be had, or too slow: a kickoff that waited for it goes now)
   const settle3D = st.prepare = async () => {
     clearTimeout(st.wait3T); if (st.dead || st.preparing) return;
+    syncCustomize(st);
     if (features.returnManUpdated() && D3.ready() && !st.warmed && (st.mode === 'ready' || st.mode === 'tackled')) {
       draw(st); st.preparing = true;
+      const skin = st.cosmetics.skin;
       try {
         await D3.prepare(st);
         await Promise.all(['salts', 'pills', 'booze', 'jetpack'].map(async kind => { const img = new Image(); img.src = iconURL(kind); await img.decode().catch(() => {}); }));
-      } finally { st.preparing = false; st.warmed = true; }
+      } finally { st.preparing = false; st.warmed = st.cosmetics.skin === skin; }
+      if (!st.warmed && !st.dead) { settle3D(); return; }
     }
     if (st.dead) return;
     if (st.goOn3D) { st.goOn3D = false; go(st); } else draw(st);
@@ -1515,6 +1599,7 @@ export function unmount(el, ctx) {
   // a return under way when the page goes: it counts where it got to (no kickoff run twice)
   if (st.run && (st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused')) { keep(st); R.settle(st.n); R.autoPost(); }
   st.dead = true;
+  locker.close();
   clearTimeout(st.later); clearTimeout(st.gotT); clearTimeout(st.waitT); clearTimeout(st.wait3T);
   if (st.raf) cancelAnimationFrame(st.raf);
   const stage = el.querySelector('[data-rm-stage]');
@@ -1522,7 +1607,7 @@ export function unmount(el, ctx) {
     stage.removeEventListener('pointerdown', st.on.down);
     stage.removeEventListener('pointermove', st.on.move);
     stage.removeEventListener('pointerup', st.on.up);
-    stage.removeEventListener('pointercancel', st.on.up);
+    stage.removeEventListener('pointercancel', st.on.cancel);
   }
   el.removeEventListener('click', st.on.click);
   el.removeEventListener('ui:change', st.on.change);

@@ -119,6 +119,21 @@ export const airPoseOf = run => Math.min(1, run.jetAge / .45, run.jetpack / .65,
   run.jetpack < JETPACK.descend ? Math.max(0, (run.y - surfaceAt(run, laneOf(run), run.z, run.y)) / 1.8) : 1);
 export const TRAFFIC = {lead: 76, length: 20, speed: 12, height: 3.6, first: 155};
 export const flying = run => !!(run?.co.enhanced && features.returnManUpdated() && run.jetpack > 0);
+// Rides share the same rules; choosing one is cosmetic. Their clock advances only with the run.
+export const RIDE = Object.freeze({s: 12, cooldown: 20, kinds: Object.freeze(['scooter', 'hoverboard'])});
+export const riding = run => !!(run?.co.enhanced && features.returnManUpdated() && !run.over && run.ride?.left > 0 && !flying(run));
+export function summonRide(run, kind = 'scooter') {
+  if (!run || !run.co.enhanced || !features.returnManUpdated() || run.over || flying(run)
+    || run.ride || run.rideCooldown > 0 || !RIDE.kinds.includes(kind)) return false;
+  run.ride = {kind, left: RIDE.s, age: 0};
+  return true;
+}
+function endRide(run, out, reason) {
+  if (!run.ride) return;
+  const kind = run.ride.kind;
+  run.ride = null; run.rideCooldown = RIDE.cooldown;
+  out.push({type: 'rideEnd', kind, reason, z: run.z});
+}
 /** Active boosts share a single 2x multiplier; overlapping power-ups never multiply it again. */
 export const multiplierOf = run => run && (run.booze > 0 || (run.co.enhanced && features.returnManUpdated() && (run.burst > 0 || run.pills > 0 || flying(run)))) ? 2 : 1;
 // The moves, seconds: a juke takes you a lane over (eased out: most of the way at once, settling in; snappier, the
@@ -635,6 +650,7 @@ export function startRun(n, k, hard = false, coins = false, enhanced = false) {
   const co = course(n, 0, hard, enhanced);
   return {n, k, co, t: 0, steps: 0, chaseSteps: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
     jetpack: 0, jetAge: 0, jetFrom: 0, landing: 0, trains: [], nextTrain: 0,
+    ride: null, rideCooldown: 0,
     sky: null, jetSerial: 0, airC: 0, airHits: 0, airRollAt: -99, airRollFrom: 0, airRollTo: 0,
     slide: 0, lastJuke: -9, bump: -9, next: 0, nextCone: 0, nextItem: 0, zone: 0, tds: 0,
     salts: 0, pills: 0, booze: 0, shield: 0, burst: 0, over: false, why: null, by: null,
@@ -719,6 +735,14 @@ function hit(run, out, what) {
   if (run.grace > 0 && (!run.co.hard || sameCollision(run.lastHit, what))) {
     out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass';
   }
+  if (riding(run)) {
+    const kind = run.ride.kind;
+    endRide(run, out, 'hit');
+    // Only this contact is absorbed. The existing pursuit and the next distinct obstacle still count.
+    run.lastHit = what; run.grace = CHASE.grace;
+    out.push(Object.assign({type: 'rideHit', kind, z: run.z}, what));
+    return 'pass';
+  }
   const salts = run.salts > 0 && (!run.co.enhanced || run.burst > 0);
   if (what.wall && run.co.hard) {
     if (salts) {
@@ -759,6 +783,11 @@ export function hitLine(what) {
 }
 function sub(run, dt, out) {
   const co = run.co, v0 = speedAt(run.z, co.hard), v = v0 * (1 - CHASE.slowBy * run.slow / CHASE.slow) * (1 + burstOf(run));
+  run.rideCooldown = Math.max(0, (run.rideCooldown || 0) - dt);
+  if (run.ride) {
+    run.ride.age += dt; run.ride.left = Math.max(0, run.ride.left - dt);
+    if (run.ride.left <= 1e-9) endRide(run, out, 'expired');
+  }
   run.t += dt; run.z += v * dt; run.yards += v * dt * multiplierOf(run);
   if (co.enhanced && run.stumblePending && !chasing(run)) clearStumble(run);
   // (his strides: a yard a yard up to STRIDE_V, longer past it, so his legs never spin faster than they do at a sprint)
@@ -841,6 +870,7 @@ function sub(run, dt, out) {
     if (it.lane !== lane || Math.abs(run.y - groundAt(co, it.lane, it.z)) > 1.4) continue;
     if (it.kind === 'jetpack') {
       if (!co.enhanced || !features.returnManUpdated()) continue;
+      endRide(run, out, 'jetpack');
       run.jetpack = JETPACK.s; run.jetAge = 0; run.jetFrom = run.y; run.slide = 0; run.vy = 0; run.jumpQ = -9; run.sideHit = null;
       run.airRollAt = -99; run.airRollFrom = run.airRollTo = 0;
       run.sky = skyCourse(run, it.i);

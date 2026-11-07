@@ -1,5 +1,7 @@
 import * as features from '../core/features.js';
 import {makeJetpack, animateJetpack} from './return-jetpack.js';
+import {makeRide, animateRide} from './return-rides.js';
+import {riding} from '../core/return.js';
 // Return Man's players in real 3D (the owner's ask, Oct 2026: smooth, at the screen's frame rate, not pictures): a
 // rigged, animated cartoon football player (Evan, Nov 4 2026: Subway Surfers' style, chunky, big-headed, bright flat
 // colours): models/return-runner-v1.glb, KayKit's Adventurers (Kay Lousberg, CC0, https://kaylousberg.itch.io/kaykit-adventurers:
@@ -38,6 +40,35 @@ const KITS = {
     helmet: 0xF2F3F5, stripe: 0xC8102E, edge: 0x6E0E10, mask: 0x4E535C, numFill: 0xFFFFFF, numEdge: 0x6E0E10, num: 52, head: 'HeadLinebacker', ball: false, size: 1.06}
 };
 let T = null, GL = null, GL_UTILS = null, LOADING = null, DEAD = false;
+let SELECTED_KIT = KITS.us;
+const SKIN_VARIANTS = new Map();
+const kitKey = k => JSON.stringify(k);
+/** A selected wardrobe palette, never the linebacker's kit. Each finite catalog look is reused across profiles. */
+export function setSkin(colors = null) {
+  const kit = {...KITS.us};
+  if (colors) for (const role of Object.keys(kit)) {
+    if (role === 'size' || typeof kit[role] !== 'number') continue;
+    const value = colors[role];
+    if (Number.isInteger(value) && value >= 0 && value <= 0xFFFFFF) kit[role] = value;
+  }
+  SELECTED_KIT = kit;
+  if (!GL) return;
+  const key = kitKey(kit);
+  if (GL.skinKey === key) return;
+  let pair = SKIN_VARIANTS.get(key);
+  if (!pair) {
+    const us = dress(GL.gltf, GL.SK, kit), ghost = dress(GL.gltf, GL.SK, kit);
+    [us, ghost].forEach(P => { arm(P, GL.clips); rideGear(P); });
+    const materials = ghostMaterials(ghost);
+    us.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    W3.bend(us.root); W3.bend(ghost.root);
+    pair = {us, ghost, materials}; SKIN_VARIANTS.set(key, pair);
+  }
+  GL.scene.remove(GL.players.us.root, GL.players.ghost.root);
+  GL.players.us = pair.us; GL.players.ghost = pair.ghost; GL.ghost = pair.materials;
+  GL.scene.add(pair.us.root, pair.ghost.root); GL.skinKey = key;
+  PREPARED = null;
+}
 
 /** Loads three.js and the model, and dresses both players (once). Resolves true when they're in; false if this phone
  *  can't (no WebGL, a load failed): the sprite players stay. */
@@ -54,6 +85,7 @@ export function load() {
         const gltf = await new GLTFLoader().loadAsync(MODEL);
         try { await document.fonts.load('800 100px "Barlow Condensed"'); } catch (_) {}
         GL = build(gltf, SK, RoomEnvironment);
+        setSkin(SELECTED_KIT);
         return true;
       } catch (e) {
         console.warn('Return Man: no 3D players', e);
@@ -74,6 +106,12 @@ function flightGear(P) {
   if (!P.jetpack) { P.jetpack = W3.bend(makeJetpack(T)); P.jetpack.scale.setScalar(.7); P.root.add(P.jetpack); }
   return P.jetpack;
 }
+function rideGear(P) {
+  if (!P.rides) P.rides = Object.fromEntries(['scooter', 'hoverboard'].map(kind => {
+    const ride = makeRide(T, kind); ride.visible = false; P.root.add(ride); return [kind, ride];
+  }));
+  return P.rides;
+}
 /** Compile shaders and upload both players, flight gear and pickups before Play. */
 export function prepare(st) {
   if (!GL || !features.returnManUpdated()) return Promise.resolve();
@@ -83,6 +121,8 @@ export function prepare(st) {
     const {renderer, scene, players} = GL, warm = W3.warmObjects(), target = new T.WebGLRenderTarget(64, 64);
     const visibility = Object.values(players).map(P => [P, P.root.visible, P.root.position.clone()]);
     const gear = flightGear(players.us), wasGear = gear.visible;
+    const rides = [players.us, players.ghost].flatMap(P => Object.values(rideGear(P))).map(o => [o, o.visible]);
+    rides.forEach(([o]) => { o.visible = true; });
     GL.punt.visible = true; GL.punt.position.set(0, 2, -(st.camZ + 8));
     warm.position.z = -st.camZ;
     scene.add(warm); visibility.forEach(([P], i) => { P.root.visible = true; P.root.position.set((i - 1) * 1.4, 0, -(st.camZ + 8)); }); gear.visible = true;
@@ -94,6 +134,7 @@ export function prepare(st) {
       renderer.setRenderTarget(null); target.dispose(); scene.remove(warm); W3.releaseWarmObjects(warm);
       visibility.forEach(([P, visible, position]) => { P.root.visible = visible; P.root.position.copy(position); }); gear.visible = wasGear;
       GL.punt.visible = false;
+      rides.forEach(([o, visible]) => { o.visible = visible; });
     }
   })().catch(e => { PREPARED = null; console.warn('Return Man preparation:', e); });
   return PREPARED;
@@ -330,9 +371,11 @@ function build(gltf, SK, RoomEnvironment) {
   W3.init(T, scene, GL_UTILS);
   // the returner, the linebacker, and the returner seen double (booze): see-through
   const players = {us: dress(gltf, SK, KITS.us), them: dress(gltf, SK, KITS.them), ghost: dress(gltf, SK, KITS.us)};
+  [players.us, players.ghost].forEach(rideGear);
   const clips = bake(players.us, gltf);
   Object.values(players).forEach(P => arm(P, clips));
   const ghost = ghostMaterials(players.ghost);
+  SKIN_VARIANTS.set(kitKey(KITS.us), {us: players.us, ghost: players.ghost, materials: ghost});
   [players.us, players.them].forEach(P => P.root.traverse(o => { if (o.isMesh) o.castShadow = true; }));
   scene.add(W3.bend(players.us.root), W3.bend(players.them.root), W3.bend(players.ghost.root));
   // Reuse the existing football geometry/materials. The opening ball follows both gloves,
@@ -340,7 +383,7 @@ function build(gltf, SK, RoomEnvironment) {
   const punt = players.us.ball.clone(); punt.visible = false; punt.rotation.set(0, 0, 0); scene.add(punt);
   const camera = new T.PerspectiveCamera();
   camera.matrixAutoUpdate = true;
-  return {renderer, canvas, scene, camera, players, ghost, punt, gltf, SK, clips, hemi, sun, rim, w: 0, h: 0};
+  return {renderer, canvas, scene, camera, players, ghost, punt, gltf, SK, clips, hemi, sun, rim, skinKey: kitKey(KITS.us), w: 0, h: 0};
 }
 
 // ---------------------------------------------------------------------------- Posing him
@@ -504,12 +547,12 @@ function pose(P, s, dt) {
   }
   P.mixer.update(0);
   // Flight has its own neutral torso. Imported running clips carry a twist and lean that would turn the pack under him.
-  if (s.jetpack) P.flightRest.forEach(({b, q, p}) => { b.quaternion.copy(q); b.position.copy(p); });
+  if (s.jetpack || (s.ride && s.move !== 'slide')) P.flightRest.forEach(({b, q, p}) => { b.quaternion.copy(q); b.position.copy(p); });
   // the whole of him: turned, leaned, pitched forward about his feet
   P.root.rotation.order = s.jetpack ? 'ZXY' : 'YXZ';
   P.root.rotation.set(-(s.pitch || 0), -(s.turn || 0), -(s.roll || 0));
   // Roll around the torso in flight, not around the feet. Restore the standing pivot on landing.
-  P.wrap.position.y = s.jetpack ? -.85 * (s.flight || 0) : 0;
+  P.wrap.position.y = s.jetpack ? -.85 * (s.flight || 0) : s.ride ? .35 : 0;
   if (s.jetpack) P.root.position.y += .85 * (s.flight || 0);
   P.root.updateMatrixWorld(true);
   P.wrap.getWorldQuaternion(P.q);
@@ -529,6 +572,23 @@ function pose(P, s, dt) {
     animateJetpack(P.jetpack, t);
   }
   if (P.jetpack) P.jetpack.visible = !!s.jetpack && features.returnManUpdated();
+  if (P.rides) for (const [kind, ride] of Object.entries(P.rides)) {
+    ride.visible = !!s.ride && s.ride.kind === kind && !s.jetpack;
+    if (ride.visible) animateRide(ride, s.ride, s.move === 'slide', s.reduced);
+  }
+  if (s.ride && s.move !== 'slide') {
+    const scooter = s.ride.kind === 'scooter', crouch = s.move === 'jump' ? .36 : .16;
+    trunk(P, [0, 1, .12]);
+    leg(P, 'Left', [.12, -1, crouch], [.04, -1, -crouch]);
+    leg(P, 'Right', [-.12, -1, -.08], [-.03, -1, .08]);
+    if (scooter) {
+      limb(P, 'Left', [.24, -.7, .7], [-.08, -.25, 1]);
+      limb(P, 'Right', [-.24, -.7, .7], [.08, -.25, 1]);
+    } else {
+      limb(P, 'Left', [.65, -.6, .2], [.5, -.5, .2]);
+      limb(P, 'Right', [-.65, -.6, -.15], [-.5, -.5, .15]);
+    }
+  }
   // a stumble: the trunk forward (not down in a slide), his free arm flailing
   if (s.stumble > 0) {
     if (want !== 'slide') trunk(P, [0, .78, .62], s.stumble * .8);
@@ -587,8 +647,11 @@ export function render(st, now, who) {
     const P = GL.players[k], w = who[k];
     P.root.visible = !!(w && w.show !== false);
     if (!P.root.visible) return;
-    P.root.position.set(w.x, w.y + (w.spec.lift || 0), -w.z);
-    pose(P, w.spec, P.last ? Math.min(.1, Math.max(0, (now - P.last) / 1000)) : 1);
+    const ride = k !== 'them' && riding(st.run) ? st.run.ride : null;
+    const spec = ride ? {...w.spec, ride, reduced: st.reducedMotion, ball: false, carry: 0, lift: 0,
+      pitch: w.spec.move === 'slide' ? w.spec.pitch : 0, roll: (w.spec.roll || 0) * .45} : w.spec;
+    P.root.position.set(w.x, w.y + (spec.lift || 0), -w.z);
+    pose(P, spec, P.last ? Math.min(.1, Math.max(0, (now - P.last) / 1000)) : 1);
     P.last = now;
     if (k === 'ghost') GL.ghost.forEach(m => { m.opacity = w.alpha; });
   });

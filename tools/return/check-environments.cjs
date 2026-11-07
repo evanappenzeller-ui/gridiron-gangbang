@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Shared living scenery and deployed owner-art parity regression. No server required.
+// Shared dense scenery and deployed-art regression. No server required.
 // Run: node tools/return/check-environments.cjs
 // Baseline modules/assets come from the deployed version before the living scenery pass.
 // Every request is fulfilled locally or blocked. The app boot/score posting never runs.
@@ -241,6 +241,16 @@ async function fixture(browser, legacy = false) {
         st.co.rows = []; st.co.sets = []; st.co.items = [];
         st.run.z = 35; st.camZ = 28; camera.position.z = -st.camZ; render();
       },
+      portrait() {
+        st.W = 390; st.H = 780; st.f = 409.5; st.y0 = st.H * .32; st.camZ = 0; st.run.z = 7;
+        st.camH = st.camH0 = (st.H - Math.max(96, st.H * .19) - st.y0) * st.back / st.f;
+        camera.position.set(0, st.camH, 0);
+        for (const cv of [sky, fallback, composite]) { cv.width = st.W; cv.height = st.H; }
+        sky.style.width = '390px'; sky.style.height = '780px';
+        renderer.setSize(st.W, st.H); renderer.domElement.style.width = '390px'; renderer.domElement.style.height = '780px';
+        camera.projectionMatrix.makePerspective(-st.W / 2 / st.f * .1, st.W / 2 / st.f * .1, st.y0 / st.f * .1, -(st.H - st.y0) / st.f * .1, .1, 400);
+        camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert(); render();
+      },
       fallbackImage() { return fallback.toDataURL('image/png'); }
     };
   }, legacy).catch(error => { error.message += '\nFixture diagnostics: ' + JSON.stringify({legacy, errors, failed, external}); throw error; });
@@ -295,7 +305,9 @@ function unchanged(actual, expected, label) {
         const s = await current.snapshot(theme); report.themes[theme].public = s;
         rendered(s, 'public ' + theme);
         if (theme === 'stadium') assert(s.logo, 'original midfield logo restored');
-        else compare(s, report.themes[theme].baseline, theme + ': public scenery matches deployed owner art');
+        const prior = report.themes[theme].baseline;
+        assert.notEqual(s.geometryHash, prior.geometryHash, theme + ': new themed scenery is rendered');
+        assert(s.vertices > prior.vertices, theme + ': denser than the earlier scenery');
       }
       assert(current.imageRequests.length > 0, 'public profiles load v3 art');
       // (the Unity-pack scenery: every place but the stadium has its models, asked for once each, for everyone)
@@ -347,12 +359,20 @@ function unchanged(actual, expected, label) {
       await current.page.screenshot({path: path.join(output, 'restored-midfield-logo.png')});
       const logoFlat = await current.page.evaluate(() => window.environmentCheck.fallbackImage());
       fs.writeFileSync(path.join(output, 'restored-midfield-logo-2d.png'), Buffer.from(logoFlat.split(',')[1], 'base64'));
+      await current.page.setViewportSize({width: 390, height: 780});
+      for (const theme of ['desert', 'city', 'beach']) {
+        await current.snapshot(theme);
+        await current.page.evaluate(() => window.environmentCheck.portrait());
+        await current.page.screenshot({path: path.join(output, `portrait-${theme}.png`)});
+        const flat = await current.page.evaluate(() => window.environmentCheck.fallbackImage());
+        fs.writeFileSync(path.join(output, `portrait-${theme}-2d.png`), Buffer.from(flat.split(',')[1], 'base64'));
+      }
       current.clean('current'); assert.equal(report.failures.length, 0, report.failures.join('\n')); report.passed = true;
     } finally { await current.close(); }
   } finally {
     fs.writeFileSync(path.join(output, 'environment-checks.json'), JSON.stringify(report, null, 2) + '\n');
     await browser.close();
   }
-  console.log('All nine living scenes match the deployed owner art across member/app-user/guest/unselected profiles, account transitions, reduced motion and 2D fallbacks passed.');
+  console.log('All nine scenes are denser than the earlier art and identical across member/app-user/guest/unselected profiles; account transitions, reduced motion and 2D fallbacks passed.');
   console.log('Screenshots and metrics: ' + output);
 })().catch(error => { console.error(error); process.exitCode = 1; });

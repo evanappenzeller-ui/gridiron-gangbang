@@ -261,6 +261,24 @@ Do not restore legacy score or Keepfall save fields into the v3 save namespaces.
 
 ## Return Man art direction
 
+November 7, 2026 scenery, Customize and rides (shared with every Return Man player):
+`return-neighborhoods.js` adds deterministic, batched roadside scenes in all nine places, with matching canvas
+fallbacks and a clear run corridor. The desert has continuous western storefronts, saloon signs, cacti, mining
+props and layered canyon cliffs. Keep the 500-yard zone length, existing model fallbacks and scene budgets.
+
+Customize opens from the title and finished-day cards. `core/return-customize.js` owns seven skin palettes and
+two free rides, with purchases and equipment saved under `gg-return-customize:<stable profile key>:v1`.
+The unselected visitor has a separate device-local slot. Daily-run pickups credit a cumulative per-day receipt
+once; practice never earns currency. Profile changes invalidate the active wallet receipt and close Customize.
+These coins do not spend Keepfall Gold, import old device-wide score history, change daily attempts or reset saves.
+The screen says its wallet is saved on this device. Failed storage writes must not grant or charge purchases.
+
+Double tap, the ride button or R summons the equipped scooter/hoverboard: 12 seconds, one absorbed collision,
+then a 20-second recharge. Rides preserve jump/slide/roof behavior and give no scoring multiplier. Jetpacks stow
+them; all ride timers pause with simulation. `return-rides.js` owns 3D/canvas props; `return-3d.js` caches skin
+models and warms ride shaders before Play. Verify `check-neighborhoods.cjs`, `check-customize.cjs`,
+`check-customize-integration.cjs` and `check-rides.cjs`, plus the existing Return Man checks below.
+
 November 5, 2026 shared rollout (Evan: "Make all the new return man changes available to all players"):
 the complete November 4–5 pilot is now available to members, app users, named guests and unselected players.
 `core/features.js` `returnManUpdated()` controls Return Man alone, independently of owner privileges and other

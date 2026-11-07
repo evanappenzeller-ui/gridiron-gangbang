@@ -29,6 +29,7 @@ import * as fieldLogo from './return-field-logo.js';
 import * as data from '../core/data.js';
 import * as style from './return-style.js';
 import {decorate} from './return-scenery.js';
+import * as neighborhoods from './return-neighborhoods.js';
 import * as models from './return-models.js';
 
 let T = null, U = null, SCENE = null, ROOT = null;
@@ -371,6 +372,7 @@ function chunk(st, i) {
   D.list.forEach(o => {
     const at = Math.max(o.z0, o.z1 || o.z0);
     if (at < z0 || at >= z1) return;
+    if (o.k === 'neighborhood') { neighborhoods.draw3(b, lit, o, g, sign); return; }
     if (models.prop(b, lit, o, id)) return;
     const f = PROPS[o.k];
     if (f) f(b, lit, o, g, st);

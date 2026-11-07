@@ -84,11 +84,12 @@ export function drawHazard(st, c, h, project, t) {
 /** Foreshortened back view for devices without WebGL: head ahead, boots trailing, pack facing the camera. */
 export function drawFlightRunner(st, c, x, y, z, spec, project, pack) {
   const p = project(st, x, y + .85, z);
+  const jersey = st.skin?.jersey != null ? '#' + st.skin.jersey.toString(16).padStart(6, '0') : '#152D54';
   c.save(); c.translate(p.x, p.y); c.scale(p.s, p.s); c.rotate(-spec.roll);
-  c.fillStyle = '#152D54'; c.strokeStyle = '#E8B68B'; c.lineWidth = .18; c.lineCap = 'round';
+  c.fillStyle = jersey; c.strokeStyle = '#E8B68B'; c.lineWidth = .18; c.lineCap = 'round';
   for (const side of [-1, 1]) {
     c.beginPath(); c.moveTo(side * .28, -.12); c.lineTo(side * .42, -.63); c.stroke();
-    c.fillRect(side * .19 - .09, .18, .18, .58); c.fillStyle = '#F3EAD4'; c.fillRect(side * .19 - .11, .65, .22, .2); c.fillStyle = '#152D54';
+    c.fillRect(side * .19 - .09, .18, .18, .58); c.fillStyle = '#F3EAD4'; c.fillRect(side * .19 - .11, .65, .22, .2); c.fillStyle = jersey;
   }
   c.beginPath(); c.ellipse(0, -.03, .33, .43, 0, 0, Math.PI * 2); c.fill();
   c.fillStyle = '#E8B68B'; c.beginPath(); c.ellipse(0, -.52, .2, .18, 0, 0, Math.PI * 2); c.fill();

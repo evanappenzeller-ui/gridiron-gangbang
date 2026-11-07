@@ -15,6 +15,7 @@ import {jetpackIcon} from './return-jetpack.js';
 // Owner: RETURN.
 import * as R from '../core/return.js';
 import * as fieldLogo from './return-field-logo.js';
+import * as neighborhoods from './return-neighborhoods.js';
 import {backdrop, bowl, seeded, sparkle} from './stadium.js';
 
 export const NEAR = .9, FAR = 150;
@@ -539,7 +540,6 @@ const DRESS = new Map();
 const CARS = ['#C8102E', '#1D3F8F', '#E8E8EC', '#2A2D33', '#7B8794', '#B98A2F', '#2E6B4F', '#5E2A84'];
 const BRICK = ['#B5654A', '#D8C3A0', '#8FA5BA', '#5E7A91', '#C9B79C', '#9E4F3E', '#E3DCCF', '#6E7F8F'];
 const SIGNS = ['SALOON', 'TRADING POST', 'GENERAL STORE', 'SHERIFF', 'BANK', 'HOTEL', 'BARBER', 'SALOON'];
-const WOOD = ['#9A5B34', '#B06D3E', '#8A4F2E', '#C27D48'];
 const DRESSERS = {
   stadium() {},
   tailgate(list, z0, z1, r) {
@@ -566,14 +566,17 @@ const DRESSERS = {
   },
   desert(list, z0, z1, r) {
     [-1, 1].forEach(s => {
-      for (let z = z0 + 10 + r() * 10; z < z1 - 14;) {
-        if (r() < .55) { const len = 7 + r() * 5; list.push({k: 'facade', s, x: 9.6 + r() * 1.2, z0: z, z1: z + len, h: 4.2 + r() * 2.2, col: WOOD[Math.floor(r() * WOOD.length)], name: SIGNS[Math.floor(r() * SIGNS.length)]}); z += len + 4 + r() * 8; }
-        else z += 10 + r() * 10;
+      let storefront = s > 0 ? 0 : 2;
+      for (let z = z0 + 5 + (s > 0 ? 2 : 0); z < z1 - 12;) {
+        const len = 9 + r() * 3, bright = ['#B86449', '#4D9E8B', '#D48F56', '#BB765C'];
+        list.push({k: 'facade', s, x: 9.6, z0: z, z1: z + len, h: 4.2 + r() * 1.8, col: bright[storefront % bright.length], name: SIGNS[storefront++ % SIGNS.length]});
+        z += len + 1.8;
       }
     });
-    for (let z = z0 + 6; z < z1 - 5; z += 5.5) [-1, 1].forEach(s => { const u = r(); if (u < .4) list.push({k: 'cactus', s, x: 7 + r() * 18, z0: z + r() * 3, z1: z, h: 2.4 + r() * 2.8, flip: r() < .5}); else if (u < .55) list.push({k: 'rock', s, x: 7 + r() * 20, z0: z, z1: z, h: .6 + r() * 1.4}); });
+    for (let z = z0 + 6; z < z1 - 5; z += 5.5) [-1, 1].forEach(s => { const u = r(); if (u < .65) list.push({k: 'cactus', s, x: u < .28 ? 7.9 : 21 + r() * 6, z0: z + r() * 3, z1: z, h: 2.4 + r() * 2.8, flip: r() < .5}); else if (u < .9) list.push({k: 'rock', s, x: 20 + r() * 9, z0: z, z1: z, h: .6 + r() * 1.4}); });
     for (let z = z0 + 8; z < z1 - 4; z += 28) list.push({k: 'post', s: 1, x: 6.6, z0: z, z1: z});
-    list.push({k: 'tower', s: r() < .5 ? -1 : 1, x: 15 + r() * 4, z0: z0 + 20 + r() * (R.ZONE - 40), z1: 0});
+    // The water tower stands behind the new continuous storefronts.
+    list.push({k: 'tower', s: r() < .5 ? -1 : 1, x: 20.5 + r() * 1.5, z0: z0 + 20 + r() * (R.ZONE - 40), z1: 0});
     for (let z = z0 + 9; z < z1 - 6; z += 16) list.push({k: 'pennant', s: (Math.round(z / 16) % 2) ? 1 : -1, x: 6.5, z0: z, z1: z, col: '#C8102E'});
     for (let z = z0 + 5; z < z1 - 5; z += 7) [-1, 1].forEach(s => { const u = r(); if (u < .18) list.push({k: 'wheel', s, x: 7.4 + r() * 2, z0: z + r() * 4, z1: 0}); else if (u < .36) list.push({k: 'barrel', s, x: 7.2 + r() * 2.5, z0: z + r() * 4, z1: 0}); });
   },
@@ -629,6 +632,7 @@ function dressOf(st, i) {
   if (DRESS.has(cacheKey)) return DRESS.get(cacheKey);
   const th = R.zoneAt(st.co, i * R.ZONE).theme, list = [];
   DRESSERS[th.id](list, i * R.ZONE, (i + 1) * R.ZONE, rnd('dress', key));
+  if (features.returnManUpdated()) neighborhoods.populate(list, th.id, i * R.ZONE, (i + 1) * R.ZONE, rnd('neighborhood', key));
   list.forEach(o => { if (!o.z1) o.z1 = o.z0; o.zi = i; });
   list.sort((a, b) => b.z0 - a.z0);
   if (DRESS.size > 10) DRESS.clear();
@@ -1151,7 +1155,8 @@ export function sides(st, c) {
     const a = o.zi * R.ZONE <= at ? 1 : clamp(1 - (o.zi * R.ZONE - at - 25) / 35, 0, 1);
     if (a <= 0) return;
     c.globalAlpha = a;
-    PROPS[o.k](st, c, o);
+    if (o.k === 'neighborhood') neighborhoods.draw2(st, c, o, P);
+    else PROPS[o.k](st, c, o);
   });
   c.globalAlpha = 1;
   marks(zn + 1, zf, R.TD).forEach(z => {
