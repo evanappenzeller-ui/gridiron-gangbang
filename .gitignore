@@ -3,6 +3,8 @@ tools/dynasty/.cache/
 output/rivals-presentation/
 output/rivals-table/
 output/rivals-ladder/
+output/rivals-music/
+output/rivals-*.png
 # Return Man browser verification artifacts
 output/return-customize/
 output/return-customize-integration/
