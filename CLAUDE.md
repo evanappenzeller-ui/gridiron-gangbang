@@ -1,5 +1,18 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals casino felt (November 7, 2026)
+
+The v7 battle is a single textured felt table with a padded dark rail and brass trim. The existing finish's
+`color` fills the table on your turn and its paired `away` color on the opponent's turn, selected from the same
+`state` used by the prompt and legal actions (including replacement choices). Choosing your opening lineup and
+completed matches use your felt. `dynasty-pocket-battle.js` sets `data-turn` and `data-finish`; `dynasty-pocket.css` paints the table.
+Both score badges remain stacked, and End turn stays below the hand. Controls use light text against the felt.
+Required promotion/switch choices temporarily replace End turn in that footer, keeping both the score and menu clear.
+Battle options → Table finish previews both turn colors. Existing profile-scoped `s.table.finish`, unlock progress,
+pack/coin privileges and game saves stay intact: Clubhouse is free; Midnight Club needs 3 solo wins, Royal Box
+challenge 10, Red Zone 5 opened packs, and Champions Club 20. No new grants or save migrations.
+Verify `check-felt.cjs`, `check-felt-choices.cjs`, Pocket browser, legacy table, title-screen, access/preview and stylesheet scope checks.
+
 ## Rivals CPU pacing (November 7, 2026)
 
 The four `features.rivalsUpdated()` profiles get a two-second beat between CPU actions in

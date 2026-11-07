@@ -343,9 +343,16 @@ function draw(st) {
   st.eventAt = len;
   const scroll = host.querySelector('.rp-hand')?.scrollLeft || 0, focusKey = document.activeElement?.getAttribute('data-rp-hand');
   const finish = D.tableFinish();
+  host.dataset.turn = state === 'theirs' ? 'opponent' : 'you';
+  host.dataset.finish = finish.id;
   host.style.setProperty('--rp-home', finish?.color || '#183e36');
   host.style.setProperty('--rp-away', finish?.away || '#714943');
   const legal = B.legalActions(G,you), needsChoice = p.promote || (G.pending?.kind === 'switch' && G.pending.who === you);
+  const choices = needsChoice && !over ? legal.filter(m=>['promote','choose-switch'].includes(m.a)).map((m,i)=> {
+    const target = all(p).find(s => s.u === m.u), card = C.card(target.id), hp = Math.max(0,B.hpOf(G,target) - target.dmg);
+    const label = `${esc(card.athlete || card.name)}<small>${esc(card.stage)} · ${hp} HP</small>`;
+    return button(label,`data-rp-choice="${i}" aria-label="${esc(moveLabel(G,m))}, ${hp} HP"`,false,'is-primary');
+  }).join('') : '';
   const chosen = [st.setup.active,...st.setup.bench];
   const last = events.map(e => eventText(e,you,x.opp.name)).filter(Boolean).at(-1) || 'Set a lineup. Build a plan. Make every card count.';
   const yourName = data.guest() || data.name(data.me()) || 'You';
@@ -356,11 +363,10 @@ function draw(st) {
     + piles(op,1-you,false) + piles(p,you,true) + energyZone(op,false) + energyZone(p,true)
     + `<div class="rp-stadium" data-rp-drop="stadium">${G.stadium ? `<button type="button" data-rp-stadium aria-label="Shared Stadium: ${esc(name(typeof G.stadium === 'string' ? G.stadium : G.stadium.id))}"><span aria-hidden="true">⌂</span><small>${esc(name(typeof G.stadium === 'string' ? G.stadium : G.stadium.id))}</small></button>` : '<span aria-label="No Stadium in play">⌂<small>Stadium</small></span>'}</div>`
     + `<p class="rp-status ${state === 'yours' ? 'is-yours' : ''}" role="status">${esc(boardPrompt(st))}</p>`
-    + (needsChoice && !over ? `<div class="rp-choice">${legal.filter(m=>['promote','choose-switch'].includes(m.a)).map((m,i)=>button(esc(moveLabel(G,m)),`data-rp-choice="${i}"`,false,'is-primary')).join('')}</div>` : '')
     + `<section class="rp-hand-section"><div class="rp-section-heading"><h2>Your hand <small>${p.hand.length}</small></h2><button type="button" class="rp-expand-hand" data-rp-expand-hand aria-label="View all ${p.hand.length} cards in your hand">View all ↗</button></div><div class="rp-hand${p.hand.length > 5 ? ' is-large-hand' : ''}" style="--hand-count:${p.hand.length}">${p.hand.map((id,i)=>piece(id,null,G,`data-rp-hand="${i}" style="--fan-index:${i};--fan-x:${p.hand.length === 1 ? 50 : 12+i*76/(p.hand.length-1)}%;--fan-angle:${(i-(p.hand.length-1)/2)*Math.min(5,22/Math.max(1,p.hand.length-1))}deg;--fan-lift:${Math.abs(i-(p.hand.length-1)/2)*3}px"`,G.phase === 'setup' && chosen.includes(i))).join('') || '<p>Your hand is empty.</p>'}</div></section>`
     + '<button type="button" class="rp-menu" data-rp-menu aria-label="Battle options"><span aria-hidden="true">☰</span></button>'
     + `<p class="rp-sr-only" aria-live="polite">${esc(last)}</p></div>`
-    + `<footer class="rp-turn-action">${over ? button('Ladder','data-rp-ladder',false,'is-primary') + button('Play again','data-rp-again') : G.phase === 'setup' && !p.ready ? button('Confirm lineup','data-rp-ready',st.setup.active == null,'is-primary') : button('End turn','data-rp-end',!legal.some(m=>m.a==='end'),'is-primary')}</footer>`;
+    + `<footer class="rp-turn-action${choices ? ' is-choice' : ''}">${choices || (over ? button('Ladder','data-rp-ladder',false,'is-primary') + button('Play again','data-rp-again') : G.phase === 'setup' && !p.ready ? button('Confirm lineup','data-rp-ready',st.setup.active == null,'is-primary') : button('End turn','data-rp-end',!legal.some(m=>m.a==='end'),'is-primary'))}</footer>`;
   host.querySelector('.rp-hand').scrollLeft = scroll;
   if (st.preview?.isOpen()) st.preview.refresh(previewModel(st, st.preview.current()));
   if (focusKey != null) host.querySelector(`.rp-hand [data-rp-hand="${Number(focusKey)}"]`)?.focus({preventScroll:true});

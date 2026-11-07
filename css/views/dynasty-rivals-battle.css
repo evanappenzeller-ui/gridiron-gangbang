@@ -361,11 +361,15 @@ body .sheet-scrim:has(+ .sheet.pk-sheet.db-preview) { background: #33405E; }
 .v-dynasty-battle .db-coin-results b { font: 800 11px var(--font-text); padding: 5px 10px; border-radius: 30px; background: #ecd397; color: #4b3612; }
 .v-dynasty-battle .db-coin-results .is-tails { background: #d2d9d8; color: #394449; }
 @keyframes rt-coin { 0% { transform: rotateY(0) translateY(0); } 35% { transform: rotateY(540deg) translateY(-35px); } 100% { transform: rotateY(1080deg) translateY(0); } }
-.pk-sheet .rt-finishes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.pk-sheet .rt-finish { padding: 8px; display: grid; gap: 7px; border: 1px solid #b8c9c9; border-radius: 14px; background: #fff; color: #173b43; text-align: left; }
-.pk-sheet .rt-finish[aria-pressed="true"] { outline: 3px solid #28a4ad; }
-.pk-sheet .rt-finish span { height: 72px; border: 6px solid #3e332a; border-radius: 40% 40% 10px 10px / 14px 14px 10px 10px; background: repeating-linear-gradient(25deg,#fff1 0 1px,transparent 1px 3px),var(--felt); box-shadow: inset 0 0 18px #0006; }
+.pk-sheet .rt-finishes { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.pk-sheet .rt-finish { min-width: 0; padding: 8px; display: grid; align-content: start; gap: 7px; border: 1px solid #c5b58d; border-radius: 14px; background: #fffdf7; color: #173b43; text-align: left; }
+.pk-sheet .rt-finish[aria-pressed="true"] { outline: 3px solid #aa8547; }
+.pk-sheet .rt-finish-swatches { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+.pk-sheet .rt-finish-swatch { min-width: 0; display: grid; gap: 5px; text-align: center; }
+.pk-sheet .rt-finish-swatch i { display: block; height: 58px; border: 5px solid #3e332a; border-radius: 38% 38% 9px 9px / 12px 12px 9px 9px; background: radial-gradient(ellipse at 50% 20%,#ffffff10,#0003),repeating-linear-gradient(25deg,#ffffff0b 0 1px,transparent 1px 3px),repeating-linear-gradient(115deg,#00000012 0 1px,transparent 1px 3px),var(--felt); box-shadow: 0 0 0 1px #b59b62,inset 0 0 12px #0005; }
+.pk-sheet .rt-finish-swatch.is-opponent i { background-color: var(--away); }
 .pk-sheet .rt-finish small { font-size: 11px; }
+.pk-sheet .rt-finish-swatch small { font-size: 9px; line-height: 1.25; }
 .pk-sheet .rt-finish:disabled { opacity: .65; }
 .pk-sheet .rt-deck-tools { position: sticky; top: 0; z-index: 2; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 0; background: var(--pk-bg, #edf4f6); }
 .pk-sheet .rt-deck-tools > b { flex-basis: 100%; font-size: 13px; }
