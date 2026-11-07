@@ -863,7 +863,7 @@ function draw3(st, c, now) {
 function drawSpeed(st, c, now) {
   const run = st.run;
   if (!run || st.mode !== 'run') return;
-  const v = R.speedAt(run.z, run.co.hard), k = Math.min(2, Math.max(0, (v - 13) / 6)) + (run.pills > 0 ? .6 : 0) + 3 * R.burstOf(run);
+  const v = R.speedAt(run.z, run.co.hard, run.co.enhanced), k = Math.min(2, Math.max(0, (v - 13) / 6)) + (run.pills > 0 ? .6 : 0) + 3 * R.burstOf(run);
   if (k <= 0) return;
   const r = seeded(Math.floor(now / 70));
   c.strokeStyle = `rgba(255,255,255,${(.18 * Math.min(1.3, k)).toFixed(2)})`; c.lineWidth = 1.5;
@@ -1274,7 +1274,7 @@ function onEvents(st, evs) {
     else if (e.type === 'coned') {
       const run = st.run, dir = run.t - run.lastJuke < SIDE_S ? Math.sign(R.xOf(run, run.lane) - run.jFrom) : 0;
       // (kicked on ahead at most of his speed, slowing as it goes: return-world.js coneFly)
-      st.knocked.set(`cone:${e.row.i}:${e.lane}`, {at: now, side: e.lane === 0 ? -1 : e.lane === 2 ? 1 : dir || (e.row.i % 2 ? 1 : -1), ahead: W.coneAhead(R.speedAt(run.z, run.co.hard))});
+      st.knocked.set(`cone:${e.row.i}:${e.lane}`, {at: now, side: e.lane === 0 ? -1 : e.lane === 2 ? 1 : dir || (e.row.i % 2 ? 1 : -1), ahead: W.coneAhead(R.speedAt(run.z, run.co.hard, run.co.enhanced))});
     }
     else if (e.type === 'trucked') { st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); say('SMASHED!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'vaulted') { say('OVER THE TOP!', 'is-pills'); ui.haptic('medium'); }

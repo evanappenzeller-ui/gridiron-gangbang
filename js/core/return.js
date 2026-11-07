@@ -34,7 +34,7 @@ import {RETURN_REPLAY} from './score-release.js';
 //   THEMES, ZONE, zoneLength(co), zoneAt(co,z)  the places, their length, and which one z yards is in ({i, theme, z0})
 //   groundAt(course, lane, z, y), blockAt(...)  how high the ground is there for him at height y (a ramp, a roof, a
 //                                               pad; 0 on the road); what's in his way there
-//   speedAt(z, hard), tdsAt(z), LANE            your speed (yards a second) at z yards; touchdowns by z yards; the
+//   speedAt(z, hard, enhanced), tdsAt(z), LANE your speed (yards a second) at z yards; touchdowns by z yards; the
 //                                               lanes' spacing (yards)
 //   startRun(n, k, hard), move(run, dir), step(run, dt), stop(run)   a return, played (hard: the hard course, the
 //                                               owner's for now): move takes a swipe ('left' 'right' 'up' 'down'),
@@ -91,11 +91,14 @@ export const SPEED = {start: 9.5, top: 19, ramp: 360};
 // for now, features.available(), so the league's course and board stay as they were): off quicker, to a sprint sooner, and
 // never done speeding up: climb more a yard on top, to max.
 export const HARD_SPEED = {start: 11, top: 20, ramp: 220, climb: .0045, max: 36};
-/** Your speed (yards a second) z yards into a return: on the hard course (hard) HARD_SPEED's. */
-export function speedAt(z, hard = false) {
+// The shared game runs faster while course spacing retains its original pace, reducing reaction time.
+// The optional flag leaves legacy course/reward fixtures at their original speed.
+export const ENHANCED_PACE = 1.22;
+/** Your speed (yards a second); enhanced gameplay is 22% faster than the original course pace. */
+export function speedAt(z, hard = false, enhanced = false) {
   const S = hard ? HARD_SPEED : SPEED, d = Math.max(0, z);
   const v = S.start + (S.top - S.start) * (1 - Math.exp(-d / S.ramp)) + (S.climb || 0) * d;
-  return S.max ? Math.min(S.max, v) : v;
+  return (S.max ? Math.min(S.max, v) : v) * (enhanced ? ENHANCED_PACE : 1);
 }
 export const TD = 100;
 /** Touchdowns in a return of z yards. */
@@ -301,7 +304,7 @@ export const FALL = {end: CHASE.grace, clear: .3, min: .16, lag: 1.8, drop: .23,
 /** A fall's plan, for a run that's just stepped in a pothole (row): {z (the hole's middle), D (seconds the fall
  *  lasts), cap (yards it may hold the picture back), drop, hold, climb (seconds from the hit each part ends)}. */
 export function fallPlan(run, row) {
-  const co = run.co, z0 = row.z, v = speedAt(z0, co.hard) * (1 + burstOf(run)); // (unslowed: the soonest he could be there)
+  const co = run.co, z0 = row.z, v = speedAt(z0, co.hard, co.enhanced) * (1 + burstOf(run)); // (unslowed: the soonest he could be there)
   if (co.done < z0 + 60) fill(co, z0 + 60);
   let next = Infinity;
   co.rows.forEach(r => { if (r.z > z0 + .01 && r.z < next && r.lanes.some(Boolean)) next = r.z; });
@@ -400,6 +403,7 @@ function gapAt(co, L, z) {
   const H = HARD_GAP, d = Math.max(0, z), [lk, lby] = H.late;
   return H.min + lk * Math.exp(-d / lby) + (H.max - H.min - lk) * Math.exp(-d / H.by) + co.r() * H.jitter * (1 - .5 * Math.min(1, d / 2000));
 }
+// Keep obstacle spacing at the old course pace: the faster shared runner has less time to react.
 const speedOn = (co, z) => speedAt(z, co.hard);
 function addItem(co, z, lane, top) {
   const u = co.r(), kind = co.enhanced && co.items.length % 3 === 0 ? 'jetpack' : u < .25 ? 'salts' : u < .6 ? 'pills' : 'booze';
@@ -444,7 +448,10 @@ function addSet(co, z, L) {
   const r = co.r, th = zoneAt(co, z).theme, lanes = shuffle([0, 1, 2], r), two = co.hard ? L > .1 && r() < HARD_GAP.two : L > .2 && r() < .45;
   const plats = [];
   lanes.slice(0, two ? 2 : 1).forEach(lane => {
-    const kind = pickKind(th, r, co.hard), parts = KINDS[kind].build(r, L, speedOn(co, z) / 10), from = Math.min(...parts.map(q => q.at - (q.ramp || 0)));
+    const picked = pickKind(th, r, co.hard);
+    // The long team buses look like train cars on the turf. Keep the shared football field to training benches.
+    const kind = co.enhanced && th.id === 'stadium' && picked === 'teambus' ? 'bench' : picked;
+    const parts = KINDS[kind].build(r, L, speedOn(co, z) / 10), from = Math.min(...parts.map(q => q.at - (q.ramp || 0)));
     parts.forEach((q, i) => {
       const z0 = z + q.at - from;
       plats.push({lane, kind, part: i, z0: round2(z0), z1: round2(z0 + q.len), h: q.h, b: q.b || 0, ramp: q.ramp || 0, hi: q.h >= 2});
@@ -560,7 +567,7 @@ function coinLine(co, at) {
         for (let i = rowFrom(co, at + 4); i < co.rows.length && co.rows[i].z <= at + 45; i++) {
           const w = co.rows[i], t = w.lanes[lane];
           if (t !== 'hurdle' && t !== 'hole') continue;
-          vj = speedAt(w.z, true);
+          vj = speedAt(w.z, true, co.enhanced);
           if (w.z - vj * JUMP_S / 2 >= at) { over = w; break; }
         }
         if (!over) continue;
@@ -587,13 +594,13 @@ function coinLine(co, at) {
  *  by them; over a pothole, well over its cone. */
 function coinsFit(co, lane, coins, over, land) {
   const za = coins[0].z - COIN.clear, last = coins[coins.length - 1].z, zEnd = Math.max(last, land || 0);
-  const zb = zEnd + COIN.react * speedAt(zEnd, true);
+  const zb = zEnd + COIN.react * speedAt(zEnd, true, co.enhanced);
   if (co.done < zb + 10) fill(co, zb + 10);
   // (where a sled was drawn, sl, counts as it did before the sleds went: the coins stay where they were)
   const sledIn = (w, l) => !!(w.sl && w.sl.includes(l));
   for (let i = rowFrom(co, za); i < co.rows.length && co.rows[i].z <= zb; i++) { const w = co.rows[i]; if ((w.lanes[lane] || sledIn(w, lane)) && w !== over) return false; }
   // (and just before that, no banner to hide the line or sled to juke round as it starts: COIN.look seconds clear)
-  const zl = coins[0].z - COIN.look * speedAt(coins[0].z, true);
+  const zl = coins[0].z - COIN.look * speedAt(coins[0].z, true, co.enhanced);
   for (let i = rowFrom(co, zl); i < co.rows.length && co.rows[i].z < za; i++) { const w = co.rows[i], t = w.lanes[lane]; if (t === 'bar' || t === 'sled' || sledIn(w, lane)) return false; }
   if (co.sets.some(s => s.zs <= zb && s.ze >= za && s.plats.some(p => p.lane === lane && p.z0 - p.ramp <= zb && p.z1 >= za))) return false;
   if (co.items.some(it => it.lane === lane && it.z > za - COIN.item && it.z < last + COIN.item)) return false;
@@ -782,7 +789,7 @@ export function hitLine(what) {
   return `${what.side ? 'Bounced off' : 'Ran into'} the ${name}`;
 }
 function sub(run, dt, out) {
-  const co = run.co, v0 = speedAt(run.z, co.hard), v = v0 * (1 - CHASE.slowBy * run.slow / CHASE.slow) * (1 + burstOf(run));
+  const co = run.co, v0 = speedAt(run.z, co.hard, co.enhanced), v = v0 * (1 - CHASE.slowBy * run.slow / CHASE.slow) * (1 + burstOf(run));
   run.rideCooldown = Math.max(0, (run.rideCooldown || 0) - dt);
   if (run.ride) {
     run.ride.age += dt; run.ride.left = Math.max(0, run.ride.left - dt);
@@ -916,7 +923,7 @@ function finishFlight(run, out) {
 // A fresh, deterministic sky course on every pickup, independent of ground-course RNG and coin eligibility.
 function skyCourse(run, item) {
   const serial = ++run.jetSerial, r = rng(hashStr(`return-air-${run.n}-${item}-${serial}`));
-  const v = speedAt(run.z, run.co.hard) * (1 + burstOf(run)), hazards = [], coins = [];
+  const v = speedAt(run.z, run.co.hard, run.co.enhanced) * (1 + burstOf(run)), hazards = [], coins = [];
   let safe = run.lane, ci = 0;
   for (let j = 0, t = AIR.lead; t < JETPACK.s - JETPACK.descend - .35; j++, t += AIR.gap) {
     if (j) safe = safe === 0 ? 1 : safe === 2 ? 1 : r() < .5 ? 0 : 2;

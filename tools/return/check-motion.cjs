@@ -60,14 +60,14 @@ async function main() {
         r.trains.push(p); return p;
       }
       function pickup(r) { r.co.items = [{i: 0, kind: 'jetpack', lane: 1, z: r.z + .01}]; return tick(r, .02); }
-      test('Every profile receives the same course, deployed movement and power-ups', () => {
+      test('Every profile receives the same faster course, movement and power-ups', () => {
         D.setMe('evan');
-        // Course encounters now wait until the stadium exit; keep deployed movement parity below.
+        // Everyone receives the current course; the old-speed fixture is checked separately below.
         const courses = [1, 16, 500].map(n => JSON.stringify(R.fill(R.course(n, 0, true, true), 3000)));
-        const b = old.startRun(12, 0, true, false, true), frames = [];
+        const b = R.startRun(12, 0, true, false, true), frames = [];
         for (let i = 0; i < 300; i++) {
-          if (i % 40 === 0) old.move(b, 'up');
-          frames.push({events: JSON.stringify(old.step(b, 1 / 60)), motion: [b.z, b.y, b.steps, b.yards, b.over]});
+          if (i % 40 === 0) R.move(b, 'up');
+          frames.push({events: JSON.stringify(R.step(b, 1 / 60)), motion: [b.z, b.y, b.steps, b.yards, b.over]});
         }
         for (const profile of profiles) {
           selectProfile(profile);
@@ -93,16 +93,36 @@ async function main() {
         }
       });
       D.setGuest(null); D.setMe('evan');
-      test('Owner stride covers more ground per cycle and remains capped under salts', () => {
+      test('Shared play is 22 percent faster at every distance; legacy courses and motion stay unchanged', () => {
+        for (const hard of [false, true]) {
+          for (const z of [0, 100, 500, 2000, 10000]) {
+            ok(R.speedAt(z, hard) === old.speedAt(z, hard), 'legacy speed unchanged at ' + z);
+            ok(Math.abs(R.speedAt(z, hard, true) / old.speedAt(z, hard) - 1.22) < 1e-10, 'shared pace is 22 percent faster at ' + z);
+          }
+          const a = R.startRun(12, 0, hard, false, false), b = old.startRun(12, 0, hard, false, false);
+          eq(R.fill(a.co, 2000), old.fill(b.co, 2000), 'legacy generated course stays unchanged');
+          for (let i = 0; i < 300; i++) {
+            if (i % 40 === 0) { R.move(a, 'up'); old.move(b, 'up'); }
+            eq(R.step(a, 1 / 60), old.step(b, 1 / 60), 'legacy events unchanged');
+            eq([a.z, a.y, a.steps, a.yards, a.over], [b.z, b.y, b.steps, b.yards, b.over], 'legacy movement unchanged');
+          }
+        }
+      });
+      test('Shared stride covers more ground per cycle and remains capped under salts', () => {
         const a = empty(), b = empty(); b.co.enhanced = false; a.burst = b.burst = 10;
-        tick(a, 1); tick(b, 1); ok(a.z === b.z && Math.abs(a.yards - b.yards * 2) < .001, 'same forward speed, owner salts give double points');
-        ok(a.steps < b.steps * .7 && R.strideRate(100) === 10.5, 'slower legs and bounded cadence');
+        tick(a, 1); tick(b, 1); ok(a.z > b.z * 1.2 && Math.abs(a.yards - a.z * 2) < .001, 'faster forward speed; salts remain double physical yards');
+        ok(a.steps / a.z < b.steps / b.z * .7 && a.steps <= 10.5 && R.strideRate(100) === 10.5, 'longer strides and bounded cadence');
         const st = {run: a, mode: 'run'}; a.steps = 1.25;
         ok(V.runner3(st, 10000).lift > .16, 'springy visible lift');
       });
       test('Trains start after the stadium and their corridors leave an open lane without stationary blockers', () => {
+        let stadiumBenches = 0, legacyBuses = 0;
         for (let n = 1; n <= 30; n++) {
           const c = R.fill(R.course(n, 0, true, true), 6000);
+          const field = c.sets.filter(s => R.zoneAt(c, s.zs).theme.id === 'stadium').flatMap(s => s.plats);
+          ok(field.every(p => p.kind === 'bench' && p.z1 < R.zoneLength(c)), 'football field contains only football equipment, never buses or trains');
+          stadiumBenches += field.length;
+          legacyBuses += R.fill(R.course(n, 0, true, false), 100).sets.flatMap(s => s.plats).filter(p => p.kind === 'teambus').length;
           ok(c.traffic.length > 8, 'repeated incoming encounters');
           ok(c.items[0].kind === 'jetpack', 'early jetpack');
           for (const p of c.items.filter(p => p.kind === 'jetpack')) ok(!p.top && R.groundAt(c, p.lane, p.z) === 0, 'jetpacks reachable on the road');
@@ -113,6 +133,50 @@ async function main() {
             ok(!c.sets.some(s => s.ze > t.trigger && s.zs < t.trigger + 107.99), 'no parked vehicles inside encounter');
           }
         }
+        ok(stadiumBenches > 100 && legacyBuses > 0, 'new field keeps obstacles and legacy bus fixtures remain intact');
+      });
+      test('Generated incoming traffic stays absent through the opening field at normal and boosted pace', () => {
+        for (let n = 1; n <= 30; n++) for (const boost of [false, true]) {
+          const r = R.startRun(n, 0, true, false, true);
+          const co = R.fill(r.co, 1500), first = co.traffic[0];
+          r.co = {...co, rows: [], sets: [], items: [], z: 1e9, done: 1e9};
+          r.z = 490; r.pills = 100; r.burst = boost ? 100 : 0;
+          let saw = false;
+          for (let i = 0; i < 1800 && r.z < first.trigger + 10; i++) {
+            const events = R.step(r, 1 / 120);
+            if (r.z < 500) ok(r.trains.length === 0 && !events.some(e => e.type === 'traffic'), 'no field train before exit');
+            if (events.some(e => e.type === 'traffic')) saw = true;
+          }
+          ok(saw && r.trains.length > 0 && r.trains.every(p => p.z0 > 500), 'traffic still appears beyond the exit');
+        }
+      });
+      test('Coin arcs remain collectible and clear their obstacle at the faster physical pace', () => {
+        let arcs = 0, flat = 0, holes = 0;
+        for (let n = 1; n <= 30; n++) {
+          const co = R.coinsTo(R.course(n, 0, true, true), 6000);
+          const samples = [...co.lines.filter(l => l.jump != null).slice(0, 5), ...co.lines.filter(l => l.jump == null).slice(0, 2)];
+          for (const line of samples) {
+            const coins = co.coins.filter(c => c.line === line.i), row = line.over == null ? null : co.rows.find(r => r.i === line.over);
+            const r = R.startRun(n, 0, true, true, true);
+            r.co = {...co, rows: row ? [row] : [], sets: [], items: [], traffic: [], coins, z: 1e9, done: 1e9};
+            r.z = Math.min(line.z0 - .1, line.jump == null ? Infinity : line.jump - .1); r.t = 10;
+            r.lane = line.lane; r.x = R.xOf(r, line.lane); r.jt = 1;
+            let jumped = false;
+            for (let i = 0; i < 10000 && r.z <= line.end + .2 && !r.over; i++) {
+              let dt = 1 / 240;
+              if (line.jump != null && !jumped) {
+                const distance = line.jump - r.z;
+                if (distance <= 1e-8) { ok(R.move(r, 'up'), 'arc accepts jump'); jumped = true; }
+                else dt = Math.min(dt, distance / R.speedAt(r.z, true, true));
+              }
+              R.step(r, dt);
+            }
+            ok(!r.over && r.hits === 0, 'faster jump clears generated obstacle: day ' + n + ', line ' + line.i);
+            ok(r.c === coins.length, 'all coins remain collectible: day ' + n + ', line ' + line.i + ' (' + r.c + '/' + coins.length + ')');
+            if (line.jump == null) flat++; else { arcs++; if (row.lanes[line.lane] === 'hole') holes++; }
+          }
+        }
+        ok(arcs > 30 && flat > 30 && holes > 0, 'multiple days, flat lines and both jump obstacles exercised');
       });
       test('Incoming trains advance, crash head-on, and can be dodged', () => {
         const a = empty(); const p = train(a, 1, 5), start = p.z0; tick(a, .1); ok(p.z0 < start, 'object travels toward player');

@@ -297,6 +297,13 @@ Do not restore legacy score or Keepfall save fields into the v3 save namespaces.
 
 ## Return Man art direction
 
+November 7 difficulty follow-up (everyone): the opening football field has training benches, hurdles, slide bars
+and divots, with no team buses or train cars. Enhanced stadium vehicle picks replace `teambus` with `bench`;
+incoming trains still begin only after leaving the 500-yard stadium. `speedAt(z, hard, enhanced)` applies
+`ENHANCED_PACE` (1.22) to gameplay speed. Obstacle spacing uses the original pace so reaction time is shorter.
+Coin jump arcs, clearance, jetpack trails and stumble timing account for the faster motion; legacy course and
+reward fixtures retain their earlier pace. Scores, saves, daily attempts and coin prices are not reset.
+
 November 7, 2026 scenery, Customize and rides (shared with every Return Man player):
 `return-neighborhoods.js` adds deterministic, batched roadside scenes in all nine places, with matching canvas
 fallbacks and a clear run corridor. The desert has continuous western storefronts, saloon signs, cacti, mining
