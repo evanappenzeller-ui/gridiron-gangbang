@@ -331,6 +331,8 @@ then a 20-second recharge. Rides preserve jump/slide/roof behavior and give no s
 them; all ride timers pause with simulation. `return-rides.js` owns 3D/canvas props; `return-3d.js` caches skin
 models and warms ride shaders before Play. Verify `check-neighborhoods.cjs`, `check-customize.cjs`,
 `check-customize-integration.cjs` and `check-rides.cjs`, plus the existing Return Man checks below.
+The bottom-right ride indicator is a compact 44px icon-only button: teal when available, gold while riding,
+muted while unavailable, with a tiny recharge/duration bar. Keep its status in the accessible label, without visible text.
 
 November 5, 2026 shared rollout (Evan: "Make all the new return man changes available to all players"):
 the complete November 4–5 pilot is now available to members, app users, named guests and unselected players.

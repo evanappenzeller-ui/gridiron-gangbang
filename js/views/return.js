@@ -46,7 +46,7 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The version mark css/views/return.css carries (--rm-css): an older cached stylesheet gets the new one linked.
-const CSS_V = '13';
+const CSS_V = '14';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim() === CSS_V) return;
@@ -268,7 +268,7 @@ function bodyHTML(st) {
     + `<div class="rm-layers" data-rm-layers><canvas class="rm-cv" data-rm-cv></canvas><div class="rm-gl" data-rm-gl></div><canvas class="rm-fx" data-rm-fx></canvas></div>${hudHTML()}`
     + `<div class="rm-pop" data-rm-pop aria-hidden="true"></div>`
     + `<div class="rm-intro-caption" data-rm-intro hidden role="status"></div>`
-    + `<button type="button" class="rm-ride-control" data-rm-ride hidden><span data-rm-ride-label>RIDE READY</span><small data-rm-ride-hint>Double tap · R</small><i aria-hidden="true"><b data-rm-ride-bar></b></i></button>`
+    + `<button type="button" class="rm-ride-control" data-rm-ride hidden aria-label="Summon ride"><svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><g class="rm-ride-scooter"><circle cx="6" cy="24" r="3.5"/><circle cx="26" cy="24" r="3.5"/><path d="M6 21h13l7-3-4-13h-6M22 5h4"/></g><g class="rm-ride-hoverboard"><path d="M9 14h14a7 7 0 0 1 0 14H9a7 7 0 0 1 0-14Z" transform="translate(0 -3)"/><path d="m12 14-2 8m12-8-2 8M6 28h5m10 0h5"/></g></svg><i aria-hidden="true"><b data-rm-ride-bar></b></i></button>`
     + `<div class="rm-card" data-rm-card role="group" aria-live="polite"${autoGoes(st) ? ' hidden' : ''}>${cardHTML(st)}</div></div>`
     + `<div class="rm-fill" data-rm-fill></div>`
     + `<div class="rm-board-w" data-rm-board>${boardHTML(st)}</div>`
@@ -1089,11 +1089,9 @@ function patchHud(st) {
       const name = (active ? run.ride.kind : st.cosmetics?.ride) === 'hoverboard' ? 'HOVERBOARD' : 'SCOOTER';
       const label = active ? `${name} · ${Math.ceil(run.ride.left)}s` : cooldown > 0 ? `RECHARGE · ${Math.ceil(cooldown)}s` : flying ? 'LAND TO RIDE' : `${name} READY`;
       const hint = active ? 'One-hit protection' : cooldown > 0 ? 'Charging your ride' : 'Double tap · R';
-      const l = ride.querySelector('[data-rm-ride-label]'), h = ride.querySelector('[data-rm-ride-hint]');
-      if (l.textContent !== label) l.textContent = label;
-      if (h.textContent !== hint) h.textContent = hint;
       ride.disabled = active || cooldown > 0 || flying;
       ride.classList.toggle('is-riding', active);
+      ride.classList.toggle('is-hoverboard', name === 'HOVERBOARD');
       ride.setAttribute('aria-label', label + '. ' + hint);
       ride.querySelector('[data-rm-ride-bar]').style.transform = `scaleX(${active ? run.ride.left / R.RIDE.s : cooldown > 0 ? 1 - cooldown / R.RIDE.cooldown : 1})`;
     }
