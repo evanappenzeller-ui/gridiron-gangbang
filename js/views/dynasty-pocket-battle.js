@@ -10,6 +10,7 @@ import * as ui from '../core/ui.js';
 import * as sfx from '../core/dynasty-sfx.js';
 import {profileKey} from '../core/realm-active.js';
 import {creditHTML} from './dynasty.js';
+import {energySVG, ENERGY_COLOR} from './dynasty-energy.js';
 import {printedCard} from './dynasty-pocket-card.js';
 import {attachHand} from './dynasty-pocket-hand.js';
 import {attachPreview, conditionBadges} from './dynasty-pocket-preview.js';
@@ -19,14 +20,13 @@ import {tableOptions} from './dynasty-table-options.js';
 const ST = new WeakMap(), esc = data.esc;
 const name = id => C.card(id)?.name || 'Card';
 const points = c => c.classification === 'mega-ex' ? 3 : c.classification === 'ex' ? 2 : 1;
-const color = {Grass:'#398452',Fire:'#c65035',Water:'#3477ac',Lightning:'#a57916',Psychic:'#995c9c',Fighting:'#a1663c',Darkness:'#3e536e',Metal:'#69797a',Dragon:'#7c6c35',Colorless:'#77776d'};
 const kind = c => c.kind === 'player' ? `${c.stage} Player${c.classification === 'ex' ? ' ex' : c.classification === 'mega-ex' ? ' Mega ex' : ''}` : c.kind[0].toUpperCase() + c.kind.slice(1);
 const cost = a => a.cost?.length ? a.cost.join(' + ') : '0 Energy';
 const typeOf = c => c.types?.join(' / ') || c.type || 'Colorless';
 const all = p => [p.active, ...p.bench].filter(Boolean);
 const rev = G => G?.rev === 2 ? 2 : 1;
 const button = (label, attr, disabled = false, cls = '') => `<button type="button" class="rp-button ${cls}" ${attr}${disabled ? ' disabled' : ''}>${label}</button>`;
-const energy = list => list.length ? list.map(e => `<span class="rp-energy" style="--energy:${color[e] || color.Colorless}" title="${esc(e)} Energy" aria-label="${esc(e)} Energy">${esc(e.slice(0, 1))}</span>`).join('') : '<span class="rp-none">No Energy</span>';
+const energy = list => list.length ? list.map(e => `<span class="rp-energy" style="--energy:${ENERGY_COLOR[e] || ENERGY_COLOR.Colorless}" title="${esc(e)} Energy" role="img" aria-label="${esc(e)} Energy">${energySVG(e)}</span>`).join('') : '<span class="rp-none">No Energy</span>';
 
 function face(id, slot, G) {
   const c = C.card(id);

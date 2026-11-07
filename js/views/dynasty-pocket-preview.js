@@ -4,8 +4,8 @@
 // from the engine's legal moves and every choice goes back through its send().
 import {esc} from '../core/data.js';
 import {pipHTML} from './dynasty.js';
+import {energySVG, ENERGY_COLOR as COLOR} from './dynasty-energy.js';
 
-const COLOR = {Grass:'#4c963e',Fire:'#ce513c',Water:'#337cb8',Lightning:'#b18d10',Psychic:'#9451aa',Fighting:'#ab6b42',Darkness:'#43556b',Metal:'#697c85',Colorless:'#8a857b'};
 const GLYPH = {asleep:'zZ', poisoned:'☠', burned:'♨', paralyzed:'⚡', confused:'?'};
 export const conditionBadges = (conditions = {}) => Object.keys(GLYPH).filter(k => conditions[k])
   .map(k => `<span class="rp-status-badge is-${k}" title="${k[0].toUpperCase() + k.slice(1)}"><span aria-hidden="true">${GLYPH[k]}</span><span class="rp-sr-only">${k[0].toUpperCase() + k.slice(1)}</span></span>`).join('');
@@ -27,7 +27,7 @@ export function attachPreview(root, {enabled, sound}) {
     return `<div class="rp-preview-stage${m.mine ? ' is-mine' : ' is-theirs'}"><div class="rp-preview-tilt"><div class="rp-preview-card${m.banners.length ? ' has-banners' : ''}">`
       + `<span class="rp-card-print">${m.print}</span>`
       + `<span class="rp-preview-hp" aria-label="${hp} of ${m.max} HP remaining"><b>${hp}</b><i><u style="width:${Math.max(0, Math.min(100, hp / m.max * 100))}%"></u></i></span>`
-      + `<span class="rp-preview-energy" aria-label="${m.energy.length} Energy attached">${m.energy.map(e => `<i style="--energy:${COLOR[e] || COLOR.Colorless}" title="${esc(e)} Energy">${esc(e.slice(0, 1))}</i>`).join('')}</span>`
+      + `<span class="rp-preview-energy" aria-label="${m.energy.length} Energy attached">${m.energy.map(e => `<i style="--energy:${COLOR[e] || COLOR.Colorless}" title="${esc(e)} Energy" role="img" aria-label="${esc(e)} Energy">${energySVG(e)}</i>`).join('')}</span>`
       + (m.badges ? `<span class="rp-preview-status">${m.badges}</span>` : '')
       + (m.banners.length ? `<div class="rp-preview-banners">${m.banners.map(bannerHTML).join('')}</div>` : '')
       + retreat + `</div></div>`

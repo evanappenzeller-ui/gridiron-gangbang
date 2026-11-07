@@ -33,7 +33,8 @@
 .v-dynasty-battle .rp-live-hp {position:absolute;right:-4px;top:-21px;z-index:2;font-size:25px;font-weight:800;line-height:1;color:#35586b;letter-spacing:-1px;text-shadow:-1px -1px 0 #eef9ff,1px -1px 0 #eef9ff,-1px 1px 0 #eef9ff,1px 1px 0 #eef9ff,0 2px 3px #52758b33;}
 .v-dynasty-battle .rp-bench .rp-live-hp {font-size:18px;top:-16px;right:-3px;}
 .v-dynasty-battle .rp-card-energy, .pk-sheet .rp-card-energy {display:flex;align-items:center;gap:2px;flex-wrap:wrap;min-height:18px;}
-.v-dynasty-battle .rp-energy, .pk-sheet .rp-energy {height:18px;width:18px;display:inline-flex;align-items:center;justify-content:center;background:var(--energy,#777);border:1px solid #ffffffb8;border-radius:50%;color:white;font-size:10px;font-weight:800;vertical-align:middle;flex-shrink:0;box-shadow:0 1px 3px #1f314333;}
+.v-dynasty-battle .rp-energy, .pk-sheet .rp-energy {height:18px;width:18px;display:inline-flex;align-items:center;justify-content:center;background:var(--energy,#777);border:1px solid #ffffffb8;border-radius:50%;color:var(--energy,#777);font-size:10px;font-weight:800;vertical-align:middle;flex-shrink:0;box-shadow:0 1px 3px #1f314333;}
+.v-dynasty-battle .rp-energy .rivals-energy-icon, .pk-sheet .rp-energy .rivals-energy-icon, .v-dynasty-battle .rp-preview-energy .rivals-energy-icon {display:block;width:78%;height:78%;pointer-events:none;}
 .v-dynasty-battle .rp-none, .pk-sheet .rp-none {font-size:9px;color:#69756b;}
 .v-dynasty-battle .rp-hp, .pk-sheet .rp-hp {display:block;height:4px;background:#24382b35;border-radius:5px;overflow:hidden;margin-top:2px;}
 .v-dynasty-battle .rp-hp i, .pk-sheet .rp-hp i {display:block;height:100%;background:#33d28e;}
@@ -280,7 +281,7 @@
 .v-dynasty-battle .rp-preview-hp i {display:block;width:min(96px,34vw);height:8px;border-radius:6px;background:#24382b44;box-shadow:0 0 0 2px #3c7085;overflow:hidden;}
 .v-dynasty-battle .rp-preview-hp u {display:block;height:100%;background:#33d28e;}
 .v-dynasty-battle .rp-preview-energy {position:absolute;left:-12px;bottom:-14px;display:flex;gap:2px;z-index:3;pointer-events:none;}
-.v-dynasty-battle .rp-preview-energy i {width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--energy);border:2px solid #fff;color:#fff;font-style:normal;font-weight:800;font-size:14px;box-shadow:0 2px 6px #0d263866;}
+.v-dynasty-battle .rp-preview-energy i {width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--energy);border:2px solid #fff;color:var(--energy);font-style:normal;font-weight:800;font-size:14px;box-shadow:0 2px 6px #0d263866;}
 .v-dynasty-battle .rp-preview-status {position:absolute;right:-16px;top:27%;display:grid;gap:4px;z-index:3;pointer-events:none;}
 .v-dynasty-battle .rp-preview-status .rp-status-badge {width:36px;height:36px;font-size:15px;}
 .v-dynasty-battle .rp-preview-banners {position:absolute;left:-5%;right:-5%;bottom:17%;display:flex;flex-direction:column;gap:7px;z-index:2;}

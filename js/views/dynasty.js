@@ -1,4 +1,5 @@
 import {rivalsUpdated, rivalsVersus} from '../core/features.js';
+import {energySVG, ENERGY_COLOR} from './dynasty-energy.js';
 import {tableOptions, tableDeckSheet} from './dynasty-table-options.js';
 import {musicSheet, attachMusic} from './dynasty-music.js';
 import * as sfx from '../core/dynasty-sfx.js';
@@ -68,9 +69,8 @@ const GLYPH = {
   K: '<path d="M5 4v7h14V4M12 11v9m-4 0h8" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>',
   '*': '<path d="M12 3.2l2.6 5.5 6 .7-4.4 4.1 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.4l6-.7z" fill="#fff"/>'
 };
-const ENERGY_COLOR = {Grass:'#4c963e',Fire:'#ce513c',Water:'#337cb8',Lightning:'#b18d10',Psychic:'#9451aa',Fighting:'#ab6b42',Darkness:'#43556b',Metal:'#697c85',Colorless:'#8a857b',P: '#3D9BE9', R: '#4FAE3E', B: '#E8573A', C: '#9562D9', K: '#B88911', '*': '#A9A391'};
-/** An energy symbol (e: P, R, B, C, K or *). */
-export const pipHTML = e => `<i class="pk-e" style="--ec:${ENERGY_COLOR[e] || '#999'}" title="${esc(B.ENERGY[e] || e)}"><svg viewBox="0 0 24 24" aria-hidden="true">${GLYPH[e] || `<text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${esc(String(e).slice(0,1))}</text>`}</svg><span class="sr-only">${esc(B.ENERGY[e] || e)}</span></i>`;
+/** A current Energy logo, or a saved match's original football Play Call symbol. */
+export const pipHTML = e => `<i class="pk-e" style="--ec:${ENERGY_COLOR[e] || '#999'}" title="${esc(B.ENERGY[e] || e)}">${!GLYPH[e] && rivalsUpdated() ? energySVG(e) : `<svg viewBox="0 0 24 24" aria-hidden="true">${GLYPH[e] || `<text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${esc(String(e).slice(0,1))}</text>`}</svg>`}<span class="sr-only">${esc(B.ENERGY[e] || e)}</span></i>`;
 /** A type's symbol (A, G, B, C, S). */
 const currentEnergyRule = () => rivalsUpdated() ? B.FRONT_ENERGY : 0;
 const typeHTML = (t, rule) => pipHTML(B.TYPES[t] ? B.typeEnergy(t, rule) : t);

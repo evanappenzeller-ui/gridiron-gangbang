@@ -1,5 +1,15 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals Energy logos (November 7, 2026)
+
+The four `features.rivalsUpdated()` profiles see distinct SVG marks for Grass, Fire, Water,
+Lightning, Psychic, Fighting, Darkness, Metal and Colorless in place of initials.
+`views/dynasty-energy.js` shares the marks across printed cards, attack/retreat costs, attached
+Energy, previews, Energy Zones and drag ghosts. Full type names remain accessible; shapes
+distinguish types without relying on color. Legacy football Play Call symbols, game rules,
+saves and access stay unchanged. The shared SVG module is precached for offline play.
+Verify card-layout, Pocket browser/touch/presentation, title-screen, scope and preview/access checks.
+
 ## Rivals ability cards (November 7, 2026)
 
 For the four profiles enabled by `features.rivalsUpdated()`, support cards use solid colors by type:
