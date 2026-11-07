@@ -7,7 +7,7 @@ const time = seconds => { const n = Math.max(0, Math.floor(seconds || 0)); retur
 let volumeId = 0;
 
 // Keep the corner control outside panes that are replaced during navigation/battle updates.
-// kind 'battle' (the battle view) plays the battle mix; see core/dynasty-music.js.
+// kind 'battle' (the battle view) plays the battle playlist; see core/dynasty-music.js.
 export function attachMusic(el, isVisible = true, kind = 'hub') {
   const transport = music.attach(el, isVisible, kind);
   let button = null, bar = null, visible = isVisible, press = null, holdTimer = 0, suppressClick = false;
@@ -155,7 +155,7 @@ export function attachMusic(el, isVisible = true, kind = 'hub') {
   };
 }
 
-// A jukebox row. In a battle the battle mix heads the list, so a song picked there can be swapped back for it.
+// A jukebox row. In a battle the battle playlist heads the list, so a song picked there can be swapped back for it.
 const row = (id, title, sub) => `<li><button type="button" data-dy-music-track="${data.esc(id)}" aria-pressed="false"><span class="pk-juke-note" aria-hidden="true">♪</span><span><b>${data.esc(title)}</b><small>${data.esc(sub)}</small></span><span class="pk-juke-selected" data-dy-track-state></span></button></li>`;
 
 export function musicSheet() {
@@ -173,7 +173,7 @@ export function musicSheet() {
         <input data-dy-music-volume type="range" min="0" max="100" step="1" aria-label="Music volume">
       </label><p class="pk-note pk-music-phone">Use your phone’s volume buttons for overall volume.</p>
       <section class="pk-juke" aria-label="Jukebox"><div class="pk-juke-heading"><h3>Jukebox</h3><span>${music.TRACKS.length} ${music.TRACKS.length === 1 ? 'song' : 'songs'}</span></div>
-        <ul>${battle ? row(mix.id, mix.title, 'Battle music · ' + mix.artist) : ''}${music.TRACKS.map(t => row(t.id, t.title, t.artist)).join('')}</ul>
+        <ul>${battle ? row(mix.id, mix.title, mix.artist + ' · ' + mix.songs.length + ' songs') : ''}${music.TRACKS.map(t => row(t.id, t.title, t.artist)).join('')}</ul>
       </section><p class="pk-note" data-dy-music-status role="status"></p></div>
       <section class="pk-sfx" aria-label="Sound effects"><h3>Sound effects</h3>
         <button type="button" class="pk-btn" data-dy-sfx-toggle aria-pressed="true">Mute effects</button>
@@ -211,7 +211,7 @@ export function musicSheet() {
     range.value = s.volume; range.disabled = !s.supported;
     sh.body.querySelector('[data-dy-music-value]').textContent = s.volume + '%';
     const status = !s.supported ? 'Music is unavailable in this browser.'
-      : !s.enabled ? 'Music is paused.' : s.failure || (!s.volume ? 'Music level is muted.' : s.playing ? (s.track.id === mix.id ? 'Battle music · shuffles through the mix · pauses when you leave Rivals.' : 'Shuffle · a new order every time · pauses when you leave Rivals.') : s.loading ? 'Loading track…' : 'Ready · starts with your next tap in Rivals.');
+      : !s.enabled ? 'Music is paused.' : s.failure || (!s.volume ? 'Music level is muted.' : s.playing ? (s.track.id === mix.id ? 'Battle playlist · game menu themes, shuffled · pauses when you leave Rivals.' : 'Shuffle · a new order every time · pauses when you leave Rivals.') : s.loading ? 'Loading track…' : 'Ready · starts with your next tap in Rivals.');
     const statusEl = sh.body.querySelector('[data-dy-music-status]');
     if (statusEl.textContent !== status) statusEl.textContent = status;
   };

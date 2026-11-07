@@ -214,16 +214,26 @@ after", and for the first of his list "use this one for music while in battles, 
 song", then a second list: "import these songs as well"). `TRACKS` holds 31 songs in his lists' order after Sundress
 (`audio/rivals/<id>-v1.mp3`, 160 kbps MP3 made with yt-dlp);
 the menus loop the picked song, the song panel's Skip moves to the next one, and the Settings list scrolls (opening at the
-playing song). Battles (`attachMusic(el, visible, 'battle')` → `attach(..., 'battle')`) play Cyber Funkwave (Funkonaut Sound);
-there Skip moves to the mix's next part. Its two-hour video is one 38:45 playlist looped
-three times, so one pass is kept, cut at the gaps between its tunes into seven parts (`cyber-funkwave-v1-01…07.mp3`,
-128 kbps; lengths in `PARTS`), because the service worker caches a whole file before serving it: a phone fetches only the
-part that plays. Each new battle view starts the mix at a random spot; parts follow on, the last leading back to the first;
-returning to the same battle carries on. In a battle the Settings jukebox heads with the mix; a song picked there plays for
-the rest of that battle (and becomes the menu song), and a song the mix interrupted resumes where it was. A new source's
+playing song). Battles (`attachMusic(el, visible, 'battle')` → `attach(..., 'battle')`) play the battle playlist (below);
+there Skip moves to the next battle song. Each new battle view starts it at a random spot (a random song, part and moment);
+returning to the same battle carries on. In a battle the Settings jukebox heads with "Battle playlist"; a song picked there plays for
+the rest of that battle (and becomes the menu song), and a song the playlist interrupted resumes where it was. A new source's
 start is set before its metadata loads (`jump()`), so it never plays from 0 first. To add a song: put
 `<id>-v1.mp3` in audio/rivals and a `song()` line in `TRACKS`; changed audio gets a new version number.
 `check-music.cjs` covers the 31-song jukebox, the random start, part chaining and the battle jukebox.
+
+Battle playlist (November 7, 2026, Evan sent six YouTube links: "Use the attached for in game music when playing rivals";
+the Rivals group). Battles play `BATTLE_SONGS` in `core/dynasty-music.js` instead of the retired Cyber Funkwave mix (its
+files are removed): GTA V's pause menu, Sonic's Green Hill Zone, Call of Duty: Black Ops' multiplayer menu, Call of Duty 4's
+main menu theme, Fortnite's OG main menu and ESPN's NFL Primetime music. The menus keep the 31-song jukebox. The looped
+uploads were cut to whole passes (Green Hill and Fortnite three 77 s loops, Black Ops two 109 s loops, CoD4 one 134 s pass);
+GTA V's 21-minute suite is cut at quiet moments into four parts (`gta-menu-v1-01…04.mp3`) and ESPN's video into its 16 tracks
+(`espn-primetime-v1-01…16.mp3`), so a phone fetches only the part that plays. Every file was loudness-normalised to -16 LUFS
+when encoded (ffmpeg loudnorm, 128 kbps; the originals ran -13 to -33 LUFS), so battle songs play at level 1. The six songs
+shuffle with the never-twice rule (`playThrough('parts', 6)`); a song with parts plays one part a turn (the battle's first
+turn of each starts at a random part, then they follow on), and the player names it ("ESPN · 3 of 16"). Seeking stays inside
+the playing file. To add a battle song: its file(s) in audio/rivals and a `battleSong()` line with each part's length.
+`check-music.cjs` covers the files, the random start, the battle shuffle, part naming and the battle jukebox.
 
 Levels (November 5, 2026, Evan: "Reduce the volume of the background music. The sound effects should be more noticeable.
 Do not deafen the music when a sound effect is used"). Effects never lower the music (no ducking). Each track's `song()`
