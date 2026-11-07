@@ -2,6 +2,7 @@ tools/dynasty/.cache/
 # Screenshots written by tools/dynasty check scripts
 output/rivals-presentation/
 output/rivals-table/
+output/rivals-ladder/
 # Return Man browser verification artifacts
 output/return-customize/
 output/return-customize-integration/
