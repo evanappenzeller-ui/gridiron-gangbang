@@ -1,1 +1,4 @@
 tools/dynasty/.cache/
+# Screenshots written by tools/dynasty check scripts
+output/rivals-presentation/
+output/rivals-table/
