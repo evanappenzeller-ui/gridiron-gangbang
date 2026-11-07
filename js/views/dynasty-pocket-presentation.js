@@ -201,7 +201,7 @@ export function attachPresentation(root, {enabled, cancelHand, sound, blocked = 
     });
     skip.focus({preventScroll:true});
     // Opponent results need reading time even when their animation finishes sooner.
-    timer = setTimeout(finish, ev.who !== you ? Math.max(duration, 2800) : duration);
+    timer = setTimeout(finish, ev.who !== you && !drawn ? Math.max(duration, 2800) : duration);
   }
   // The fan is redrawn after the scene starts, so each card's place is read as it leaves the preview.
   function flyToHand(el, n) {
