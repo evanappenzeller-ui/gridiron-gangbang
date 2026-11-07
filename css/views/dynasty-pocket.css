@@ -201,3 +201,40 @@
 .v-dynasty-battle .rp-card-print, .pk-sheet .rp-card-print {background:#e9eef3;}
 .v-dynasty-battle:has(.rp-hand.is-browsing) .pk-sound, .v-dynasty-battle:has(.rp-hand.is-browsing) .pk-sound-menu {opacity:0;pointer-events:none;}
 .pk-sheet.rp-card-focus .rp-inspect-details {background:#eff4f8;color:#233a43;border-radius:16px;padding:14px;margin-top:16px;box-shadow:0 5px 20px #10253644;}
+
+/* Holding a hand card shows its whole printed face, attacks included, above the fan. */
+.v-dynasty-battle .rp-hold-preview {position:fixed;z-index:65;left:50%;transform:translateX(-50%);border-radius:5% / 3.6%;pointer-events:none;box-shadow:0 0 0 2px #ffffffd0,0 0 22px #e8fbff,0 18px 38px #0e2c4366;animation:rp-hold-in .2s cubic-bezier(.2,.9,.3,1.2) both;}
+.v-dynasty-battle .rp-hold-preview>.rp-card-print {width:100%;height:100%;}
+@keyframes rp-hold-in {from {opacity:0;transform:translateX(-50%) translateY(26px) scale(.82);} to {opacity:1;transform:translateX(-50%);}}
+
+/* A played Item, Supporter, Tool or Stadium rises to center, flashes white and bursts. */
+.v-dynasty-battle .rp-play-flash {--rp-flash-w:min(68vw,270px,calc((100svh - 150px)*.716));--rp-flash-from:44vh;position:fixed;inset:0;z-index:80;overflow:hidden;pointer-events:auto;background:#0f2c4300;animation:rp-flash-dim 1.75s ease both;}
+.v-dynasty-battle .rp-play-flash.is-theirs {--rp-flash-from:-44vh;}
+.v-dynasty-battle .rp-flash-top {position:absolute;z-index:3;top:max(10px,env(safe-area-inset-top));left:12px;right:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#fff;text-shadow:0 1px 4px #12304a99;}
+.v-dynasty-battle .rp-flash-top>span {padding:7px 12px;border-radius:16px;background:#2c4a64d6;box-shadow:0 2px 8px #12304a33;text-shadow:none;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.v-dynasty-battle .rp-flash-top button {min-height:44px;min-width:64px;padding:8px 14px;border:1px solid #ffffff8a;border-radius:22px;background:#2c4a64b8;color:#fff;font:inherit;font-size:12px;letter-spacing:.3px;text-transform:none;cursor:pointer;}
+.v-dynasty-battle .rp-flash-top button:focus-visible {outline:3px solid #fff0a3;outline-offset:3px;}
+.v-dynasty-battle .rp-flash-stage {position:absolute;left:calc(50% - var(--rp-flash-w)/2);top:calc(47% - var(--rp-flash-w)*.698);width:var(--rp-flash-w);height:calc(var(--rp-flash-w)*88/63);}
+.v-dynasty-battle .rp-flash-card {position:absolute;inset:0;border-radius:5% / 3.6%;box-shadow:0 16px 40px #0e2c4377;animation:rp-flash-card 1.75s cubic-bezier(.22,.8,.3,1) both;}
+.v-dynasty-battle .rp-flash-card>.rp-card-print {width:100%;height:100%;}
+.v-dynasty-battle .rp-flash-white {position:absolute;inset:-2px;border-radius:inherit;background:radial-gradient(ellipse at 50% 45%,#fff 40%,#eefcff);box-shadow:0 0 34px 12px #fff,0 0 80px 30px #b9f3ff;opacity:0;animation:rp-flash-white 1.75s ease both;}
+.v-dynasty-battle .rp-flash-ring {position:absolute;inset:0;border:9px solid #f6feff;border-radius:7% / 5%;box-shadow:0 0 18px 6px #9eeaff,0 0 46px 16px #5fd2ff99,inset 0 0 18px 6px #9eeaff,inset 0 0 50px 10px #5fd2ff66;opacity:0;animation:rp-flash-ring 1.75s cubic-bezier(.15,.7,.35,1) both;}
+.v-dynasty-battle .rp-flash-burst {position:absolute;inset:0;background:radial-gradient(ellipse at 50% 47%,#ffffff 0%,#f2fdffee 26%,#c5f2ff88 48%,transparent 76%);opacity:0;animation:rp-flash-burst 1.75s ease both;pointer-events:none;}
+.v-dynasty-battle .rp-flash-spark {position:absolute;left:50%;top:50%;width:calc(14px*var(--s));height:calc(14px*var(--s));margin:calc(-7px*var(--s));opacity:0;background:radial-gradient(circle,#fff 0 18%,transparent 22%),conic-gradient(from 45deg,transparent 0 10%,#fff 12.5%,transparent 15% 35%,#fff 37.5%,transparent 40% 60%,#fff 62.5%,transparent 65% 85%,#fff 87.5%,transparent 90%);filter:drop-shadow(0 0 4px #8fe6ff) drop-shadow(0 0 2px #fff);animation:rp-flash-spark 1.75s ease-out var(--d,0ms) both;}
+@keyframes rp-flash-dim {0%,100% {background:#0f2c4300;} 15%,70% {background:#0f2c4338;}}
+@keyframes rp-flash-card {
+  0% {opacity:0;transform:translateY(var(--rp-flash-from)) scale(.34) rotate(-4deg);}
+  22% {opacity:1;transform:translateY(0) scale(1.03) rotate(0);}
+  30%,44% {opacity:1;transform:scale(1);}
+  54% {opacity:1;transform:scale(1.05);}
+  66% {opacity:0;transform:scale(1.14);}
+  100% {opacity:0;transform:scale(1.14);}
+}
+@keyframes rp-flash-white {0%,40% {opacity:0;} 52%,56% {opacity:1;} 68%,100% {opacity:0;}}
+@keyframes rp-flash-burst {0%,48% {opacity:0;} 55% {opacity:.95;} 64% {opacity:.55;} 80%,100% {opacity:0;}}
+@keyframes rp-flash-ring {0%,50% {opacity:0;transform:scale(.94);} 58% {opacity:1;transform:scale(1.02);} 76% {opacity:.8;transform:scale(1.2);} 100% {opacity:0;transform:scale(1.42);}}
+@keyframes rp-flash-spark {
+  0%,52% {opacity:0;transform:translate(calc(var(--x)*var(--rp-flash-w)*.62),calc(var(--y)*var(--rp-flash-w)*.62)) scale(.2) rotate(0);}
+  62% {opacity:1;transform:translate(calc(var(--x)*var(--rp-flash-w)*.8),calc(var(--y)*var(--rp-flash-w)*.8)) scale(1) rotate(45deg);}
+  100% {opacity:0;transform:translate(calc(var(--x)*var(--rp-flash-w)*1.15),calc(var(--y)*var(--rp-flash-w)*1.15)) scale(.4) rotate(120deg);}
+}

@@ -84,6 +84,24 @@ async function run(url){
       await page.evaluate(()=>window.testSheet.close());await page.waitForSelector('[data-rp-scene="coin"]');
       assert.match(await page.locator('.rp-cinema').innerText(),/TAILS/);
       await page.keyboard.press('Escape');assert.equal(await page.locator('.rp-cinema').count(),0);
+      // A played support card rises to center, flashes and bursts, without changing the match.
+      const support=await page.evaluate(async()=>{
+        const C=await import('/js/core/dynasty-pocket-cards.js'),p=window.testX.G.p[0];
+        const id=[...p.hand,...p.deck,...p.discard].find(id=>['item','supporter'].includes(C.card(id)?.kind));
+        window.testPresentation.enqueue([{k:'support',who:0,id,text:'Recorded play'},{k:'support',who:1,id,text:'Recorded play'}],window.testX);
+        return C.card(id).name;
+      });
+      await page.waitForSelector('[data-rp-scene="support"].rp-play-flash.is-mine');
+      assert((await page.locator('.rp-play-flash .rp-flash-card').innerText()).includes(support),'the played card is shown');
+      assert.equal(await page.locator('.rp-play-flash .rp-flash-ring').count(),1);
+      assert(await page.locator('.rp-play-flash .rp-flash-spark').count()>=8,'sparkles burst from the card');
+      assert(await page.locator('.rp-play-flash').evaluate(el=>el.getAnimations({subtree:true}).some(a=>a.playState==='running'&&a.animationName==='rp-flash-white')),'the card flashes');
+      assert(await page.locator('[data-rp]').evaluate(el=>el.inert),'table cannot send moves during the flash');
+      if(label==='evan'){await page.waitForTimeout(950);await page.screenshot({path:path.join(out,'support-flash.png')});}
+      await page.locator('[data-rp-skip]').click();
+      await page.waitForSelector('[data-rp-scene="support"].rp-play-flash.is-theirs');
+      await page.waitForFunction(()=>!document.querySelector('.rp-cinema'),null,{timeout:4000});
+      assert.equal(await page.locator('[data-rp]').evaluate(el=>el.inert),false,'the flash ends on its own');
       await page.emulateMedia({reducedMotion:'reduce'});
       await page.evaluate(()=>window.testPresentation.enqueue([{k:'coin',who:0,heads:true}],window.testX));
       assert.equal(await page.locator('.rp-cinema').count(),0,'reduced motion keeps the table and its status');
@@ -95,7 +113,7 @@ async function run(url){
       assert.equal(await page.locator('.rp-cinema').count(),0,'cleanup removes scenes');
       assert.equal(await page.locator('[data-rp]').evaluate(el=>el.inert),false);
       await page.reload();await page.waitForSelector('.rp-arena');assert.equal(await page.locator('.rp-cinema').count(),0,'resume never replays historical animations');
-      assert.deepEqual(errors,[]);await ctx.close();console.log('PASS '+label+': printed backs, actual animated attack, exact damage, skip, sheet queue, reduced motion, privacy, cleanup and reload');
+      assert.deepEqual(errors,[]);await ctx.close();console.log('PASS '+label+': printed backs, actual animated attack, exact damage, support flash, skip, sheet queue, reduced motion, privacy, cleanup and reload');
     }
   }finally{await browser.close();}
 }

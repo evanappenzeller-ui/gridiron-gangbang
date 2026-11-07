@@ -71,6 +71,7 @@ async function run(url) {
       const from=await exposed(page,index);await touch('touchStart',from);
       if(hold)await page.waitForTimeout(320);
       await move(from,target);await page.waitForSelector('.rp-drag-ghost');
+      assert.equal(await page.locator('.rp-hold-preview').count(),0,'dragging replaces the enlarged preview with the ghost');
       await touch(cancel?'touchCancel':'touchEnd');await page.waitForTimeout(180);
       assert.equal(await page.locator('.rp-drag-ghost').count(),0,'finished or cancelled drag removes its ghost');
     };
@@ -96,13 +97,23 @@ async function run(url) {
     const afterLift=await page.locator('.rp-hand [data-rp-hand="0"]').boundingBox();
     assert(afterLift.y<beforeLift.y-5,'held card visibly rises above the hand');
     assert.equal(await page.locator('.sheet').count(),0,'holding does not open a modal');
+    const big=page.locator('.rp-hold-preview');
+    assert.equal(await big.count(),1,'holding shows an enlarged card preview');
+    assert.equal(await big.locator('.pk-card').count(),1,'the preview is the printed card');
+    const bigBox=await big.boundingBox(),handTop=(await page.locator('.rp-hand').boundingBox()).y;
+    assert(bigBox.width>=150&&bigBox.y+bigBox.height<=handTop-30,'the preview is large and sits above the lifted hand');
+    if(initial.cards[0].attacks)for(const attack of initial.cards[0].attacks)assert((await big.innerText()).includes(attack.name),'held preview prints every attack');
+    assert(await big.evaluate(el=>el.innerHTML===document.querySelector('.rp-hand [data-rp-hand="0"] .rp-card-print').outerHTML),'held preview is the held card’s printed face');
     const last=await center(page,`.rp-hand [data-rp-hand="${initial.hand.length-1}"]`);
     await move(start,{x:Math.min(width-6,last.x),y:start.y});
     assert.equal(await page.locator('.rp-hand .is-preview').getAttribute('data-rp-hand'),String(initial.hand.length-1),'sliding across the fan previews another card');
+    assert.equal(await big.getAttribute('data-index'),String(initial.hand.length-1),'sliding swaps the enlarged preview');
+    assert(await big.evaluate((el,i)=>el.innerHTML===document.querySelector(`.rp-hand [data-rp-hand="${i}"] .rp-card-print`).outerHTML,initial.hand.length-1),'the enlarged preview follows the finger');
     if(shots)await page.screenshot({path:path.join(shots,'touch-fan-preview.png')});
     await touch('touchEnd');await page.waitForTimeout(180);
     assert.equal(await snapshot(page,mid),opening,'hold and slide never play a card');
     assert.equal(await page.locator('.sheet').count(),0,'releasing a browse does not trigger a synthetic tap');
+    assert.equal(await page.locator('.rp-hold-preview').count(),0,'releasing removes the enlarged preview');
 
     // A normal touch tap brings the actual printed card into a centered focus view.
     const tap=await exposed(page,first);await touch('touchStart',tap);await page.waitForTimeout(35);await touch('touchEnd');

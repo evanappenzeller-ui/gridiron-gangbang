@@ -11,7 +11,7 @@ export function attachHand(el, options) {
     if (!g) return;
     clearTimeout(g.timer);
     if (suppress) consume();
-    g.ghost?.remove();
+    g.ghost?.remove(); g.big?.remove();
     g.zone?.classList.remove('is-dragging');
     g.hand?.classList.remove('is-browsing');
     cards().forEach(c => c.classList.remove('is-preview', 'is-held', 'is-drag-source'));
@@ -25,7 +25,29 @@ export function attachHand(el, options) {
     g.index = index; g.previewIndex = index;
     g.hand.classList.add('is-browsing');
     g.cards.forEach(c => { c.classList.toggle('is-preview', c === card); c.classList.toggle('is-held', c === card && held); });
+    if (g.mode !== 'drag') enlarge(g, card);
     if (changed) options.preview?.(index);
+  }
+  // Holding shows the whole printed card, attacks included, above the hand.
+  // It is a visual duplicate only: tap/keyboard inspection keeps the full details.
+  function enlarge(g, card) {
+    const battle = el.querySelector('.rp-battle'), print = card.querySelector('.rp-card-print');
+    if (!battle || !print) return;
+    if (!g.big) {
+      g.big = document.createElement('div');
+      g.big.className = 'rp-hold-preview'; g.big.setAttribute('aria-hidden', 'true');
+      const top = (el.querySelector('.rp-top')?.getBoundingClientRect().bottom || 0) + 6;
+      const bottom = g.rect.top - (innerHeight <= 650 ? 56 : 70);
+      const room = Math.max(160, bottom - top), width = Math.max(150, Math.min(300, innerWidth * .78, room * 63 / 88));
+      const height = width * 88 / 63;
+      g.big.style.width = width + 'px'; g.big.style.height = height + 'px';
+      g.big.style.top = Math.max(top, top + (room - height) * .6) + 'px';
+      battle.append(g.big);
+    }
+    if (g.big.dataset.index !== card.dataset.rpHand) {
+      g.big.dataset.index = card.dataset.rpHand;
+      g.big.innerHTML = print.outerHTML;
+    }
   }
   function browse(g, x, held = false) {
     g.mode = 'browse';
@@ -60,6 +82,7 @@ export function attachHand(el, options) {
     if (g.kind === 'energy') return dragEnergy(g, x, y);
     if (g.mode !== 'drag') {
       clearTimeout(g.timer); g.mode = 'drag';
+      g.big?.remove(); g.big = null;
       preview(g, g.index, true);
       const card = g.cards.find(c => Number(c.dataset.rpHand) === g.index);
       card.classList.add('is-drag-source');

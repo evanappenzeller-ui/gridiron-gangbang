@@ -12,18 +12,31 @@ const athlete = (id, role) => {
   return athleteHTML(c?.sourceId || id, role, c?.name || 'Player');
 };
 
+// Played support cards rise to center, flash white and burst into a glowing frame.
+const SPARKS = Array.from({length:16}, (_, i) => {
+  const a = i / 16 * Math.PI * 2 + (i % 2 ? .2 : 0), r = .56 + (i * 37 % 23) / 100;
+  return `<i class="rp-flash-spark" style="--x:${(Math.cos(a) * r).toFixed(2)};--y:${(Math.sin(a) * r * 1.4).toFixed(2)};--d:${(i * 53 % 9) * 24}ms;--s:${(.6 + (i * 29 % 7) / 10).toFixed(1)}"></i>`;
+}).join('');
+function flashHTML(ev, you, opponent) {
+  const c = C.card(ev.id), mine = ev.who === you;
+  const label = (c?.kind || 'support')[0].toUpperCase() + (c?.kind || 'support').slice(1);
+  return `<div class="rp-flash-top"><span>${mine ? 'You played' : esc(opponent) + ' played'} · ${esc(label)}</span><button type="button" data-rp-skip>Skip</button></div>`
+    + `<span class="rp-flash-burst" aria-hidden="true"></span><div class="rp-flash-stage" aria-hidden="true"><div class="rp-flash-card"><span class="rp-card-print">${printedCard(ev.id)}</span><i class="rp-flash-white"></i></div><span class="rp-flash-ring"></span>${SPARKS}</div>`
+    + `<p class="rp-sr-only" role="status">${esc(c?.name || 'Card')} played. ${esc(ev.text || '')}</p>`;
+}
+
 export function attachPresentation(root, {enabled, cancelHand, sound}) {
-  let queue = [], scene = null, timer, retry, focus, stopped = false;
+  let queue = [], scene = null, timer, cue, retry, focus, stopped = false;
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const host = () => root.querySelector('[data-rp]');
   const allowed = () => !stopped && rivalsUpdated() && enabled() && !document.hidden;
   function clear() {
-    clearTimeout(timer); clearTimeout(retry);
+    clearTimeout(timer); clearTimeout(retry); clearTimeout(cue);
     queue = []; scene?.remove(); scene = null;
     if (host()) host().inert = false;
   }
   function finish() {
-    clearTimeout(timer); scene?.remove(); scene = null;
+    clearTimeout(timer); clearTimeout(cue); scene?.remove(); scene = null;
     if (host()) host().inert = false;
     next();
     if (!scene && !queue.length && allowed()) {
@@ -38,15 +51,18 @@ export function attachPresentation(root, {enabled, cancelHand, sound}) {
     // A closing sheet stays mounted through its exit transition and restores focus
     // afterward. Wait for removal too, so it cannot cover the scene or steal Skip.
     if (ui.sheetCount() || document.querySelector('.sheet')) { retry = setTimeout(next, 100); return; }
-    const {ev, you, opponent} = queue.shift(), attack = ev.k === 'attack', coin = ev.k === 'coin';
+    const {ev, you, opponent} = queue.shift(), attack = ev.k === 'attack', coin = ev.k === 'coin', flash = ev.k === 'support';
     cancelHand(); focus = document.activeElement;
     scene = document.createElement('section');
-    scene.className = `db-cinema rp-cinema${attack ? '' : coin ? ' is-table-scene' : ' is-card'}`;
+    scene.className = flash ? `rp-cinema rp-play-flash ${ev.who === you ? 'is-mine' : 'is-theirs'}` : `db-cinema rp-cinema${attack ? '' : coin ? ' is-table-scene' : ' is-card'}`;
     scene.dataset.rpScene = ev.k;
     scene.setAttribute('role', 'dialog'); scene.setAttribute('aria-modal', 'true');
     scene.setAttribute('aria-label', coin ? 'Coin result' : ev.name || C.card(ev.id)?.name || 'Play result');
     const heading = attack ? ev.name : ev.k === 'attack-failed' ? 'Attack stopped' : ev.k === 'evolve' ? 'Player developed' : 'Card played';
-    if (coin) {
+    if (flash) {
+      scene.innerHTML = flashHTML(ev, you, opponent);
+      cue = setTimeout(() => sound('power'), 760);
+    } else if (coin) {
       scene.innerHTML = `<div class="db-event"><small>${ev.who === you ? 'YOUR FLIP' : 'OPPONENT’S FLIP'}</small><h2>${esc(ev.reason)}</h2><div class="db-coin is-flipping" aria-hidden="true"><span>${ev.heads ? 'H' : 'T'}</span></div><p role="status">${ev.heads ? 'HEADS' : 'TAILS'}</p><button type="button" class="db-act is-back" data-rp-skip>Skip animation</button></div>`;
       sound('coin');
     } else {
@@ -63,7 +79,7 @@ export function attachPresentation(root, {enabled, cancelHand, sound}) {
       else if (e.key === 'Tab') { e.preventDefault(); skip.focus(); }
     });
     skip.focus({preventScroll:true});
-    timer = setTimeout(finish, attack ? 2800 : 1600);
+    timer = setTimeout(finish, attack ? 2800 : flash ? 1750 : 1600);
   }
   const visibility = () => { if (document.hidden) clear(); };
   const preference = () => { if (motion.matches) clear(); };

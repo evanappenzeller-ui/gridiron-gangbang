@@ -1,5 +1,17 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals hold preview and support flash (November 7, 2026)
+
+Evan, with a gameplay video: "when a user presses and holds onto cards in their hand, there should be a preview of the
+card that shows a detailed view of the attacks" and "When an ability card is played, create a flashing animation"
+(the Rivals group). Holding a hand card in the v7 battle shows `.rp-hold-preview`, the card's full printed face
+(attacks, HP, weakness, retreat), large above the lifted fan; sliding swaps it, and dragging, release, cancel, Escape,
+hiding and profile changes remove it (`dynasty-pocket-hand.js`, visual duplicate only, aria-hidden). Each resolved
+`support` event (Item, Supporter, Tool, Stadium, yours or the opponent's) plays `.rp-play-flash` in
+`dynasty-pocket-presentation.js`: the printed card rises to center, flashes white, bursts into a glowing frame with
+sparkles and the `power` cue (1.75 s). Skip/Escape, reduced motion, sheet queueing and cleanup follow the other scenes;
+it never resolves moves or changes saves. `check-pocket-touch.cjs` and `check-pocket-presentation.cjs` cover both.
+
 ## Rivals Energy drag (November 7, 2026)
 
 Evan: "players should be able to drag and drop the energy onto a card on the table. I don't want to click on the
