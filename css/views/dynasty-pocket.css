@@ -359,3 +359,10 @@
 @media (prefers-reduced-motion:reduce) {
   .v-dynasty-battle .rp-preview-banner {animation:none;}
 }
+
+/* Your scoreboard (November 7, 2026, Evan: "The user's scoreboard is hidden behind the cards in the players hand"):
+   a compact tab on the left edge between the Stadium and the menu button, clear of the fanned hand. */
+.v-dynasty-battle .rp-manager.is-mine {top:60.5%;bottom:auto;left:0;height:auto;max-width:min(20%,70px);flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;padding:5px 8px 6px 7px;border-radius:0 8px 8px 0;z-index:8;}
+.v-dynasty-battle .rp-manager.is-mine>span:first-child {max-width:100%;font-weight:700;}
+.v-dynasty-battle .rp-manager.is-mine .rp-points {gap:3px;}
+.v-dynasty-battle .rp-manager.is-mine .rp-points i {width:13px;height:13px;}

@@ -1,5 +1,12 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals scoreboard placement (November 7, 2026)
+
+Evan, with a screenshot: "The user's scoreboard is hidden behind the cards in the players hand" (the Rivals group). In the
+v7 battle your `.rp-manager.is-mine` (name and three knockout-point dots) is a compact two-line tab on the left edge at
+60.5% of the arena, between the Stadium and the menu button, clear of the Bench and the fanned hand. The opponent's bar
+stays top right. `check-pocket-browser.cjs` asserts both scoreboards are fully uncovered at 320 and 390 widths.
+
 ## Rivals card preview, attack banner, coin toss and Sleep (November 7, 2026)
 
 Evan, with a gameplay video: "the card preview with attack options should match the attached video. Include an attack

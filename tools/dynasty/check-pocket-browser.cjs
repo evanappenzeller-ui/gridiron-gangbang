@@ -58,6 +58,13 @@ async function fit(page,width,stage) {
         `${stage} Bench remains a horizontal row at ${width}`);
     }
     assert(layout.handCards.some(c=>c.top<layout.height-35&&c.bottom>0),`${stage} hand is visible without scrolling at ${width}`);
+    // Both scoreboards stay visible: nothing (the fanned hand, the Bench, the menu) covers them.
+    const boards=await page.evaluate(()=>[...document.querySelectorAll('.rp-manager')].map(el=>{
+      const r=el.getBoundingClientRect(),pts=[[r.left+4,r.top+4],[r.right-4,r.top+4],[r.left+4,r.bottom-4],[r.right-4,r.bottom-4],[r.left+r.width/2,r.top+r.height/2]];
+      return {cls:el.className,inside:r.left>=-1&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight,clear:pts.every(([x,y])=>el.contains(document.elementFromPoint(x,y)))};
+    }));
+    assert.equal(boards.length,2);
+    for(const b of boards)assert(b.inside&&b.clear,`${stage} ${b.cls} scoreboard is fully visible at ${width}: ${JSON.stringify(boards)}`);
   }
   if(shots) await page.screenshot({path:path.join(shots,`${stage}-${width}.png`)});
 }
