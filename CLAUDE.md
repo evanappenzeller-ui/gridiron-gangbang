@@ -1,5 +1,34 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals card preview, attack banner, coin toss and Sleep (November 7, 2026)
+
+Evan, with a gameplay video: "the card preview with attack options should match the attached video. Include an attack
+animation like the attached with an animation and the name of the attack. Match the coin flip in the attached video.
+Sleep should be an option for attacks and the opponent can only wake up if they flip heads" (the Rivals group).
+Preview: tapping an athlete on the v7 table opens `.rp-preview` (`views/dynasty-pocket-preview.js`): the printed card
+rises, tilted, over the lower table with live HP, Energy and status badges; on your turn your Active's attacks are
+glowing banners laid over its printed attacks (cost, name, effect, damage; disabled ones grey with what's missing:
+"Needs 1 more Energy", "Asleep"), and a Retreat bar sits on the footer (one Bench target retreats, more opens a chooser).
+A pressed banner flashes white and the move goes through the battle's `send()`. Tapping outside, Escape or Details
+(the old card sheet, keyboard/accessible route) sets it down. Hand cards keep their sheet. The battle builds the model
+from `B.legalActions`; the preview decides nothing. Presentation waits while it is open.
+Scenes (`dynasty-pocket-presentation.js`): an attack lifts the attacker's printed card to center while a diagonal
+banner in its type colour sweeps across with the attack's name and athlete, then it returns, lunges, and the defender
+shakes under the damage number (1.8 s, 2.45 s with damage); v7 no longer uses the stadium athletes there (legacy still
+does). A new condition shows a white pill ("X is now Asleep"), the card tinted with drifting Z's and a zZ badge.
+Coins are tossed toward the camera and spin end over end (rAF, seeded result only), the table tint following the face
+showing (warm heads, cool tails), under a "Checkup — Asleep" pill; the landed result names the outcome. Our own coin
+faces (football heads, GR tails). Skip/Escape, reduced motion and cleanup as before; nothing resolves moves.
+Rules: printed revision `G.rev` inside v7. New solo matches save `rev: 2`; a record without one replays as revision 1
+with its original attacks (`attacksV1`) and Sleep clearing, so in-progress matches never change. Revision 2 prints
+Sleep attacks (Justin Jefferson's Double Move, C, 10; the Psychic profile's Hard Count, Psychic, 10, replacing Read the
+Field) and Sleep ends only on a heads Checkup flip: development and moving to the Bench no longer wake an athlete.
+Existing attack indexes stay put. The CPU (level 9+) sleeps an awake defender it can't knock out. Checkup flips carry the
+athlete's `id`; heads adds a `wake` event. `B.attacksOf(G, id)`, `C.printed(id, rev)` and `printedCard(id, rev)` give
+a match's own attacks. Verify `check-pocket-rules.cjs` (heads-only Sleep, revision 1 replay), `check-pocket-presentation.cjs`
+(preview banners/retreat/set down, attack banner, Sleep pill, coin, a real Sleep attack on all four profiles) and
+`check-pocket-browser.cjs`, plus the other Rivals checks.
+
 ## Rivals rarity scale and NFL headshots (November 7, 2026)
 
 Evan: "adjust the rarity of the cards. Epic is players with ratings 85-89. Legendary is 90-95. Mythic is 96-99. Use the

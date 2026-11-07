@@ -7,7 +7,14 @@ export const MAX_COPIES = 2;
 export const BALANCE_NOTE = 'Fictional card-balance values; not NFL statistics or athlete evaluations.';
 export const RENTAL_NOTE = 'Support and development cards are reusable match rentals. They do not consume, upgrade or add collection cards.';
 
-const attack = (name, cost, damage, text = '') => ({name, cost, damage, text});
+const attack = (name, cost, damage, text = '', effect) => ({name, cost, damage, text, ...(effect ? {effect} : {})});
+// Printed revision for new matches. Revision 2 (November 7, 2026) adds Sleep attacks; a saved
+// revision 1 match keeps the attacks it started with (attacksV1) so its log replays exactly.
+export const REVISION = 2;
+const ASLEEP = 'Your opponent’s Active athlete is now Asleep.';
+const sleeps = {type: 'condition', condition: 'asleep'};
+/** A card as printed in a match revision, for faces shown inside that match. */
+export function printed(id, rev = REVISION) { const c = card(id); return c && (rev || 1) < 2 && c.attacksV1 ? {...c, attacks: c.attacksV1} : c; }
 const colorless = n => Array(n).fill('Colorless');
 const freeze = value => {
   if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -31,7 +38,8 @@ const STARTER_SUPPORT = SUPPORT_IDS.filter(id => id !== 'P7-ground').flatMap(id 
 // athlete metadata and from rarity. All their costs are Colorless for the teaching duel.
 const EXAMPLES = {
   'Patrick Mahomes': {hp: 70, type: 'Fire', weakness: 'Water', retreat: 1, attacks: [attack('Pocket Escape', colorless(1), 30)]},
-  'Justin Jefferson': {hp: 120, type: 'Colorless', weakness: null, retreat: 1, attacks: [attack('Route Break', colorless(2), 50)]},
+  'Justin Jefferson': {hp: 120, type: 'Colorless', weakness: null, retreat: 1, attacks: [attack('Route Break', colorless(2), 50), attack('Double Move', colorless(1), 10, ASLEEP, sleeps)],
+    attacksV1: [attack('Route Break', colorless(2), 50)]},
   'Derrick Henry': {hp: 160, type: 'Colorless', weakness: null, retreat: 2, attacks: [attack('Power Run', colorless(3), 100)]},
   'CeeDee Lamb': {hp: 100, type: 'Colorless', weakness: null, retreat: 1, attacks: [attack('Quick Separation', colorless(1), 30)]}
 };
@@ -48,7 +56,8 @@ const PROFILES = freeze([
   {hp: 100, type: 'Fire', weakness: 'Water', retreat: 1, attacks: [attack('Quick Release', ['Fire'], 30), attack('Deep Shot', ['Fire', 'Colorless'], 50)]},
   {hp: 100, type: 'Water', weakness: 'Lightning', retreat: 1, attacks: [attack('Route Technician', ['Water'], 30), attack('Contested Catch', ['Water', 'Colorless'], 50)]},
   {hp: 80, type: 'Lightning', weakness: 'Fighting', retreat: 0, attacks: [attack('Pocket Escape', ['Lightning'], 30), attack('Open-Field Burst', ['Lightning', 'Colorless'], 50)]},
-  {hp: 90, type: 'Psychic', weakness: 'Darkness', retreat: 1, attacks: [attack('Read the Field', ['Psychic'], 30), attack('Protection Call', ['Psychic', 'Colorless'], 50)]},
+  {hp: 90, type: 'Psychic', weakness: 'Darkness', retreat: 1, attacks: [attack('Hard Count', ['Psychic'], 10, ASLEEP, sleeps), attack('Protection Call', ['Psychic', 'Colorless'], 50)],
+    attacksV1: [attack('Read the Field', ['Psychic'], 30), attack('Protection Call', ['Psychic', 'Colorless'], 50)]},
   {hp: 110, type: 'Fighting', weakness: 'Psychic', retreat: 2, attacks: [attack('Power Run', ['Fighting'], 30), attack('Pass Rush', ['Fighting', 'Colorless'], 50)]},
   {hp: 100, type: 'Darkness', weakness: 'Grass', retreat: 1, attacks: [attack('Ball Hawk', ['Darkness'], 30), attack('Contested Catch', ['Darkness', 'Colorless'], 50)]},
   {hp: 120, type: 'Metal', weakness: 'Fire', retreat: 2, attacks: [attack('Protection Call', ['Metal'], 20), attack('Drive Block', ['Metal', 'Colorless'], 50)]}
@@ -68,7 +77,7 @@ function player(c, sourceId, rentalOnly = false) {
 }
 function forms(base) {
   const energy = base.type === 'Colorless' ? 'Colorless' : base.type;
-  const common = {...base, rental: true, development: true, rentalOnly: base.rentalOnly, collectionId: base.collectionId};
+  const common = {...base, attacksV1: null, rental: true, development: true, rentalOnly: base.rentalOnly, collectionId: base.collectionId};
   const breakout = {...common, id: `${base.id}~breakout`, name: `${base.athlete} - Breakout`, canonicalName: `${base.athlete} - Breakout`,
     stage: 'Breakout', predecessor: base.id, hp: base.hp + 30,
     attacks: [attack('Breakout Play', [energy, 'Colorless'], 60)]};
@@ -94,10 +103,10 @@ export function setCards(cards = []) {
   }
   const mahomes = BY_ID.get('R7-mahomes');
   put({...mahomes, id: 'R7-mahomes-ex', name: 'Patrick Mahomes - Base ex', canonicalName: 'Patrick Mahomes - Base ex',
-    classification: 'ex', hp: 160, type: 'Colorless', types: ['Colorless'], weakness: null,
+    classification: 'ex', hp: 160, type: 'Colorless', types: ['Colorless'], weakness: null, attacksV1: null,
     attacks: [attack('Deep Shot', colorless(2), 70)]});
   put({...mahomes, id: 'R7-mahomes-mega', name: 'Patrick Mahomes - Base Mega ex', canonicalName: 'Patrick Mahomes - Base Mega ex',
-    classification: 'mega-ex', hp: 220, type: 'Colorless', types: ['Colorless'], weakness: null, retreat: 3,
+    classification: 'mega-ex', hp: 220, type: 'Colorless', types: ['Colorless'], weakness: null, retreat: 3, attacksV1: null,
     attacks: [attack('Prime-Time Drive', colorless(4), 120)]});
 }
 setCards();

@@ -25,7 +25,7 @@ const clone = value => JSON.parse(JSON.stringify(value));
   add('draw-ability', {ability: {name: 'Film Room', effect: {type: 'draw', count: 1}, oncePerTurn: true}});
   add('art-zero', {canonicalName: 'zero'});
   const src = fs.readFileSync(path.join(root, 'js/core/dynasty-pocket.js'), 'utf8').replace(/^import .*;$/gm, '').replace(/^export /gm, '');
-  const F = new Function('C', src + '\nreturn {newGame,check,apply,replay,nextMove,legalActions,hpOf,canPay,checkDeck,attackPreview,toMove};')({card: id => fixtureCards.get(id) || null});
+  const F = new Function('C', src + '\nreturn {newGame,check,apply,replay,nextMove,legalActions,hpOf,canPay,checkDeck,attackPreview,toMove,attacksOf};')({card: id => fixtureCards.get(id) || null});
   const fresh = seed => F.newGame(seed || 'rules', decks, options);
   const sl = (id, u) => ({u, id, dmg: 0, en: [], stack: [], tool: null, conditions: {}, entered: 0, developed: -1, abilityTurn: -1});
   const board = (attacker = 'zero', defender = 'zero') => {
@@ -70,7 +70,7 @@ const clone = value => JSON.parse(JSON.stringify(value));
   }
   {
     const G = board(); const p = G.p[0], s = p.active; s.dmg = 30; s.en = ['Fire']; s.tool = 'P7-gear'; s.conditions = {poisoned: true, asleep: true}; p.hand = ['breakout', 'prime'];
-    play(G, 0, {a: 'evolve', id: 'breakout', on: s.u}); assert.equal(s.dmg, 30); assert.deepEqual(s.en, ['Fire']); assert.equal(s.tool, 'P7-gear'); assert.deepEqual(s.conditions, {}); assert.equal(F.hpOf(G, s) - s.dmg, 130);
+    play(G, 0, {a: 'evolve', id: 'breakout', on: s.u}); assert.equal(s.dmg, 30); assert.deepEqual(s.en, ['Fire']); assert.equal(s.tool, 'P7-gear'); assert.deepEqual(s.conditions, {asleep: true}, 'revision 2: development clears conditions except Sleep'); assert.equal(F.hpOf(G, s) - s.dmg, 130);
     denied(G, 0, {a: 'evolve', id: 'prime', on: s.u}); assert.deepEqual(s.stack, ['zero']);
     p.turns++; play(G, 0, {a: 'evolve', id: 'prime', on: s.u}); assert.equal(s.dmg, 30); assert.deepEqual(s.stack, ['zero', 'breakout']);
   }
@@ -156,6 +156,53 @@ const clone = value => JSON.parse(JSON.stringify(value));
   {
     const G = board('draw-ability'); const n = G.p[0].hand.length; play(G, 0, {a: 'ability', on: G.p[0].active.u}); assert.equal(G.p[0].hand.length, n + 1); denied(G, 0, {a: 'ability', on: G.p[0].active.u}); play(G, 0, {a: 'attack', n: 0});
   }
+  // Sleep (revision 2): printed Sleep attacks, no attack or retreat, and only a heads Checkup flip wakes it.
+  {
+    assert.equal(fresh().rev, 2, 'new matches use the latest printed revision');
+    const jefferson = C.card('R7-jefferson'), double = jefferson.attacks.findIndex(a => a.name === 'Double Move');
+    assert.equal(jefferson.attacks[0].name, 'Route Break', 'existing attack indexes stay stable'); assert.ok(double > 0);
+    assert.deepEqual(jefferson.attacks[double].effect, {type: 'condition', condition: 'asleep'});
+    const psychic = C.allCards().find(c => c.kind === 'player' && c.stage === 'Base' && c.type === 'Psychic' && !c.rental);
+    if (psychic) { assert.equal(psychic.attacks[0].name, 'Hard Count'); assert.equal(C.card(psychic.id + '~breakout').attacksV1, null, 'development forms keep their own attacks'); }
+    let heads = 0, tails = 0;
+    for (let i = 0; i < 40; i++) {
+      const G = board('R7-jefferson'); G.seed = 'sleep-' + i; G.p[0].active.en = ['Fire'];
+      play(G, 0, {a: 'attack', n: double}); const sleeper = G.p[1].active;
+      assert.equal(sleeper.dmg, 10); assert.ok(G.events.some(e => e.k === 'condition' && e.condition === 'asleep' && e.text === 'Zero is now Asleep.'.replace('Zero', sleeper.id)));
+      const flipEvent = G.events.find(e => e.k === 'coin' && e.reason === 'Sleep recovery');
+      assert.ok(flipEvent, 'the sleeper flips at the very next Checkup'); assert.equal(flipEvent.id, sleeper.id, 'the flip names the sleeping athlete');
+      if (flipEvent.heads) { heads++; assert.equal(sleeper.conditions.asleep, undefined, 'heads wakes the athlete'); assert.ok(G.events.some(e => e.k === 'wake' && e.id === sleeper.id)); play(G, 1, {a: 'attack', n: 0}); }
+      else {
+        tails++; assert.equal(sleeper.conditions.asleep, true, 'tails keeps the athlete Asleep');
+        denied(G, 1, {a: 'attack', n: 0}); denied(G, 1, {a: 'retreat', to: G.p[1].bench[0].u});
+        assert.ok(!F.legalActions(G, 1).some(m => m.a === 'attack' || m.a === 'retreat'), 'no attack or retreat is offered while Asleep');
+        G.p[1].hand = ['breakout']; G.p[1].turns = 4; play(G, 1, {a: 'evolve', id: 'breakout', on: sleeper.u});
+        assert.equal(sleeper.conditions.asleep, true, 'development does not wake a sleeper');
+      }
+    }
+    assert.ok(heads && tails, 'both coin results occur');
+    const S = board(); S.p[0].active.conditions = {asleep: true}; S.p[0].hand = ['P7-matchup']; S.who = 1; S.p[1].hand = ['P7-matchup'];
+    const benched = S.p[0].active; play(S, 1, {a: 'support', id: 'P7-matchup'}); play(S, 0, {a: 'choose-switch', u: S.p[0].bench[0].u});
+    assert.equal(benched.conditions.asleep, true, 'a forced switch does not wake a sleeper either');
+    // A saved revision 1 match keeps its original attacks and its original Sleep clearing.
+    const old = F.newGame('rules', decks, {...options, rev: 1}); assert.equal(old.rev, 1);
+    assert.deepEqual(F.attacksOf(old, 'R7-jefferson').map(a => a.name), ['Route Break']);
+    if (psychic) assert.equal(F.attacksOf(old, psychic.id)[0].name, 'Read the Field');
+    assert.equal(C.printed('R7-jefferson', 1).attacks.length, 1); assert.equal(C.printed('R7-jefferson').attacks.length, 2);
+    const R = board(); R.rev = 1; const s = R.p[0].active; s.conditions = {asleep: true}; R.p[0].hand = ['breakout'];
+    play(R, 0, {a: 'evolve', id: 'breakout', on: s.u}); assert.deepEqual(s.conditions, {}, 'revision 1 development still clears Sleep');
+    // From the Contender tier the computer puts an awake defender to sleep when it cannot knock it out.
+    const A = board('R7-jefferson'); A.p[0].active.en = ['Fire', 'Fire']; A.p[0].en = null;
+    assert.equal(F.nextMove(A, 0, 9).n, double); assert.equal(F.nextMove(A, 0, 1).n, 0, 'easy opponents keep the plain strongest attack');
+    A.p[1].active.conditions = {asleep: true}; assert.equal(F.nextMove(A, 0, 20).n, 0, 'no repeat Sleep on a sleeping defender');
+  }
+  for (let i = 0; i < 6; i++) {
+    const cpu = C.cpuDeck(1 + i), ds = [deck.ids, cpu.ids], opts = {energy: [deck.energy, cpu.energy], rev: 1};
+    const G = B.newGame('rev1-' + i, ds, opts), log = [];
+    for (let n = 0; n < 1500 && G.phase !== 'over'; n++) { const who = B.toMove(G), move = B.nextMove(G, who, 1 + i); B.apply(G, who, move); log.push([who, move]); }
+    assert.ok(!G.events.some(e => e.k === 'condition'), 'revision 1 matches print no Sleep attacks');
+    assert.deepEqual(B.replay(G.seed, ds, log, opts), G, 'revision 1 logs replay exactly');
+  }
   // Exact illustrative duel: existing Energy powers later attacks, Henry is prepared on
   // the Bench, Jefferson trades for one point, Mahomes ex gives the final two.
   {
@@ -185,5 +232,5 @@ const clone = value => JSON.parse(JSON.stringify(value));
     assert.equal(G.phase, 'over', `CPU match ${i} terminates`);
     const replay = B.replay(G.seed, ds, log, opts); assert.deepEqual(replay, G, 'saved legal moves reproduce the full state and RNG exactly');
   }
-  console.log('PASS v7 rules: decks, setup, Energy, development, support limits, retreat/switch, 1/2/3-point KOs, Checkup, all five conditions, exact teaching duel, and 24 deterministic full matches.');
+  console.log('PASS v7 rules: decks, setup, Energy, development, support limits, retreat/switch, 1/2/3-point KOs, Checkup, all five conditions, heads-only Sleep, revision 1 replay, exact teaching duel, and 24 deterministic full matches.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

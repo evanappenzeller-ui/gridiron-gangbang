@@ -4,8 +4,9 @@ import * as D from '../core/dynasty.js';
 import * as C from '../core/dynasty-pocket-cards.js';
 import {cardHTML, trainerHTML} from './dynasty.js';
 
-export function printedCard(id) {
-  const c = C.card(id);
+/** rev: the match's printed revision (a saved revision 1 match shows the attacks it plays with). */
+export function printedCard(id, rev) {
+  const c = C.printed(id, rev);
   if (!c) return '';
   const options = {tag:false, size:'m', rulesVersion:7, pocketCard:c, eager:true};
   if (c.kind !== 'player') {

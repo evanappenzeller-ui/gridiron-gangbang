@@ -11,6 +11,7 @@ import {profileKey} from '../core/realm-active.js';
 import {creditHTML} from './dynasty.js';
 import {printedCard} from './dynasty-pocket-card.js';
 import {attachHand} from './dynasty-pocket-hand.js';
+import {attachPreview, conditionBadges} from './dynasty-pocket-preview.js';
 import {attachMusic, musicSheet} from './dynasty-music.js';
 import {tableOptions} from './dynasty-table-options.js';
 
@@ -22,21 +23,22 @@ const kind = c => c.kind === 'player' ? `${c.stage} Player${c.classification ===
 const cost = a => a.cost?.length ? a.cost.join(' + ') : '0 Energy';
 const typeOf = c => c.types?.join(' / ') || c.type || 'Colorless';
 const all = p => [p.active, ...p.bench].filter(Boolean);
+const rev = G => G?.rev === 2 ? 2 : 1;
 const button = (label, attr, disabled = false, cls = '') => `<button type="button" class="rp-button ${cls}" ${attr}${disabled ? ' disabled' : ''}>${label}</button>`;
 const energy = list => list.length ? list.map(e => `<span class="rp-energy" style="--energy:${color[e] || color.Colorless}" title="${esc(e)} Energy" aria-label="${esc(e)} Energy">${esc(e.slice(0, 1))}</span>`).join('') : '<span class="rp-none">No Energy</span>';
 
 function face(id, slot, G) {
   const c = C.card(id);
   if (!c) return '';
-  const print = `<span class="rp-card-print" aria-hidden="true">${printedCard(id)}</span>`;
+  const print = `<span class="rp-card-print" aria-hidden="true">${printedCard(id, rev(G))}</span>`;
   if (!slot || c.kind !== 'player') return print;
   const max = B.hpOf(G, slot), hp = Math.max(0, max - slot.dmg);
-  const statuses = ['poisoned','burned','asleep','paralyzed','confused'].filter(k => slot.conditions?.[k]);
-  return print + `<span class="rp-live-hp">${hp}</span><span class="rp-hp" aria-label="${hp} of ${max} HP remaining"><i style="width:${Math.max(0,Math.min(100,hp/max*100))}%"></i></span><span class="rp-card-energy">${energy(slot.en)}</span>${statuses.length ? `<span class="rp-condition">${esc(statuses.join(' · '))}</span>` : ''}`;
+  const badges = conditionBadges(slot.conditions);
+  return print + `<span class="rp-live-hp">${hp}</span><span class="rp-hp" aria-label="${hp} of ${max} HP remaining"><i style="width:${Math.max(0,Math.min(100,hp/max*100))}%"></i></span><span class="rp-card-energy">${energy(slot.en)}</span>${badges ? `<span class="rp-condition">${badges}</span>` : ''}`;
 }
 function piece(id, slot, G, attrs = '', selected = false) {
   const c = C.card(id);
-  return `<button type="button" class="rp-card ${c?.kind === 'player' ? 'is-player' : 'is-support'}${selected ? ' is-selected' : ''}" ${attrs} aria-label="Inspect ${esc(name(id))}${slot ? `, ${Math.max(0, B.hpOf(G, slot) - slot.dmg)} HP, ${slot.en.length} Energy` : ''}">${face(id, slot, G)}</button>`;
+  return `<button type="button" class="rp-card ${c?.kind === 'player' ? 'is-player' : 'is-support'}${selected ? ' is-selected' : ''}${slot?.conditions?.asleep ? ' is-asleep' : ''}" ${attrs} aria-label="Inspect ${esc(name(id))}${slot ? `, ${Math.max(0, B.hpOf(G, slot) - slot.dmg)} HP, ${slot.en.length} Energy` : ''}">${face(id, slot, G)}</button>`;
 }
 function closeSheet(st) { st.sheet?.close(); st.sheet = null; }
 function showSheet(st, title, body, click, cardFocus = false) {
@@ -52,7 +54,7 @@ function send(st, m) {
   if (!fresh?.G || fresh.G.v !== 7) return false;
   const legal = B.check(fresh.G, fresh.you, m);
   if (!legal.ok) { ui.toast(legal.why, {icon:'info'}); closeSheet(st); draw(st); return false; }
-  closeSheet(st);
+  closeSheet(st); st.preview?.close();
   const result = SOLO.move(st.mid, m);
   if (!result.ok) { ui.toast(result.why, {icon:'info'}); return false; }
   ui.haptic('selection'); draw(st); return true;
@@ -61,7 +63,7 @@ function moveLabel(G, m) {
   const p = G.p[0], target = all(p).find(s => s.u === m.on || s.u === m.to || s.u === m.u);
   switch (m.a) {
     case 'energy': return `Attach ${p.en} Energy to ${name(target?.id)}`;
-    case 'attack': return `Attack: ${C.card(p.active.id).attacks[m.n].name}`;
+    case 'attack': return `Attack: ${B.attacksOf(G, p.active.id)[m.n].name}`;
     case 'bench': return 'Place on your Bench';
     case 'evolve': return `Develop ${name(target?.id)} into ${name(m.id)}`;
     case 'support': return `Play ${name(m.id)}${target ? ` on ${name(target.id)}` : ''}${m.prime ? ` → ${name(m.prime)}` : ''}`;
@@ -140,7 +142,57 @@ function energyHint(st) {
   if (!p) return;
   ui.toast(p.en && !p.used.energy && B.legalActions(x.G,x.you).some(m=>m.a === 'energy') ? `Drag the ${p.en} Energy onto your Active or a Benched athlete.` : p.used.energy ? 'You have already attached your Energy this turn.' : 'No Energy is available right now.', {icon:'info'});
 }
+// What a manager still needs before an attack: '' when the attached Energy pays its cost.
+function missing(cost = [], en = []) {
+  const rest = en.slice(), typed = [];
+  for (const t of cost.filter(t => t !== 'Colorless' && t !== '*')) { const i = rest.indexOf(t); if (i < 0) typed.push(t); else rest.splice(i, 1); }
+  const n = typed.length + Math.max(0, cost.filter(t => t === 'Colorless' || t === '*').length - rest.length);
+  return n ? `Needs ${n} more${typed.length === n && new Set(typed).size === 1 ? ' ' + typed[0] : ''} Energy` : '';
+}
+/** The floating card preview's content, built only from the engine's legal moves. */
+function previewModel(st, choice) {
+  const x = SOLO.get(st.mid), G = x?.G;
+  if (!G || G.v !== 7 || choice?.u == null || G.phase === 'setup') return null;
+  const side = Number(choice.side), slot = G.p[side] && all(G.p[side]).find(s => String(s.u) === String(choice.u)), c = C.card(slot?.id);
+  if (!slot || c?.kind !== 'player') return null;
+  const me = G.p[x.you], mine = side === x.you, active = G.p[side].active === slot, turn = mine && x.state === 'yours' && usable(st);
+  const legal = turn ? B.legalActions(G, x.you) : [], cond = slot.conditions || {}, banners = [];
+  if (mine && active && turn) B.attacksOf(G, slot.id).forEach((a, n) => {
+    const moves = legal.filter(m => m.a === 'attack' && m.n === n);
+    const why = moves.length ? '' : cond.asleep ? 'Asleep · can’t attack' : cond.paralyzed ? 'Paralyzed · can’t attack'
+      : missing(a.cost, slot.en) || (me.promote || G.pending ? 'Choose your Active athlete first' : 'Not available right now');
+    const damage = moves.length ? B.attackPreview(G, x.you, n, moves[0].target).damage : a.damage;
+    banners.push({name:a.name, cost:a.cost, type:c.type, text:a.text, why, damage, move:moves.length === 1 ? moves[0] : null, details:moves.length > 1,
+      label:moves.length ? `Attack: ${a.name}${damage ? `, ${damage} damage` : ''}${a.text ? `. ${a.text}` : ''}` : `${a.name}: ${why}`});
+  });
+  for (const m of legal.filter(m => (m.a === 'ability' && m.on === slot.u) || (['promote','choose-switch'].includes(m.a) && m.u === slot.u))) {
+    banners.push({name:m.a === 'ability' ? c.ability?.name || 'Ability' : 'Send in', type:c.type, move:m, label:moveLabel(G, m),
+      text:m.a === 'ability' ? c.ability?.text || '' : m.a === 'promote' ? 'Move this athlete to your Active Spot. No retreat cost.' : 'Switch this athlete into your Active Spot.'});
+  }
+  let retreat = null;
+  if (mine && active && turn) {
+    const enabled = legal.some(m => m.a === 'retreat');
+    retreat = {cost:c.retreat || 0, enabled, why:enabled ? '' : me.used.retreat ? 'Retreated' : !me.bench.length ? 'No Bench' : cond.asleep ? 'Asleep' : cond.paralyzed ? 'Paralyzed' : slot.en.length < (c.retreat || 0) ? 'Needs Energy' : 'Retreat'};
+  }
+  const note = !mine ? `${x.opp.name}’s ${active ? 'Active' : 'Benched'} athlete` : x.state === 'over' ? 'Match complete' : !turn ? 'Your opponent’s turn' : !active && !banners.length ? 'On your Bench' : '';
+  const sel = `[data-rp-slot="${slot.u}"][data-rp-side="${side}"]`, el = st.el.querySelector(sel)?.getBoundingClientRect();
+  return {side, u:slot.u, mine, name:c.athlete || c.name, print:printedCard(slot.id, rev(G)), max:B.hpOf(G, slot), dmg:slot.dmg, energy:slot.en.slice(),
+    badges:conditionBadges(cond), banners, retreat, note, from:el?.width ? {left:el.left, top:el.top, width:el.width, height:el.height} : null,
+    returnFocus:() => st.el.querySelector(sel), onMove:m => send(st, m), onRetreat:() => retreatFrom(st), onDetails:() => inspect(st, {u:slot.u, side, details:true})};
+}
+function retreatFrom(st) {
+  const x = SOLO.get(st.mid);
+  if (!usable(st) || !x?.G) return;
+  const moves = B.legalActions(x.G, x.you).filter(m => m.a === 'retreat');
+  if (moves.length === 1) return retreat(st, moves[0]);
+  if (moves.length) showSheet(st, 'Retreat', `<p>Choose the Benched athlete to switch in.</p><div class="rp-actions">${moves.map((m,i) => button(esc(moveLabel(x.G, m)), `data-rp-retreat-to="${i}"`)).join('')}</div>`, e => {
+    const b = e.target.closest('[data-rp-retreat-to]');
+    if (b && moves[Number(b.dataset.rpRetreatTo)]) retreat(st, moves[Number(b.dataset.rpRetreatTo)]);
+  });
+}
 function inspect(st, choice) {
+  // Athletes on the table rise into the floating preview; Details and hand cards keep the sheet.
+  if (choice.u != null && !choice.details && st.preview?.open(previewModel(st, choice))) return;
   const x = SOLO.get(st.mid), G = x?.G;
   if (!G) return;
   const me = G.p[x.you];
@@ -155,7 +207,7 @@ function inspect(st, choice) {
   if (c.kind === 'player') {
     details += `<dl class="rp-facts"><div><dt>Battle type</dt><dd>${esc(typeOf(c))}</dd></div><div><dt>Weakness</dt><dd>${esc(c.weakness || 'None')}${c.weakness ? ' +20' : ''}</dd></div><div><dt>Retreat</dt><dd>${c.retreat} Energy</dd></div><div><dt>KO value</dt><dd>${points(c)} point${points(c) > 1 ? 's' : ''}</dd></div></dl>`;
     if (c.predecessor) details += `<p><b>Develops from:</b> ${esc(name(c.predecessor))}. Keep damage, Energy and Tool. No development on your first turn or the turn this athlete entered play.</p>`;
-    details += `<div class="rp-attack-list">${c.attacks.map(a => `<div><span><b>${esc(a.name)}</b><small>${esc(cost(a))}</small>${a.text ? `<small>${esc(a.text)}</small>` : ''}</span><strong>${a.damage}<small>damage</small></strong></div>`).join('')}</div>`;
+    details += `<div class="rp-attack-list">${B.attacksOf(G, id).map(a => `<div><span><b>${esc(a.name)}</b><small>${esc(cost(a))}</small>${a.text ? `<small>${esc(a.text)}</small>` : ''}</span><strong>${a.damage}<small>damage</small></strong></div>`).join('')}</div>`;
     if (c.ability) details += `<p><b>Ability · ${esc(c.ability.name)}</b><br>${esc(c.ability.text)}</p>`;
     if (slot?.tool) details += `<p><b>Attached Tool:</b> ${esc(name(slot.tool))} — ${esc(C.card(slot.tool)?.text || '')}</p>`;
     if (slot?.stack?.length) details += `<p><b>Development stack:</b> ${esc([...slot.stack,slot.id].map(name).join(' → '))}</p>`;
@@ -195,7 +247,8 @@ function inspect(st, choice) {
 }
 function retreat(st, m) {
   const x = SOLO.get(st.mid), active = x.G.p[x.you].active, c = C.card(active.id), count = c.retreat;
-  if (!count) return send(st, m);
+  // Only mixed Energy types need a choice; otherwise discard the first attached ones.
+  if (!count || new Set(active.en).size <= 1 || active.en.length === count) return send(st, m);
   const sh = showSheet(st, 'Choose retreat Energy', `<p>Discard ${count} Energy from ${esc(c.name)} to retreat. The new Active athlete can still attack.</p><fieldset class="rp-energy-choice"><legend>Choose ${count}</legend>${active.en.map((e,i) => `<label><input type="checkbox" name="energy" value="${i}">${energy([e])}<span>${esc(e)}</span></label>`).join('')}</fieldset>${button('Pay retreat cost', 'data-rp-retreat', true, 'is-primary')}`);
   const selected = () => [...sh.body.querySelectorAll('input:checked')].map(el => Number(el.value));
   sh.body.addEventListener('change', () => { sh.body.querySelector('[data-rp-retreat]').disabled = selected().length !== count; });
@@ -207,7 +260,9 @@ function eventText(ev, you, opponent) {
   return ev.text || '';
 }
 function help(st) {
-  showSheet(st, 'How to play Gridiron Rivals', `<ol class="rp-rules"><li><b>Collect, build, battle.</b> Build a focused 20-card deck with at least one Base Player and at most two of each canonical name. Energy comes from the Energy Zone, never your deck.</li><li><b>Choose your lineup.</b> Start with five cards, including a Base Player. Choose one Active athlete and up to three Base Players for the Bench.</li><li><b>Prepare one turn ahead.</b> Draw one card. Drag one Energy from your Energy Zone onto any athlete. The first manager skips normal Energy on the opening turn; legal zero-cost attacks and Supporters are still allowed.</li><li><b>Attack and keep Energy.</b> Meet the printed cost, then attack. Any type pays Colorless costs. The attack ends your turn. Energy stays attached unless a card says otherwise.</li><li><b>Develop your athletes.</b> Put the exact matching Breakout or Prime card from hand on an eligible athlete. Never on your first turn, on the turn it entered play, or twice on the same athlete in one turn. Keep damage, Energy and Tool.</li><li><b>Choose your support.</b> Use multiple eligible Items, one Supporter, one Tool per athlete and one Stadium per turn. There is one shared Stadium.</li><li><b>Retreat wisely.</b> Pay the Active athlete’s printed Energy cost and choose a Benched replacement, once per turn. A card-effect switch or free promotion after a knockout does not spend that retreat allowance.</li><li><b>Score three knockout points.</b> Regular players give 1 point, ex 2, Mega ex 3. You also win if your opponent has no athlete in play to replace a knocked-out Active athlete. Hand and deck cards cannot rescue that knockout.</li></ol><h3>Between-turn Checkup</h3><p>Poison: 10 damage each Checkup, no recovery flip. Burn: 20 damage, then heads clears it. Sleep: no attack or retreat; heads at Checkup wakes the athlete. Paralysis: no attack or retreat; clears after its owner’s next turn. Confusion: flip to attack; tails ends the turn without attacking or self-damage.</p><p>Development and moving to the Bench clear Special Conditions. Poison and Burn can coexist; Sleep, Paralysis and Confusion replace one another.</p><p>Plan your next attacker while your Active athlete keeps using its attached Energy. Every Bench slot matters. Match damage and knockouts never remove cards from your collection.</p>`);
+  const sleep = rev(st.x?.G) >= 2 ? 'Sleep: no attack or retreat. Only heads at Checkup wakes the athlete; developing or moving to the Bench does not.' : 'Sleep: no attack or retreat; heads at Checkup wakes the athlete.';
+  const clears = rev(st.x?.G) >= 2 ? 'Development and moving to the Bench clear Special Conditions, except Sleep.' : 'Development and moving to the Bench clear Special Conditions.';
+  showSheet(st, 'How to play Gridiron Rivals', `<ol class="rp-rules"><li><b>Collect, build, battle.</b> Build a focused 20-card deck with at least one Base Player and at most two of each canonical name. Energy comes from the Energy Zone, never your deck.</li><li><b>Choose your lineup.</b> Start with five cards, including a Base Player. Choose one Active athlete and up to three Base Players for the Bench.</li><li><b>Prepare one turn ahead.</b> Draw one card. Drag one Energy from your Energy Zone onto any athlete. The first manager skips normal Energy on the opening turn; legal zero-cost attacks and Supporters are still allowed.</li><li><b>Attack and keep Energy.</b> Meet the printed cost, then attack. Any type pays Colorless costs. The attack ends your turn. Energy stays attached unless a card says otherwise.</li><li><b>Develop your athletes.</b> Put the exact matching Breakout or Prime card from hand on an eligible athlete. Never on your first turn, on the turn it entered play, or twice on the same athlete in one turn. Keep damage, Energy and Tool.</li><li><b>Choose your support.</b> Use multiple eligible Items, one Supporter, one Tool per athlete and one Stadium per turn. There is one shared Stadium.</li><li><b>Retreat wisely.</b> Pay the Active athlete’s printed Energy cost and choose a Benched replacement, once per turn. A card-effect switch or free promotion after a knockout does not spend that retreat allowance.</li><li><b>Score three knockout points.</b> Regular players give 1 point, ex 2, Mega ex 3. You also win if your opponent has no athlete in play to replace a knocked-out Active athlete. Hand and deck cards cannot rescue that knockout.</li></ol><h3>Between-turn Checkup</h3><p>Poison: 10 damage each Checkup, no recovery flip. Burn: 20 damage, then heads clears it. ${sleep} Paralysis: no attack or retreat; clears after its owner’s next turn. Confusion: flip to attack; tails ends the turn without attacking or self-damage.</p><p>${clears} Poison and Burn can coexist; Sleep, Paralysis and Confusion replace one another.</p><p>Plan your next attacker while your Active athlete keeps using its attached Energy. Every Bench slot matters. Match damage and knockouts never remove cards from your collection.</p>`);
 }
 function cardBack() {
   return '<span class="rp-card-back" aria-hidden="true"><img src="img/rivals/card-back-v1.webp" alt="" decoding="async" draggable="false"></span>';
@@ -307,6 +362,7 @@ function draw(st) {
     + '<button type="button" class="rp-menu" data-rp-menu aria-label="Battle options"><span aria-hidden="true">☰</span></button>'
     + `<p class="rp-sr-only" aria-live="polite">${esc(last)}</p></div>`;
   host.querySelector('.rp-hand').scrollLeft = scroll;
+  if (st.preview?.isOpen()) st.preview.refresh(previewModel(st, st.preview.current()));
   if (focusKey != null) host.querySelector(`.rp-hand [data-rp-hand="${Number(focusKey)}"]`)?.focus({preventScroll:true});
 }
 function onClick(st,e) {
@@ -339,16 +395,17 @@ export default {
     ST.set(ctx,st);
     if (!el.querySelector('[data-rp]')) el.innerHTML=this.render();
     st.music=attachMusic(el,ctx.visible,'battle'); st.sfx=sfx.attach(el,ctx.visible);
-    st.presentation=attachPresentation(el, {enabled:()=>!st.dead && !st.hidden && !st.stale && profileKey()===st.profile && D.mayPlay(), cancelHand:()=>st.hand?.cancel(), sound:cue=>st.sfx?.play(cue)});
-    st.hand=attachHand(el,{enabled:()=>usable(st) && !st.sheet && !document.hidden, targets:i=>dropTargets(st,i), drop:(i,t)=>dropHand(st,i,t), inspect:i=>inspect(st,{hand:i}), preview:()=>st.sfx?.play('card'), energyTargets:()=>energyTargets(st), energyDrop:t=>dropEnergy(st,t), energyTap:()=>energyHint(st)});
+    st.presentation=attachPresentation(el, {enabled:()=>!st.dead && !st.hidden && !st.stale && profileKey()===st.profile && D.mayPlay(), cancelHand:()=>st.hand?.cancel(), sound:cue=>st.sfx?.play(cue), blocked:()=>!!st.preview?.isOpen()});
+    st.preview=attachPreview(el, {enabled:()=>!st.dead && !st.hidden && !st.stale && profileKey()===st.profile && D.mayPlay() && !st.presentation?.busy(), sound:cue=>st.sfx?.play(cue)});
+    st.hand=attachHand(el,{enabled:()=>usable(st) && !st.sheet && !st.preview?.isOpen() && !document.hidden, targets:i=>dropTargets(st,i), drop:(i,t)=>dropHand(st,i,t), inspect:i=>inspect(st,{hand:i}), preview:()=>st.sfx?.play('card'), energyTargets:()=>energyTargets(st), energyDrop:t=>dropEnergy(st,t), energyTap:()=>energyHint(st)});
     const click=e=>onClick(st,e);el.addEventListener('click',click);
-    st.stops.push(()=>st.presentation.stop(),()=>st.hand.stop(),()=>el.removeEventListener('click',click),()=>st.music.stop(),()=>st.sfx.stop(),SOLO.subscribe(()=>{
+    st.stops.push(()=>st.presentation.stop(),()=>st.preview.stop(),()=>st.hand.stop(),()=>el.removeEventListener('click',click),()=>st.music.stop(),()=>st.sfx.stop(),SOLO.subscribe(()=>{
       // Deferred CPU checks can emit without a move. Keep a live hand gesture intact.
       const x=SOLO.get(st.mid);
       if (!x || JSON.stringify([x.G,x.state,x.result]) !== st.rendered) draw(st);
     }),data.subscribe(t=>{
       if(t!=='me')return;
-      st.presentation.clear();st.hand.cancel();closeSheet(st);st.eventAt=null;
+      st.presentation.clear();st.preview.close();st.hand.cancel();closeSheet(st);st.eventAt=null;
       if(profileKey()!==st.profile){st.stale=true;st.music.visible(false);st.sfx.visible(false);document.documentElement.classList.remove('is-dynasty-battle');if(!st.hidden&&!st.left){st.left=true;st.ctx.back();}return;}
       draw(st);
     }));
@@ -356,6 +413,6 @@ export default {
     D.load().then(()=>draw(st),()=>draw(st));draw(st);
   },
   onShow(ctx) { const st=ST.get(ctx);if(st){if(st.stale){st.ctx.back();return;}st.hidden=false;st.music.visible(true);st.sfx.visible(true);document.documentElement.classList.toggle('is-dynasty-battle',D.mayPlay());draw(st);} },
-  onHide(ctx) { const st=ST.get(ctx);if(st){st.hidden=true;st.presentation.clear();st.eventAt=null;st.hand.cancel();closeSheet(st);st.music.visible(false);st.sfx.visible(false);document.documentElement.classList.remove('is-dynasty-battle');} },
+  onHide(ctx) { const st=ST.get(ctx);if(st){st.hidden=true;st.presentation.clear();st.preview.close();st.eventAt=null;st.hand.cancel();closeSheet(st);st.music.visible(false);st.sfx.visible(false);document.documentElement.classList.remove('is-dynasty-battle');} },
   unmount(el,ctx) {const st=ST.get(ctx);if(!st)return;st.dead=true;closeSheet(st);st.stops.forEach(fn=>fn());document.documentElement.classList.remove('is-dynasty-battle');D.flush();ST.delete(ctx);}
 };

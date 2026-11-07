@@ -156,7 +156,11 @@ async function run(url) {
             // A pointer tap only explains the gesture; it never opens a chooser or attaches.
             await page.locator('[data-rp-energy]').click();
             assert.equal(await page.locator('.rp-sheet').count(),0,'tapping the Energy Zone does not open a chooser');
-            await page.locator(`[data-rp-slot="${move.on}"][data-rp-side="0"]`).click();await page.waitForSelector('.rp-sheet');
+            await page.locator(`[data-rp-slot="${move.on}"][data-rp-side="0"]`).click();await page.waitForSelector('.rp-preview');
+            assert.equal(await page.locator('.rp-preview button').filter({hasText:/Attach/}).count(),0,'the card preview offers no Attach Energy button');
+            // Details keeps the full card sheet, which offers no Attach Energy button either.
+            await page.locator('[data-rp-preview-details]').click();await page.waitForSelector('.rp-sheet');
+            assert.equal(await page.locator('.rp-preview').count(),0,'opening details sets the preview down');
             assert.equal(await page.locator('.rp-sheet [data-rp-move]').filter({hasText:/^Attach /}).count(),0,'card details offer no Attach Energy button');
             await page.locator('.sheet .sheet-close').last().click();await page.waitForFunction(()=>!document.querySelector('.sheet'));
           }
@@ -177,8 +181,9 @@ async function run(url) {
           await page.waitForFunction(async()=>(await import('/js/core/dynasty-solo.js')).get(window.__pocketMid).G.p[0].used.energy||(await import('/js/core/dynasty-solo.js')).get(window.__pocketMid).state!=='yours');
           attachments++;
         } else {
-          await page.locator(`[data-rp-slot="${move.active}"][data-rp-side="0"]`).click();
-          await page.locator('.rp-sheet [data-rp-move]').filter({hasText:/^Attack:/}).first().click();
+          await page.locator(`[data-rp-slot="${move.active}"][data-rp-side="0"]`).click();await page.waitForSelector('.rp-preview');
+          await page.locator('.rp-preview [data-rp-preview-act]:not([disabled])').first().click();
+          await page.waitForFunction(()=>!document.querySelector('.rp-preview'));
           attacks++;turns++;
         }
       } else if(move.a==='promote'||move.a==='choose-switch') await page.locator('[data-rp-choice]').first().click();

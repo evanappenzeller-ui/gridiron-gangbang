@@ -3,6 +3,9 @@
 import * as C from './dynasty-pocket-cards.js';
 
 export const VERSION = 7, DECK_SIZE = 20, BENCH_MAX = 3, WIN_POINTS = 3;
+// Printed revision inside v7. Saved matches without one are revision 1 and replay unchanged.
+// Revision 2: Sleep attacks are printed, and only a heads Checkup flip wakes an Asleep athlete.
+export const REVISION = 2;
 export const ENERGY_TYPES = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal'];
 export const card = id => C.card(id);
 export const toMove = G => G.phase === 'over' ? -1 : G.who;
@@ -23,6 +26,10 @@ const conditions = s => s.conditions || (s.conditions = {});
 const weaknessOf = c => c.weakness || c.weak || null;
 const damageOf = a => a.damage ?? a.dmg ?? 0;
 const nameOf = id => card(id)?.name || id;
+const revOf = G => G?.rev === 2 ? 2 : 1;
+/** The attacks printed on a card in this match's revision. */
+export function attacksOf(G, id) { const c = card(id); return revOf(G) < 2 && c?.attacksV1 ? c.attacksV1 : c?.attacks || []; }
+const sleeps = a => [a?.effect].flat().some(e => effectType(e) === 'condition' && String(e.condition).toLowerCase() === 'asleep');
 function event(G, k, who, details = {}, text = '') { G.events.push({k, who, ...details, text}); }
 function hash(text) { let h = 2166136261; for (const c of String(text)) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0; return h; }
 function random(G) {
@@ -30,7 +37,7 @@ function random(G) {
   t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61);
   return ((t ^ t >>> 14) >>> 0) / 4294967296;
 }
-function flip(G, who, reason) { const heads = random(G) < .5; event(G, 'coin', who, {heads, reason}, `${reason}: ${heads ? 'heads' : 'tails'}.`); return heads; }
+function flip(G, who, reason, id) { const heads = random(G) < .5; event(G, 'coin', who, {heads, reason, ...(id ? {id} : {})}, `${reason}: ${heads ? 'heads' : 'tails'}.`); return heads; }
 function shuffle(G, list) { const a = list.slice(); for (let i = a.length - 1; i > 0; --i) { const j = Math.floor(random(G) * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function draw(G, who, n = 1) {
   const p = G.p[who]; let actual = 0;
@@ -39,7 +46,8 @@ function draw(G, who, n = 1) {
 }
 function removeHand(p, id) { p.hand.splice(p.hand.indexOf(id), 1); }
 function slot(G, id, who) { return {u: ++G.uid, id, dmg: 0, en: [], stack: [], tool: null, conditions: {}, entered: G.p[who].turns, developed: -1, abilityTurn: -1}; }
-function clearConditions(s) { s.conditions = {}; delete s.shield; }
+// Revision 2: development and moving to the Bench clear conditions except Sleep; only heads wakes it.
+function clearConditions(s, G) { const asleep = revOf(G) >= 2 && s.conditions?.asleep; s.conditions = asleep ? {asleep: true} : {}; delete s.shield; }
 export function canPay(cost = [], energy = []) {
   const rest = energy.slice();
   for (const type of cost.filter(t => t !== 'Colorless' && t !== '*')) { const i = rest.indexOf(type); if (i < 0) return false; rest.splice(i, 1); }
@@ -69,7 +77,7 @@ export function newGame(seed, decks, options = {}) {
   const energy = options.energy || [['Fire'], ['Fire']];
   if (!Array.isArray(energy) || energy.length !== 2 || energy.some(types => !Array.isArray(types))) throw new Error('Configure an Energy Zone for each manager.');
   decks.forEach((d, i) => { const result = checkDeck(d, energy[i]); if (!result.ok) throw new Error(result.why); });
-  const G = {v: VERSION, seed: String(seed), rn: 0, uid: 0, phase: 'setup', turn: 0, who: 0, first: 0, p: [], winner: null, events: [], stadium: null, pending: null, continuation: null};
+  const G = {v: VERSION, rev: [1, 2].includes(options.rev) ? options.rev : REVISION, seed: String(seed), rn: 0, uid: 0, phase: 'setup', turn: 0, who: 0, first: 0, p: [], winner: null, events: [], stadium: null, pending: null, continuation: null};
   G.first = options.first === 0 || options.first === 1 ? options.first : (random(G) < .5 ? 0 : 1); G.who = G.first;
   G.p = decks.map((ids, who) => {
     const deck = shuffle(G, ids), hand = deck.splice(0, 5);
@@ -114,8 +122,8 @@ function checkup(G, endedWho) {
     const p = G.p[who], s = p.active; if (!s) continue;
     const c = conditions(s);
     if (c.poisoned) { s.dmg += 10; event(G, 'condition-damage', who, {id: s.id, amount: 10, condition: 'Poisoned'}, `${nameOf(s.id)} takes 10 Poison damage.`); }
-    if (c.burned) { s.dmg += 20; event(G, 'condition-damage', who, {id: s.id, amount: 20, condition: 'Burned'}, `${nameOf(s.id)} takes 20 Burn damage.`); if (flip(G, who, 'Burn recovery')) delete c.burned; }
-    if (c.asleep && flip(G, who, 'Sleep recovery')) delete c.asleep;
+    if (c.burned) { s.dmg += 20; event(G, 'condition-damage', who, {id: s.id, amount: 20, condition: 'Burned'}, `${nameOf(s.id)} takes 20 Burn damage.`); if (flip(G, who, 'Burn recovery', s.id)) delete c.burned; }
+    if (c.asleep && flip(G, who, 'Sleep recovery', s.id)) { delete c.asleep; event(G, 'wake', who, {id: s.id}, `${nameOf(s.id)} wakes up.`); }
     if (c.paralyzed && who === endedWho && p.turns >= c.paralyzedUntil) { delete c.paralyzed; delete c.paralyzedUntil; }
   }
   knockoutCheck(G);
@@ -147,7 +155,7 @@ function developmentOkay(G, who, s, id, fast = false) {
   return previous.stage === 'Base' && c.stage === 'Prime' && mid?.stage === 'Breakout' && (mid.predecessor === s.id || mid.predecessor === previous.canonicalName);
 }
 function evolve(G, who, s, id) {
-  const from = s.id; s.stack.push(from); s.id = id; s.developed = G.p[who].turns; s.abilityTurn = -1; clearConditions(s);
+  const from = s.id; s.stack.push(from); s.id = id; s.developed = G.p[who].turns; s.abilityTurn = -1; clearConditions(s, G);
   removeHand(G.p[who], id); event(G, 'evolve', who, {from, id, on: s.u}, `${nameOf(from)} develops into ${nameOf(id)}. Damage and attachments stay.`);
 }
 function retreatCost(s) { return Math.max(0, card(s.id).retreat || 0); }
@@ -158,7 +166,7 @@ function energySelection(p, s, indexes, amount) {
 }
 function switchTo(G, who, u) {
   const p = G.p[who], old = p.active, index = p.bench.findIndex(s => s.u === u), replacement = p.bench[index];
-  clearConditions(old); p.bench[index] = old; p.active = replacement;
+  clearConditions(old, G); p.bench[index] = old; p.active = replacement;
   event(G, 'switch', who, {from: old.id, id: replacement.id}, `${nameOf(replacement.id)} moves to the Active Spot.`);
 }
 export function check(G, who, m) {
@@ -202,7 +210,7 @@ export function check(G, who, m) {
     }
     case 'attack': {
       if (!Number.isInteger(m.n) || !p.active || !other.active) return fail('Choose an Active athlete attack.');
-      const a = card(p.active.id).attacks[m.n];
+      const a = attacksOf(G, p.active.id)[m.n];
       if (!a || !canPay(a.cost, p.active.en)) return fail('Attach the printed Energy requirement before attacking.');
       if (p.active.conditions.asleep || p.active.conditions.paralyzed) return fail('This athlete cannot attack while Asleep or Paralyzed.');
       if (a.target === 'bench' && !other.bench.some(x => x.u === m.target)) return fail('Choose an opposing Benched target.');
@@ -231,7 +239,7 @@ function inflict(G, who, s, condition) {
   if (['asleep', 'paralyzed', 'confused'].includes(value)) { delete c.asleep; delete c.paralyzed; delete c.paralyzedUntil; delete c.confused; }
   if (['poisoned', 'burned', 'asleep', 'paralyzed', 'confused'].includes(value)) c[value] = true;
   if (value === 'paralyzed') c.paralyzedUntil = G.p[who].turns + 1;
-  event(G, 'condition', who, {id: s.id, condition: value}, `${nameOf(s.id)} is ${value}.`);
+  event(G, 'condition', who, {id: s.id, condition: value}, `${nameOf(s.id)} is now ${value[0].toUpperCase() + value.slice(1)}.`);
 }
 function attackDamage(G, who, a, target) {
   let value = damageOf(a); const source = G.p[who].active;
@@ -260,7 +268,7 @@ function runEffect(G, who, effect, source, target) {
   }
 }
 export function attackPreview(G, who, n, target = null) {
-  const p = G.p[who], a = card(p.active?.id)?.attacks?.[n], defender = target ? find(G.p[1 - who], target) : G.p[1 - who].active;
+  const p = G.p[who], a = attacksOf(G, p.active?.id)[n], defender = target ? find(G.p[1 - who], target) : G.p[1 - who].active;
   if (!a || !defender) return {damage: 0, legal: false, why: 'No attack target.'};
   const legal = check(G, who, {a: 'attack', n, ...(target ? {target} : {})});
   return {damage: attackDamage(G, who, a, defender), legal: legal.ok, why: legal.why};
@@ -321,7 +329,7 @@ export function apply(G, who, m) {
       runEffect(G, who, ability.effect, s, other.active); break;
     }
     case 'attack': {
-      const source = p.active, a = card(source.id).attacks[m.n], target = a.target === 'bench' ? find(other, m.target) : other.active;
+      const source = p.active, a = attacksOf(G, source.id)[m.n], target = a.target === 'bench' ? find(other, m.target) : other.active;
       if (source.conditions.confused && !flip(G, who, 'Confusion')) { event(G, 'attack-failed', who, {id: source.id}, 'Confusion: the attack fails and the turn ends. No self-damage.'); endTurn(G, who); return yes; }
       const amount = attackDamage(G, who, a, target); target.dmg += amount;
       event(G, 'attack', who, {id: source.id, target: target.id, name: a.name, damage: amount}, `${nameOf(source.id)} uses ${a.name} for ${amount} damage.`);
@@ -358,7 +366,7 @@ export function legalActions(G, who = G.who) {
       if (effectType(card(id)?.effect) === 'fast-track') for (const prime of new Set(p.hand)) if (card(prime)?.stage === 'Prime') candidates.push({a: 'support', id, on: s.u, prime});
     }
   }
-  card(p.active?.id)?.attacks.forEach((a, n) => {
+  attacksOf(G, p.active?.id).forEach((a, n) => {
     if (a.target === 'bench') G.p[1 - who].bench.forEach(s => candidates.push({a: 'attack', n, target: s.u}));
     else candidates.push({a: 'attack', n});
   });
@@ -368,7 +376,7 @@ export function nextMove(G, who = G.who, level = 15) {
   const p = G.p[who], actions = legalActions(G, who);
   if (!actions.length) return null;
   if (G.phase === 'setup') {
-    const basics = p.hand.filter(base).sort((a, b) => card(a).attacks[0].cost.length - card(b).attacks[0].cost.length || card(b).hp - card(a).hp);
+    const basics = p.hand.filter(base).sort((a, b) => attacksOf(G, a)[0].cost.length - attacksOf(G, b)[0].cost.length || card(b).hp - card(a).hp);
     return {a: 'setup', act: basics[0], bench: basics.slice(1, 4)};
   }
   const first = a => actions.find(m => m.a === a);
@@ -386,14 +394,19 @@ export function nextMove(G, who = G.who, level = 15) {
   if (first('ability')) return first('ability');
   const energyMoves = actions.filter(m => m.a === 'energy');
   if (energyMoves.length) {
-    const need = s => !card(s.id).attacks.some(a => canPay(a.cost, s.en));
-    const target = need(p.active) ? p.active : p.bench.find(need) || slots(p).find(s => !card(s.id).attacks.every(a => canPay(a.cost, s.en))) || p.active;
+    const need = s => !attacksOf(G, s.id).some(a => canPay(a.cost, s.en));
+    const target = need(p.active) ? p.active : p.bench.find(need) || slots(p).find(s => !attacksOf(G, s.id).every(a => canPay(a.cost, s.en))) || p.active;
     return energyMoves.find(m => m.on === target.u) || energyMoves[0];
   }
   const attacks = actions.filter(m => m.a === 'attack').sort((a, b) => attackPreview(G, who, b.n, b.target).damage - attackPreview(G, who, a.n, a.target).damage);
-  if (attacks.length) return attacks[0];
+  if (attacks.length) {
+    // From the Contender tier, put an awake defender to sleep when the strongest attack can't knock it out.
+    const defender = G.p[1 - who].active, sleeper = attacks.find(m => sleeps(attacksOf(G, p.active.id)[m.n]));
+    if (Number(level) >= 9 && sleeper && defender && !defender.conditions?.asleep && attackPreview(G, who, attacks[0].n, attacks[0].target).damage < hpOf(G, defender) - defender.dmg) return sleeper;
+    return attacks[0];
+  }
   if (Number(level) >= 16) {
-    const retreat = actions.find(m => m.a === 'retreat' && card(find(p, m.to).id).attacks.some(a => canPay(a.cost, find(p, m.to).en)));
+    const retreat = actions.find(m => m.a === 'retreat' && attacksOf(G, find(p, m.to).id).some(a => canPay(a.cost, find(p, m.to).en)));
     if (retreat) return retreat;
   }
   return first('end') || actions[0];

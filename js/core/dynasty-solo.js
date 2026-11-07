@@ -292,7 +292,8 @@ function write() { try { if (REC) localStorage.setItem(KEY(), JSON.stringify(REC
 function game(r) {
   if (CACHE && CACHE.id === r.id && CACHE.n === r.log.length) return CACHE.G;
   if (r.v === 7) {
-    const G = POCKET.replay(r.seed, r.decks, r.log, {energy: r.energy});
+    // A v7 record without a printed revision began before Sleep attacks (revision 1).
+    const G = POCKET.replay(r.seed, r.decks, r.log, {energy: r.energy, rev: r.rev || 1});
     CACHE = {id: r.id, n: r.log.length, G};
     return G;
   }
@@ -410,14 +411,14 @@ function startPocket(o) {
   const legal = PC.checkDeck(theirs.ids, null, theirs.energy);
   if (!legal.ok) return {ok: false, why: 'This opponent’s deck is not ready.'};
   const mid = 'cpu' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
-  const candidate = {id: mid, opp: o.id, seed: mid, v: 7, decks: [dk.ids.slice(), theirs.ids.slice()],
+  const candidate = {id: mid, opp: o.id, seed: mid, v: 7, rev: POCKET.REVISION, decks: [dk.ids.slice(), theirs.ids.slice()],
     energy: [dk.energy.slice(), theirs.energy.slice()], rental: !!dk.rental, log: [], at: Date.now(), z: '', paid: 0, pay: null};
   if (boss && candidate.decks[1].includes(boss.id)) {
     candidate.boss = {v: 2, card: boss.id};
     let ready = false;
     for (let i = 0; i < 256; i++) {
       candidate.seed = `${mid}|boss|${i}`;
-      if (POCKET.newGame(candidate.seed, candidate.decks, {energy: candidate.energy}).p[1].hand.includes(boss.id)) { ready = true; break; }
+      if (POCKET.newGame(candidate.seed, candidate.decks, {energy: candidate.energy, rev: candidate.rev}).p[1].hand.includes(boss.id)) { ready = true; break; }
     }
     if (!ready) return {ok: false, why: 'The boss couldn’t set its lineup. Try again.'};
   }
