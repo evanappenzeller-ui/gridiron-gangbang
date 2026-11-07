@@ -67,7 +67,9 @@ async function main() {
     await page.waitForSelector('[data-dy-menu]');
     await page.evaluate(()=>{window.testFx=fx.attach(document.body);});
     // Each cue is bounded, non-silent PCM, without clipping or additional media downloads.
-    for(const cue of await page.evaluate(()=>fx.CUES)) {
+    const cueList=await page.evaluate(()=>fx.CUES),CUE_COUNT=cueList.length;
+    assert(cueList.includes('deal')&&cueList.includes('flip'),'card draws have their own cues');
+    for(const cue of cueList) {
       const n=await page.evaluate(()=>sfxProbes.length);
       await page.evaluate(cue=>testFx.play(cue),cue);
       await page.waitForFunction(n=>sfxProbes.length>n,n);
@@ -102,7 +104,7 @@ async function main() {
     await page.evaluate(()=>{testFx.play('mythic',{delay:1});dispatchEvent(new PageTransitionEvent('pagehide'));});
     await page.waitForFunction(()=>sfxProbes.every(p=>p.stopped));
     await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pageshow')));
-    console.log('PASS: all 17 cues create non-silent, peak-limited audio buffers; zero volume and background silence');
+    console.log('PASS: all '+CUE_COUNT+' cues (the card-draw deal and flip included) create non-silent, peak-limited audio buffers; zero volume and background silence');
     await page.evaluate(()=>{testFx.play('mythic',{delay:1});testFx.hush();});
     const count=await page.evaluate(()=>sfxProbes.length);await page.waitForTimeout(80);
     assert.equal(await page.evaluate(()=>sfxProbes.length),count,'cancel pending resume');

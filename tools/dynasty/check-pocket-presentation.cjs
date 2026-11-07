@@ -16,7 +16,7 @@ const server=http.createServer((req,res)=>{
 async function drain(page){
   // Each CPU play now waits for presentation and a full reading interval.
   for(let i=0;i<600;i++){
-    const skip=page.locator('[data-rp-skip]');if(await skip.count())await skip.click();
+    const skip=page.locator('[data-rp-skip]');if(await skip.count())await skip.first().click({timeout:1500}).catch(()=>{});
     const done=await page.evaluate(async()=>{const x=(await import('/js/core/dynasty-solo.js')).current();return x.state!=='theirs'&&!document.querySelector('.rp-cinema');});
     if(done)return;
     await page.waitForTimeout(100);
@@ -157,8 +157,39 @@ async function run(url){
       await page.evaluate(()=>window.testPresentation.enqueue([{k:'coin',who:0,heads:true}],window.testX));
       assert.equal(await page.locator('.rp-cinema').count(),0,'reduced motion keeps the table and its status');
       await page.emulateMedia({reducedMotion:'no-preference'});
-      await page.evaluate(()=>{window.testPresentation.enqueue([{k:'draw',who:1,id:'PRIVATE'},{k:'search',who:1,id:'PRIVATE'}],window.testX);});
-      assert.equal(await page.locator('.rp-cinema').count(),0,'hidden cards never enter presentation');
+      // The opponent's draws slide face down to their hand; their card IDs never reach the page.
+      await page.evaluate(()=>{window.testPresentation.enqueue([{k:'draw',who:1,id:'PRIVATE'},{k:'draw',who:1,id:'PRIVATE'},{k:'search',who:1,id:'PRIVATE'}],window.testX);});
+      await page.waitForSelector('[data-rp-scene="draw"].is-theirs');
+      assert.equal(await page.locator('.rp-draw-back').count(),2,'back-to-back draws share a scene');
+      assert.equal(await page.locator('.rp-draw-card').count(),0,'no face is shown for the opponent');
+      assert(!(await page.content()).includes('PRIVATE'),'hidden cards never enter presentation');
+      await page.waitForSelector('[data-rp-scene="draw"].is-theirs .rp-draw-back:only-of-type',{timeout:3000});
+      assert(!(await page.content()).includes('PRIVATE'),'a search stays hidden too');
+      await page.waitForFunction(()=>!document.querySelector('.rp-cinema'),null,{timeout:3000});
+      // Your drawn card turns over at center, then flies into its place in the fan; it waits hidden there until it lands.
+      const drawn=await page.evaluate(async()=>{
+        const C=await import('/js/core/dynasty-pocket-cards.js'),id=window.testX.G.p[0].hand.at(-1);
+        window.testPresentation.enqueue([{k:'draw',who:0,id}],window.testX);return C.card(id).athlete||C.card(id).name;
+      });
+      await page.waitForSelector('[data-rp-scene="draw"].is-mine');
+      assert.match(await page.locator('.rp-draw-pill').innerText(),new RegExp('You drew '+drawn.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+      {const faces=await page.locator('.rp-draw-card .rp-draw-face').allInnerTexts(),dbg=await page.evaluate(()=>[...document.querySelectorAll('.rp-cinema')].map(s=>s.dataset.rpScene+' '+s.className+' '+s.innerText.slice(0,80)));assert(faces.length===1&&faces[0].includes(drawn),'the drawn card is previewed '+drawn+' '+JSON.stringify({faces,dbg}));}
+      assert(await page.locator('.rp-hand>[data-rp-hand]').last().evaluate(el=>el.classList.contains('is-incoming')&&getComputedStyle(el).visibility==='hidden'),'the drawn card waits hidden in the fan');
+      assert(await page.locator('[data-rp]').evaluate(el=>el.inert),'table cannot send moves during the draw');
+      if(label==='evan'){await page.waitForTimeout(800);await page.screenshot({path:path.join(out,'draw-preview.png')});}
+      await page.waitForSelector('.rp-draw-scene.is-leaving',{timeout:2500});
+      if(label==='evan'){await page.waitForTimeout(190);await page.screenshot({path:path.join(out,'draw-to-hand.png')});}
+      await page.waitForFunction(()=>!document.querySelector('.rp-cinema'),null,{timeout:2500});
+      assert(await page.locator('.rp-hand>[data-rp-hand]').last().evaluate(el=>!el.classList.contains('is-incoming')&&el.classList.contains('is-drawn')),'the card lands in the hand');
+      // A two-card draw previews both side by side; Skip lands them at once.
+      await page.evaluate(()=>{const h=window.testX.G.p[0].hand;window.testPresentation.enqueue([{k:'draw',who:0,id:h.at(-2)},{k:'draw',who:0,id:h.at(-1)}],window.testX);});
+      await page.waitForSelector('[data-rp-scene="draw"].is-mine');
+      assert.equal(await page.locator('.rp-draw-card').count(),2);
+      assert.match(await page.locator('.rp-draw-pill').innerText(),/You drew 2 cards/);
+      assert.equal(await page.locator('.rp-hand>.is-incoming').count(),2);
+      await page.locator('[data-rp-skip]').click();
+      await page.waitForFunction(()=>!document.querySelector('.rp-cinema'));
+      assert.equal(await page.locator('.rp-hand>.is-incoming').count(),0,'skipping lands the drawn cards');
       assert(await page.evaluate(async()=>window.testBefore===JSON.stringify((await import('/js/core/dynasty-solo.js')).get(window.testMid).G)),'presentation leaves saved state unchanged');
       await page.evaluate(()=>{window.testPresentation.enqueue([{k:'coin',who:0,heads:true}],window.testX);window.testPresentation.stop();});
       assert.equal(await page.locator('.rp-cinema').count(),0,'cleanup removes scenes');

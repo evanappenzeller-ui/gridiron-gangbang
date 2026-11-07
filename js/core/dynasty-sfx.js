@@ -23,7 +23,7 @@ function read() {
   } catch (_) {}
 }
 read();
-export const CUES = Object.freeze(['select', 'card', 'tear', 'coin', 'impact', 'heavy', 'miss', 'power', 'turn', 'knockout', 'common', 'epic', 'legendary', 'mythic', 'victory', 'defeat', 'draw']);
+export const CUES = Object.freeze(['select', 'card', 'deal', 'flip', 'tear', 'coin', 'impact', 'heavy', 'miss', 'power', 'turn', 'knockout', 'common', 'epic', 'legendary', 'mythic', 'victory', 'defeat', 'draw']);
 export const eventCue = e => e.k === 'attack' ? e.missed || !e.dmg ? 'miss' : e.knockout ? 'knockout' : e.dmg >= 70 ? 'heavy' : 'impact'
   : ['item', 'coach', 'stadium', 'evolve', 'energy'].includes(e.k) ? 'power' : 'card';
 export const revealCue = tier => tier >= 4 ? 'mythic' : tier === 3 ? 'legendary' : tier === 2 ? 'epic' : 'common';
@@ -63,7 +63,7 @@ function silence() {
 // Noise supplies paper/foil and contact texture; layered pitched partials supply reward cues.
 function buffer(name) {
   if (buffers.has(name)) return buffers.get(name);
-  const lengths = {select:.075, card:.17, tear:.55, coin:.65, impact:.25, heavy:.4, miss:.24,
+  const lengths = {select:.075, card:.17, deal:.3, flip:.42, tear:.55, coin:.65, impact:.25, heavy:.4, miss:.24,
     power:.5, turn:.25, knockout:.65, common:.22, epic:.65, legendary:1, mythic:1.4, victory:1.55, defeat:.9, draw:.6};
   const duration = lengths[name], rate = ctx.sampleRate, b = ctx.createBuffer(1, Math.ceil(duration * rate), rate), out = b.getChannelData(0);
   let seed = 137; for (const c of name) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
@@ -81,6 +81,9 @@ function buffer(name) {
     const env=Math.min(1,t/.004)*Math.pow(1-x,2); let y=0;
     if (name==='select') y=tone(t,0,duration,1100,.3);
     else if (name==='card' || name==='miss') y=(n-low)*.22*Math.sin(Math.PI*x)**2 + tone(t,.025,.09,180,.06);
+    // A card sliding off the deck: a swoosh that brightens as it goes. Turning it over: a snap and two rising chimes.
+    else if (name==='deal') y=((1-x)*low*1.3+x*(n-low)*.55)*Math.sin(Math.PI*x)**1.6*.62;
+    else if (name==='flip') y=(n-low)*.3*Math.max(0,1-t/.03)+tone(t,.03,.32,1319,.15)+tone(t,.1,.32,1760,.13);
     else if (name==='tear') y=(n-low)*.27*env*(.35+.65*Math.abs(Math.sin(t*170))) + low*.22*env;
     else if (name==='coin') y=[0,.09,.19,.31].reduce((v,s)=>v+tone(t,s,.29,2200-s*1400,.12),0);
     else if (['impact','heavy','knockout'].includes(name)) {
@@ -125,7 +128,7 @@ function play(client, name, {delay=0, pan=0} = {}) {
       if(cancelled || rev!==epoch || clientRev!==client.rev || !allowed() || !client.visible || !clients.has(client)) {idle();return;}
       while(voices.size>=6) stopVoice(voices.values().next().value);
       const source=ctx.createBufferSource(); source.buffer=sample;
-      source.playbackRate.value=['card','tear','impact'].includes(name) ? .97+Math.random()*.06 : 1;
+      source.playbackRate.value=['card','deal','tear','impact'].includes(name) ? .97+Math.random()*.06 : 1;
       const stereo=ctx.createStereoPanner?.(); if(stereo) {stereo.pan.value=Math.max(-.45,Math.min(.45,pan)); source.connect(stereo);stereo.connect(master);} else source.connect(master);
       v={source,pan:stereo,client,stopped:false}; voices.add(v);
       source.onended=()=>stopVoice(v);
