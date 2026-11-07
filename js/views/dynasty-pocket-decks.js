@@ -8,6 +8,7 @@ import {rivalsUpdated} from '../core/features.js';
 import {actionCredit} from '../core/dynasty-action.js';
 import {legendCredit} from '../core/dynasty-legends.js';
 import {realName} from '../core/dynasty-real.js';
+import {printedCard} from './dynasty-pocket-card.js';
 
 const esc = data.esc;
 const ENERGIES = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal'];
@@ -67,7 +68,8 @@ export function inspectCard(id, portrait) {
   if (!c) return;
   const from = c.predecessor && C.card(c.predecessor);
   const attacks = (c.attacks || []).map(a => `<li><div><b>${esc(a.name)}</b><strong>${a.damage}</strong></div><small>${esc(a.cost?.length ? a.cost.join(' + ') : 'No Energy required')}</small>${a.text ? `<p>${esc(a.text)}</p>` : ''}</li>`).join('');
-  const body = `<article class="pd-inspect"><div class="pd-card-art">${art(c, portrait)}</div><h3>${esc(label(c))}</h3>
+  const visual = c.kind !== 'player' && rivalsUpdated() ? `<div class="pk-zoom">${printedCard(id)}</div>` : `<div class="pd-card-art">${art(c, portrait)}</div>`;
+  const body = `<article class="pd-inspect">${visual}<h3>${esc(label(c))}</h3>
     <p>${esc(kind(c))}${c.kind === 'player' ? ` · ${esc(c.position || '')} · ${esc(c.team || '')}` : ''}</p>
     ${c.kind === 'player' ? `<div class="pd-card-stats"><b>${c.hp} HP</b><span>${esc((c.types || []).join(' / '))}</span><b>${points(c)} KO point${points(c) === 1 ? '' : 's'}</b></div>
     <p>${from ? `Develops from <b>${esc(label(from))}</b>.` : 'Enters play as a Base Player.'} Classification: ${esc(c.classification === 'mega-ex' ? 'Mega ex' : c.classification)}.</p>

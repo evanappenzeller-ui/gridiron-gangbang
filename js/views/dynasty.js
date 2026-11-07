@@ -135,6 +135,27 @@ const TRAINER_ART = {
 const TRAINER_KIND = {coach: 'Supporter', item: 'Item', stadium: 'Stadium'};
 const TRAINER_RULE = {coach: 'You may play only 1 Supporter card during your turn.', item: 'You may play any number of Item cards during your turn.',
   stadium: 'This Stadium stays in play for both sides until another replaces it.'};
+const SUPPORT_RULE = {coach: 'Play 1 Coach per turn.', supporter: 'Play 1 Supporter per turn.',
+  item: 'Play any number during your turn.', tool: 'Stays attached · 1 Tool per athlete.',
+  stadium: 'Affects both sides until replaced.'};
+const TOOL_ART = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 7 51 15v17c0 12-9 20-19 25C22 52 13 44 13 32V15z" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/><path d="m23 31 6 6 13-14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+/** Flat support faces share their printed effect with the match, including legacy energy variants. */
+function abilityCardHTML(t, o, {pc, legacy, kind, rarity, text}) {
+  const type = pc?.kind || t.kind;
+  const rule = legacy ? 'For your saved legacy matches.' : SUPPORT_RULE[type] || '';
+  const label = `${t.name}, ${kind} card. ${text} ${rule}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
+  const icon = type === 'tool' ? TOOL_ART : TRAINER_ART[type === 'supporter' ? 'coach' : type] || '';
+  const inner = `<span class="pk-c-face" aria-hidden="true"><span class="pk-t-head"><b>RIVALS</b><i>${esc(kind)}</i></span>`
+    + `<span class="pk-t-art">${icon}</span><b class="pk-t-name">${esc(t.name)}</b>`
+    + `<span class="pk-t-effect"><small>EFFECT</small><span class="pk-t-text">${esc(text)}</span></span>`
+    + `<span class="pk-t-rule">${esc(rule)}</span>`
+    + `<span class="pk-c-meta"><span class="pk-c-rar">${esc(rarity)}</span>`
+    + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
+    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + '</span></span>';
+  const cls = `pk-card pk-rivals-card pk-trainer pk-ability-card r-${rarity} k-${type} sz-${o.size || 'm'}${text.length > 140 ? ' has-long-effect' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
+  return o.tag === false ? `<div class="${cls}" role="img" aria-label="${esc(label)}">${inner}</div>`
+    : `<button type="button" class="${cls}" data-dy-card="${esc(t.id)}" aria-label="${esc(label)}">${inner}</button>`;
+}
 /** A Coach (Supporter), Item or Stadium card, laid out as a Pokémon Trainer card. o: as cardHTML's. */
 export function trainerHTML(t, o = {}) {
   if (!t) return '';
@@ -145,6 +166,7 @@ export function trainerHTML(t, o = {}) {
   const legacy = !pc && rivalsUpdated() && (!o.rulesVersion || o.rulesVersion === 7);
   const kind = pc ? pc.kind[0].toUpperCase() + pc.kind.slice(1) : legacy ? 'Legacy support' : t.kind === 'coach' ? 'Coach' : TRAINER_KIND[t.kind];
   const text = pc ? pc.text : B.trainerText(t, o.roundEnergy ?? currentEnergyRule());
+  if (rivalsUpdated()) return abilityCardHTML(t, o, {pc, legacy, kind, rarity, text});
   const label = `${t.name}, ${kind} card. ${text}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const inner = `<span class="pk-c-face" aria-hidden="true"><span class="pk-t-head"><b>RIVALS</b><i>${kind}</i></span>`
     + `<span class="pk-t-art">${T ? teamSceneHTML(t.team) : ''}${TRAINER_ART[t.kind] || ''}${T ? `<img class="pk-t-logo" src="${esc(logoUrl(t.team, 96))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : ''}</span>`

@@ -1,5 +1,16 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals ability cards (November 7, 2026)
+
+For the four profiles enabled by `features.rivalsUpdated()`, support cards use solid colors by type:
+blue Items, purple Coaches/Supporters, bronze Tools and green Stadiums. `trainerHTML()` shares the
+printed effect, full name and play-limit footer across collection, reveal and battle faces; deck-builder
+support details use that same face. `.pk-ability-card` in `dynasty-rarity.css` keeps descriptions visible
+at small sizes and disables rarity artwork, sparkles and foil interaction for these cards only.
+Current v7 support wording lives in `dynasty-pocket-cards.js`; legacy faces retain `B.trainerText()`
+and the saved match's energy variant. Rules, card IDs, saves and individual privileges are unchanged.
+Verify the card-layout, scope, start-browser, preview/access and Pocket catalog/rules/integration checks.
+
 ## Rivals live battles (November 7, 2026)
 
 Evan: "There should be a list of league members with an active status green dot means they are in the app. A request

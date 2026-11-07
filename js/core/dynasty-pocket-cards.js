@@ -23,13 +23,13 @@ const freeze = value => {
 const support = (id, kind, name, text, effect, target) => ({id, kind, name, canonicalName: name, text, effect, target,
   rarity: 'common', rental: true, sourceId: null, balanceNote: BALANCE_NOTE});
 export const SUPPORTS = freeze([
-  support('P7-film', 'supporter', 'Film Study', 'Draw two cards.', {type: 'draw', count: 2}),
-  support('P7-scout', 'item', 'Scouting Report', 'Put one random Base Player from your deck into your hand.', {type: 'search-base'}),
+  support('P7-film', 'supporter', 'Film Study', 'Draw 2 cards from your deck.', {type: 'draw', count: 2}),
+  support('P7-scout', 'item', 'Scouting Report', 'Add a random Base Player from your deck to your hand.', {type: 'search-base'}),
   support('P7-recovery', 'item', 'Recovery Kit', 'Heal 20 damage from one of your athletes.', {type: 'heal', amount: 20}, 'mine'),
-  support('P7-fast-track', 'item', 'Fast Track', 'Develop an eligible Base Player into its matching Prime Player from your hand, skipping Breakout. Not on your first turn or the turn that Base entered play. Does not search your deck.', {type: 'fast-track'}, 'mine'),
-  support('P7-gear', 'tool', 'Protective Gear', 'The attached athlete has 20 additional maximum HP. Damage already taken remains. One Tool per athlete.', {type: 'max-hp', amount: 20}, 'mine'),
-  support('P7-matchup', 'supporter', 'Matchup Change', 'Your opponent switches their Active athlete with one of their Benched athletes. Your opponent chooses the replacement.', {type: 'matchup-change'}),
-  support('P7-ground', 'stadium', 'Training Ground', 'Base Players on both sides have 20 additional maximum HP. One shared Stadium is in play.', {type: 'base-max-hp', amount: 20})
+  support('P7-fast-track', 'item', 'Fast Track', 'Develop a Base Player into its matching Prime from your hand, skipping Breakout. Not on your first turn or the turn that Base entered play. Does not search your deck.', {type: 'fast-track'}, 'mine'),
+  support('P7-gear', 'tool', 'Protective Gear', 'Attach to an athlete for +20 maximum HP. Damage already taken stays. One Tool per athlete.', {type: 'max-hp', amount: 20}, 'mine'),
+  support('P7-matchup', 'supporter', 'Matchup Change', 'Your opponent switches their Active athlete. Your opponent chooses the replacement from their Bench.', {type: 'matchup-change'}),
+  support('P7-ground', 'stadium', 'Training Ground', 'Base Players on both sides gain +20 maximum HP while this Stadium is in play.', {type: 'base-max-hp', amount: 20})
 ]);
 const SUPPORT_IDS = SUPPORTS.map(c => c.id);
 const STARTER_SUPPORT = SUPPORT_IDS.filter(id => id !== 'P7-ground').flatMap(id => [id, id]);

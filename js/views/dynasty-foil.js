@@ -1,6 +1,6 @@
 // Opt-in foil interaction for enlarged Rivals cards. Pointer events remain passive so normal scrolling,
 // card taps and pack gestures keep their existing behavior. Return value tears down every owned effect.
-const CARD = '.pk-rivals-card:is(.r-rare, .r-epic, .r-legendary, .r-mythic):not(.sz-s)';
+const CARD = '.pk-rivals-card:is(.r-rare, .r-epic, .r-legendary, .r-mythic):not(.sz-s):not(.pk-ability-card)';
 const VARS = ['--shine-x', '--shine-y', '--tilt-x', '--tilt-y'];
 const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
 
