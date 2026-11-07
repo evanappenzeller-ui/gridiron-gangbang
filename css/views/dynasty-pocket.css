@@ -1,5 +1,5 @@
 /* Portrait arena for v7 battles; saved legacy games keep their own table. */
-.v-dynasty-battle .rp-battle {--rp-ink:#304b61;--rp-arena-height:max(500px,calc(100svh - 44px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));color:var(--rp-ink);min-height:100%;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);background:radial-gradient(ellipse at 15% 10%,#dcffff,transparent 60%),linear-gradient(#b8c7e9,#3ac9ef);font-family:inherit;overflow:clip;}
+.v-dynasty-battle .rp-battle {--rp-ink:#304b61;--rp-arena-height:max(350px,calc(100svh - 160px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));color:var(--rp-ink);min-height:100%;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);background:radial-gradient(ellipse at 15% 10%,#dcffff,transparent 60%),linear-gradient(#b8c7e9,#3ac9ef);font-family:inherit;overflow:clip;}
 .v-dynasty-battle .rp-battle *, .pk-sheet .rp-sheet-content * {box-sizing:border-box;}
 .v-dynasty-battle .rp-top {height:44px;max-width:540px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px;position:relative;z-index:20;}
 .v-dynasty-battle .rp-top>div {text-align:center;line-height:1.1;}
@@ -20,7 +20,7 @@
 .v-dynasty-battle .is-opponent>.rp-active {top:29%;}
 .v-dynasty-battle .is-mine>.rp-active {top:52%;}
 .v-dynasty-battle .rp-zone-label {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
-.v-dynasty-battle .rp-bench {position:absolute;left:50%;transform:translateX(-50%);width:min(64%,calc(var(--rp-arena-height)*.31));height:12.8%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;z-index:2;}
+.v-dynasty-battle .rp-bench {position:absolute;left:50%;transform:translateX(-50%);width:min(64%,max(150px,calc(var(--rp-arena-height)*.31)));height:12.8%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;z-index:2;}
 .v-dynasty-battle .is-opponent>.rp-bench {top:14%;}
 .v-dynasty-battle .is-mine>.rp-bench {top:73%;}
 .v-dynasty-battle .rp-card, .pk-sheet .rp-card {background:none;border:0;color:#233a33;border-radius:5% / 3.6%;padding:0;display:block;position:relative;min-width:0;width:100%;max-width:176px;aspect-ratio:63/88;overflow:visible;text-align:left;box-shadow:0 3px 7px #31415750;font-family:inherit;line-height:1.2;cursor:pointer;}
@@ -56,12 +56,14 @@
 .v-dynasty-battle .rp-opponent-hand>span+span {margin-left:-28%;}
 .v-dynasty-battle .rp-opponent-hand .rp-card-back {height:100%;width:100%;}
 .v-dynasty-battle .rp-opponent-hand>small {position:absolute;bottom:-7px;left:0;right:0;text-align:center;font-size:7px;letter-spacing:.8px;color:#46637f;}
-.v-dynasty-battle .rp-manager {position:absolute;z-index:6;height:26px;display:flex;align-items:center;justify-content:space-between;gap:9px;background:#485e77e8;box-shadow:0 2px 5px #3359781a;color:#fff;padding:0 11px;font-size:9px;max-width:54%;}
-.v-dynasty-battle .rp-manager.is-opponent {top:5%;right:0;border-radius:5px 0 0 5px;flex-direction:row-reverse;}
-.v-dynasty-battle .rp-manager.is-mine {bottom:0;left:0;border-radius:0 5px 5px 0;}
+.v-dynasty-battle .rp-manager {position:absolute;z-index:8;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;background:#485e77e8;box-shadow:0 2px 5px #3359781a;color:#fff;padding:5px 8px 6px 7px;font-size:9px;max-width:30%;}
+.v-dynasty-battle .rp-manager.is-opponent {top:5%;right:0;border-radius:8px 0 0 8px;}
+/* Keep your score between the Stadium and menu, clear of the Bench and hand. */
+.v-dynasty-battle .rp-manager.is-mine {top:60.5%;left:0;max-width:min(20%,70px);border-radius:0 8px 8px 0;}
+.v-dynasty-battle .rp-manager>span:first-child {max-width:100%;font-weight:700;}
 .v-dynasty-battle .rp-manager>span, .v-dynasty-battle .rp-manager>strong {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.v-dynasty-battle .rp-points {display:flex;gap:4px;flex-shrink:0;}
-.v-dynasty-battle .rp-points i {width:15px;height:15px;border-radius:50%;background:#344e65;border:1px solid #8195a75c;box-shadow:inset 0 1px 3px #213b58;}
+.v-dynasty-battle .rp-points {display:flex;gap:3px;flex-shrink:0;}
+.v-dynasty-battle .rp-points i {width:13px;height:13px;border-radius:50%;background:#344e65;border:1px solid #8195a75c;box-shadow:inset 0 1px 3px #213b58;}
 .v-dynasty-battle .rp-points i.is-scored {background:#f5dc9b;border-color:#fff0c1;box-shadow:0 0 7px #ffe2a455;}
 .v-dynasty-battle .rp-deck {position:absolute;width:13.5%;height:13%;z-index:2;}
 .v-dynasty-battle .rp-deck.is-opponent {left:-2%;top:34%;transform:rotate(3deg);}
@@ -83,9 +85,9 @@
 .v-dynasty-battle .rp-energy-zone small {font-size:6px;line-height:1.3;text-align:center;text-transform:uppercase;letter-spacing:.8px;font-weight:800;}
 .v-dynasty-battle .rp-energy-zone.is-ready .rp-energy-orb {box-shadow:0 0 0 4px #fff7,inset 0 2px 4px #6e8cad44,0 0 16px #fdffe0;}
 .v-dynasty-battle .rp-status {position:absolute;z-index:4;top:47%;left:16%;right:16%;height:3%;min-height:18px;margin:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#36516a;font-size:9px;font-weight:650;line-height:1.25;padding:1px 3px;text-wrap:balance;}
-.v-dynasty-battle .rp-turn-action {position:absolute;right:2%;top:38%;width:24%;z-index:6;display:grid;gap:5px;}
-.v-dynasty-battle .rp-turn-action .rp-button {padding:8px 5px;font-size:10px;border-radius:18px;min-height:44px;}
-.v-dynasty-battle .rp-turn-action .rp-button:not(.is-primary) {font-size:8px;}
+/* The fan extends below the arena. Reserve its overhang, then a bottom action row. */
+.v-dynasty-battle .rp-turn-action {position:relative;max-width:540px;height:60px;margin:56px auto 0;padding:8px 64px;display:flex;justify-content:center;gap:8px;}
+.v-dynasty-battle .rp-turn-action .rp-button {flex:1;min-width:0;max-width:180px;padding:8px 5px;font-size:12px;border-radius:18px;min-height:44px;text-align:center;}
 .v-dynasty-battle .rp-stadium {position:absolute;left:2%;top:51%;z-index:3;width:22%;font-size:8px;line-height:1.4;text-align:center;color:#41657e;}
 .v-dynasty-battle .rp-stadium>span {display:block;text-transform:uppercase;font-size:6px;letter-spacing:1px;}
 .v-dynasty-battle .rp-stadium button {font:inherit;color:inherit;background:#f0f6ff9c;border:1px solid #fff9;border-radius:7px;min-height:44px;padding:5px;cursor:pointer;}
@@ -134,12 +136,10 @@
 .pk-sheet .rp-menu-actions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:20px 0;}
 @media (max-height:650px) {
   .v-dynasty-battle .rp-top {height:36px;}
-  .v-dynasty-battle .rp-battle {--rp-arena-height:max(480px,calc(100svh - 36px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));}
+  .v-dynasty-battle .rp-battle {--rp-arena-height:max(350px,calc(100svh - 152px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));}
   .v-dynasty-battle .rp-bench {gap:6px;}
   .v-dynasty-battle .rp-status {font-size:8px;left:13%;right:13%;}
-  .v-dynasty-battle .rp-manager {height:22px;font-size:8px;padding:0 7px;gap:5px;}
-  .v-dynasty-battle .rp-points {gap:3px;}
-  .v-dynasty-battle .rp-points i {width:12px;height:12px;}
+  .v-dynasty-battle .rp-manager {font-size:8px;}
   .v-dynasty-battle .rp-energy-zone {width:44px;}
   .v-dynasty-battle .rp-energy-orb {width:44px;height:44px;border-width:5px;}
 
@@ -359,10 +359,3 @@
 @media (prefers-reduced-motion:reduce) {
   .v-dynasty-battle .rp-preview-banner {animation:none;}
 }
-
-/* Your scoreboard (November 7, 2026, Evan: "The user's scoreboard is hidden behind the cards in the players hand"):
-   a compact tab on the left edge between the Stadium and the menu button, clear of the fanned hand. */
-.v-dynasty-battle .rp-manager.is-mine {top:60.5%;bottom:auto;left:0;height:auto;max-width:min(20%,70px);flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;padding:5px 8px 6px 7px;border-radius:0 8px 8px 0;z-index:8;}
-.v-dynasty-battle .rp-manager.is-mine>span:first-child {max-width:100%;font-weight:700;}
-.v-dynasty-battle .rp-manager.is-mine .rp-points {gap:3px;}
-.v-dynasty-battle .rp-manager.is-mine .rp-points i {width:13px;height:13px;}
