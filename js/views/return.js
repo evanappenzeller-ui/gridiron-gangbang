@@ -28,6 +28,7 @@ import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import * as R from '../core/return.js';
+import * as busy from '../core/busy.js';
 import * as customize from '../core/return-customize.js';
 import * as locker from './return-customize.js';
 import * as SP from './drill-sprites.js';
@@ -1478,6 +1479,8 @@ export function mount(el, ctx) {
   ensureCss();
   const st = {el, ctx, mode: 'ready', sbMode: 'today', run: null, knocked: new Map(), got: new Set(), coinGot: new Set(), sparks: [], dead: false, raf: 0, camX: null, camF: null, cheer: 0, lift: 0, mountAt: performance.now()};
   STATE.set(el, st);
+  // (a live Rivals challenge waits until the run is done: core/rivals-live.js)
+  st.stopBusy = busy.register('rm', () => !st.dead && ['catch', 'run', 'paused'].includes(st.mode));
   syncCustomize(st);
   // a return left under way (the app closed mid-run) ends where it was
   R.settle(R.todayNumber());
@@ -1597,6 +1600,7 @@ export function unmount(el, ctx) {
   // a return under way when the page goes: it counts where it got to (no kickoff run twice)
   if (st.run && (st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused')) { keep(st); R.settle(st.n); R.autoPost(); }
   st.dead = true;
+  if (st.stopBusy) st.stopBusy();
   locker.close();
   clearTimeout(st.later); clearTimeout(st.gotT); clearTimeout(st.waitT); clearTimeout(st.wait3T);
   if (st.raf) cancelAnimationFrame(st.raf);

@@ -2355,6 +2355,8 @@ async function start() {
   if (ui.IOS_STANDALONE) enableSwipeBack();
   requestAnimationFrame(() => ui.onIdle(() => {
     daily.ensure().catch(() => {});
+    // Live Rivals: presence, challenges and the challenge notice (core/rivals-live.js; the Rivals group alone publishes).
+    import('./core/rivals-live.js').then(m => m.start({nav})).catch(e => console.error(e));
     // A tab root may export warm(): called once here, so its first visit has nothing to wait for (Pick'em finds the
     // week's slate; importing it already brought back the week this phone last saw, for its screen and its dot).
     TABS.forEach(t => loadView(TAB_VIEW[t]).then(() => {

@@ -18,6 +18,7 @@ import * as D from '../core/dynasty.js';
 import * as B from '../core/dynasty-battle.js';
 import * as MT from '../core/dynasty-match.js';
 import * as SOLO from '../core/dynasty-solo.js';
+import {isLive} from '../core/rivals-live-match.js';
 import {anyHTML, battleHTML, imgFallback, pipHTML, portraitOf} from './dynasty.js';
 import {bindCardFoil} from './dynasty-foil.js';
 import {teamSceneStyle} from './dynasty-team-scenes.js';
@@ -802,7 +803,8 @@ export default {
     D.load().then(() => {
       if (state.dead) return;
       const match = SOLO.isSolo(ctx.params?.id) ? SOLO.get(ctx.params.id) : null;
-      state.view = match?.G.v === 7 ? pocketView : legacyView;
+      // (live battles are always v7: core/rivals-live-match.js)
+      state.view = isLive(ctx.params?.id) || match?.G.v === 7 ? pocketView : legacyView;
       el.innerHTML = state.view.render(); state.view.mount(el, ctx);
       if (!state.visible) state.view.onHide?.(ctx);
     }, () => { if (!state.dead) el.innerHTML = '<p>Cards could not load. Return to Rivals and try again.</p>'; });

@@ -18,6 +18,7 @@ import * as D from '../core/dynasty.js';
 import * as B from '../core/dynasty-battle.js';
 import * as MT from '../core/dynasty-match.js';
 import * as SOLO from '../core/dynasty-solo.js';
+import * as LIVE from '../core/rivals-live.js';
 import {profileKey} from '../core/realm-active.js';
 import {packHTML, designsOf} from './dynasty-packs.js';
 import {packShelfHTML, mountPackShelf} from './dynasty-pack-shelf.js';
@@ -709,6 +710,7 @@ function homeHTML(st) {
     + `<span class="rh-home-ribbon"><span>${ui.icon('versus', {size: 22})}<b>${rivalsVersus() ? 'Solo &amp; Versus' : 'Solo ladder'}</b></span>${arrow}</span></span></button>`
     + (current ? `<button type="button" class="rh-home-resume" data-dy-go="${esc(current.mid)}"><span class="rh-home-status"></span><span><b>Continue your match</b><small>vs. ${esc(current.opp.name)}</small></span>${arrow}</button>`
       : `<div class="rh-home-progress"><span class="rh-home-status"></span><span>${at > SOLO.LADDER ? 'Solo ladder complete' : `Solo ladder · Game ${next.n} of ${SOLO.LADDER}`}</span><b>${esc(next.tier.name)}</b></div>`)
+    + liveEntryHTML('rh-home-notice')
     + `<div class="rh-home-section"><h2>Build your next win</h2><span>COLLECT. COMPETE. REPEAT.</span></div>`
     + `<div class="rh-home-destinations">`
     + `<button type="button" class="rh-home-tile is-packs" data-dy-tab="packs"><span class="rh-home-tile-art rh-home-packs" aria-hidden="true">${packHTML('std')}${packHTML('prem')}</span>`
@@ -833,6 +835,13 @@ function soloHTML() {
   return h;
 }
 
+// Live battle entry (core/rivals-live.js, views/rivals-live-lobby.js): your live battle to return to, else who's online.
+function liveEntryHTML(cls) {
+  if (!LIVE.enabled()) return '';
+  const cur = LIVE.current(), on = LIVE.players().filter(p => p.online).length, arrow = ui.icon('chevron-right', {size: 18});
+  if (cur) return `<button type="button" class="${cls} rlv-entry is-live" data-dy-go="${esc(cur.id)}"><i class="rlv-dot is-on" aria-hidden="true"></i><span><b>Return to your live battle</b><small>vs. ${esc(LIVE.nameFor(cur.o))}</small></span>${arrow}</button>`;
+  return `<button type="button" class="${cls} rlv-entry" data-dy-live><i class="rlv-dot ${on ? 'is-on' : 'is-off'}" aria-hidden="true"></i><span><b>Live battle</b><small>${on ? `${on} ${on === 1 ? 'manager' : 'managers'} in the app now` : 'Challenge a manager in the app'}</small></span>${arrow}</button>`;
+}
 // Owner ladder: compact numbered matches, with collectible artwork reserved for every fifth battle.
 function soloLadderHTML() {
   const s = D.mine(), dk = rivalsUpdated() ? D.pocketDeck(s) : D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), cur = SOLO.current();
@@ -841,7 +850,8 @@ function soloLadderHTML() {
   let h = `<section class="rl-ladder" aria-label="Solo battle ladder">${rivalsVersus() ? `<div class="rl-switch" aria-label="Battle mode"><button type="button" class="is-on" data-dy-bv="solo" aria-pressed="true">${MODE_IC.solo}Solo ladder</button><button type="button" data-dy-bv="versus" aria-pressed="false">${MODE_IC.versus}Versus</button></div>` : ''}`
     + `<div class="rl-hero"><div class="rl-hero-plate"><small>30 BATTLES · A BOSS EVERY 5</small><h2>Road to Glory</h2><p>Boss rewards: pack → Epic+ player → repeat</p></div></div>`
     + `<div class="rl-progress"><div><b>${done}<small> / ${SOLO.LADDER} won</small></b><span>${at > SOLO.LADDER ? 'Ladder complete · Replay for coins' : 'Win each battle to unlock the next'}</span></div><button type="button" data-dy-ladder-next>${at > SOLO.LADDER ? 'Final boss' : `Battle ${at}`}${ui.icon('chevron-down', {size: 16})}</button></div>`
-    + `<div class="rl-progress-track" role="progressbar" aria-label="Solo battles won" aria-valuemin="0" aria-valuemax="30" aria-valuenow="${done}"><i style="width:${done / SOLO.LADDER * 100}%"></i></div>`;
+    + `<div class="rl-progress-track" role="progressbar" aria-label="Solo battles won" aria-valuemin="0" aria-valuemax="30" aria-valuenow="${done}"><i style="width:${done / SOLO.LADDER * 100}%"></i></div>`
+    + liveEntryHTML('rl-live');
   if (cur) h += `<button type="button" class="rl-resume" data-dy-go="${esc(cur.mid)}">${ui.icon('play-fill', {size: 20})}<span><b>Continue your battle</b><small>${esc(cur.opp.name)}</small></span>${ui.icon('chevron-right', {size: 20})}</button>`;
   if (!dk.ok) h += `<button type="button" class="pk-alert is-gold" data-dy-tab="${s.pk.start ? 'packs' : 'decks'}">${ui.icon('info', {size: 18})}<span>${s.pk.start ? 'Open your Starter Pack to build your first deck.' : `Prepare your deck: ${esc(dk.why)}`}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
   SOLO.TIERS.forEach((tier, i) => {
@@ -1192,6 +1202,7 @@ export default {
         return;
       }
       if (q('[data-dy-guide]')) { guideSheet(); return; }
+      if (q('[data-dy-live]')) { import('./rivals-live-lobby.js').then(m => m.openLobby()).catch(e => console.error(e)); return; }
       if ((b = q('[data-dy-card]'))) { cardSheet(st, b.dataset.dyCard); return; }
       if (q('[data-dy-more]')) { drawGrid(st, true); return; }
       if (q('[data-dy-spares]')) {
@@ -1278,6 +1289,7 @@ export default {
     st.stops.push(D.subscribe(why => { invalidatePanes(st, why === 'profile' || why === 'data' || why === 'sync'); if (why !== 'change' && why !== 'open') scheduleRefresh(st); }));
     st.stops.push(MT.subscribe(() => { invalidatePanes(st, true); scheduleRefresh(st); }));
     st.stops.push(SOLO.subscribe(() => { invalidatePanes(st); if (st.tab === 'battle' || st.tab === 'home') scheduleRefresh(st); }));
+    st.stops.push(LIVE.subscribe(why => { if (['start', 'accepted', 'outcome', 'profile'].includes(why) && (st.tab === 'battle' || st.tab === 'home')) { invalidatePanes(st); scheduleRefresh(st); } }));
     st.stops.push(ctx.on('daily', type => { if (type === 'lb') { invalidatePanes(st, true); if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'battle' || st.tab === 'packs' || st.tab === 'home') scheduleRefresh(st); } }));
     st.stops.push(data.subscribe(type => { if (type === 'me') { invalidatePanes(st, true); refresh(st); } }));
     st.stops.push(ctx.timer(() => { if (!st.hidden && D.status === 'ready' && D.mayPlay()) updateChrome(st); }, 15000));

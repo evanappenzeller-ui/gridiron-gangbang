@@ -1,5 +1,27 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals live battles (November 7, 2026)
+
+Evan: "There should be a list of league members with an active status green dot means they are in the app. A request
+sent to them should show up as a push notification on their screen. If they are actively playing return man it will
+show up when they are done. This is meant to be a live matchup so both players need to be active for the game to play
+out" (the Rivals group). Live battle (Rivals home and Battle tab, `views/rivals-live-lobby.js`) lists the other three
+Rivals players: green dot in the app (seen within 100 s and on screen), amber playing Return Man or in a live battle,
+grey away. Challenge needs them in the app; it lasts ten minutes. The challenge drops in from the top of any screen
+(`views/rivals-live-notice.js`, Accept/Decline) and waits while a Return Man run is under way (`core/busy.js`, which
+`views/return.js` registers: modes catch/run/paused) or you're in a live battle. Accepting opens the battle on both
+phones (`/puzzles/dynasty/battle/lv…`, the v7 screen fed by `core/rivals-live-match.js`). Both must stay in the app:
+when one leaves (off screen, or no beat for 40 s) the other's table pauses with "X left the app"; after two minutes
+they may Claim the win. Concede, Rematch. Live battles use the v7 rules and each manager's active deck, pay nothing and
+never touch the Solo ladder, trophies or collection.
+Sync: no new Firestore rules. Each phone writes only its own board doc's `rlv` field (`core/rivals-live.js`: presence
+`k/on/at/b`, sent challenge `i`, answer `r`, its side of the battle `m` with moves `[[n, move]]`), with heartbeats every
+45 s (15 s in a battle) and at most one write in flight. The game is `dynasty-pocket.js` replay from the challenge id as
+seed with both sides' moves merged by `n` (opening lineups at n = seat). Presence ages use when this phone heard a beat,
+never the other phone's clock. Only the four Rivals profiles publish anything. It is not a server push: a phone that
+is closed or in the background gets nothing (live play needs both in the app anyway). Verify
+`node tools/dynasty/check-live.cjs` (two real browsers on a stand-in board) plus the pocket browser/presentation checks.
+
 ## Rivals casino felt (November 7, 2026)
 
 The v7 battle is a single textured felt table with a padded dark rail and brass trim. The existing finish's
