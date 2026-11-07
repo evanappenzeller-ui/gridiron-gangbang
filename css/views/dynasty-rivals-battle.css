@@ -345,7 +345,8 @@ body .sheet-scrim:has(+ .sheet.pk-sheet.db-preview) { background: #33405E; }
 .v-dynasty-battle .db-hand-pop { position: fixed; width: clamp(110px, 18dvh, 150px); z-index: 210; transform: translateX(-50%); pointer-events: none; border-radius: 8px; box-shadow: 0 0 0 3px #effff5, 0 0 0 6px #73ffc9, 0 0 24px 8px #4dffbca6, 0 18px 22px #0009; }
 .v-dynasty-battle .db-hand-pop .db-face, .v-dynasty-battle .db-drag-ghost .db-face { border-color: #eafff3; }
 .v-dynasty-battle .db-drag-ghost { width: clamp(110px, 18dvh, 150px); filter: drop-shadow(0 0 6px #74ffcb) drop-shadow(0 14px 12px #0009); }
-.v-dynasty-battle .db-card-back { display: grid; place-items: center; width: 180px; height: 252px; border: 6px double #debd75; border-radius: 12px; background: repeating-linear-gradient(45deg,#e0bf6322 0 1px,transparent 1px 8px),#1f3443; color: #e9ce8e; font: 900 italic 95px var(--font-text); }
+.v-dynasty-battle .db-card-back { display: grid; place-items: center; width: 180px; height: 252px; border: 1px solid #bad8e9; border-radius: 12px; background: #143556 url('../../img/rivals/card-back-v1.webp') center / 100% 100% no-repeat; font-size: 0; }
+.v-dynasty-battle .db-opponent-hand span, .v-dynasty-battle .is-owner-table .db-opponent-hand button { background: #143556 url('../../img/rivals/card-back-v1.webp') center / 100% 100% no-repeat; font-size: 0; }
 .v-dynasty-battle .db-cinema.is-table-scene { background: #07161ba6; backdrop-filter: blur(3px); justify-content: center; padding: 20px; }
 .v-dynasty-battle .db-event { display: grid; justify-items: center; gap: 15px; width: min(360px, 100%); padding: 26px 20px; border: 1px solid #d9b97066; border-radius: 24px; background: radial-gradient(ellipse at top,#325447,#10252b); box-shadow: 0 24px 60px #0009; color: #f8edcc; text-align: center; }
 .v-dynasty-battle .db-event > small { font: 800 10px var(--font-text); letter-spacing: 2px; }

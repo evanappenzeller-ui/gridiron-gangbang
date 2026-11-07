@@ -1,3 +1,4 @@
+import {attachPresentation} from './dynasty-pocket-presentation.js';
 // The v7 card duel. Saved v1-v6 games keep their original view and engine.
 import * as D from '../core/dynasty.js';
 import * as B from '../core/dynasty-pocket.js';
@@ -46,7 +47,7 @@ function showSheet(st, title, body, click, cardFocus = false) {
   return sh;
 }
 function send(st, m) {
-  if (st.dead || st.hidden || st.stale || profileKey() !== st.profile || !D.mayPlay()) return false;
+  if (st.presentation?.busy() || st.dead || st.hidden || st.stale || profileKey() !== st.profile || !D.mayPlay()) return false;
   const fresh = SOLO.get(st.mid);
   if (!fresh?.G || fresh.G.v !== 7) return false;
   const legal = B.check(fresh.G, fresh.you, m);
@@ -72,7 +73,7 @@ function moveLabel(G, m) {
   }
 }
 function usable(st) {
-  return !st.dead && !st.hidden && !st.stale && profileKey() === st.profile && D.mayPlay();
+  return !st.presentation?.busy() && !st.dead && !st.hidden && !st.stale && profileKey() === st.profile && D.mayPlay();
 }
 function placeOpening(st, index, zone) {
   const x = SOLO.get(st.mid), p = x?.G?.p[x.you], c = C.card(p?.hand[index]);
@@ -191,7 +192,7 @@ function help(st) {
   showSheet(st, 'How to play Gridiron Rivals', `<ol class="rp-rules"><li><b>Collect, build, battle.</b> Build a focused 20-card deck with at least one Base Player and at most two of each canonical name. Energy comes from the Energy Zone, never your deck.</li><li><b>Choose your lineup.</b> Start with five cards, including a Base Player. Choose one Active athlete and up to three Base Players for the Bench.</li><li><b>Prepare one turn ahead.</b> Draw one card. Attach one Energy to any athlete. The first manager skips normal Energy on the opening turn; legal zero-cost attacks and Supporters are still allowed.</li><li><b>Attack and keep Energy.</b> Meet the printed cost, then attack. Any type pays Colorless costs. The attack ends your turn. Energy stays attached unless a card says otherwise.</li><li><b>Develop your athletes.</b> Put the exact matching Breakout or Prime card from hand on an eligible athlete. Never on your first turn, on the turn it entered play, or twice on the same athlete in one turn. Keep damage, Energy and Tool.</li><li><b>Choose your support.</b> Use multiple eligible Items, one Supporter, one Tool per athlete and one Stadium per turn. There is one shared Stadium.</li><li><b>Retreat wisely.</b> Pay the Active athlete’s printed Energy cost and choose a Benched replacement, once per turn. A card-effect switch or free promotion after a knockout does not spend that retreat allowance.</li><li><b>Score three knockout points.</b> Regular players give 1 point, ex 2, Mega ex 3. You also win if your opponent has no athlete in play to replace a knocked-out Active athlete. Hand and deck cards cannot rescue that knockout.</li></ol><h3>Between-turn Checkup</h3><p>Poison: 10 damage each Checkup, no recovery flip. Burn: 20 damage, then heads clears it. Sleep: no attack or retreat; heads at Checkup wakes the athlete. Paralysis: no attack or retreat; clears after its owner’s next turn. Confusion: flip to attack; tails ends the turn without attacking or self-damage.</p><p>Development and moving to the Bench clear Special Conditions. Poison and Burn can coexist; Sleep, Paralysis and Confusion replace one another.</p><p>Plan your next attacker while your Active athlete keeps using its attached Energy. Every Bench slot matters. Match damage and knockouts never remove cards from your collection.</p>`);
 }
 function cardBack() {
-  return '<span class="rp-card-back" aria-hidden="true"><b>R</b><small>GRIDIRON<br>RIVALS</small></span>';
+  return '<span class="rp-card-back" aria-hidden="true"><img src="img/rivals/card-back-v1.webp" alt="" decoding="async" draggable="false"></span>';
 }
 function lineupHTML(st, side) {
   const G = st.x.G, p = G.p[side], mine = side === st.x.you;
@@ -261,7 +262,7 @@ function draw(st) {
   host.classList.toggle('is-setup',G.phase === 'setup');
   const events = G.events || G.ev || [], len = events.length;
   if (st.eventAt != null && len > st.eventAt) {
-    closeSheet(st);
+    st.presentation.enqueue(events.slice(st.eventAt), x);
     const ev = events.slice(st.eventAt).reverse().find(e => ['ko','attack','energy','evolve'].includes(e.k));
     if (ev) st.sfx?.play(ev.k === 'ko' ? 'knockout' : ev.k === 'attack' ? 'impact' : 'card');
     if (over) st.sfx?.play(x.result === 'w' ? 'victory' : x.result === 'd' ? 'draw' : 'defeat');
@@ -292,7 +293,7 @@ function draw(st) {
 }
 function onClick(st,e) {
   const q = s => e.target.closest(s); let b;
-  if (!st.x || st.hidden) return;
+  if (!st.x || st.hidden || st.presentation?.busy()) return;
   if (q('[data-rp-help]')) return help(st);
   if (q('[data-rp-menu]')) return battleMenu(st);
   if (q('[data-rp-expand-hand]')) return handSheet(st);
@@ -320,15 +321,16 @@ export default {
     ST.set(ctx,st);
     if (!el.querySelector('[data-rp]')) el.innerHTML=this.render();
     st.music=attachMusic(el,ctx.visible,'battle'); st.sfx=sfx.attach(el,ctx.visible);
+    st.presentation=attachPresentation(el, {enabled:()=>!st.dead && !st.hidden && !st.stale && profileKey()===st.profile && D.mayPlay(), cancelHand:()=>st.hand?.cancel(), sound:cue=>st.sfx?.play(cue)});
     st.hand=attachHand(el,{enabled:()=>usable(st) && !st.sheet && !document.hidden, targets:i=>dropTargets(st,i), drop:(i,t)=>dropHand(st,i,t), inspect:i=>inspect(st,{hand:i}), preview:()=>st.sfx?.play('card')});
     const click=e=>onClick(st,e);el.addEventListener('click',click);
-    st.stops.push(()=>st.hand.stop(),()=>el.removeEventListener('click',click),()=>st.music.stop(),()=>st.sfx.stop(),SOLO.subscribe(()=>{
+    st.stops.push(()=>st.presentation.stop(),()=>st.hand.stop(),()=>el.removeEventListener('click',click),()=>st.music.stop(),()=>st.sfx.stop(),SOLO.subscribe(()=>{
       // Deferred CPU checks can emit without a move. Keep a live hand gesture intact.
       const x=SOLO.get(st.mid);
       if (!x || JSON.stringify([x.G,x.state,x.result]) !== st.rendered) draw(st);
     }),data.subscribe(t=>{
       if(t!=='me')return;
-      st.hand.cancel();closeSheet(st);st.eventAt=null;
+      st.presentation.clear();st.hand.cancel();closeSheet(st);st.eventAt=null;
       if(profileKey()!==st.profile){st.stale=true;st.music.visible(false);st.sfx.visible(false);document.documentElement.classList.remove('is-dynasty-battle');if(!st.hidden&&!st.left){st.left=true;st.ctx.back();}return;}
       draw(st);
     }));
@@ -336,6 +338,6 @@ export default {
     D.load().then(()=>draw(st),()=>draw(st));draw(st);
   },
   onShow(ctx) { const st=ST.get(ctx);if(st){if(st.stale){st.ctx.back();return;}st.hidden=false;st.music.visible(true);st.sfx.visible(true);document.documentElement.classList.toggle('is-dynasty-battle',D.mayPlay());draw(st);} },
-  onHide(ctx) { const st=ST.get(ctx);if(st){st.hidden=true;st.hand.cancel();closeSheet(st);st.music.visible(false);st.sfx.visible(false);document.documentElement.classList.remove('is-dynasty-battle');} },
+  onHide(ctx) { const st=ST.get(ctx);if(st){st.hidden=true;st.presentation.clear();st.eventAt=null;st.hand.cancel();closeSheet(st);st.music.visible(false);st.sfx.visible(false);document.documentElement.classList.remove('is-dynasty-battle');} },
   unmount(el,ctx) {const st=ST.get(ctx);if(!st)return;st.dead=true;closeSheet(st);st.stops.forEach(fn=>fn());document.documentElement.classList.remove('is-dynasty-battle');D.flush();ST.delete(ctx);}
 };

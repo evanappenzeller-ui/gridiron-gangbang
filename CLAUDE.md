@@ -1,5 +1,18 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals battle presentation restoration (November 6, 2026)
+
+The v7 battle now uses the approved `img/rivals/card-back-v1.webp` for opening face-down players,
+the opponent's hand and both decks. Legacy battle backs use the same artwork. The new arena had
+introduced placeholder backs and omitted the existing stadium scenes; `views/dynasty-pocket-presentation.js`
+now queues public attack, coin, development and support events for all four `features.rivalsUpdated()` profiles.
+It shares `dynasty-battle-athlete.js` with legacy scenes and only displays already-resolved results.
+Never resolve a move, reroll a coin, expose hidden draws/searches, or change a save from presentation.
+Wait for open and closing sheets; Skip/Escape restores the table. Reduced motion omits the scenes,
+and hiding, leaving or switching profiles clears the queue. Loading a saved match never replays old events.
+Verify `node tools/dynasty/check-pocket-presentation.cjs`, the pocket browser/integration/rules checks,
+legacy table, preview/access, title-screen and stylesheet scope checks before release.
+
 ## Rivals card gestures (November 6, 2026)
 
 The v7 table now uses the full collection card faces through `dynasty-pocket-card.js`, with
