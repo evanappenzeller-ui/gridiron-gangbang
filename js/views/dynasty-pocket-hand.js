@@ -1,4 +1,5 @@
 // Pointer gestures are presentation only. The battle view validates every drop.
+// Hand cards lift, browse and drag; the Energy Zone's Energy is always dragged onto an athlete.
 export function attachHand(el, options) {
   let gesture = null, suppressUntil = 0;
   const stops = [];
@@ -11,7 +12,8 @@ export function attachHand(el, options) {
     clearTimeout(g.timer);
     if (suppress) consume();
     g.ghost?.remove();
-    g.hand.classList.remove('is-browsing');
+    g.zone?.classList.remove('is-dragging');
+    g.hand?.classList.remove('is-browsing');
     cards().forEach(c => c.classList.remove('is-preview', 'is-held', 'is-drag-source'));
     g.targets?.forEach(t => t.el.classList.remove('is-drop-valid', 'is-drop-hover'));
     try { if (el.hasPointerCapture(g.pointerId)) el.releasePointerCapture(g.pointerId); } catch (_) {}
@@ -31,15 +33,31 @@ export function attachHand(el, options) {
     preview(g, nearest.index, held);
   }
   function hover(g, x, y) {
+    const pad = g.kind === 'energy' ? 10 : 0;
     const target = g.targets.find(t => {
       const r = t.el.getBoundingClientRect();
-      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+      return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
     });
     g.targets.forEach(t => t.el.classList.toggle('is-drop-hover', t === target));
     g.hover = target;
     g.ghost?.classList.toggle('is-valid', !!target);
   }
+  function dragEnergy(g, x, y) {
+    if (g.mode !== 'drag') {
+      g.mode = 'drag';
+      g.zone.classList.add('is-dragging');
+      g.targets = options.energyTargets?.() || [];
+      g.targets.forEach(t => t.el.classList.add('is-drop-valid'));
+      const ghost = document.createElement('div');
+      ghost.className = 'rp-drag-ghost rp-energy-ghost'; ghost.setAttribute('aria-hidden', 'true');
+      ghost.innerHTML = g.zone.querySelector('.rp-energy-orb .rp-energy')?.outerHTML || '';
+      el.querySelector('.rp-battle').append(ghost); g.ghost = ghost;
+    }
+    g.ghost.style.left = x + 'px'; g.ghost.style.top = y + 'px';
+    hover(g, x, y);
+  }
   function drag(g, x, y) {
+    if (g.kind === 'energy') return dragEnergy(g, x, y);
     if (g.mode !== 'drag') {
       clearTimeout(g.timer); g.mode = 'drag';
       preview(g, g.index, true);
@@ -60,6 +78,14 @@ export function attachHand(el, options) {
   function down(e) {
     suppressUntil = 0;
     if (gesture) { if (e.pointerId !== gesture.pointerId) cancel(); return; }
+    const zone = e.target.closest('[data-rp-energy]');
+    if (zone && options.energyTargets) {
+      if (e.isPrimary === false || e.button !== 0 || !options.enabled()) return;
+      e.preventDefault();
+      gesture = {kind:'energy', pointerId:e.pointerId, zone, mode:'pending', startX:e.clientX, startY:e.clientY};
+      try { el.setPointerCapture(e.pointerId); } catch (_) {}
+      return;
+    }
     const card = e.target.closest('.rp-hand [data-rp-hand]');
     if (!card || e.isPrimary === false || e.button !== 0 || !options.enabled()) return;
     const hand = card.closest('.rp-hand'), list = cards(), rect = hand.getBoundingClientRect();
@@ -80,6 +106,10 @@ export function attachHand(el, options) {
     if (!g || e.pointerId !== g.pointerId) return;
     if (!options.enabled()) return cancel();
     const dx = e.clientX - g.startX, dy = e.clientY - g.startY;
+    if (g.kind === 'energy') {
+      if (g.mode === 'drag' || Math.hypot(dx, dy) > 6) { e.preventDefault(); drag(g, e.clientX, e.clientY); }
+      return;
+    }
     if (g.mode === 'drag') { e.preventDefault(); drag(g, e.clientX, e.clientY); return; }
     const rising = dy < -6 && Math.abs(dy) > Math.abs(dx) * .2;
     const upward = dy < -18 && (g.mode === 'browse' || rising);
@@ -97,6 +127,11 @@ export function attachHand(el, options) {
     const target = g.hover;
     cancel();
     if (!enabled) return;
+    if (g.kind === 'energy') {
+      if (mode === 'drag' && target) options.energyDrop?.(target);
+      else if (mode === 'pending') options.energyTap?.();
+      return;
+    }
     if (mode === 'pending') options.inspect(index);
     else if (mode === 'drag' && target) options.drop(index, target);
   }
@@ -108,7 +143,7 @@ export function attachHand(el, options) {
   listen(el, 'click', e => {
     if (performance.now() < suppressUntil && (e.detail > 0 || e.pointerType)) { e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
-  listen(el, 'contextmenu', e => { if (e.target.closest('.rp-hand')) e.preventDefault(); });
+  listen(el, 'contextmenu', e => { if (e.target.closest('.rp-hand, [data-rp-energy]')) e.preventDefault(); });
   listen(window, 'blur', () => cancel());
   listen(document, 'visibilitychange', () => { if (document.hidden) cancel(); });
   listen(document, 'keydown', e => { if (gesture && e.key === 'Escape') { e.preventDefault(); cancel(); } });

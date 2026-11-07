@@ -138,7 +138,7 @@ async function run(url) {
     assert.match(await page.locator('.rp-deck.is-opponent').getAttribute('aria-label'),new RegExp(`\\b${publicCounts.deck}\\b`),'opponent deck shows its public count');
     assert.match(await page.locator('.rp-opponent-hand').getAttribute('aria-label'),new RegExp(`\\b${publicCounts.hand}\\b`),'opponent hand shows only its public count');
     let attachments=0,attacks=0,turns=0;
-    for(let step=0;step<16&&turns<4;step++) {
+    for(let step=0;step<24&&turns<6;step++) {
       await settled(page);
       const move=await page.evaluate(async()=>{
         const S=await import('/js/core/dynasty-solo.js'),B=await import('/js/core/dynasty-pocket.js');const x=S.get(window.__pocketMid);
@@ -149,15 +149,42 @@ async function run(url) {
       });
       if(!move)break;
       if(move.a==='energy'||move.a==='attack') {
-        if(move.a==='energy'&&attachments===0) await page.locator('[data-rp-energy]').click();
-        else await page.locator(`[data-rp-slot="${move.a==='energy'?move.on:move.active}"][data-rp-side="0"]`).click();
-        const target=page.locator('.rp-sheet [data-rp-move]').filter({hasText:move.a==='energy'?/^Attach /:/^Attack:/}).first();
-        await target.click();
-        if(move.a==='energy')attachments++;else {attacks++;turns++;}
+        if(move.a==='energy') {
+          const before=await page.evaluate(async()=>(await import('/js/core/dynasty-solo.js')).get(window.__pocketMid).G.p[0].used.energy);
+          assert(!before,'Energy is still available before the drag');
+          if(attachments===0) {
+            // A pointer tap only explains the gesture; it never opens a chooser or attaches.
+            await page.locator('[data-rp-energy]').click();
+            assert.equal(await page.locator('.rp-sheet').count(),0,'tapping the Energy Zone does not open a chooser');
+            await page.locator(`[data-rp-slot="${move.on}"][data-rp-side="0"]`).click();await page.waitForSelector('.rp-sheet');
+            assert.equal(await page.locator('.rp-sheet [data-rp-move]').filter({hasText:/^Attach /}).count(),0,'card details offer no Attach Energy button');
+            await page.locator('.sheet .sheet-close').last().click();await page.waitForFunction(()=>!document.querySelector('.sheet'));
+          }
+          if(attachments===1) {
+            // Keyboard managers keep an accessible route through the Energy Zone.
+            await page.locator('[data-rp-energy]').focus();await page.keyboard.press('Enter');
+            await page.locator('.rp-sheet [data-rp-move]').filter({hasText:/^Attach /}).first().click();
+          } else {
+            const zone=await page.locator('[data-rp-energy]').boundingBox(),slot=await page.locator(`[data-rp-slot="${move.on}"][data-rp-side="0"]`).boundingBox();
+            const from={x:zone.x+zone.width/2,y:zone.y+zone.height/3},to={x:slot.x+slot.width/2,y:slot.y+slot.height/2};
+            await page.mouse.move(from.x,from.y);await page.mouse.down();
+            for(let i=1;i<=10;i++)await page.mouse.move(from.x+(to.x-from.x)*i/10,from.y+(to.y-from.y)*i/10);
+            assert(await page.locator('.rp-energy-ghost').count(),'dragging lifts an Energy orb');
+            assert(await page.locator(`[data-rp-slot="${move.on}"].is-drop-valid`).count(),'eligible athletes highlight during the drag');
+            await page.mouse.up();
+            assert.equal(await page.locator('.rp-energy-ghost').count(),0,'dropping removes the Energy ghost');
+          }
+          await page.waitForFunction(async()=>(await import('/js/core/dynasty-solo.js')).get(window.__pocketMid).G.p[0].used.energy||(await import('/js/core/dynasty-solo.js')).get(window.__pocketMid).state!=='yours');
+          attachments++;
+        } else {
+          await page.locator(`[data-rp-slot="${move.active}"][data-rp-side="0"]`).click();
+          await page.locator('.rp-sheet [data-rp-move]').filter({hasText:/^Attack:/}).first().click();
+          attacks++;turns++;
+        }
       } else if(move.a==='promote'||move.a==='choose-switch') await page.locator('[data-rp-choice]').first().click();
       else {await page.locator('[data-rp-end]').click();turns++;}
     }
-    assert(attachments>=2,`manual attachments executed: ${attachments}`);
+    assert(attachments>=3,`manual attachments executed: ${attachments}`);
     assert(attacks>=1,`attacks executed: ${attacks}`);
     await settled(page);
     for(const width of [320,390])await fit(page,width,'battle');

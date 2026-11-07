@@ -186,6 +186,34 @@ async function run(url) {
     assert.equal(await page.locator('.sheet').count(),0,'real drop does not open an accidental tap modal');
     if(shots)await page.screenshot({path:path.join(shots,'touch-setup-complete.png')});
 
+    // Energy is always dragged from the Energy Zone onto an athlete; a tap never attaches it.
+    const energyReady=async()=>page.evaluate(async mid=>{const x=(await import('/js/core/dynasty-solo.js')).get(mid),B=await import('/js/core/dynasty-pocket.js');
+      return x.state==='yours'&&B.legalActions(x.G,0).some(m=>m.a==='energy');},mid);
+    if(!await energyReady()){await page.locator('[data-rp-end]').tap();await settled(page,mid);}
+    assert(await energyReady(),'Energy is available on the manager’s turn');
+    const beforeEnergy=await snapshot(page,mid),zone=await center(page,'[data-rp-energy]');
+    await touch('touchStart',zone);await page.waitForTimeout(35);await touch('touchEnd');await page.waitForTimeout(180);
+    assert.equal(await page.locator('.sheet').count(),0,'tapping the Energy Zone opens no chooser');
+    assert.equal(await snapshot(page,mid),beforeEnergy,'tapping the Energy Zone attaches nothing');
+    const dragEnergy=async(target,{cancel=false}={})=>{
+      await touch('touchStart',zone);await move(zone,target);await page.waitForSelector('.rp-energy-ghost');
+      assert(await page.locator('.rp-side.is-mine [data-rp-slot].is-drop-valid').count(),'eligible athletes highlight under the Energy drag');
+      await touch(cancel?'touchCancel':'touchEnd');await page.waitForTimeout(180);
+      assert.equal(await page.locator('.rp-energy-ghost').count(),0,'finished or cancelled Energy drag removes its ghost');
+    };
+    await dragEnergy(await center(page,'.rp-side.is-opponent .rp-active [data-rp-slot]'));
+    assert.equal(await snapshot(page,mid),beforeEnergy,'dropping Energy on the opponent attaches nothing');
+    const myActive=await center(page,'.rp-side.is-mine .rp-active [data-rp-slot]');
+    await dragEnergy(myActive,{cancel:true});
+    assert.equal(await snapshot(page,mid),beforeEnergy,'a cancelled Energy drag attaches nothing');
+    const enBefore=await page.evaluate(async mid=>(await import('/js/core/dynasty-solo.js')).get(mid).G.p[0].active.en.length,mid);
+    await dragEnergy(myActive);
+    const enAfter=await page.evaluate(async mid=>{const p=(await import('/js/core/dynasty-solo.js')).get(mid).G.p[0];return {n:p.active.en.length,used:!!p.used.energy};},mid);
+    assert.equal(enAfter.n,enBefore+1,'dropping Energy on your Active attaches exactly one Energy');
+    assert(enAfter.used,'the turn’s Energy is spent by the drag');
+    assert.equal(await page.locator('.sheet').count(),0,'a successful Energy drop opens no sheet');
+    if(shots)await page.screenshot({path:path.join(shots,'touch-energy-drop.png')});
+
     // A stale gesture cannot cross the profile boundary or continue playing on return.
     const beforeProfile=await snapshot(page,mid),profileFrom=await exposed(page,0);
     await touch('touchStart',profileFrom);await move(profileFrom,{x:profileFrom.x,y:profileFrom.y-100});
@@ -198,7 +226,7 @@ async function run(url) {
     await page.waitForSelector('.rp-hand');
     assert.equal(await snapshot(page,mid),beforeProfile,'profile switching cancels the drag without a move');
     assert.deepEqual(errors,[],'no touch interaction browser exceptions');
-    console.log('PASS v7 touch: actual cards, centered tap, hold lift, sliding fan, valid/invalid drops, cancellation and profile cleanup');
+    console.log('PASS v7 touch: actual cards, centered tap, hold lift, sliding fan, valid/invalid drops, Energy drag, cancellation and profile cleanup');
     await ctx.close();
   } finally {await browser.close();}
 }

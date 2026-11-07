@@ -1,5 +1,15 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals Energy drag (November 7, 2026)
+
+Evan: "players should be able to drag and drop the energy onto a card on the table. I don't want to click on the
+energy slot and chose the card, it should always be dragged." In the v7 battle the Energy Zone's orb is dragged onto
+one of your highlighted athletes (`dynasty-pocket-hand.js` energy gesture; `dynasty-pocket-battle.js` `energyTargets`/
+`dropEnergy` send the engine's legal `{a:'energy', on}` move). A pointer tap on the zone only shows a hint toast; card
+details no longer offer Attach Energy. Keyboard Enter on the zone keeps the accessible chooser sheet. Invalid drops,
+cancelled pointers, hiding, leaving and profile changes attach nothing. Rules, saves and replay are unchanged.
+`check-pocket-touch.cjs` (390/320) and `check-pocket-browser.cjs` cover tap, invalid/cancelled/valid drags and keyboard.
+
 ## Rivals battle presentation restoration (November 6, 2026)
 
 The v7 battle now uses the approved `img/rivals/card-back-v1.webp` for opening face-down players,
@@ -30,7 +40,7 @@ rules/integration, preview and scope checks. New modules belong in the service-w
 The v7 battle view follows Evan's attached gameplay layout: opponent hand and three-slot Bench
 above two centered Active athletes, your three-slot Bench and fanned hand below, with deck/discard
 piles, Energy Zones and three knockout-point markers around the edges. Cards still use Rivals art.
-Tap Energy to choose an eligible athlete, View all to inspect a crowded hand, and the circular
+Drag Energy onto an eligible athlete, View all to inspect a crowded hand, and the circular
 Battle options menu for the log, table finish, audio settings and concession. Presentation only:
 keep the v7 rules, replay/save format, collection and four-profile access boundary unchanged.
 Verify `check-pocket-browser.cjs` for phone geometry and actual play, plus scope and preview checks.

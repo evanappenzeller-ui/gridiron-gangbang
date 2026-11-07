@@ -75,7 +75,9 @@
 .v-dynasty-battle .rp-discard b {display:block;font-size:15px;}
 .v-dynasty-battle .rp-energy-zone {position:absolute;z-index:5;display:flex;align-items:center;flex-direction:column;gap:3px;width:58px;padding:0;background:none;border:0;color:#3d6482;font:inherit;}
 .v-dynasty-battle .rp-energy-zone.is-opponent {top:10%;left:3%;}
-.v-dynasty-battle .rp-energy-zone.is-mine {bottom:15%;right:3%;cursor:pointer;}
+.v-dynasty-battle .rp-energy-zone.is-mine {bottom:15%;right:3%;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+.v-dynasty-battle .rp-energy-zone.is-mine.is-dragging {cursor:grabbing;}
+.v-dynasty-battle .rp-energy-zone.is-dragging .rp-energy-orb .rp-energy {opacity:.25;}
 .v-dynasty-battle .rp-energy-orb {position:relative;width:46px;height:46px;min-height:44px;display:grid;place-items:center;border:6px solid #e1edffcc;border-radius:50%;background:radial-gradient(circle at 40% 35%,#e5eeff,#c1d4f2);box-shadow:0 0 0 4px #b4cce87d,inset 0 2px 4px #6e8cad44,0 5px 6px #6b91b433;}
 .v-dynasty-battle .rp-energy-orb .rp-energy {width:24px;height:24px;font-size:13px;}
 .v-dynasty-battle .rp-energy-zone small {font-size:6px;line-height:1.3;text-align:center;text-transform:uppercase;letter-spacing:.8px;font-weight:800;}
@@ -108,6 +110,9 @@
 .v-dynasty-battle .rp-hand-hint {position:absolute;left:-12%;right:-12%;bottom:-2px;margin:0;text-align:center;font-size:7px;line-height:1.3;color:#304e65;pointer-events:none;}
 .v-dynasty-battle .rp-hand-section:has(.rp-hand.is-browsing) .rp-hand-hint {opacity:0;}
 .v-dynasty-battle .rp-drag-ghost {position:fixed;z-index:120;width:138px;aspect-ratio:63/88;pointer-events:none;transform:translate(-50%,-75%) rotate(-4deg);filter:drop-shadow(0 14px 18px #15394e80);will-change:left,top;}
+.v-dynasty-battle .rp-drag-ghost.rp-energy-ghost {width:46px;height:46px;aspect-ratio:auto;display:grid;place-items:center;transform:translate(-50%,-110%) scale(1.15);filter:drop-shadow(0 8px 10px #15394e80);}
+.v-dynasty-battle .rp-energy-ghost .rp-energy {width:34px;height:34px;font-size:17px;box-shadow:0 0 0 4px #fff9,0 0 18px #fdffe0;}
+.v-dynasty-battle .rp-energy-ghost.is-valid .rp-energy {box-shadow:0 0 0 4px #fff0a3,0 0 22px #fff6ac;}
 .v-dynasty-battle .rp-play-zone {position:absolute;top:52%;bottom:15%;left:0;right:0;z-index:0;pointer-events:none;border-radius:18px;}
 .v-dynasty-battle .is-drop-valid {outline:2px dashed #196f60;outline-offset:4px;}
 .v-dynasty-battle .is-drop-hover {outline:3px solid #fff0a3;outline-offset:5px;box-shadow:0 0 0 8px #f2d77a45,0 0 25px #fff6ac66;}
