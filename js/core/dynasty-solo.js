@@ -385,11 +385,17 @@ export function resign(mid) {
 }
 // (the computer's turn: a move every so often, so you see it play)
 const STEP_MS = 750;
+// A visible battle screen may hold the computer while it animates the previous play (Nov 7 2026), so every
+// turn reads in order. Presentation only: the move, its RNG and the save are the same whenever it is played.
+const holds = new Set();
+export function pace(busy) { holds.add(busy); return () => { holds.delete(busy); if (!holds.size) { clearTimeout(timer); timer = 0; kick(); } }; }
+const held = () => [...holds].some(fn => { try { return !!fn(); } catch (_) { return false; } });
 function kick() { if (!timer) timer = setTimeout(step, STEP_MS); }
 function step() {
   timer = 0;
   const r = rec();
   if (!r || r.z || !D.mayPlay()) return;
+  if (held()) { timer = setTimeout(step, 120); return; }
   const G = game(r);
   const engine = G.v === 7 ? POCKET : B;
   const play = G.v === 7 ? POCKET.apply : B.play;

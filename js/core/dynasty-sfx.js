@@ -23,7 +23,9 @@ function read() {
   } catch (_) {}
 }
 read();
-export const CUES = Object.freeze(['select', 'card', 'tear', 'coin', 'impact', 'heavy', 'miss', 'power', 'turn', 'knockout', 'common', 'epic', 'legendary', 'mythic', 'victory', 'defeat', 'draw']);
+export const CUES = Object.freeze(['select', 'card', 'tear', 'coin', 'impact', 'heavy', 'miss', 'power', 'turn', 'knockout', 'common', 'epic', 'legendary', 'mythic', 'victory', 'defeat', 'draw',
+  // v7 table motion (Nov 7 2026): turn flip, Energy Zone refill, Energy pick-up/put-down, attach, card placed, deck draw, points, empty deck.
+  'whoosh', 'energy', 'lift', 'drop', 'attach', 'place', 'deal', 'point', 'point-lose', 'flip', 'empty']);
 export const eventCue = e => e.k === 'attack' ? e.missed || !e.dmg ? 'miss' : e.knockout ? 'knockout' : e.dmg >= 70 ? 'heavy' : 'impact'
   : ['item', 'coach', 'stadium', 'evolve', 'energy'].includes(e.k) ? 'power' : 'card';
 export const revealCue = tier => tier >= 4 ? 'mythic' : tier === 3 ? 'legendary' : tier === 2 ? 'epic' : 'common';
@@ -64,7 +66,8 @@ function silence() {
 function buffer(name) {
   if (buffers.has(name)) return buffers.get(name);
   const lengths = {select:.075, card:.17, tear:.55, coin:.65, impact:.25, heavy:.4, miss:.24,
-    power:.5, turn:.25, knockout:.65, common:.22, epic:.65, legendary:1, mythic:1.4, victory:1.55, defeat:.9, draw:.6};
+    power:.5, turn:.25, knockout:.65, common:.22, epic:.65, legendary:1, mythic:1.4, victory:1.55, defeat:.9, draw:.6,
+    whoosh:.46, energy:.55, lift:.14, drop:.14, attach:.4, place:.24, deal:.26, point:.62, 'point-lose':.62, flip:.16, empty:.32};
   const duration = lengths[name], rate = ctx.sampleRate, b = ctx.createBuffer(1, Math.ceil(duration * rate), rate), out = b.getChannelData(0);
   let seed = 137; for (const c of name) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
   const noise = () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 2147483648 - 1; };
@@ -80,6 +83,16 @@ function buffer(name) {
     const t=i/rate, x=t/duration, n=noise(); low = low*.86+n*.14;
     const env=Math.min(1,t/.004)*Math.pow(1-x,2); let y=0;
     if (name==='select') y=tone(t,0,duration,1100,.3);
+    else if (name==='whoosh') { const sweep=Math.sin(Math.PI*x); y=(n-low)*.34*sweep*sweep*(.4+.6*x) + low*.35*sweep; }
+    else if (name==='energy') { y=[0,.07,.14,.21].reduce((v,s,j)=>v+tone(t,s,duration-s,[784,988,1175,1568][j],.13),0) + (n-low)*.05*env*Math.abs(Math.sin(t*90)); }
+    else if (name==='lift' || name==='drop') { const up=name==='lift', hz=up?520+900*x:1100-650*x; y=.32*Math.sin(Math.PI*x)*Math.sin(2*Math.PI*hz*t); }
+    else if (name==='attach') { y=tone(t,.05,.34,1319,.16)+tone(t,.1,.29,1760,.12) + (n-low)*.3*Math.max(0,1-t/.06) + Math.sin(2*Math.PI*(220*t+900*t*t))*.12*env; }
+    else if (name==='place') y=(low*.9+n*.18)*Math.max(0,1-t/.09) + Math.sin(2*Math.PI*(120*t-60*t*t))*.42*env;
+    else if (name==='deal') y=(n-low)*.3*Math.sin(Math.PI*x)**2*(.5+.5*x) + tone(t,.17,.08,240,.08);
+    else if (name==='point') y=tone(t,0,.3,880,.2)+tone(t,.11,.5,1320,.2)+tone(t,.11,.5,660,.08);
+    else if (name==='point-lose') y=tone(t,0,.32,523,.2)+tone(t,.14,.48,392,.2)+tone(t,.14,.48,311,.1);
+    else if (name==='flip') y=(n-low)*.36*Math.sin(Math.PI*x)**3 + tone(t,.06,.08,1400,.06);
+    else if (name==='empty') y=Math.sin(2*Math.PI*(150*t-80*t*t))*.4*env + (low*.4)*Math.max(0,1-t/.05);
     else if (name==='card' || name==='miss') y=(n-low)*.22*Math.sin(Math.PI*x)**2 + tone(t,.025,.09,180,.06);
     else if (name==='tear') y=(n-low)*.27*env*(.35+.65*Math.abs(Math.sin(t*170))) + low*.22*env;
     else if (name==='coin') y=[0,.09,.19,.31].reduce((v,s)=>v+tone(t,s,.29,2200-s*1400,.12),0);

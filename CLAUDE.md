@@ -1,5 +1,22 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals table motion and Energy drag (November 7, 2026)
+
+Evan: "I want to be able to drag and drop the energy... There needs to be more animations... Add sound effects along
+with the animations" (turn flips, Energy refill, Energy toggle and attach, cards entering play, attacks, knockouts,
+points won/lost, draws; "The player should not be able to interact with the deck"). For `features.rivalsUpdated()`.
+`views/dynasty-pocket-energy.js` owns Energy pointer gestures: drag the Energy Zone onto a glowing athlete, or tap it
+to lift (Enter/Space too) and tap an athlete; a miss or cancel floats it back. `dynasty-pocket-battle.js` validates
+every attachment through the engine. `views/dynasty-pocket-motion.js` animates resolved public events on the table
+(turn-flip banner and a football that crosses to the active manager, deck deal, Energy Zone refill, Energy flight,
+placements/reveal, lunge-and-hit with HP count-down, knockout ghost and stamp, point markers, slides, finale). The table
+always renders the saved match; masks only hold the previous public values until each step plays. The presentation
+queue (`dynasty-pocket-presentation.js`) runs stadium scenes and table steps in event order; `SOLO.pace` holds the
+computer until the screen is idle, and a play made mid-animation waits for it (remaining steps run 3.5x faster).
+New cues live in `core/dynasty-sfx.js`. The deck is inert (`pointer-events:none`); turns draw automatically, an empty
+deck shakes and says so. Reduced motion skips motion but plays one cue. Rules, saves and replays are unchanged.
+Verify `check-pocket-motion.cjs` plus the pocket browser/touch (390, 320)/presentation/rules/integration and sfx checks.
+
 ## Rivals battle presentation restoration (November 6, 2026)
 
 The v7 battle now uses the approved `img/rivals/card-back-v1.webp` for opening face-down players,

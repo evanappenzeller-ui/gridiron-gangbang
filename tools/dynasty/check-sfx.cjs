@@ -102,7 +102,7 @@ async function main() {
     await page.evaluate(()=>{testFx.play('mythic',{delay:1});dispatchEvent(new PageTransitionEvent('pagehide'));});
     await page.waitForFunction(()=>sfxProbes.every(p=>p.stopped));
     await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pageshow')));
-    console.log('PASS: all 17 cues create non-silent, peak-limited audio buffers; zero volume and background silence');
+    console.log(`PASS: all ${(await page.evaluate(()=>fx.CUES)).length} cues create non-silent, peak-limited audio buffers; zero volume and background silence`);
     await page.evaluate(()=>{testFx.play('mythic',{delay:1});testFx.hush();});
     const count=await page.evaluate(()=>sfxProbes.length);await page.waitForTimeout(80);
     assert.equal(await page.evaluate(()=>sfxProbes.length),count,'cancel pending resume');

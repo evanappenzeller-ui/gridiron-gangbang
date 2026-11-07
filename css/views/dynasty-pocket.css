@@ -196,3 +196,75 @@
 .v-dynasty-battle .rp-card-print, .pk-sheet .rp-card-print {background:#e9eef3;}
 .v-dynasty-battle:has(.rp-hand.is-browsing) .pk-sound, .v-dynasty-battle:has(.rp-hand.is-browsing) .pk-sound-menu {opacity:0;pointer-events:none;}
 .pk-sheet.rp-card-focus .rp-inspect-details {background:#eff4f8;color:#233a43;border-radius:16px;padding:14px;margin-top:16px;box-shadow:0 5px 20px #10253644;}
+
+/* Table motion (Nov 7 2026): resolved plays animate on the table; masks hold earlier public values until shown. */
+.v-dynasty-battle .rp-card.is-pending, .v-dynasty-battle .rp-energy.is-pending, .v-dynasty-battle .rp-energy-zone.is-pending .rp-energy-orb .rp-energy {visibility:hidden;}
+.v-dynasty-battle .rp-points i.is-scored.is-masked {background:#344e65;border-color:#8195a75c;box-shadow:inset 0 1px 3px #213b58;}
+.v-dynasty-battle .rp-fx {position:fixed;inset:0;z-index:60;pointer-events:none;overflow:hidden;contain:strict;}
+.v-dynasty-battle .rp-fx>* {position:absolute;pointer-events:none;will-change:transform,opacity;}
+.v-dynasty-battle .rp-fx-card .rp-card-back {width:100%;height:100%;border-radius:5px;box-shadow:0 10px 18px #15394e66;}
+.v-dynasty-battle .rp-fx-energy {display:grid;place-items:center;}
+.v-dynasty-battle .rp-fx-energy .rp-energy {width:30px;height:30px;font-size:14px;box-shadow:0 0 0 2px #fff9,0 0 18px var(--energy),0 0 32px var(--energy);}
+.v-dynasty-battle .rp-fx-burst {border-radius:50%;border:3px solid var(--fx,#fff3b0);box-shadow:0 0 18px var(--fx,#fff3b0),inset 0 0 14px var(--fx,#fff3b0);opacity:0;}
+.v-dynasty-battle .rp-fx-float {display:grid;place-items:center;white-space:nowrap;font:900 24px/1 var(--font-text,inherit);letter-spacing:-.5px;color:#fff;text-shadow:0 2px 0 #1d3447,0 0 10px #0006;opacity:0;}
+.v-dynasty-battle .rp-fx-float.is-damage {color:#ff5d47;font-size:28px;text-shadow:0 2px 0 #fff,0 0 2px #fff,0 4px 10px #6c1a0e88;}
+.v-dynasty-battle .rp-fx-float.is-point {color:#ffd65e;text-shadow:0 2px 0 #6b4a0c,0 0 14px #ffe9a0;}
+.v-dynasty-battle .rp-fx-float.is-loss {color:#ff9b8a;text-shadow:0 2px 0 #5d221b,0 0 12px #ff9b8a88;}
+.v-dynasty-battle .rp-fx-float.is-muted {font-size:11px;font-weight:800;letter-spacing:.5px;color:#fff;text-shadow:none;}
+.v-dynasty-battle .rp-fx-float.is-muted::before {content:"";position:absolute;inset:3px -4px;z-index:-1;border-radius:12px;background:#36516aee;}
+.v-dynasty-battle .rp-fx-turn {perspective:800px;}
+.v-dynasty-battle .rp-fx-turn-card {position:relative;width:100%;height:100%;transform-style:preserve-3d;}
+.v-dynasty-battle .rp-fx-turn-card>span {position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:16px;border:3px solid #fff;color:#fff;font:900 italic 23px/1 var(--font-text,inherit);letter-spacing:.5px;text-transform:uppercase;text-shadow:0 2px 0 #0004;background:linear-gradient(135deg,#5d7489,#38506a);box-shadow:0 14px 30px #10253666,inset 0 0 0 2px #ffffff33;white-space:nowrap;overflow:hidden;}
+.v-dynasty-battle .rp-fx-turn-card>span.is-mine, .v-dynasty-battle .rp-fx-turn.is-mine .is-back {background:linear-gradient(135deg,#2f8a73,#1a5a4b);}
+.v-dynasty-battle .rp-fx-turn-card>span.is-theirs, .v-dynasty-battle .rp-fx-turn.is-theirs .is-back {background:linear-gradient(135deg,#a5574d,#6d3530);}
+.v-dynasty-battle .rp-fx-turn-card .is-back {transform:rotateY(180deg);}
+.v-dynasty-battle .rp-fx-turn-card small {max-width:92%;overflow:hidden;text-overflow:ellipsis;font:800 normal 10px/1.2 var(--font-text,inherit);letter-spacing:1.5px;opacity:.85;}
+.v-dynasty-battle .rp-fx-stamp {display:grid;place-items:center;text-align:center;font:900 italic 22px/1 var(--font-text,inherit);letter-spacing:1px;color:#fff;background:#d13a2fe6;border:3px solid #fff;border-radius:10px;box-shadow:0 8px 20px #5d140e77;text-shadow:0 2px 0 #6d1a12;opacity:0;z-index:2;}
+.v-dynasty-battle .rp-fx-ghost .rp-card {width:100%;height:100%;max-width:none;cursor:default;}
+.v-dynasty-battle .rp-fx-ghost .rp-hp {position:absolute;right:-6px;top:5px;width:36%;min-width:30px;height:6px;box-shadow:0 0 0 2px #3c7085;}
+.v-dynasty-battle .rp-fx-ghost .rp-card-energy {position:absolute;bottom:-8px;left:-6px;gap:1px;}
+.v-dynasty-battle .rp-fx-ghost .rp-condition {display:none;}
+.v-dynasty-battle .rp-fx-ghost.is-bench .rp-live-hp {font-size:18px;top:-16px;right:-3px;}
+.v-dynasty-battle .rp-fx-ghost.is-bench .rp-energy {height:13px;width:13px;font-size:7px;}
+.v-dynasty-battle .rp-fx-final {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:20px;border:4px solid #fff;color:#fff;text-align:center;box-shadow:0 18px 40px #0d203077;opacity:0;padding:8px;}
+.v-dynasty-battle .rp-fx-final b {font:900 italic 42px/1 var(--font-text,inherit);letter-spacing:1px;text-shadow:0 3px 0 #0005;}
+.v-dynasty-battle .rp-fx-final small {font:700 11px/1.3 var(--font-text,inherit);opacity:.9;text-transform:capitalize;}
+.v-dynasty-battle .rp-fx-final.is-win {background:linear-gradient(135deg,#f2c14e,#c9871d);}
+.v-dynasty-battle .rp-fx-final.is-loss {background:linear-gradient(135deg,#7d8ea3,#46566b);}
+.v-dynasty-battle .rp-fx-final.is-draw {background:linear-gradient(135deg,#6aa3c4,#3d6c8d);}
+.v-dynasty-battle .rp-fx-spark {border-radius:50%;background:var(--fx,#fff);box-shadow:0 0 10px var(--fx,#fff);}
+
+/* Whose turn: a football crosses the field to that manager, whose plate glows. */
+.v-dynasty-battle .rp-turn-ball {position:absolute;z-index:7;top:47%;left:calc(50% - 15px);width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fffbe6,#f3c95e);box-shadow:0 0 0 2px #fff,0 0 16px #ffe08acc,0 4px 8px #2d4e6a55;opacity:0;pointer-events:none;
+  transition:top .7s cubic-bezier(.45,0,.25,1),left .7s cubic-bezier(.45,0,.25,1),rotate .7s cubic-bezier(.45,0,.25,1),opacity .3s;}
+.v-dynasty-battle .rp-turn-ball svg {width:20px;height:20px;fill:#8a4a2c;color:#8a4a2c;}
+.v-dynasty-battle .rp-arena[data-turn="theirs"] .rp-turn-ball {top:calc(5% + 31px);left:calc(100% - 40px);rotate:0deg;opacity:1;}
+.v-dynasty-battle .rp-arena[data-turn="mine"] .rp-turn-ball {top:calc(85% - 84px);left:calc(3% + 7px);rotate:-720deg;opacity:1;}
+.v-dynasty-battle .rp-manager {transition:box-shadow .4s,background .4s;}
+.v-dynasty-battle .rp-arena[data-turn="theirs"] .rp-manager.is-opponent, .v-dynasty-battle .rp-arena[data-turn="mine"] .rp-manager.is-mine {background:#2f4d69f2;box-shadow:0 0 0 2px #ffe08a,0 0 16px #ffe08a99;}
+
+/* The deck draws by itself at the start of each turn; it is never a control. */
+.v-dynasty-battle .rp-deck {pointer-events:none;user-select:none;-webkit-user-select:none;}
+.v-dynasty-battle .rp-deck.is-empty .rp-card-back {opacity:.28;filter:grayscale(1);box-shadow:none;}
+.v-dynasty-battle .rp-deck.is-empty>b {background:#8c5b53;}
+
+/* Energy: tap to lift it (then tap an athlete) or drag it straight onto a highlighted athlete. */
+.v-dynasty-battle .rp-energy-zone.is-mine {touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+.v-dynasty-battle .rp-energy-zone.is-mine.is-ready {cursor:grab;}
+.v-dynasty-battle .rp-energy-orb {transition:transform .2s cubic-bezier(.3,1.4,.5,1),box-shadow .2s;}
+.v-dynasty-battle .rp-energy-zone.is-ready .rp-energy-orb .rp-energy {animation:rp-energy-bob 1.8s ease-in-out infinite;}
+.v-dynasty-battle .rp-energy-zone.is-lifted .rp-energy-orb {transform:translateY(-12px) scale(1.14);box-shadow:0 0 0 4px #fff9,0 0 24px #fff6a8,0 16px 14px #2d4e6a44;}
+.v-dynasty-battle .rp-energy-zone.is-lifted .rp-energy-orb::after {content:"";position:absolute;inset:-11px;border-radius:50%;border:2px solid #fff3a0;animation:rp-ring 1s ease-out infinite;}
+.v-dynasty-battle .rp-energy-zone.is-dragging .rp-energy-orb .rp-energy {opacity:.22;animation:none;}
+.v-dynasty-battle .rp-energy-ghost {position:fixed;z-index:120;pointer-events:none;transform:translate(-50%,-50%) scale(1.25);transition:transform .12s ease;filter:drop-shadow(0 8px 10px #15394e66);}
+.v-dynasty-battle .rp-energy-ghost .rp-energy {width:30px;height:30px;font-size:15px;box-shadow:0 0 0 3px #fffa,0 0 18px var(--energy),0 0 34px var(--energy);}
+.v-dynasty-battle .rp-energy-ghost.is-valid {transform:translate(-50%,-50%) scale(1.55);}
+.v-dynasty-battle .rp-card.is-energy-target {outline:2px solid #fff3a0;outline-offset:4px;animation:rp-target 1.1s ease-in-out infinite;}
+.v-dynasty-battle .rp-card.is-energy-target.is-drop-hover {outline:3px solid #fff;animation:none;box-shadow:0 0 0 8px #f2d77a55,0 0 28px #fff6ac;}
+@keyframes rp-energy-bob {0%,100% {transform:translateY(0)} 50% {transform:translateY(-3px) scale(1.06)}}
+@keyframes rp-ring {from {transform:scale(.8);opacity:1} to {transform:scale(1.35);opacity:0}}
+@keyframes rp-target {0%,100% {box-shadow:0 0 0 0 #fff3a000,0 3px 7px #31415750} 50% {box-shadow:0 0 0 5px #fff3a066,0 0 18px #fff3a0aa}}
+@media (prefers-reduced-motion:reduce) {
+  .v-dynasty-battle .rp-energy-zone .rp-energy-orb .rp-energy, .v-dynasty-battle .rp-energy-zone.is-lifted .rp-energy-orb::after, .v-dynasty-battle .rp-card.is-energy-target {animation:none;}
+  .v-dynasty-battle .rp-turn-ball, .v-dynasty-battle .rp-energy-orb {transition:none;}
+}

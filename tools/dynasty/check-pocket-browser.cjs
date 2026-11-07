@@ -136,6 +136,16 @@ async function run(url) {
     assert.equal(await page.locator('.rp-opponent-hand [data-rp-hand],.rp-opponent-hand [data-rp-slot]').count(),0,'opponent hand contains no inspectable identities');
     const publicCounts=await page.evaluate(async()=>{const G=(await import('/js/core/dynasty-solo.js')).get(window.__pocketMid).G;return {deck:G.p[1].deck.length,hand:G.p[1].hand.length};});
     assert.match(await page.locator('.rp-deck.is-opponent').getAttribute('aria-label'),new RegExp(`\\b${publicCounts.deck}\\b`),'opponent deck shows its public count');
+    for(const side of ['is-mine','is-opponent']) {
+      const deck=page.locator('.rp-deck.'+side);
+      assert.equal(await deck.evaluate(el=>getComputedStyle(el).pointerEvents),'none',side+' deck ignores taps');
+      assert.equal(await deck.locator('button,[tabindex],a').count(),0,side+' deck has no controls');
+    }
+    const deckBefore=await gameSnapshot(page);
+    const deckBox=await page.locator('.rp-deck.is-mine').boundingBox();
+    await page.mouse.click(deckBox.x+deckBox.width/2,deckBox.y+deckBox.height/2);await page.waitForTimeout(150);
+    assert.equal(await page.locator('.sheet').count(),0,'tapping the deck opens nothing');
+    assert.equal(await gameSnapshot(page),deckBefore,'tapping the deck never draws or changes the match');
     assert.match(await page.locator('.rp-opponent-hand').getAttribute('aria-label'),new RegExp(`\\b${publicCounts.hand}\\b`),'opponent hand shows only its public count');
     let attachments=0,attacks=0,turns=0;
     for(let step=0;step<16&&turns<4;step++) {
@@ -148,9 +158,26 @@ async function run(url) {
         return m?{...m,active:x.G.p[0].active?.u}:null;
       });
       if(!move)break;
-      if(move.a==='energy'||move.a==='attack') {
-        if(move.a==='energy'&&attachments===0) await page.locator('[data-rp-energy]').click();
-        else await page.locator(`[data-rp-slot="${move.a==='energy'?move.on:move.active}"][data-rp-side="0"]`).click();
+      if(move.a==='energy'&&attachments===0) {
+        // Tap the Energy Zone to lift the Energy, then tap a highlighted athlete (keyboard: Enter, then Enter).
+        const before=await page.evaluate(async()=>(await import('/js/core/dynasty-solo.js')).get(window.__pocketMid).G.p[0].active.en.length);
+        await page.locator('[data-rp-energy]').click();
+        await page.waitForSelector('[data-rp-energy].is-lifted');
+        assert.equal(await page.locator('.sheet').count(),0,'lifting Energy opens no sheet');
+        assert(await page.locator(`.rp-side.is-mine [data-rp-slot="${move.on}"].is-energy-target`).count(),'eligible athletes glow while Energy is lifted');
+        assert.equal(await page.locator('.rp-side.is-opponent .is-energy-target').count(),0,'opposing athletes never receive your Energy');
+        assert.match(await page.locator('.rp-status').innerText(),/Tap a glowing athlete/);
+        await page.locator('[data-rp-energy]').click();
+        assert.equal(await page.locator('[data-rp-energy].is-lifted,.is-energy-target').count(),0,'tapping again puts the Energy back down');
+        await page.locator('[data-rp-energy]').focus();await page.keyboard.press('Enter');
+        await page.waitForSelector('[data-rp-energy].is-lifted');
+        await page.locator(`[data-rp-slot="${move.on}"][data-rp-side="0"]`).click();
+        for(let i=0;i<40&&await page.evaluate(async()=>(await import('/js/core/dynasty-solo.js')).get(window.__pocketMid).G.p[0].active.en.length)!==before+1;i++)await page.waitForTimeout(50);
+        assert.equal(await page.evaluate(async()=>(await import('/js/core/dynasty-solo.js')).get(window.__pocketMid).G.p[0].active.en.length),before+1,'tapping the glowing athlete attaches the lifted Energy');
+        assert.equal(await page.locator('.sheet').count(),0,'tapping the athlete attaches without a sheet');
+        attachments++;
+      } else if(move.a==='energy'||move.a==='attack') {
+        await page.locator(`[data-rp-slot="${move.a==='energy'?move.on:move.active}"][data-rp-side="0"]`).click();
         const target=page.locator('.rp-sheet [data-rp-move]').filter({hasText:move.a==='energy'?/^Attach /:/^Attack:/}).first();
         await target.click();
         if(move.a==='energy')attachments++;else {attacks++;turns++;}
