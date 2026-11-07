@@ -16,6 +16,9 @@ Preview: tapping an athlete on the v7 table opens `.rp-preview` (`views/dynasty-
 rises, tilted, over the lower table with live HP, Energy and status badges; on your turn your Active's attacks are
 glowing banners laid over its printed attacks (cost, name, effect, damage; disabled ones grey with what's missing:
 "Needs 1 more Energy", "Asleep"), and a Retreat bar sits on the footer (one Bench target retreats, more opens a chooser).
+The banners start under the player's picture and never cover it (Evan: "Move the attacks down so it doesn't cut off the
+player picture"); when they need more room they hang below the card, Retreat (with the attached Energy beside it) under
+them, and the card rises by that amount (`--rp-pv-below`) so everything stays on screen.
 A pressed banner flashes white and the move goes through the battle's `send()`. Tapping outside, Escape or Details
 (the old card sheet, keyboard/accessible route) sets it down. Hand cards keep their sheet. The battle builds the model
 from `B.legalActions`; the preview decides nothing. Presentation waits while it is open.

@@ -66,7 +66,7 @@ async function run(url){
           });
           assert.deepEqual(shown.banners,shown.attacks.map(a=>({name:a.name,on:a.legal})),label+' preview banners match the printed attacks and the engine’s legality');
           assert(shown.retreat,'the Active preview has a Retreat bar');
-          assert(await page.locator('.rp-preview-banners').evaluate(el=>{const b=el.getBoundingClientRect(),c=el.closest('.rp-preview-card').getBoundingClientRect();return b.top>c.top+c.height*.3&&b.bottom<=c.bottom;}),'banners sit over the card’s attack area');
+          assert(await page.locator('.rp-preview-banners').evaluate(el=>{const card=el.closest('.rp-preview-card'),b=el.getBoundingClientRect(),a=card.querySelector('.pk-c-art').getBoundingClientRect(),r=card.querySelector('.rp-preview-retreat').getBoundingClientRect();return b.top>=a.bottom-1&&r.top>=b.bottom-1&&r.bottom<=innerHeight&&b.bottom<=innerHeight;}),'banners sit under the player’s picture, Retreat under them, all on screen');
           await page.mouse.click(8,(await page.viewportSize()).height/2);
           await page.waitForFunction(()=>!document.querySelector('.rp-preview'));
           assert.equal(await page.evaluate(async()=>JSON.stringify((await import('/js/core/dynasty-solo.js')).get(window.testMid).G)),before,'tapping outside sets the card down without a move');

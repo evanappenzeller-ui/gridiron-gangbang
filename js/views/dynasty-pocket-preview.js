@@ -36,17 +36,29 @@ export function attachPreview(root, {enabled, sound}) {
       + `<p class="rp-sr-only">${esc(m.name)}. Tap outside the card or press Escape to set it down.</p>`;
   }
   function place() {
-    const card = scene?.querySelector('.rp-preview-card'), body = card?.querySelector('.pk-c-body'), foot = card?.querySelector('.pk-c-foot');
+    const card = scene?.querySelector('.rp-preview-card'), art = card?.querySelector('.pk-c-art'), foot = card?.querySelector('.pk-c-foot');
     if (!card) return;
     const h = card.offsetHeight, banners = card.querySelector('.rp-preview-banners'), retreat = card.querySelector('.rp-preview-retreat');
-    // The banners cover the printed attacks, growing upward over the art when they need more room.
-    // Retreat sits on the printed footer; the banners stay clear of it.
-    let floor = 0;
-    if (retreat && h) {
-      const bottom = foot ? Math.max(0, h - offsetIn(foot, card) - foot.offsetHeight - 6) : h * .02;
-      retreat.style.bottom = bottom + 'px'; floor = bottom + retreat.offsetHeight + 6;
+    if (!h) return;
+    // The banners start under the player's picture and never cover it (Nov 7 2026, Evan:
+    // "Move the attacks down so it doesn't cut off the player picture"); when they need more room
+    // they hang below the card. Retreat sits on the printed footer, or under the banners.
+    const top = (art ? offsetIn(art, card) + art.offsetHeight : h * .6) + 6;
+    let low = h;
+    if (banners) { banners.style.top = top + 'px'; banners.style.bottom = 'auto'; low = Math.max(low, top + banners.offsetHeight); }
+    if (retreat) {
+      const footTop = h - (foot ? Math.max(0, h - offsetIn(foot, card) - foot.offsetHeight - 6) : h * .02) - retreat.offsetHeight;
+      const at = Math.max(footTop, banners ? top + banners.offsetHeight + 6 : top);
+      retreat.style.top = at + 'px'; retreat.style.bottom = 'auto'; low = Math.max(low, at + retreat.offsetHeight);
     }
-    if (banners && h) banners.style.bottom = Math.max(floor, body ? h - offsetIn(body, card) - body.offsetHeight : h * .17) + 'px';
+    // Attached Energy moves off the banners: beside Retreat (which leaves the left of its row free), else under them.
+    const energy = card.querySelector('.rp-preview-energy');
+    if (energy && banners) {
+      const at = retreat ? offsetIn(retreat, card) + (retreat.offsetHeight - energy.offsetHeight) / 2 : low + 4;
+      energy.style.top = at + 'px'; energy.style.bottom = 'auto'; low = Math.max(low, at + energy.offsetHeight);
+    }
+    // The stage rises by what hangs below the card so the lowest button stays on screen.
+    scene.style.setProperty('--rp-pv-below', Math.ceil(low - h) + 'px');
   }
   function trap(e) {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true); return; }

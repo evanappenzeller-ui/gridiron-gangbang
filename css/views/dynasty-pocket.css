@@ -255,8 +255,8 @@
    its attacks glowing over the printed attacks and Retreat on its footer. */
 .v-dynasty-battle .rp-preview {--rp-pv-w:min(64vw,290px,calc((100svh - 230px)*.716));--rp-pv-h:calc(var(--rp-pv-w)*88/63);position:fixed;inset:0;z-index:75;display:grid;justify-items:center;align-items:start;background:#16314a6b;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 /* Like the video, your card rises over the lower table, leaving the opponent's Active in view. */
-.v-dynasty-battle .rp-preview-stage {position:relative;width:var(--rp-pv-w);margin-top:max(64px,min(44svh,calc(100svh - var(--rp-pv-h) - 40px)));}
-.v-dynasty-battle .rp-preview-stage.is-theirs {margin-top:max(64px,min(20svh,calc(100svh - var(--rp-pv-h) - 40px)));}
+.v-dynasty-battle .rp-preview-stage {position:relative;width:var(--rp-pv-w);margin-top:max(64px,min(44svh,calc(100svh - var(--rp-pv-h) - var(--rp-pv-below,0px) - 40px)));}
+.v-dynasty-battle .rp-preview-stage.is-theirs {margin-top:max(64px,min(20svh,calc(100svh - var(--rp-pv-h) - var(--rp-pv-below,0px) - 40px)));}
 .v-dynasty-battle .rp-preview-tilt {transform:perspective(1100px) rotateX(7deg) rotateZ(-1.5deg);transform-origin:50% 60%;}
 .v-dynasty-battle .rp-preview-card {position:relative;width:100%;aspect-ratio:63/88;border-radius:5% / 3.6%;box-shadow:0 0 0 2px #ffffffd8,0 20px 46px #0d2638aa;}
 .v-dynasty-battle .rp-preview-card>.rp-card-print {position:absolute;inset:0;}
