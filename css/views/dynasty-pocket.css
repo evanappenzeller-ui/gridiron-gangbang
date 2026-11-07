@@ -216,6 +216,7 @@
 .v-dynasty-battle .rp-flash-top button:focus-visible {outline:3px solid #fff0a3;outline-offset:3px;}
 .v-dynasty-battle .rp-flash-stage {position:absolute;left:calc(50% - var(--rp-flash-w)/2);top:calc(47% - var(--rp-flash-w)*.698);width:var(--rp-flash-w);height:calc(var(--rp-flash-w)*88/63);}
 .v-dynasty-battle .rp-flash-card {position:absolute;inset:0;border-radius:5% / 3.6%;box-shadow:0 16px 40px #0e2c4377;animation:rp-flash-card 1.75s cubic-bezier(.22,.8,.3,1) both;}
+.v-dynasty-battle .rp-play-flash.is-theirs .rp-flash-card {animation-name:rp-opponent-flash-card;}
 .v-dynasty-battle .rp-flash-card>.rp-card-print {width:100%;height:100%;}
 .v-dynasty-battle .rp-flash-white {position:absolute;inset:-2px;border-radius:inherit;background:radial-gradient(ellipse at 50% 45%,#fff 40%,#eefcff);box-shadow:0 0 34px 12px #fff,0 0 80px 30px #b9f3ff;opacity:0;animation:rp-flash-white 1.75s ease both;}
 .v-dynasty-battle .rp-flash-ring {position:absolute;inset:0;border:9px solid #f6feff;border-radius:7% / 5%;box-shadow:0 0 18px 6px #9eeaff,0 0 46px 16px #5fd2ff99,inset 0 0 18px 6px #9eeaff,inset 0 0 50px 10px #5fd2ff66;opacity:0;animation:rp-flash-ring 1.75s cubic-bezier(.15,.7,.35,1) both;}
@@ -231,6 +232,14 @@
   100% {opacity:0;transform:scale(1.14);}
 }
 @keyframes rp-flash-white {0%,40% {opacity:0;} 52%,56% {opacity:1;} 68%,100% {opacity:0;}}
+/* Keep the CPU's played card readable after the burst, through its result pause. */
+@keyframes rp-opponent-flash-card {
+  0% {opacity:0;transform:translateY(var(--rp-flash-from)) scale(.34) rotate(-4deg);}
+  22% {opacity:1;transform:translateY(0) scale(1.03) rotate(0);}
+  30%,44% {opacity:1;transform:scale(1);}
+  54% {opacity:1;transform:scale(1.05);}
+  70%,100% {opacity:1;transform:scale(1);}
+}
 @keyframes rp-flash-burst {0%,48% {opacity:0;} 55% {opacity:.95;} 64% {opacity:.55;} 80%,100% {opacity:0;}}
 @keyframes rp-flash-ring {0%,50% {opacity:0;transform:scale(.94);} 58% {opacity:1;transform:scale(1.02);} 76% {opacity:.8;transform:scale(1.2);} 100% {opacity:0;transform:scale(1.42);}}
 @keyframes rp-flash-spark {

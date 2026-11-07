@@ -1,4 +1,5 @@
 // Offline real-browser regression for the presentation missing from the v7 battle.
+// Optional targeted rerun: node tools/dynasty/check-pocket-presentation.cjs --profile=evan
 const fs=require('node:fs'), path=require('node:path'), http=require('node:http'), assert=require('node:assert/strict');
 let pw;try{pw=require('playwright');}catch{pw=require(path.join(process.env.USERPROFILE,'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'));}
 const root=path.resolve(__dirname,'../..'),out=path.join(root,'output/rivals-presentation');
@@ -13,7 +14,8 @@ const server=http.createServer((req,res)=>{
   });
 });
 async function drain(page){
-  for(let i=0;i<150;i++){
+  // Each CPU play now waits for presentation and a full reading interval.
+  for(let i=0;i<600;i++){
     const skip=page.locator('[data-rp-skip]');if(await skip.count())await skip.click();
     const done=await page.evaluate(async()=>{const x=(await import('/js/core/dynasty-solo.js')).current();return x.state!=='theirs'&&!document.querySelector('.rp-cinema');});
     if(done)return;
@@ -24,7 +26,10 @@ async function drain(page){
 async function run(url){
   const browser=await pw.chromium.launch({executablePath:process.env.CHROMIUM_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
   try{
-    for(const [member,guest,label] of [['evan','','evan'],['jayton','','jayton'],['none','Ryan Stewart','ryan-stewart'],['none','Ryan Younggreen','ryan-younggreen']]){
+    const only=process.argv.find(arg=>arg.startsWith('--profile='))?.slice(10);
+    const profiles=[['evan','','evan'],['jayton','','jayton'],['none','Ryan Stewart','ryan-stewart'],['none','Ryan Younggreen','ryan-younggreen']].filter(p=>!only||p[2]===only);
+    assert(profiles.length,'the requested presentation profile exists');
+    for(const [member,guest,label] of profiles){
       const ctx=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
       await ctx.route('**/*',r=>r.request().url().startsWith(url)?r.continue():r.abort());
       await ctx.addInitScript(({member,guest})=>{localStorage.setItem('gg-me',member);localStorage.setItem('gg-guest',guest);localStorage.setItem('gg-welcome','1');sessionStorage.setItem('gg-skip-title','1');['evan','jayton','user%3Aryan-stewart','user%3Aryan-younggreen','visitor'].forEach(k=>localStorage.setItem('gg-release-3.0:'+k,'1'));}, {member,guest});
@@ -140,6 +145,12 @@ async function run(url){
       if(label==='evan'){await page.waitForTimeout(950);await page.screenshot({path:path.join(out,'support-flash.png')});}
       await page.locator('[data-rp-skip]').click();
       await page.waitForSelector('[data-rp-scene="support"].rp-play-flash.is-theirs');
+      const held=await page.locator('.rp-play-flash.is-theirs .rp-flash-card').evaluate(async card=>{
+        await new Promise(resolve=>setTimeout(resolve,2200));
+        return {connected:card.isConnected,opacity:Number(getComputedStyle(card).opacity)};
+      });
+      assert(held.connected&&held.opacity>.9,label+' opponent support card stays readable after the burst');
+      if(label==='evan')await page.screenshot({path:path.join(out,'opponent-support-held.png')});
       await page.waitForFunction(()=>!document.querySelector('.rp-cinema'),null,{timeout:4000});
       assert.equal(await page.locator('[data-rp]').evaluate(el=>el.inert),false,'the flash ends on its own');
       await page.emulateMedia({reducedMotion:'reduce'});

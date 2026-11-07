@@ -1,5 +1,17 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals CPU pacing (November 7, 2026)
+
+The four `features.rivalsUpdated()` profiles get a two-second beat between CPU actions in
+current and saved legacy Solo matches. `core/dynasty-solo.js` `watchPlayback()` binds the
+visible battle to its match and stable profile; CPU play waits for scenes, previews, hand
+inspection, open/closing sheets and backgrounded views. Leaving the battle stops unseen
+moves; resuming waits a full beat instead of catching up. Opponent result scenes remain
+for at least 2.8 seconds and still support Skip. Reduced motion retains the slower CPU
+timing without introducing animations. Rules, seeded decisions, save versions and rewards
+are unchanged. Verify `check-cpu-pacing.cjs`, `check-pocket-integration.cjs`, Pocket browser/
+presentation and legacy table checks, plus preview/access and stylesheet scope checks.
+
 ## Rivals scoreboard placement (November 7, 2026)
 
 Evan, with a screenshot: "The user's scoreboard is hidden behind the cards in the players hand" (the Rivals group). In the

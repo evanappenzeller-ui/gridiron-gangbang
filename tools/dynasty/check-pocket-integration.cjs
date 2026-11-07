@@ -14,8 +14,9 @@ const profiles = [
 let fixtureNumber = 0;
 
 async function fixture(profile = profiles[0], initial = []) {
+  profile = copy(profile);
   const storage = new Map(initial), timers = new Map(), errors = [];
-  let tid = 0, randomSeed = ++fixtureNumber, now = 1793923200000 + fixtureNumber * 1000;
+  let tid = 0, clock = 0, randomSeed = ++fixtureNumber, now = 1793923200000 + fixtureNumber * 1000;
   const fixedMath = Object.create(Math);
   fixedMath.random = () => { randomSeed = (Math.imul(randomSeed,1664525) + 1013904223) >>> 0; return randomSeed / 4294967296; };
   class Clock extends Date { constructor(...args) { super(...(args.length ? args : [now])); } static now() { return now++; } }
@@ -26,7 +27,7 @@ async function fixture(profile = profiles[0], initial = []) {
   };
   const ctx = vm.createContext({console:{log(){},warn(){},error:e=>errors.push(String(e))},
     Date:Clock, Math:fixedMath, JSON, URL, URLSearchParams, structuredClone, localStorage,
-    setTimeout:(fn,delay)=>{ const id=++tid; timers.set(id,{fn,delay}); return id; },
+    setTimeout:(fn,delay)=>{ const id=++tid; timers.set(id,{fn,delay,at:clock+Number(delay || 0)}); return id; },
     clearTimeout:id=>timers.delete(id), addEventListener(){},
     fetch:async url=>{
       assert.equal(url,'data/dynasty.json','only the bundled catalogue may load');
@@ -60,10 +61,114 @@ async function fixture(profile = profiles[0], initial = []) {
   await D.load();
   const B=await get('dynasty-battle.js'), P=await get('dynasty-pocket.js');
   const C=await get('dynasty-pocket-cards.js'), T=await get('dynasty-table.js'), F=await get('features.js');
+  let autoPlayback = null;
+  function advance(ms) {
+    const end=clock+ms;
+    for(let count=0;;count++) {
+      assert.ok(count<10000,'timer clock settles without runaway callbacks');
+      const next=[...timers].filter(([,t])=>t.at<=end).sort((a,b)=>a[1].at-b[1].at||a[0]-b[0])[0];
+      if(!next)break;
+      clock=next[1].at;timers.delete(next[0]);next[1].fn();
+    }
+    clock=end;
+  }
   return {D,S,B,P,C,T,F,storage,errors,profile,
+    advance, pending:delay=>[...timers].filter(([,t])=>delay==null||t.delay===delay),
     record:()=>JSON.parse(storage.get('gg-dys-'+profile.key)||'null'),
-    cpuStep(){const next=[...timers].find(([,t])=>t.delay===750);assert.ok(next,'CPU turn scheduled');timers.delete(next[0]);next[1].fn();}
+    cpuStep(){
+      const mid=S.current()?.mid;
+      if(autoPlayback?.mid!==mid){autoPlayback?.stop();autoPlayback={mid,stop:S.watchPlayback(mid,()=>true)};}
+      const next=[...timers].find(([,t])=>t.delay===S.CPU_STEP_MS);assert.ok(next,'CPU turn scheduled');
+      advance(next[1].at-clock);
+    }
   };
+}
+
+function startCpuTurn(f) {
+  const {S,P}=f, opened=S.start('g1');assert.equal(opened.ok,true,opened.why);
+  let x=S.get(opened.mid);
+  assert.equal(S.move(opened.mid,P.nextMove(x.G,0,30)).ok,true,'human setup is legal');
+  x=S.get(opened.mid);
+  if(x.state==='yours')assert.equal(S.move(opened.mid,{a:'end'}).ok,true,'human yields the opening turn');
+  assert.equal(S.get(opened.mid).state,'theirs');
+  return opened.mid;
+}
+
+async function checkPacing() {
+  for(const profile of profiles) {
+    const f=await fixture(profile), {S}=f, mid=startCpuTurn(f), beat=S.CPU_STEP_MS;
+    assert.equal(beat,2000,'CPU actions have a two-second reading interval');
+    const before=snap(f.record());
+    f.advance(beat*4);
+    assert.equal(snap(f.record()),before,profile.key+' reading a saved match without playback never advances it');
+    const blocked={scene:true,sheet:false,hidden:false};
+    const stop=S.watchPlayback(mid,()=>!Object.values(blocked).some(Boolean));
+    for(const reason of ['scene','sheet','hidden']) {
+      Object.keys(blocked).forEach(k=>blocked[k]=k===reason);
+      f.advance(beat*4);
+      assert.equal(snap(f.record()),before,profile.key+' CPU waits while '+reason+' blocks playback');
+    }
+    blocked.hidden=false;
+    // The next readiness poll starts a fresh beat; time spent blocked never accrues.
+    f.advance(100);
+    f.advance(beat-1);
+    assert.equal(snap(f.record()),before,profile.key+' resuming still gives a complete reading interval');
+    f.advance(1);
+    assert.equal(f.record().log.length,JSON.parse(before).log.length+1,profile.key+' resuming applies exactly one CPU action');
+    const after=snap(f.record());
+    f.advance(beat-1);
+    assert.equal(snap(f.record()),after,profile.key+' later actions cannot catch up in a burst');
+    stop();f.advance(beat*4);
+    assert.equal(snap(f.record()),after,profile.key+' leaving playback stops the pending turn');
+    assert.deepEqual(f.errors,[]);
+  }
+
+  const f=await fixture(), {S}=f, mid=startCpuTurn(f), beat=S.CPU_STEP_MS;
+  const oldStop=S.watchPlayback(mid,()=>true), oldTimer=f.pending(beat)[0][1].fn;
+  const before=snap(f.record());
+  let ready=false;
+  const stop=S.watchPlayback(mid,()=>ready);
+  oldStop();oldTimer();
+  f.advance(beat*2);
+  assert.equal(snap(f.record()),before,'a stale timer cannot bypass the replacement playback blocker');
+  ready=true;f.advance(100+beat);
+  assert.equal(f.record().log.length,JSON.parse(before).log.length+1,'disposing the old lease leaves the replacement lease active');
+  stop();
+
+  const delayed=startCpuTurn(f);let sheetOpen=false;
+  const delayedStop=S.watchPlayback(delayed,()=>!sheetOpen), delayedBefore=snap(f.record());
+  f.advance(beat/2);sheetOpen=true;
+  f.advance(beat*3);
+  assert.equal(snap(f.record()),delayedBefore,'a sheet opened during the countdown blocks the already scheduled move');
+  sheetOpen=false;f.advance(100+beat-1);
+  assert.equal(snap(f.record()),delayedBefore,'closing a mid-countdown sheet restarts the entire reading interval');
+  f.advance(1);
+  assert.equal(f.record().log.length,JSON.parse(delayedBefore).log.length+1,'mid-countdown resume commits one move');
+  delayedStop();
+
+  const replaced=startCpuTurn(f), replacedStop=S.watchPlayback(replaced,()=>true);
+  const replacedTimer=f.pending(beat)[0][1].fn, current=startCpuTurn(f), currentBefore=snap(f.record());
+  replacedTimer();f.advance(beat*3);
+  assert.equal(snap(f.record()),currentBefore,'a replaced match cannot inherit its predecessor’s scheduled move or lease');
+  const currentStop=S.watchPlayback(current,()=>true);
+  replacedStop();replacedTimer();f.advance(beat);
+  assert.equal(f.record().log.length,JSON.parse(currentBefore).log.length+1,'stale match cleanup leaves the new match’s timer intact');
+  currentStop();
+
+  const source=startCpuTurn(f), sourceStop=S.watchPlayback(source,()=>true);
+  const staleTimer=f.pending(beat)[0][1].fn, sourceRecord=snap(f.record());
+  const other=copy(f.record());other.id='cpu-other-profile';
+  f.storage.set('gg-dys-m_jayton',snap(other));
+  f.profile.member='jayton';f.profile.key='m_jayton';
+  S.get(other.id);staleTimer();f.advance(beat*3);
+  assert.equal(f.storage.get('gg-dys-m_evan'),sourceRecord,'profile change leaves the prior match untouched');
+  assert.equal(snap(f.record()),snap(other),'profile change cannot advance the new profile from the old timer');
+  const otherStop=S.watchPlayback(other.id,()=>true);
+  sourceStop();staleTimer();f.advance(beat);
+  assert.equal(f.record().log.length,other.log.length+1,'the new profile plays only after its own full delay');
+  otherStop();
+  assert.deepEqual(f.errors,[]);
+  console.log('PASS CPU pacing: four-profile reading intervals, scene/sheet/background pauses, no catch-up, cancellation and stale match/profile timers.');
 }
 
 function legacyRecord(B, deck) {
@@ -82,6 +187,7 @@ function legacyRecord(B, deck) {
 }
 
 (async()=>{
+  await checkPacing();
   for(const profile of profiles) {
     const f=await fixture(profile), {D,S,F,C}=f, s=D.mine();
     const before=snap(s), deck=D.pocketDeck();

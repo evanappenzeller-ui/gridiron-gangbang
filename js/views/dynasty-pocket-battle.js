@@ -398,6 +398,9 @@ export default {
     st.presentation=attachPresentation(el, {enabled:()=>!st.dead && !st.hidden && !st.stale && profileKey()===st.profile && D.mayPlay(), cancelHand:()=>st.hand?.cancel(), sound:cue=>st.sfx?.play(cue), blocked:()=>!!st.preview?.isOpen()});
     st.preview=attachPreview(el, {enabled:()=>!st.dead && !st.hidden && !st.stale && profileKey()===st.profile && D.mayPlay() && !st.presentation?.busy(), sound:cue=>st.sfx?.play(cue)});
     st.hand=attachHand(el,{enabled:()=>usable(st) && !st.sheet && !st.preview?.isOpen() && !document.hidden, targets:i=>dropTargets(st,i), drop:(i,t)=>dropHand(st,i,t), inspect:i=>inspect(st,{hand:i}), preview:()=>st.sfx?.play('card'), energyTargets:()=>energyTargets(st), energyDrop:t=>dropEnergy(st,t), energyTap:()=>energyHint(st)});
+    st.stops.push(SOLO.watchPlayback(st.mid, () => usable(st) && !document.hidden
+      && !st.preview.isOpen() && !ui.sheetCount() && !document.querySelector('.sheet')
+      && !st.el.querySelector('.rp-hold-preview, .rp-drag-ghost')));
     const click=e=>onClick(st,e);el.addEventListener('click',click);
     st.stops.push(()=>st.presentation.stop(),()=>st.preview.stop(),()=>st.hand.stop(),()=>el.removeEventListener('click',click),()=>st.music.stop(),()=>st.sfx.stop(),SOLO.subscribe(()=>{
       // Deferred CPU checks can emit without a move. Keep a live hand gesture intact.

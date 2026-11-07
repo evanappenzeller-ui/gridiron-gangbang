@@ -17,6 +17,7 @@ import * as PC from './dynasty-pocket-cards.js';
 import * as D from './dynasty.js';
 import * as B from './dynasty-battle.js';
 import {profileKey} from './realm-active.js';
+import {rivalsUpdated} from './features.js';
 
 export const LEVELS = [
   {id: 'beg', name: 'Beginner', blurb: 'Common and Rare players, and a computer that keeps it simple.'},
@@ -384,13 +385,42 @@ export function resign(mid) {
   REC.z = 'resign'; REC.at = Date.now(); clearTimeout(timer); timer = 0; write(); emit('resign');
   return {ok: true};
 }
-// (the computer's turn: a move every so often, so you see it play)
-const STEP_MS = 750;
-function kick() { if (!timer) timer = setTimeout(step, STEP_MS); }
+// Give each resolved play time on the table. The view only controls when the CPU may
+// continue; decisions, RNG and saved moves still belong to the unchanged rules engine.
+export const CPU_STEP_MS = 2000;
+let playback = null;
+export function watchPlayback(mid, ready) {
+  const lease = {mid, profile: profileKey(), ready};
+  playback = lease; clearTimeout(timer); timer = 0; kick();
+  return () => {
+    if (playback !== lease) return;
+    playback = null; clearTimeout(timer); timer = 0;
+  };
+}
+const watching = r => playback?.mid === r.id && playback.profile === profileKey();
+function kick() {
+  if (timer || !D.mayPlay() || D.status !== 'ready') return;
+  const r = rec();
+  if (!r || r.z) return;
+  const G = game(r), engine = G.v === 7 ? POCKET : B;
+  if (G.phase === 'over' || engine.toMove(G) !== 1) return;
+  const updated = rivalsUpdated();
+  // Reading the hub or a saved game must not play an unseen CPU turn.
+  if (updated && !watching(r)) return;
+  const waiting = updated && !playback.ready(), profile = profileKey(), mid = r.id;
+  const pending = setTimeout(() => {
+    if (timer !== pending) return;
+    timer = 0;
+    if (profileKey() !== profile || REC?.id !== mid) return;
+    // After a scene/inspection closes, allow a full beat before the next move.
+    if (waiting) kick(); else step();
+  }, waiting ? 100 : updated ? CPU_STEP_MS : 750);
+  timer = pending;
+}
 function step() {
-  timer = 0;
   const r = rec();
   if (!r || r.z || !D.mayPlay()) return;
+  if (rivalsUpdated() && (!watching(r) || !playback.ready())) { kick(); return; }
   const G = game(r);
   const engine = G.v === 7 ? POCKET : B;
   const play = G.v === 7 ? POCKET.apply : B.play;

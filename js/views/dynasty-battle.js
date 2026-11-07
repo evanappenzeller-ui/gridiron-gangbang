@@ -704,7 +704,7 @@ function tableScene(st, scene) {
   el.addEventListener('keydown', e => { if (e.key !== 'Tab') return; const btns = [...el.querySelectorAll('button:not(:disabled)')]; const next = (btns.indexOf(document.activeElement) + (e.shiftKey ? -1 : 1) + btns.length) % btns.length; e.preventDefault(); btns[next].focus(); });
   if (!flips.length) st.sfx.play(sfx.eventCue(ev), {pan: ev.who === scene.you ? -.15 : .15});
   if (flips.length) st.coinTimer = setTimeout(() => revealCoin(st), 3500);
-  else st.sceneTimer = setTimeout(() => finishCinema(st), matchMedia('(prefers-reduced-motion: reduce)').matches ? 600 : 1000);
+  else st.sceneTimer = setTimeout(() => finishCinema(st), scene.ev.who === 1 - scene.you && SOLO.isSolo(st.mid) ? 2800 : matchMedia('(prefers-reduced-motion: reduce)').matches ? 600 : 1000);
 }
 function revealCoin(st) {
   const el = st.el.querySelector('.is-table-scene'), coin = el?.querySelector('[data-db-coin]');
@@ -717,7 +717,7 @@ function revealCoin(st) {
   el.querySelector('[data-db-coin-result]').textContent = st.scene.coinText;
   el.querySelector('[data-db-skip]').textContent = 'Continue';
   el.querySelector('[data-db-skip]').focus({preventScroll: true});
-  st.sceneTimer = setTimeout(() => finishCinema(st), 1600);
+  st.sceneTimer = setTimeout(() => finishCinema(st), st.scene.ev.who === 1 - st.scene.you && SOLO.isSolo(st.mid) ? 2800 : 1600);
 }
 
 const legacyView = {
@@ -737,6 +737,9 @@ const legacyView = {
     fullScreen(st, ctx.visible);
     st.touch = tableGestures(st);
     st.stops.push(() => st.touch.stop());
+    if (SOLO.isSolo(st.mid)) st.stops.push(SOLO.watchPlayback(st.mid, () => !st.dead && !st.hidden
+      && !document.hidden && !st.scene && !st.scenes.length && !st.focus && !st.touch?.active
+      && !ui.sheetCount() && !document.querySelector('.sheet')));
     el.addEventListener('click', e => {
       const q = s => e.target.closest(s);
       let b;

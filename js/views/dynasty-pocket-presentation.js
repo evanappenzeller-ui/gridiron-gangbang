@@ -139,7 +139,8 @@ export function attachPresentation(root, {enabled, cancelHand, sound, blocked = 
       else if (e.key === 'Tab') { e.preventDefault(); skip.focus(); }
     });
     skip.focus({preventScroll:true});
-    timer = setTimeout(finish, duration);
+    // Opponent results need reading time even when their animation finishes sooner.
+    timer = setTimeout(finish, ev.who !== you ? Math.max(duration, 2800) : duration);
   }
   // A seeded result is already decided; the toss only shows it. Ease out over four turns
   // (plus a half turn for tails) and tint the table by whichever face is showing.

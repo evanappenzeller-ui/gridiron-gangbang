@@ -239,7 +239,7 @@ function board(B, version = 3, attacker = 'pass', defender = 'anchor') {
   const localStorage = {getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k)};
   const D = {tableOpen: () => false, status: 'ready', mayPlay: () => true, mine: () => ({}), deckOf: () => ({ok: true, ids: decks[0]}), CARDS: cards,
     FIELD: 'dy1', autoDeck: () => decks[1], rng: () => () => .5, payBattle: () => {}, paySolo: () => null};
-  const shared = {B, D, localStorage, profileKey: () => profile, setTimeout: () => 1, clearTimeout: () => {}};
+  const shared = {B, D, localStorage, profileKey: () => profile, rivalsUpdated: () => false, setTimeout: () => 1, clearTimeout: () => {}};
   const S = loadIsolated('js/core/dynasty-solo.js', shared, ['get', 'start', 'nextMove']);
   const cpu = board(B, 3, 'kick', 'juke');
   cpu.p[0].hand = []; cpu.p[0].en = null; cpu.p[0].used.retreat = true;
