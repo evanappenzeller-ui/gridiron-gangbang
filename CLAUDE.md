@@ -1,5 +1,18 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals card draws (November 7, 2026)
+
+Evan, with a screenshot: "When cards are drawn, they should have an animation and sound effects. Preview the card briefly
+before moving it to the players hand" (the Rivals group). In the v7 battle each of your `draw`/`search` events plays a
+`draw` scene in `dynasty-pocket-presentation.js`: the card leaves your deck face down, turns over at center (a shine and a
+glow in its rarity's colour, "You drew …" pill), holds about 0.7 s, then flies into its place in the fan (read when it
+leaves, since the hand is redrawn after the scene starts) and lands with a brief glow; 1.6 s, back-to-back draws share a
+scene side by side. Until it lands, the drawn card waits hidden in the fan (`is-incoming`, `presentation.sync()` after
+each table render). The opponent's draws slide face down from their deck to their hand (0.7 s); their IDs are dropped
+when queued and never reach the page. Cues `deal` (swoosh off the deck), `flip` (snap and chimes) and `card` (landing) in
+`core/dynasty-sfx.js`. Tap anywhere or Skip lands it at once; reduced motion, hiding and profile changes clear it as the
+other scenes. Presentation only: no rules or save changes. `check-pocket-presentation.cjs` and `check-sfx.cjs` cover it.
+
 ## Rivals live battles (November 7, 2026)
 
 Evan: "There should be a list of league members with an active status green dot means they are in the app. A request

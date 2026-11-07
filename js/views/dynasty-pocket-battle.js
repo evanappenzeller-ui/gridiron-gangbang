@@ -385,6 +385,7 @@ function draw(st) {
     + `<p class="rp-sr-only" aria-live="polite">${esc(last)}</p></div>`
     + `<footer class="rp-turn-action${choices ? ' is-choice' : ''}">${choices || (over ? button(x.live ? 'Rivals' : 'Ladder','data-rp-ladder',false,'is-primary') + button(x.live ? 'Rematch' : 'Play again','data-rp-again',x.live && x.state === 'bad') : G.phase === 'setup' && !p.ready ? button('Confirm lineup','data-rp-ready',st.setup.active == null,'is-primary') : button('End turn','data-rp-end',!legal.some(m=>m.a==='end'),'is-primary'))}</footer>`;
   host.querySelector('.rp-hand').scrollLeft = scroll;
+  st.presentation?.sync();
   if (st.preview?.isOpen()) st.preview.refresh(previewModel(st, st.preview.current()));
   if (focusKey != null) host.querySelector(`.rp-hand [data-rp-hand="${Number(focusKey)}"]`)?.focus({preventScroll:true});
 }
@@ -422,7 +423,7 @@ export default {
     ST.set(ctx,st);
     if (!el.querySelector('[data-rp]')) el.innerHTML=this.render();
     st.music=attachMusic(el,ctx.visible,'battle'); st.sfx=sfx.attach(el,ctx.visible);
-    st.presentation=attachPresentation(el, {enabled:()=>!st.dead && !st.hidden && !st.stale && profileKey()===st.profile && D.mayPlay(), cancelHand:()=>st.hand?.cancel(), sound:cue=>st.sfx?.play(cue), blocked:()=>!!st.preview?.isOpen()});
+    st.presentation=attachPresentation(el, {enabled:()=>!st.dead && !st.hidden && !st.stale && profileKey()===st.profile && D.mayPlay(), cancelHand:()=>st.hand?.cancel(), sound:(cue,o)=>st.sfx?.play(cue,o), blocked:()=>!!st.preview?.isOpen()});
     st.preview=attachPreview(el, {enabled:()=>!st.dead && !st.hidden && !st.stale && profileKey()===st.profile && D.mayPlay() && !st.presentation?.busy(), sound:cue=>st.sfx?.play(cue)});
     st.hand=attachHand(el,{enabled:()=>usable(st) && !st.sheet && !st.preview?.isOpen() && !document.hidden, targets:i=>dropTargets(st,i), drop:(i,t)=>dropHand(st,i,t), inspect:i=>inspect(st,{hand:i}), preview:()=>st.sfx?.play('card'), energyTargets:()=>energyTargets(st), energyDrop:t=>dropEnergy(st,t), energyTap:()=>energyHint(st)});
     st.stops.push(st.src.watchPlayback(st.mid, () => usable(st) && !document.hidden

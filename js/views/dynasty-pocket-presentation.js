@@ -76,18 +76,65 @@ function flashHTML(ev, you, opponent) {
     + `<p class="rp-sr-only" role="status">${esc(c?.name || 'Card')} played. ${esc(ev.text || '')}</p>`;
 }
 
+// Draws (November 7, 2026, Evan: "When cards are drawn, they should have an animation and sound effects. Preview the
+// card briefly before moving it to the players hand"). Your drawn cards leave your deck face down, turn over at center
+// for a moment, then fly into their places in the fan. The opponent's slide face down from their deck to their hand:
+// their IDs are dropped before queueing, so a hidden card never reaches the page.
+const DRAW = {in:480, step:120, hold:700, out:380}, THEIR_DRAW_MS = 720;
+const BACK = '<img src="img/rivals/card-back-v1.webp" alt="" decoding="async" draggable="false">';
+const rectOf = (root, sel) => { const r = root.querySelector(sel)?.getBoundingClientRect(); return r?.width ? r : null; };
+function drawLayout(n) {
+  const w = Math.min(innerWidth * .58, 240, (innerHeight - 220) * .716, (innerWidth - 32 - (n - 1) * 12) / n);
+  return Array.from({length:n}, (_, i) => ({left:innerWidth / 2 + (i - (n - 1) / 2) * (w + 12) - w / 2, top:innerHeight * .45 - w * 44 / 63, width:w, height:w * 88 / 63}));
+}
+function drawHTML(root, ev, you, opponent, rev) {
+  const mine = ev.who === you, n = ev.ids.length;
+  const verb = ev.search ? 'found' : 'drew', who = mine ? 'You' : esc(opponent);
+  if (!mine) {
+    const from = rectOf(root, '.rp-deck.is-opponent') || {left:12, top:innerHeight * .35, width:56, height:78};
+    const to = rectOf(root, '.rp-opponent-hand') || {left:innerWidth / 2 - 30, top:24, width:60, height:60};
+    const w = from.width, h = w * 88 / 63, dx = to.left + to.width / 2 - (from.left + w / 2), dy = to.top + to.height / 2 - (from.top + h / 2);
+    return ev.ids.map((_, i) => `<div class="rp-draw-back" style="left:${from.left}px;top:${from.top}px;width:${w}px;height:${h}px;--i:${i};--dx:${dx.toFixed(1)}px;--dy:${dy.toFixed(1)}px" aria-hidden="true">${BACK}</div>`).join('')
+      + `<p class="rp-sr-only" role="status">${who} ${verb} ${n === 1 ? 'a card' : n + ' cards'}.</p><button type="button" class="rp-draw-skip" data-rp-skip>Skip</button>`;
+  }
+  const deck = rectOf(root, '.rp-deck.is-mine') || {left:innerWidth - 70, top:innerHeight * .55, width:56, height:78};
+  const dc = center(deck), names = ev.ids.map(id => C.card(id)?.name || 'a card');
+  const cards = drawLayout(n).map((r, i) => {
+    const c = center(r), id = ev.ids[i];
+    return `<div class="rp-draw-card is-${esc(C.card(id)?.rarity || 'common')}" style="${box(r)};--i:${i};--dx:${(dc.x - c.x).toFixed(1)}px;--dy:${(dc.y - c.y).toFixed(1)}px;--s0:${(deck.width / r.width).toFixed(3)}" aria-hidden="true"><div class="rp-draw-turn"><span class="rp-draw-face"><span class="rp-card-print">${printedCard(id, rev)}</span><i class="rp-draw-shine"></i></span><span class="rp-draw-reverse">${BACK}</span></div></div>`;
+  }).join('');
+  return `<p class="rp-draw-pill" role="status">You ${verb} ${n === 1 ? `<b>${esc(names[0])}</b>` : `${n} cards`}</p>${cards}<button type="button" class="rp-draw-skip" data-rp-skip>Skip</button>`;
+}
+
 export function attachPresentation(root, {enabled, cancelHand, sound, blocked = () => false}) {
   let queue = [], scene = null, timer, cue, retry, focus, raf = 0, stopped = false;
+  // Your drawn cards already sit at the end of the redrawn hand. They stay hidden there (keeping their places in the
+  // fan) until their scene lands them; `incoming` counts the queued and playing ones.
+  let incoming = 0, onEnd = null, later = [];
+  const after = (ms, fn) => later.push(setTimeout(fn, ms));
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const host = () => root.querySelector('[data-rp]');
+  const handCards = () => [...(host()?.querySelectorAll('.rp-hand>[data-rp-hand]') || [])];
   const allowed = () => !stopped && rivalsUpdated() && enabled() && !document.hidden;
+  function sync() {
+    const cards = handCards();
+    cards.forEach((el, i) => el.classList.toggle('is-incoming', i >= cards.length - incoming));
+  }
+  function land(n) {
+    const cards = handCards(), from = cards.length - incoming;
+    incoming = Math.max(0, incoming - n); sync();
+    cards.slice(Math.max(0, from), Math.max(0, from + n)).forEach(el => { el.classList.remove('is-drawn'); void el.offsetWidth; el.classList.add('is-drawn'); });
+  }
   function clear() {
     clearTimeout(timer); clearTimeout(retry); clearTimeout(cue); cancelAnimationFrame(raf);
+    later.forEach(clearTimeout); later = []; onEnd = null; incoming = 0;
     queue = []; scene?.remove(); scene = null;
-    if (host()) host().inert = false;
+    if (host()) { host().inert = false; sync(); }
   }
   function finish() {
-    clearTimeout(timer); clearTimeout(cue); cancelAnimationFrame(raf); scene?.remove(); scene = null;
+    clearTimeout(timer); clearTimeout(cue); cancelAnimationFrame(raf); later.forEach(clearTimeout); later = [];
+    const end = onEnd; onEnd = null; end?.();
+    scene?.remove(); scene = null;
     if (host()) host().inert = false;
     next();
     if (!scene && !queue.length && allowed()) {
@@ -102,18 +149,32 @@ export function attachPresentation(root, {enabled, cancelHand, sound, blocked = 
     // A closing sheet stays mounted through its exit transition and restores focus
     // afterward. Wait for removal too, so it cannot cover the scene or steal Skip.
     if (ui.sheetCount() || document.querySelector('.sheet') || blocked()) { retry = setTimeout(next, 100); return; }
-    const {ev, you, opponent, rev} = queue.shift(), attack = ev.k === 'attack', coin = ev.k === 'coin', flash = ev.k === 'support', status = ev.k === 'condition';
+    const {ev, you, opponent, rev} = queue.shift(), attack = ev.k === 'attack', coin = ev.k === 'coin', flash = ev.k === 'support', status = ev.k === 'condition', drawn = ev.k === 'draw';
     cancelHand(); focus = document.activeElement;
     scene = document.createElement('section');
     const side = ev.who === you ? 'is-mine' : 'is-theirs';
-    scene.className = flash ? `rp-cinema rp-play-flash ${side}` : attack ? `rp-cinema rp-attack-scene ${side}${ev.damage > 0 ? ' is-hit' : ''}`
+    scene.className = drawn ? `rp-cinema rp-draw-scene ${side}` : flash ? `rp-cinema rp-play-flash ${side}` : attack ? `rp-cinema rp-attack-scene ${side}${ev.damage > 0 ? ' is-hit' : ''}`
       : coin ? `rp-cinema rp-coin-scene ${ev.heads ? 'is-heads' : 'is-tails'} is-up-heads` : status ? `rp-cinema rp-status-scene is-${String(ev.condition || '').toLowerCase()}` : 'db-cinema rp-cinema is-card';
     scene.dataset.rpScene = ev.k;
     scene.setAttribute('role', 'dialog'); scene.setAttribute('aria-modal', 'true');
-    scene.setAttribute('aria-label', coin ? 'Coin result' : status ? `${short(ev.id)} is now ${cap(String(ev.condition || '').toLowerCase())}` : ev.name || C.card(ev.id)?.name || 'Play result');
+    scene.setAttribute('aria-label', drawn ? (ev.who === you ? 'You drew' : `${opponent} drew`) : coin ? 'Coin result' : status ? `${short(ev.id)} is now ${cap(String(ev.condition || '').toLowerCase())}` : ev.name || C.card(ev.id)?.name || 'Play result');
     const heading = ev.k === 'attack-failed' ? 'Attack stopped' : ev.k === 'evolve' ? 'Player developed' : 'Card played';
     let duration = 1600;
-    if (flash) {
+    if (drawn) {
+      scene.innerHTML = drawHTML(root, ev, you, opponent, rev);
+      scene.addEventListener('click', e => { if (!e.target.closest('[data-rp-skip]')) finish(); });
+      const n = ev.ids.length, mine = ev.who === you;
+      ev.ids.forEach((_, i) => after(i * DRAW.step, () => sound('deal', {pan:mine ? .3 : -.3})));
+      if (!mine) duration = THEIR_DRAW_MS + (n - 1) * DRAW.step;
+      else {
+        const out = DRAW.in + (n - 1) * DRAW.step + DRAW.hold, landed = out + DRAW.out + (n - 1) * 70;
+        onEnd = () => land(n);
+        after(DRAW.in * .55, () => sound('flip'));
+        after(out, () => flyToHand(scene, n));
+        after(landed, () => { sound('card'); finish(); });
+        duration = landed + 400;
+      }
+    } else if (flash) {
       scene.innerHTML = flashHTML(ev, you, opponent); duration = 1750;
       cue = setTimeout(() => sound('power'), 760);
     } else if (attack) {
@@ -142,6 +203,23 @@ export function attachPresentation(root, {enabled, cancelHand, sound, blocked = 
     // Opponent results need reading time even when their animation finishes sooner.
     timer = setTimeout(finish, ev.who !== you ? Math.max(duration, 2800) : duration);
   }
+  // The fan is redrawn after the scene starts, so each card's place is read as it leaves the preview.
+  function flyToHand(el, n) {
+    if (scene !== el) return;
+    const cards = handCards(), from = cards.length - incoming;
+    const hand = rectOf(root, '.rp-hand') || {left:0, top:innerHeight - 140, width:innerWidth, height:120};
+    el.classList.add('is-leaving');
+    el.querySelectorAll('.rp-draw-card').forEach((card, i) => {
+      if (i >= n) return;
+      const slot = cards[from + i], r = card.getBoundingClientRect();
+      let t = slot?.getBoundingClientRect();
+      if (!t?.width || t.right < 0 || t.left > innerWidth) t = {left:hand.left + hand.width / 2 - 30, top:hand.top, width:60, height:84};
+      const angle = slot ? parseFloat(getComputedStyle(slot).getPropertyValue('--fan-angle')) || 0 : 0;
+      const dx = t.left + t.width / 2 - (r.left + r.width / 2), dy = t.top + t.height / 2 - (r.top + r.height / 2);
+      card.animate([{transform:'none'}, {transform:`translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px) rotate(${angle}deg) scale(${(t.width / r.width).toFixed(3)})`}],
+        {duration:DRAW.out, delay:i * 70, easing:'cubic-bezier(.55,0,.35,1)', fill:'forwards'});
+    });
+  }
   // A seeded result is already decided; the toss only shows it. Ease out over four turns
   // (plus a half turn for tails) and tint the table by whichever face is showing.
   function toss(el, heads) {
@@ -166,10 +244,22 @@ export function attachPresentation(root, {enabled, cancelHand, sound, blocked = 
     busy: () => !!scene || queue.length > 0,
     enqueue(events, x) {
       if (!allowed() || motion.matches) return;
-      // Draws, searches and opening lineups can contain hidden card IDs. Never present them.
-      queue.push(...events.filter(e => kinds.has(e.k)).map(ev => ({ev:{...ev}, you:x.you, opponent:x.opp.name, rev:x.G?.rev === 2 ? 2 : 1})));
-      next();
+      const rev = x.G?.rev === 2 ? 2 : 1, opponent = x.opp.name;
+      for (const e of events) {
+        if (e.k === 'draw' || e.k === 'search') {
+          // The opponent's draws and searches (like opening lineups) hold hidden card IDs: only a count is kept.
+          // Back-to-back draws by one manager share a scene.
+          const mine = e.who === x.you, search = e.k === 'search', last = queue.at(-1)?.ev;
+          if (mine && !C.card(e.id)) continue;
+          if (last?.k === 'draw' && last.who === e.who && last.search === search && last.ids.length < 3) last.ids.push(mine ? e.id : null);
+          else queue.push({ev:{k:'draw', who:e.who, search, ids:[mine ? e.id : null]}, you:x.you, opponent, rev});
+          if (mine) incoming++;
+        } else if (kinds.has(e.k)) queue.push({ev:{...e}, you:x.you, opponent, rev});
+      }
+      sync(); next();
     },
+    /** Hides your drawn cards in the redrawn hand until their scene lands them. */
+    sync,
     clear,
     stop() { stopped = true; clear(); document.removeEventListener('visibilitychange', visibility); motion.removeEventListener('change', preference); }
   };
