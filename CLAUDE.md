@@ -17,7 +17,11 @@ presentation and legacy table checks, plus preview/access and stylesheet scope c
 Evan, with a screenshot: "The user's scoreboard is hidden behind the cards in the players hand" (the Rivals group). In the
 v7 battle your `.rp-manager.is-mine` (name and three knockout-point dots) is a compact two-line tab on the left edge at
 60.5% of the arena, between the Stadium and the menu button, clear of the Bench and the fanned hand. The opponent's bar
-stays top right. `check-pocket-browser.cjs` asserts both scoreboards are fully uncovered at 320 and 390 widths.
+stays top right. November 7 follow-up: both scoreboards use the same stacked name, spacing and 13px dots, with mirrored
+edge corners. End turn now sits in a bottom footer below the fanned hand, alongside space reserved for the sound controls.
+Confirm lineup and completed-match actions share that footer. The arena reserves the hand's overhang and footer height;
+Bench targets remain at least 44px wide on small phones. Rules and saves are unchanged. `check-pocket-browser.cjs`
+asserts both scoreboards are fully uncovered at 320 and 390 widths; also verify `check-pocket-touch.cjs` at both widths.
 
 ## Rivals card preview, attack banner, coin toss and Sleep (November 7, 2026)
 
