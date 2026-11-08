@@ -38,7 +38,9 @@ The four `features.rivalsUpdated()` profiles see larger, condensed player names 
 their cards and illustrated Energy banners directly below. `views/dynasty-energy.js` maps ten
 Energy types to versioned, on-demand `img/rivals/energy-banners/*-v1.webp` artwork; legacy Energy
 symbols keep their original names and map to matching artwork. The calling-card images are
-decorative, with separate readable type labels and SVG symbols plus a solid-color fallback.
+decorative, with SVG symbols plus a solid-color fallback. November 8 follow-up: banners omit
+visible text and are about 20% slimmer, giving the freed height to the player portrait. Full Energy
+names remain in the card's accessible label, symbol tooltip and details.
 Names wrap in full; HP, rarity finishes, portraits, printed rules and 63:88 proportions remain.
 Collection, details, reveals and the current battle use the shared `cardHTML()` face. No rules,
 saves, privileges or profile access change. Artwork prompts are in `tools/dynasty/energy-banners-prompts.txt`.

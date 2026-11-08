@@ -84,7 +84,7 @@ async function inspect(page, want, label) {
     ids: [...document.querySelectorAll('[data-dy-grid] [data-dy-card]')].map(c => c.dataset.dyCard),
     headings: [...document.querySelectorAll('[data-dy-grid] h3.pk-gh')].map(h => ({key: h.dataset.dyEnergy || h.dataset.dyGroup, energy: h.hasAttribute('data-dy-energy'), count: Number(h.querySelector('small')?.textContent.replace(/,/g, ''))})),
     secondaryHeadings: document.querySelectorAll('[data-dy-subgroup], [data-dy-grid] h4').length,
-    labels: [...document.querySelectorAll('[data-dy-grid] .pk-card:not(.pk-trainer)')].map(c => ({id: c.dataset.dyCard, energy: c.querySelector('.pk-c-energy')?.dataset.cardEnergy, text: c.querySelector('.pk-c-energy > b')?.firstChild?.textContent, caption:c.querySelector('.pk-c-energy small')?.textContent}))
+    labels: [...document.querySelectorAll('[data-dy-grid] .pk-card:not(.pk-trainer)')].map(c => ({id: c.dataset.dyCard, energy: c.querySelector('.pk-c-energy')?.dataset.cardEnergy, symbolLabel: c.querySelector('.pk-c-energy .pk-e')?.title, visibleLabel:!!c.querySelector('.pk-c-energy b,.pk-c-energy small'), accessibleLabel:c.getAttribute('aria-label')}))
   }));
   assert.deepEqual(got.ids, want.ids.slice(0, got.ids.length), label + ': displayed cards follow the selected independent sort');
   assert.equal(new Set(got.ids).size, got.ids.length, label + ': one card per owned player, copies stacked');
@@ -96,7 +96,12 @@ async function inspect(page, want, label) {
     assert.equal(h.count, want.groups[h.key], label + ': heading counts filtered cards for ' + h.key);
   }
   const names = await page.evaluate(async ids => { const PC = await import('/js/core/dynasty-pocket-cards.js'); return Object.fromEntries(ids.map(id => [id, PC.card(id)?.types[0]])); }, got.labels.map(c => c.id));
-  for (const c of got.labels) { assert.equal(c.energy, names[c.id], label + ': card badge matches printed energy'); assert.equal(c.text, names[c.id]); assert.equal(c.caption, 'Energy'); }
+  for (const c of got.labels) {
+    assert.equal(c.energy, names[c.id], label + ': card badge matches printed energy');
+    assert.equal(c.symbolLabel, names[c.id], label + ': Energy symbol keeps its title');
+    assert.equal(c.visibleLabel, false, label + ': banner is artwork and symbol only');
+    assert(c.accessibleLabel.includes(names[c.id]), label + ': full card description names its Energy');
+  }
   return got.ids.length;
 }
 async function chooseSort(page, sort) {

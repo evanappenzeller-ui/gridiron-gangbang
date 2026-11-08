@@ -78,8 +78,8 @@ async function run(url) {
         const head=card.querySelector('.pk-c-head'),name=card.querySelector('.pk-c-name'),attack=card.querySelector('.pk-c-atk>b');
         const bg=el=>rgb(getComputedStyle(el).backgroundColor),ink=el=>rgb(getComputedStyle(el).color);
         const paper=bg(face),header=bg(head),body=bg(card.querySelector('.pk-c-body'));
-        return {...figure.dataset,marked:card.classList.contains('pk-energy-card'),badge:badge.dataset.cardEnergy,text:badge.querySelector('b').firstChild.textContent,
-          paper,header,body,nameContrast:contrast(ink(name),header),attackContrast:contrast(ink(attack),body),badgeContrast:contrast(ink(badge),bg(badge)),
+        return {...figure.dataset,marked:card.classList.contains('pk-energy-card'),badge:badge.dataset.cardEnergy,visibleLabel:!!badge.querySelector('b,small'),symbolLabel:badge.querySelector('.pk-e')?.title,accessibleLabel:card.getAttribute('aria-label'),
+          paper,header,body,nameContrast:contrast(ink(name),header),attackContrast:contrast(ink(attack),body),bannerRatio:br.height/cr.width,
           logoRatio:Math.min(lr.width,lr.height)/cr.width,vector:!!logo.querySelector('path,circle'),
           fits:face.scrollHeight<=face.clientHeight+1 && face.scrollWidth<=face.clientWidth+1,
           badgeFits:br.left>=cr.left && br.right<=cr.right && br.bottom<=art.top+1 && badge.scrollWidth<=badge.clientWidth+1,
@@ -89,12 +89,15 @@ async function run(url) {
     assert.equal(rows.length,matrix.energies.length*matrix.rarities.length*matrix.widths.length);
     for (const r of rows) {
       const label=`${r.energy}/${r.rarity}/${r.width}`;
-      assert(r.marked,label+': authorized energy face'); assert.equal(r.badge,r.energy,label); assert.equal(r.text,r.energy,label);
+      assert(r.marked,label+': authorized energy face'); assert.equal(r.badge,r.energy,label);
+      assert.equal(r.visibleLabel,false,label+': banner has no visible Energy text');
+      assert.equal(r.symbolLabel,r.energy,label+': symbol keeps its Energy title');
+      assert(r.accessibleLabel.includes(r.energy),label+': accessible card name retains Energy');
       for(const [part,color] of [['paper',r.paper],['header',r.header],['body',r.body]]) {
         assert.equal(color[3],255,label+': opaque '+part);assert(Math.min(...color.slice(0,3))<230,label+': '+part+' is visibly tinted');
       }
       assert(r.nameContrast>=4.5,label+': name contrast '+r.nameContrast);assert(r.attackContrast>=4.5,label+': attack contrast '+r.attackContrast);
-      assert(r.badgeContrast>=4.5,label+': energy label contrast '+r.badgeContrast);
+      assert(r.bannerRatio<=.18,label+': slimmer banner gives the portrait more room');
       assert(r.logoRatio>=.095 && r.vector,label+': prominent vector logo');assert(r.fits && r.badgeFits,label+': content remains inside card');
       assert.equal(r.foil,r.rarity!=='common',label+': rarity finish retained');assert.equal(r.motion,false,label+': reduced motion');
     }
@@ -143,7 +146,7 @@ async function run(url) {
       await page.setViewportSize({width,height:844});
       await page.evaluate(async width=>{
         const D=await import('/js/core/dynasty.js'),V=await import('/js/views/dynasty.js');
-        const players=[D.CARDS.find(c=>c.name==='Brett Favre'),[...D.CARDS].sort((a,b)=>b.name.length-a.name.length)[0]];
+        const players=[D.CARDS.find(c=>c.name==='Brett Favre'),D.CARDS.find(c=>c.name==='T.J. Watt'),[...D.CARDS].sort((a,b)=>b.name.length-a.name.length)[0]];
         document.querySelector('main').innerHTML=players.map(c=>`<figure style="width:${width-40}px">${V.cardHTML(c,{size:'l',tag:false,eager:true})}</figure>`).join('');
       },width);
       await page.evaluate(async()=>{await document.fonts.ready;await Promise.all([...document.querySelectorAll('.pk-c-energy-art')].map(img=>img.decode()));await Promise.all([...document.images].map(img=>img.decode().catch(()=>{})));});
@@ -151,16 +154,17 @@ async function run(url) {
       if(shots) {
         await page.screenshot({path:path.join(shots,'calling-cards-'+width+'.png'),fullPage:true});
         await page.locator('figure').first().screenshot({path:path.join(shots,'brett-favre-'+width+'.png')});
+        await page.locator('figure').nth(1).screenshot({path:path.join(shots,'tj-watt-'+width+'.png')});
       }
     }
     await page.route('**/energy-banners/*',route=>route.abort());
     await page.evaluate(()=>document.querySelectorAll('.pk-c-energy-art').forEach(img=>{img.src += '?unavailable';}));
     await page.waitForFunction(()=>!document.querySelector('.pk-c-energy-art'));
     await nameGeometry(page,'Unavailable banner artwork');
-    assert(await page.locator('.pk-c-energy').evaluateAll(banners=>banners.every(b=>b.querySelector('b')?.textContent.includes('Energy') && b.querySelector('svg')?.getBoundingClientRect().width>0)),'Energy labels and symbols survive missing art');
+    assert(await page.locator('.pk-c-energy').evaluateAll(banners=>banners.every(b=>!b.querySelector('b,small') && b.querySelector('.pk-e')?.title===b.dataset.cardEnergy && b.querySelector('svg')?.getBoundingClientRect().width>0)),'Energy symbols and accessible names survive missing art without visible labels');
     if(shots) await page.screenshot({path:path.join(shots,'calling-cards-fallback.png'),fullPage:true});
 
-    // Compact contact sheet shows all ten visual identities beside their full labels.
+    // Compact contact sheet shows all ten visual identities and their Energy symbols.
     if(shots) {
       await page.unroute('**/energy-banners/*');
       await page.setViewportSize({width:900,height:900});
@@ -171,7 +175,7 @@ async function run(url) {
         main.innerHTML=energies.map(energy=>`<figure style="width:400px">${V.cardHTML(c,{size:'l',tag:false,eager:true,pocketCard:{...PC.card(c.id),types:[energy]}})}</figure>`).join('');
         main.querySelectorAll('.pk-c-face').forEach(face=>[...face.children].filter(el=>!el.matches('.pk-c-energy')).forEach(el=>el.remove()));
       },matrix.energies);
-      const sheet=await page.addStyleTag({content:'.pk-card.pk-rivals-card{aspect-ratio:auto!important;height:110px!important}.pk-card.pk-rivals-card .pk-c-face{padding:0!important;background:transparent!important;box-shadow:none!important}.pk-c-energy{margin:0!important;height:100%!important}'});
+      const sheet=await page.addStyleTag({content:'.pk-card.pk-rivals-card{aspect-ratio:auto!important;height:64px!important}.pk-card.pk-rivals-card .pk-c-face{padding:0!important;background:transparent!important;box-shadow:none!important}.pk-c-energy{margin:0!important;height:100%!important}'});
       await page.evaluate(async()=>{await document.fonts.ready;await Promise.all([...document.querySelectorAll('.pk-c-energy-art')].map(img=>img.decode()));});
       await page.screenshot({path:path.join(shots,'energy-banners.png'),fullPage:true});
       await sheet.evaluate(el=>el.remove());
