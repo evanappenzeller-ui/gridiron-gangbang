@@ -104,6 +104,7 @@ try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.e
     });
     results.forEach(r => console.log('PASS: ' + r));
     await page.locator('.pk-start.is-ready').waitFor();
+    await page.evaluate(async () => (await import('/js/core/dynasty.js')).finishTutorial('skipped', (await import('/js/core/realm-active.js')).profileKey()));
     await page.locator('.pk-start').click({position:{x:195,y:640}});
     await page.waitForFunction(() => !document.querySelector('.pk-start'));
     assert.equal(await page.locator('.pk-coin-n[aria-label="Unlimited coins"] b').textContent(),'∞');

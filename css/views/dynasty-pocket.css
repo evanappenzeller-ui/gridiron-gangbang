@@ -480,3 +480,27 @@
   100% {transform:translate(var(--dx),var(--dy)) scale(.72) rotate(6deg);opacity:0;}
 }
 @keyframes rp-drawn {0% {filter:brightness(1.5) drop-shadow(0 0 10px #fff6c4);} 100% {filter:none;}}
+
+/* Practice uses the real table, with its coach above the felt. Small screens scroll
+   rather than shrinking the cards below usable sizes. Other battles are untouched. */
+.v-dynasty-battle .rp-battle.is-tutorial {height:100%;min-height:0;overflow:auto;--rp-arena-height:clamp(440px,calc(var(--rp-screen-height,100svh) - 270px - env(safe-area-inset-top) - env(safe-area-inset-bottom)),900px);}
+.v-dynasty-battle .is-tutorial>.rp-top {display:none;}
+/* Keep the Energy target clear on short screens. Audio settings remain in Battle options. */
+.v-dynasty-battle:has(.is-tutorial) :is(.pk-sound,.pk-sound-menu,.pk-sound-level,.pk-mini-player) {display:none;}
+.v-dynasty-battle .rt-coach {position:relative;z-index:21;max-width:540px;margin:0 auto;padding:10px 16px 14px;background:linear-gradient(120deg,#213e36,#112720);color:#f9f2df;border-bottom:1px solid #bba36b;}
+.v-dynasty-battle .rt-heading {display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.v-dynasty-battle .rt-heading>span {font-size:10px;letter-spacing:1.4px;font-weight:800;color:#e9ce8a;}
+.v-dynasty-battle .rt-heading .rp-button {min-height:44px;padding:6px 12px;color:#f9f2df;border-color:#bba36b80;background:transparent;}
+.v-dynasty-battle .rt-coach h2 {font-size:22px;line-height:1.15;margin:0 0 6px;font-weight:800;}
+.v-dynasty-battle .rt-coach p {font-size:13px;line-height:1.45;margin:0;}
+.v-dynasty-battle .rt-progress {height:3px;background:#ffffff20;border-radius:3px;overflow:hidden;margin-top:12px;}
+.v-dynasty-battle .rt-progress i {display:block;height:100%;background:#e9ce8a;}
+.v-dynasty-battle .rt-coach .rt-note {font-size:12px;color:#d3dcd2;margin:16px 0;}
+.v-dynasty-battle .is-tutorial-card {display:flex;align-items:center;justify-content:center;padding:24px 16px;background:radial-gradient(ellipse at 50% 30%,#355747,#0d1514 85%);}
+.v-dynasty-battle .is-tutorial-card>.rt-coach {width:100%;margin:auto;border:1px solid #bba36b80;border-radius:20px;padding:20px 24px 28px;box-shadow:0 20px 60px #0005;}
+.v-dynasty-battle .is-tutorial-card .rt-coach h2 {font-size:34px;margin:18px 0 14px;}
+.v-dynasty-battle .is-tutorial-card .rt-coach> .rp-button {width:100%;min-height:48px;}
+.v-dynasty-battle .is-tutorial-card>:is(.rp-arena,.rp-turn-action) {display:none;}
+.v-dynasty-battle .is-tutorial[data-lesson="1"] .rp-hand,
+.v-dynasty-battle .is-tutorial:is([data-lesson="2"],[data-lesson="6"],[data-lesson="8"]) .rp-energy-zone.is-mine,
+.v-dynasty-battle .is-tutorial:is([data-lesson="4"],[data-lesson="7"],[data-lesson="9"],[data-lesson="10"]) .rp-side.is-mine .rp-active {outline:2px solid #f8d77b;outline-offset:5px;border-radius:8px;}

@@ -839,8 +839,12 @@ function rankHTML() {
       + `<span class="pk-row-t"><b>${esc(r.me ? `${r.team} (you)` : r.team)}</b><small>${esc(r.name)}${r.guest ? ' · Guest' : ''} · ${r.rec.w}–${r.rec.l} · ${nf(r.cards)} cards</small></span>`
       + `<span class="pk-tro">${MODE_IC.rank}<b>${nf(r.tr)}</b></span></li>`).join('')}</ol>` : ui.empty({icon: 'trophy', title: 'No rankings yet', body: 'Win battles to climb.'}));
 }
-function guideSheet() {
-  if (rivalsUpdated()) { ui.openSheet({title: 'Gridiron Rivals · How to play', cls: 'pk-sheet', detents: ['large'], body: pocketGuideHTML()}); return; }
+function guideSheet(st) {
+  if (rivalsUpdated()) {
+    const sh = ui.openSheet({title: 'Gridiron Rivals · How to play', cls: 'pk-sheet', detents: ['large'], body: '<button type="button" class="pk-btn" data-dy-tutorial>Play the gameplay tutorial</button>' + pocketGuideHTML()});
+    sh.body.querySelector('[data-dy-tutorial]').addEventListener('click', () => { sh.close(); if (!st.dead && rivalsUpdated()) st.ctx.nav('/puzzles/dynasty/battle/tutorial'); });
+    return;
+  }
   if (D.tableOpen()) {
     ui.openSheet({title: 'Solo table rules', cls: 'pk-sheet', detents: ['large'], body: `<ol class="pk-guide"><li><b>Build your deck</b>40 cards, at least 6 players, up to 2 of each. Mix your collection with eight reusable match-playbook abilities in Decks.</li><li><b>Set your lineup</b>Hold a player in your hand, then drag to Active or one of three Bench spaces. Tap Start when ready.</li><li><b>Hold to inspect</b>Hold any face-up card, yours or theirs. Release to read its attacks. Opponent hand cards stay hidden. Tapping a card also opens its actions.</li><li><b>Play a card</b>Hold, move, then drop on a glowing space. Players go to your bench. Instant abilities go in the center; targeted ones go on your player. An invalid drop returns the card to your hand.</li><li><b>Make your play</b>At the start of your turn, draw one card automatically. Your active player sets the energy type for your whole lineup: QB/WR/TE generate Pass, RB/OL Run, DL/LB Blitz, CB/S Coverage, and K Kick. Each player gains one. A special ability, Energy Surge, or Speed Cleats raises that player’s grant to two. A switch affects the next turn’s grant. Fresh Playbook draws two cards. Items play immediately; use at most one Coach each turn.</li><li><b>Attack</b>Tap your active player and choose an attack whose energy cost they can meet. Quick attacks keep energy; signature attacks spend one. All or Nothing flips a coin: heads hits hard, tails fails. Every attack ends your turn.</li><li><b>Three knockouts</b>Every player counts as one, including Legends. The first team to lose three players loses. If your bench is empty, a player from your hand or deck joins it as a reserve. A 100-turn stalemate is a draw.</li><li><b>Make the table yours</b>Unlock finishes through solo wins, challenge 10 and pack openings. Equip one in Decks or from the table. The felt changes with the turn.</li></ol>${rivalsVersus() ? '<p class="pk-note">New friend matches use the same turn-start draw and energy rules. Matches already in progress follow their original rules.</p>' : ''}`});
     return;
@@ -1003,6 +1007,7 @@ function startGame(st) {
     sc.remove(); st.starting = false;
     if (st.dead) return;
     drawStart(st);
+    if (!st.hidden && D.tutorialDue()) { st.ctx.nav('/puzzles/dynasty/battle/tutorial'); return; }
     const h = st.el.querySelector('[data-pk-title]');
     if (h) { try { h.focus({preventScroll: true}); } catch (_) {} }
   };
@@ -1042,7 +1047,7 @@ function menuSheet(st) {
     ui.haptic('selection'); sh.close();
     setTimeout(() => {
       if (st.dead) return;
-      if (id === 'guide') guideSheet();
+      if (id === 'guide') guideSheet(st);
       else if (id === 'music') musicSheet();
       else if (id === 'coins') { if (s) earnSheet(); }
       else if (id === 'rank') { if (s) { st.bv = 'rank'; go(st, 'battle', {keep: true}); } }
@@ -1246,7 +1251,7 @@ export default {
         if (row) pane.scrollTo({top: pane.scrollTop + row.getBoundingClientRect().top - pane.getBoundingClientRect().top - Math.max(0, (pane.clientHeight - row.offsetHeight) / 2), behavior: RM() ? 'instant' : 'smooth'});
         return;
       }
-      if (q('[data-dy-guide]')) { guideSheet(); return; }
+      if (q('[data-dy-guide]')) { guideSheet(st); return; }
       if (q('[data-dy-live]')) { import('./rivals-live-lobby.js').then(m => m.openLobby()).catch(e => console.error(e)); return; }
       if ((b = q('[data-dy-card]'))) { cardSheet(st, b.dataset.dyCard); return; }
       if (q('[data-dy-more]')) { drawGrid(st, true); return; }

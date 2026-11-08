@@ -16,6 +16,7 @@ import {attachHand} from './dynasty-pocket-hand.js';
 import {attachPreview, conditionBadges} from './dynasty-pocket-preview.js';
 import {attachMusic, musicSheet} from './dynasty-music.js';
 import {tableOptions} from './dynasty-table-options.js';
+import {createTutorial, LESSONS} from '../core/dynasty-tutorial.js';
 
 const ST = new WeakMap(), esc = data.esc;
 const name = id => C.card(id)?.name || 'Card';
@@ -53,6 +54,7 @@ function send(st, m) {
   if (st.presentation?.busy() || st.dead || st.hidden || st.stale || profileKey() !== st.profile || !D.mayPlay()) return false;
   const fresh = st.src.get(st.mid);
   if (!fresh?.G || fresh.G.v !== 7) return false;
+  if (st.tutorial && !st.tutorial.allowed(m)) { ui.toast('Follow the coach’s instruction above the table for this practice step.', {icon:'info'}); closeSheet(st); st.preview?.close(); return false; }
   const legal = B.check(fresh.G, fresh.you, m);
   if (!legal.ok) { ui.toast(legal.why, {icon:'info'}); closeSheet(st); draw(st); return false; }
   closeSheet(st); st.preview?.close();
@@ -315,7 +317,17 @@ function energySheet(st) {
 }
 function battleMenu(st) {
   const {G,you,state} = st.x, p = G.p[you], op=G.p[1-you];
-  showSheet(st, 'Battle options', `<p>${esc(prompt(st))}</p><p>Turn ${G.turn} · First to 3 knockout points</p><p>Supporter: ${p.used.supporter ? 'used' : 'available'} · Retreat: ${p.used.retreat ? 'used' : 'available'}</p><p>Your deck: ${p.deck.length} · Hand: ${p.hand.length}<br>Opponent deck: ${op.deck.length} · Hand: ${op.hand.length}</p><div class="rp-actions">${button('View your hand','data-rp-expand-hand')}${button('Battle log','data-rp-log')}${button('How to play','data-rp-help')}${button('Table finish','data-rp-table')}${button('Music & sound settings','data-rp-settings')}${state === 'over' ? '' : button('Concede','data-rp-concede')}</div>`, e=>onClick(st,e));
+  showSheet(st, 'Battle options', `<p>${esc(prompt(st))}</p><p>Turn ${G.turn} · First to 3 knockout points</p><p>Supporter: ${p.used.supporter ? 'used' : 'available'} · Retreat: ${p.used.retreat ? 'used' : 'available'}</p><p>Your deck: ${p.deck.length} · Hand: ${p.hand.length}<br>Opponent deck: ${op.deck.length} · Hand: ${op.hand.length}</p><div class="rp-actions">${button('View your hand','data-rp-expand-hand')}${button('Battle log','data-rp-log')}${button('How to play','data-rp-help')}${button('Table finish','data-rp-table')}${button('Music & sound settings','data-rp-settings')}${st.tutorial ? button('Skip tutorial','data-rt-skip') : state === 'over' ? '' : button('Concede','data-rp-concede')}</div>`, e=>onClick(st,e));
+}
+function tutorialHTML(st) {
+  const step = st.tutorial.step, [title, body] = LESSONS[step], waiting = st.x.state === 'theirs' && step < 11;
+  return `<section class="rt-coach" data-rt-step="${step}" aria-label="Gameplay tutorial"><div class="rt-heading"><span>${step === 0 ? 'PRACTICE CAMP · ABOUT 3 MIN' : step === 11 ? 'PRACTICE COMPLETE' : `PRACTICE · ${step} / 10`}</span>${button('Skip','data-rt-skip aria-label="Skip tutorial"')}</div><div role="status" aria-live="polite"><h2>${esc(waiting ? 'Watch the coach’s turn' : title)}</h2><p>${esc(waiting ? 'The coach is making a play. Your next lesson begins when it is your turn again.' : body)}</p></div>${step === 0 ? '<p class="rt-note">No packs needed. No coins, rewards or ladder results are changed.</p>' + button('Start practice','data-rt-start',false,'is-primary') : step === 11 ? '<p class="rt-note">Read each card’s Weakness and effects. Special Conditions resolve at Checkup between turns; Sleep and Paralysis can stop attacks and retreat. Open Rules for the full details. Replay this practice anytime from How to play.</p>' + button('Finish tutorial','data-rt-finish',false,'is-primary') : '<div class="rt-progress" aria-hidden="true"><i style="width:' + step * 10 + '%"></i></div>'}</section>`;
+}
+function finishTutorial(st, result) {
+  if (!st.tutorial || st.stale || st.dead || (result === 'completed' && st.tutorial.step !== 11)) return;
+  if (!D.finishTutorial(result, st.profile)) return;
+  closeSheet(st); st.preview.close(); st.hand.cancel(); st.presentation.clear();
+  st.ctx.nav('/puzzles/dynasty');
 }
 function prompt(st) {
   const {G, you, state, result, opp} = st.x, p = G.p[you];
@@ -373,6 +385,7 @@ function draw(st) {
   const last = events.map(e => eventText(e,you,x.opp.name)).filter(Boolean).at(-1) || 'Set a lineup. Build a plan. Make every card count.';
   const yourName = data.guest() || data.name(data.me()) || 'You';
   host.innerHTML = `<header class="rp-top">${button('‹ <span>Rivals</span>','data-back')}<div><small>GRIDIRON RIVALS</small><b>${G.phase === 'setup' ? 'Opening lineup' : over ? 'Match complete' : `Turn ${G.turn}`}</b></div>${button('Rules','data-rp-help')}</header>`
+    + (st.tutorial ? tutorialHTML(st) : '')
     + `<div class="rp-arena"><div role="group" class="rp-opponent-hand" aria-label="Opponent hand: ${op.hand.length} cards">${Array.from({length:Math.min(5,op.hand.length)},(_,i)=>`<span style="--fan-angle:${(i-(Math.min(5,op.hand.length)-1)/2)*7}deg">${cardBack()}</span>`).join('')}<small>${op.hand.length} in hand</small></div>`
     + manager(x.opp.name,op,false) + manager(yourName,p,true)
     + `<div class="rp-play-zone" data-rp-drop="play" aria-hidden="true"></div><div class="rp-field">${lineupHTML(st,1-you)}${lineupHTML(st,you)}</div>`
@@ -385,12 +398,27 @@ function draw(st) {
     + `<p class="rp-sr-only" aria-live="polite">${esc(last)}</p></div>`
     + `<footer class="rp-turn-action${choices ? ' is-choice' : ''}"><div class="rp-section-heading"><h2>Your hand <small>${p.hand.length}</small></h2><button type="button" class="rp-expand-hand" data-rp-expand-hand aria-label="View all ${p.hand.length} cards in your hand">View all ↗</button></div>${choices || (over ? button(x.live ? 'Rivals' : 'Ladder','data-rp-ladder',false,'is-primary') + button(x.live ? 'Rematch' : 'Play again','data-rp-again',x.live && x.state === 'bad') : G.phase === 'setup' && !p.ready ? button('Confirm lineup','data-rp-ready',st.setup.active == null,'is-primary') : button('End turn','data-rp-end',!legal.some(m=>m.a==='end'),'is-primary'))}</footer>`;
   host.querySelector('.rp-hand').scrollLeft = scroll;
+  if (st.tutorial) {
+    const step = st.tutorial.step;
+    host.classList.add('is-tutorial'); host.classList.toggle('is-tutorial-card', step === 0 || step === 11);
+    host.dataset.lesson = step;
+    // On small phones the table scrolls. Bring each new instruction back into view,
+    // including the handoff from the coach, without moving it during card selection.
+    const lesson = `${step}:${state}`;
+    if (st.lesson !== lesson) { host.scrollTop = 0; st.lesson = lesson; }
+    host.querySelector('[data-rp-end]')?.setAttribute('disabled','');
+  }
   st.presentation?.sync();
   if (st.preview?.isOpen()) st.preview.refresh(previewModel(st, st.preview.current()));
   if (focusKey != null) host.querySelector(`.rp-hand [data-rp-hand="${Number(focusKey)}"]`)?.focus({preventScroll:true});
 }
 function onClick(st,e) {
   const q = s => e.target.closest(s); let b;
+  if (st.tutorial) {
+    if (q('[data-rt-skip]')) return finishTutorial(st, 'skipped');
+    if (q('[data-rt-finish]')) return finishTutorial(st, 'completed');
+    if (q('[data-rt-start]')) { st.tutorial.begin(); draw(st); return; }
+  }
   if (q('[data-rp-live-leave]')) { LIVE.leave(st.mid); return st.ctx.nav('/puzzles/dynasty'); }
   if (q('[data-rp-live-claim]')) { const r=LIVE.claim(st.mid); if (!r.ok) ui.toast(r.why,{icon:'info'}); draw(st); return; }
   if (!st.x?.G || st.hidden || st.presentation?.busy()) return;
@@ -420,6 +448,7 @@ export default {
   mount(el,ctx) {
     const mid=String(ctx.params?.id||'');
     const st={el,ctx,mid,src:LIVE.isLive(mid)?LIVE:SOLO,profile:profileKey(),setup:{active:null,bench:[]},hidden:!ctx.visible,dead:false,stops:[],eventAt:null};
+    if (mid === 'tutorial' && D.pocketOpen()) { st.tutorial = createTutorial(); st.src = st.tutorial; }
     ST.set(ctx,st);
     if (!el.querySelector('[data-rp]')) el.innerHTML=this.render();
     st.music=attachMusic(el,ctx.visible,'battle'); st.sfx=sfx.attach(el,ctx.visible);

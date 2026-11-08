@@ -535,6 +535,7 @@ export function clean(s) {
   Object.entries(obj(s.so)).slice(0, 80).forEach(([k, v]) => { if (n(v) > 0) out.so[k] = Math.min(9999, n(v)); });
   if (s.table) out.table = TABLE.clean(s.table);
   if (s.pocket) out.pocket = cleanPocket(s.pocket);
+  if (s.tutorial?.v === 1 && ['completed', 'skipped'].includes(s.tutorial.result)) out.tutorial = {v: 1, result: s.tutorial.result};
   // Optional, permanent receipts for the owner boss ladder. Old saves keep all progress and receive no free cards.
   if (s.bossRewards && typeof s.bossRewards === 'object') {
     out.bossRewards = {};
@@ -963,6 +964,14 @@ export function others(docs = daily.LB.raw || [], {withMe = false} = {}) {
 // Shared Rivals solo table loadout and cosmetics. Collection and friend deck stay intact.
 export const tableOpen = () => rivalsUpdated();
 export const pocketOpen = () => rivalsUpdated();
+// Optional onboarding receipt rides on this profile's existing local/cloud save.
+export const tutorialDue = () => rivalsUpdated() && !mine().tutorial;
+export function finishTutorial(result, key) {
+  if (!rivalsUpdated() || key !== profileKey() || !['completed', 'skipped'].includes(result)) return false;
+  const s = mine();
+  if (s.tutorial?.result === 'completed' || s.tutorial?.result === result) return true;
+  s.tutorial = {v: 1, result}; touch('tutorial'); return true;
+}
 // v7 loadouts are additive. Reading a profile never rewrites its collection or legacy decks.
 export function cleanPocket(raw = {}) {
   if (!raw || typeof raw !== 'object') raw = {};

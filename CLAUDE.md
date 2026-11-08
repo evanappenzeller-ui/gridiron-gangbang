@@ -1,5 +1,20 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals first-play tutorial (November 8, 2026)
+
+The four `features.rivalsUpdated()` profiles enter practice after Tap to Start until they
+complete or skip it. `core/dynasty-tutorial.js` supplies a disposable v7 practice duel at
+`/puzzles/dynasty/battle/tutorial`, rendered by the real Pocket battle view. Its ten guided
+actions teach the opening Active/Bench, manual Energy, Supporters, attacks, development,
+knockout points and retreat. No menu tour. The scripted twenty-card loaner deal and coach
+never read or overwrite a Solo/live match, grant cards, pay rewards or change ladder progress.
+The existing save carries optional `tutorial: {v: 1, result: 'completed' | 'skipped'}` per
+stable profile key, locally and through its normal cloud sync. Replay lives in How to play;
+skipping a replay does not downgrade a completed receipt. An interrupted practice starts
+fresh next time. Profile changes and hidden views stop the practice coach, as with Solo.
+Verify `check-tutorial.cjs`, `check-tutorial-browser.cjs` (also `--phone` for small-screen
+touch and normal motion), Pocket rules/integration/browser, title-screen, scope and access.
+
 ## Rivals deck Energy availability (November 7, 2026)
 
 For the four Rivals profiles, the deck builder shows all eight selectable Energy Zone types above the cards.

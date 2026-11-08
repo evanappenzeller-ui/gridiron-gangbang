@@ -44,6 +44,11 @@ const PROFILES = [
   {tag: 'visitor', me: 'none', plays: false}
 ];
 const snap = (page, name) => (shots ? page.screenshot({path: path.join(shots, name + '.png')}) : Promise.resolve());
+// These flows exercise returning players; first-time onboarding has its own full UI check.
+const returningPlayer = page => page.evaluate(async () => {
+  const D = await import('/js/core/dynasty.js'); await D.load();
+  D.finishTutorial('skipped', (await import('/js/core/realm-active.js')).profileKey());
+});
 
 async function packPreviews(page) {
   const result = await page.evaluate(async () => {
@@ -268,6 +273,7 @@ async function playerFlow(page, p, {reduced}) {
   assert.equal(await page.locator('.pk-start-logo').textContent(), 'GridironTrading Card GameRivals', T + ': the logo');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-title`);
   // Tap anywhere: Evan's new Home, or the deployed Play hub for Ryan Stewart.
+  await returningPlayer(page);
   await page.locator('.pk-start').click({position: {x: 195, y: 640}});
   await page.waitForFunction(() => !document.querySelector('.pk-start'), null, {timeout: 5000});
   assert.equal(await page.locator('.pk.is-start, [inert]').count(), 0, T + ': the shell is live again');
@@ -476,6 +482,7 @@ async function packProfileFlow(browser, url) {
       await page.waitForFunction(() => window.__ggBooted);
       assert.equal(await page.evaluate(async () => (await import('/js/core/fire.js')).canWrite()), false, 'Profile checks cannot write live data');
       await page.evaluate(async () => (await import('/js/app.js')).nav('/puzzles/dynasty'));
+      await returningPlayer(page);
       await page.waitForSelector('.pk-start.is-ready'); await page.locator('.pk-start').click();
       await page.waitForFunction(() => !document.querySelector('.pk-start'));
       const state = () => page.evaluate(async () => {

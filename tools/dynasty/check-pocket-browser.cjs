@@ -106,7 +106,8 @@ async function run(url) {
     assert.equal(await page.evaluate(async()=>(await import('/js/core/fire.js')).canWrite()),false,'production writes disabled');
     const initial=await page.evaluate(async()=>{
       const D=await import('/js/core/dynasty.js'),C=await import('/js/core/dynasty-pocket-cards.js'),S=await import('/js/core/dynasty-solo.js');
-      await D.load(); const selected=D.usePocketDeck('rental'); if(!selected.ok) throw Error(selected.why);
+      await D.load(); D.finishTutorial('skipped', (await import('/js/core/realm-active.js')).profileKey());
+      const selected=D.usePocketDeck('rental'); if(!selected.ok) throw Error(selected.why);
       let r;
       // A deterministic feature assertion needs an optional Bench choice. Choose a
       // naturally dealt opening with two Bases; this never edits a game's hand.

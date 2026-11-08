@@ -209,10 +209,23 @@ function legacyRecord(B, deck) {
     const resumed=await fixture(profile,[...f.storage]);
     assert.equal(snap(resumed.S.get(start.mid).G),snap(x.G),'v7 initial log reloads identically');
     assert.deepEqual(f.errors,[]);
+    assert.equal(D.tutorialDue(),true,profile.key+' gets first-time practice');
+    assert.equal(D.finishTutorial('completed','m_someone-else'),false,'stale profile cannot mark a receipt');
+    assert.equal(D.finishTutorial('skipped',profile.key),true);
+    assert.equal(D.tutorialDue(),false);
+    assert.equal(D.clean(D.mine()).tutorial.result,'skipped','receipt survives save cleaning');
+    const skipped=await fixture(profile,[...f.storage]);
+    assert.equal(skipped.D.tutorialDue(),false,'receipt survives reload');
+    assert.equal(D.finishTutorial('completed',profile.key),true);
+    assert.equal(D.finishTutorial('skipped',profile.key),true);
+    assert.equal(D.mine().tutorial.result,'completed','replay Skip never downgrades completion');
+    const kept=copy(D.mine()),was=JSON.parse(before);delete kept.tutorial;delete kept.at;delete was.at;
+    assert.deepEqual(kept,was,'tutorial receipt preserves existing progress and real battle');
   }
   for(const profile of [{member:'mason',key:'m_mason'}, {key:'g_guest',user:{id:'guest',name:'Evan Appenzeller'}}, {key:''}]) {
     const {D,S,F,storage}=await fixture(profile), s=D.fresh(), before=snap(s);
     assert.equal(F.rivalsUpdated(),false);assert.equal(S.start('g1').ok,false);assert.equal(S.get(),null);
+    assert.equal(D.tutorialDue(),false);assert.equal(D.finishTutorial('completed',profile.key),false);
     assert.equal(D.savePocketDeck({name:'forbidden',ids:[],energy:['Fire']},s).ok,false);
     assert.equal(D.usePocketDeck('rental',s).ok,false);assert.equal(D.deletePocketDeck('x',s),false);
     assert.equal(snap(s),before,'denied deck mutations leave save unchanged');assert.equal(storage.size,0);
