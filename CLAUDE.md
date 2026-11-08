@@ -59,6 +59,8 @@ by the printed Energy (`PC.card(id).types[0]`); each other grouping uses its sel
 Overall as the tie-breaker. Trainers follow players. Search, filters and Show more preserve the
 selected order, group counts, copy stacks and existing sort preference. Five labeled sort buttons
 wrap on phones to retain their touch targets. No permanent Energy grouping or secondary headings.
+Duplicate-count badges remain outside paint containment: the shared Collection binder applies
+`content-visibility` to the card inside each stack, keeping its count visible above the frame on Safari.
 The player face has a named Energy band with a larger symbol between its header and portrait,
 shared by binder, details, reveals and battles. Legacy matches keep their saved Energy semantics;
 other profiles retain their existing presentation. No collection or gameplay save changes.

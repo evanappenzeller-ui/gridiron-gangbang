@@ -77,7 +77,7 @@
   .v-dynasty .pk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 /* Evan's Collection tab keeps three cards per row at every screen width. */
-.v-dynasty .rh-home-enabled [data-dy-grid] .pk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.v-dynasty .rh-home-enabled [data-dy-grid] .pk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-inline: 6px; }
 /* The Solo ladder: each game's number (a check once won, a lock until reached), the next one picked out. */
 .v-dynasty .pk-h small { margin-left: 6px; color: var(--ink-3); font: 600 12px/1 var(--font-text); }
 .v-dynasty .pk-solo .pk-solo-n { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #E3F4E6; color: #1F7A45; font: 800 13px/1 var(--font-text); }
@@ -91,6 +91,10 @@
 /* (off-screen stacks skip rendering as single cards do: the ratio keeps their place, the clip margin the peeking copies) */
 @supports (content-visibility: auto) {
   .v-dynasty .pk-grid > .pk-stack { content-visibility: auto; overflow-clip-margin: 14px; }
+  /* Keep the count outside paint containment: Safari clips badges above the stack even
+     with overflow-clip-margin. Skip the heavy card face instead of its badge wrapper. */
+  .v-dynasty .rh-home-enabled [data-dy-grid] .pk-grid > .pk-stack { content-visibility: visible; }
+  .v-dynasty .rh-home-enabled [data-dy-grid] .pk-stack > .pk-card { content-visibility: auto; overflow-clip-margin: 14px; }
 }
 .v-dynasty .pk-stack > .pk-card { position: relative; z-index: 2; }
 .v-dynasty .pk-stack-l { position: absolute; inset: 0; z-index: 0; border-radius: 5% / 3.6%; pointer-events: none;
@@ -107,6 +111,6 @@
 /* Five independent sort choices wrap to keep their full labels and touch targets on phones. */
 .v-dynasty .pk-sortr.is-binder-sort { flex-wrap: wrap; margin-top: 12px; }
 .v-dynasty .pk-sortr.is-binder-sort > span { flex-basis: 100%; margin: 0 0 2px; }
-.v-dynasty .pk-sortr.is-binder-sort > button { flex: 1 1 80px; min-height: 44px; padding: 0 4px; }
+.v-dynasty .pk-sortr.is-binder-sort > button { flex: 1 1 80px; min-width: max-content; min-height: 44px; padding: 0 4px; }
 .v-dynasty .pk-grid > .pk-energy-gh { margin-top: 20px; padding: 10px 0; border-bottom: 2px solid #bed0da; color: #183d52; font-size: 19px; }
 .v-dynasty .pk-energy-gh > .pk-e { width: 28px; height: 28px; font-size: 28px; }
