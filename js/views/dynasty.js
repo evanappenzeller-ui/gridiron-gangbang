@@ -313,7 +313,7 @@ function packsHTML(st) {
   // (the Starter Pack first while it waits; once opened, back to the Standard Pack)
   if (s.pk.start && !st.startShown) { st.pack = 'start'; st.startShown = true; }
   if (!D.PACKS[st.pack] || (D.PACKS[st.pack].starter && !s.pk[st.pack])) st.pack = D.DAILY_PACK;
-  if (rivalsUpdated()) return packShelfHTML(packKinds(s), st.pack, kind => artAt(st, kind));
+  if (rivalsUpdated()) return packShelfHTML(packKinds(s), st.pack, kind => artAt(st, kind), c => cardHTML(c, {size: 's', tag: false, noCount: true}));
   const kind = st.pack, P = D.PACKS[kind], have = s.pk[kind] || 0, free = D.dailyReady(s) && kind === D.DAILY_PACK;
   const wait = waitingOf(st), ready = D.claimable(s);
   const best = packBest(kind);

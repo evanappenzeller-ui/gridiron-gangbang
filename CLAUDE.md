@@ -924,3 +924,15 @@ ordinary guests and other app users retain their previous shelf. `features.dynas
 Profile changes close the case and cancel pending launches. This uses the existing local profile
 selection, not verified per-person authentication. Preserve owner tools, pack/coin privileges and saves.
 Verify `node --experimental-vm-modules tools/dynasty/check-preview.cjs` and the existing access checks.
+
+## Rivals pack studio (November 7, 2026)
+
+The four-profile `features.rivalsUpdated()` pack shelf shows four top available player cards above each pack,
+ranked by OVR from the actual active pack pools (`views/dynasty-pack-preview.js`). These are possible pulls;
+Team previews span teams until the existing purchase team picker. Browsing never changes odds, saves or balances.
+The noninteractive preview cards move with the looping shelf; its duplicate copies stay hidden from screen readers.
+Short landscape screens place the preview beside the pack. `img/rivals/pack-studio-v1.svg` supplies the original
+red, silver and charcoal broadcast-studio backdrop; all styles stay inside the Rivals pack shop.
+Verify `check-pack-preview.cjs`, `check-start-browser.cjs`, `check-preview.cjs`, `check-access.cjs`, `check-rollout.cjs`
+and `check-scope.cjs` in `tools/dynasty`. The start check covers phone/tablet/landscape, keyboard/touch, reduced
+motion, all four profiles and unchanged individual pack/coin privileges.

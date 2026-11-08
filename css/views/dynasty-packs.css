@@ -3,19 +3,36 @@
    its foot, and the frame, richer by tier (.tier-1 to .tier-5: the rarer the pack, the more it carries). The pack is a
    size container (pk-pack, cqw), so one markup serves 64px (the picker), 184px (home) and 210px (opening). */
 
-/* Owner's Packs screen: Home's circular case shelf, with only the pack art and checkout. */
+/* Shared Rivals Packs: a broadcast studio, a player showcase and the circular pack shelf. */
 .v-dynasty .pk.is-pack-shop .pk-pane { padding: 0; overflow: hidden; }
-.v-dynasty .pk-pack-shop { height: 100%; margin: 0; padding: 0; display: flex; flex-direction: column;
-  background: radial-gradient(ellipse at 50% 46%, color-mix(in srgb, var(--pc) 14%, transparent), transparent 68%), #f7f8f5; }
+.v-dynasty .pk-pack-shop { position: relative; isolation: isolate; height: 100%; margin: 0; padding: 0; display: flex; flex-direction: column;
+  background: #111925; }
+.v-dynasty .pk-pack-studio { position: absolute; z-index: -1; inset: 0; pointer-events: none;
+  background: url('../../img/rivals/pack-studio-v1.svg') center / cover no-repeat; }
 .v-dynasty .pk-pack-stage { flex: 1; min-height: 0; container-type: size; display: flex; }
-.v-dynasty .pk-pack-shelf { --pw: min(58cqw, 45cqh, 300px); position: relative; display: flex; align-items: center; width: 100%;
-  padding: 28px calc(50% - var(--pw) / 2); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
+.v-dynasty .pk-pack-shelf { --preview-w: min(86cqw, 400px); --card-w: min(17cqw, 12cqh, 80px);
+  --preview-h: calc(var(--card-w) * 1.397 + 82px); --pw: min(57cqw, (100cqh - var(--preview-h) - 44px) / 1.6, 280px);
+  position: relative; display: flex; align-items: center; width: 100%;
+  padding: 18px calc(50% - var(--pw) / 2); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
   scrollbar-width: none; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; touch-action: pan-x; outline: none; }
 .v-dynasty .pk-pack-shelf::-webkit-scrollbar { display: none; }
 .v-dynasty .pk-pack-slot { --k: 1; --d: 0; flex: none; position: relative; width: var(--pw); margin: 0 calc(var(--pw) * -.07);
   scroll-snap-align: center; scroll-snap-stop: always; z-index: calc(10 - var(--k) * 5); }
 .v-dynasty .pk-pack-slot.is-cur { z-index: 12; }
 .v-dynasty .pk-pack-slot.is-far { visibility: hidden; }
+.v-dynasty .pk-pack-preview { position: relative; left: 50%; width: var(--preview-w); height: var(--preview-h); margin-bottom: 18px;
+  padding: 10px 10px 8px; box-sizing: border-box; transform: translateX(-50%); border: 1px solid #d6e4ecb3; border-top: 3px solid #ec394c;
+  border-radius: 13px; background: linear-gradient(145deg, #f5f9fcf5, #dce7edf2); box-shadow: 0 8px 24px #0005, inset 0 1px 0 #fff;
+  opacity: max(0, calc(1 - var(--k) * 2)); pointer-events: none; color: #172632; }
+.v-dynasty .pk-pack-preview::after { content: ''; position: absolute; top: 100%; left: calc(50% - 8px);
+  border: 8px solid transparent; border-top-color: #dce7ed; }
+.v-dynasty .pk-pack-preview h2 { margin: 0 0 7px; font: 800 11px/14px var(--font-text); text-transform: uppercase; letter-spacing: .12em; text-align: center; }
+.v-dynasty .pk-pack-preview-row { display: flex; justify-content: center; gap: 7px; }
+.v-dynasty .pk-pack-preview-card { width: calc((var(--preview-w) - 48px) / 4); flex: none; min-width: 0; }
+.v-dynasty .pk-pack-preview-card .pk-card { width: var(--card-w); max-width: 100%; margin: 0 auto; box-shadow: 0 2px 5px #15232e38; }
+.v-dynasty .pk-pack-preview-card > span { display: block; padding-top: 4px; height: 24px; font: 700 9px/10px var(--font-text);
+  text-align: center; text-wrap: balance; overflow-wrap: anywhere; }
+.v-dynasty .pk-pack-preview p { margin: 4px 0 0; font: 600 9px/11px var(--font-text); color: #506273; text-align: center; }
 .v-dynasty .pk-pack-choice { position: relative; display: block; width: 100%; border: 0; padding: 0; background: none; cursor: grab;
   -webkit-tap-highlight-color: transparent; user-select: none;
   transform: perspective(900px) rotateY(calc(var(--d) * -14deg)) scale(calc(1 - var(--k) * .17)); }
@@ -24,13 +41,29 @@
 .v-dynasty .pk-pack-choice::after { content: ''; position: absolute; inset: 0; border-radius: 4% / 2.5%; pointer-events: none;
   background: #05070c; opacity: calc(var(--k) * .42); }
 .v-dynasty .pk-pack-shelf:focus-visible .is-cur .pk-pack-choice, .v-dynasty .pk-pack-choice:focus-visible { outline: 3px solid var(--tint); outline-offset: 8px; }
-.v-dynasty .pk-pack-checkout { flex: none; display: flex; justify-content: center; padding: 16px 24px 24px; }
+.v-dynasty .pk-pack-checkout { flex: none; display: flex; justify-content: center; padding: 12px 24px 18px;
+  background: linear-gradient(transparent, #090f1ad9); }
 .v-dynasty .pk-pack-buy { display: flex; align-items: center; justify-content: center; gap: 18px; width: min(100%, 380px); min-height: 58px;
-  border: 1px solid #ffffffa6; border-radius: 99px; padding: 12px 26px; color: #fff; background: linear-gradient(145deg, #28c7d6, #129dbb);
-  box-shadow: 0 6px 18px #148eaa26, inset 0 1px 0 #ffffff4d; font: 800 18px/1.2 var(--font-text); cursor: pointer; }
+  border: 1px solid #ff9da6; border-radius: 99px; padding: 12px 26px; color: #fff; background: linear-gradient(145deg, #d8273d, #a70f26);
+  box-shadow: 0 6px 22px #0006, inset 0 1px 0 #ffffff4d; font: 800 18px/1.2 var(--font-text); cursor: pointer; }
 .v-dynasty .pk-pack-price { padding-left: 18px; border-left: 1px solid #ffffff5c; font-size: 14px; }
 .v-dynasty .pk-pack-buy:active { transform: scale(.98); }
-.v-dynasty .pk-pack-buy:focus-visible { outline: 3px solid #167caa; outline-offset: 4px; }
+.v-dynasty .pk-pack-buy:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+@container (max-height: 300px) {
+  .v-dynasty .pk-pack-shelf { --preview-w: min(58cqw, 340px); --card-w: min(8cqw, 24cqh, 62px);
+    --preview-h: calc(var(--card-w) * 1.397 + 68px); --pw: min(24cqw, 49cqh, 180px); padding-top: 6px; padding-bottom: 6px; }
+  .v-dynasty .pk-pack-slot { width: calc(var(--preview-w) + var(--pw) + 24px); display: flex; align-items: center; gap: 24px; margin: 0 14px; }
+  .v-dynasty .pk-pack-preview { left: 0; transform: none; margin: 0; padding: 7px; flex: none; }
+  .v-dynasty .pk-pack-preview::after { top: calc(50% - 8px); left: 100%; border-top-color: transparent; border-left-color: #dce7ed; }
+  .v-dynasty .pk-pack-preview h2 { margin-bottom: 5px; font-size: 9px; line-height: 11px; }
+  .v-dynasty .pk-pack-preview-card > span { padding-top: 2px; height: 24px; }
+  .v-dynasty .pk-pack-preview p { margin-top: 2px; font-size: 8px; line-height: 10px; }
+  .v-dynasty .pk-pack-choice { width: var(--pw); flex: none; }
+}
+@media (max-height: 480px) and (orientation: landscape) {
+  .v-dynasty .pk-pack-checkout { padding: 6px 24px 8px; }
+  .v-dynasty .pk-pack-buy { min-height: 44px; padding: 8px 24px; font-size: 15px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .v-dynasty .pk-pack-shop .pk-pack * { animation: none !important; }
 }

@@ -5,8 +5,8 @@
 // counters, the Packs stage (the clock pill, the tags, the round Open), the Play tab (Versus, Solo, Guide,
 // Decks, Rankings, Missions), the Menu sheet and its Title screen item, back from a Solo battle without the title screen
 // again, and every kit check in checks-dynasty.js. For a member who isn't theirs and a visitor: the link lands on the list.
-// Usage: node tools/dynasty/check-start-browser.cjs [--shots=<dir>] [--packs-only]
-// (Playwright's Chromium; --packs-only checks the owner's new shelf with normal and reduced motion.)
+// Usage: node tools/dynasty/check-start-browser.cjs [--shots=<dir>] [--packs-only | --pack-profiles-only]
+// (Playwright's Chromium; --packs-only checks the shelf with normal/reduced motion and all four pack profiles.)
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
@@ -15,6 +15,7 @@ const root = path.resolve(__dirname, '../..');
 const mime = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webp': 'image/webp', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json'};
 const shots = (process.argv.find(a => a.startsWith('--shots=')) || '').slice(8);
 const packsOnly = process.argv.includes('--packs-only');
+const packProfilesOnly = process.argv.includes('--pack-profiles-only');
 if (shots) fs.mkdirSync(shots, {recursive: true});
 
 function server() {
@@ -43,6 +44,71 @@ const PROFILES = [
   {tag: 'visitor', me: 'none', plays: false}
 ];
 const snap = (page, name) => (shots ? page.screenshot({path: path.join(shots, name + '.png')}) : Promise.resolve());
+
+async function packPreviews(page) {
+  const result = await page.evaluate(async () => {
+    const D = await import('/js/core/dynasty.js');
+    const {packTopPlayers} = await import('/js/views/dynasty-pack-preview.js');
+    const slots = [...document.querySelectorAll('.pk-pack-slot')];
+    return slots.map(slot => {
+      const kind = slot.dataset.packKind, preview = slot.querySelector('.pk-pack-preview');
+      const expected = packTopPlayers(kind).map(c => c.name);
+      const cards = [...(preview?.querySelectorAll('.pk-pack-preview-card') || [])];
+      return {
+        kind, label: preview?.getAttribute('aria-label'), expected,
+        names: cards.map(w => [...w.children].filter(n => !n.matches('.pk-card')).map(n => n.textContent.trim()).join(' ')),
+        cardNames: cards.map(w => w.querySelector('.pk-card')?.getAttribute('aria-label')),
+        passive: cards.length === 4 && cards.every(w => w.querySelectorAll('div.pk-card[role="img"]').length === 1)
+          && !preview.querySelector('button, a, [tabindex]'),
+        cloneHidden: !slot.hasAttribute('data-pack-clone') || slot.getAttribute('aria-hidden') === 'true',
+        teamNote: kind !== 'team' || preview.textContent.includes('Across teams · choose at purchase'),
+        packName: D.PACKS[kind].name
+      };
+    });
+  });
+  assert.ok(result.length >= 9, 'The looping shelf has three copies of every pack option');
+  for (const row of result) {
+    assert.equal(row.label, `Top available players in ${row.packName}`, row.kind + ': accessible preview label');
+    assert.equal(row.expected.length, 4, row.kind + ': four eligible top players');
+    assert.equal(row.passive, true, row.kind + ': previews are noninteractive cards');
+    assert.equal(row.cloneHidden, true, row.kind + ': duplicate previews remain hidden from assistive technology');
+    assert.equal(row.teamNote, true, row.kind + ': team choice is explained');
+    row.expected.forEach((name, i) => {
+      assert.ok(row.names[i]?.includes(name), `${row.kind}: visible caption names ${name}`);
+      assert.ok(row.cardNames[i]?.includes(name), `${row.kind}: card face matches ${name}`);
+    });
+  }
+  assert.equal(await page.locator('.pk-pack-studio[aria-hidden="true"]').count(), 1, 'Studio is decorative');
+  assert.equal(await page.locator('.pk-pack-studio').evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'Studio cannot intercept swipes or purchase');
+}
+
+async function packPreviewFit(page) {
+  return page.evaluate(() => {
+    const pane = document.querySelector('.pk-pane'), nav = document.querySelector('.pk-nav').getBoundingClientRect();
+    const stage = document.querySelector('.pk-pack-stage').getBoundingClientRect();
+    const slot = document.querySelector('.pk-pack-slot.is-cur');
+    const pack = slot.querySelector('.pk-pack').getBoundingClientRect();
+    const preview = slot.querySelector('.pk-pack-preview'), p = preview.getBoundingClientRect();
+    const buy = document.querySelector('.pk-pack-buy').getBoundingClientRect();
+    const visible = node => { const r = node.getBoundingClientRect(), s = getComputedStyle(node); return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden'; };
+    return {
+      fits: pane.scrollHeight <= pane.clientHeight + 1 && pane.scrollWidth <= pane.clientWidth + 1,
+      pack: pack.top >= stage.top - 1 && pack.bottom <= stage.bottom + 1,
+      preview: visible(preview) && p.top >= stage.top - 1 && p.bottom <= stage.bottom + 1
+        && (stage.height <= 300 ? p.right <= pack.left + 1 : p.bottom <= pack.top + 1)
+        && p.left >= stage.left - 1 && p.right <= stage.right + 1,
+      cards: [...preview.querySelectorAll('.pk-card')].every(card => {
+        const r = card.getBoundingClientRect();
+        return visible(card) && r.top >= p.top - 1 && r.bottom <= p.bottom + 1 && r.left >= p.left - 1 && r.right <= p.right + 1;
+      }) && [...preview.querySelectorAll('.pk-pack-preview-card > span')].every(caption => {
+        const r = caption.getBoundingClientRect();
+        return visible(caption) && caption.scrollWidth <= caption.clientWidth + 1 && caption.scrollHeight <= caption.clientHeight + 1
+          && r.top >= p.top - 1 && r.bottom <= p.bottom + 1;
+      }),
+      buy: buy.top >= stage.bottom - 1 && buy.bottom <= nav.top + 1 && buy.height >= 44
+    };
+  });
+}
 
 async function kitChecks(page) {
   return page.evaluate(async () => {
@@ -120,9 +186,10 @@ async function ownerPacksFlow(page, reduced) {
   const settle = () => page.waitForTimeout(reduced ? 300 : 650);
   const save = () => page.evaluate(async () => JSON.stringify((await import('/js/core/dynasty.js')).mine()));
   const before = await save();
-  assert.equal(await page.locator('.pk-free, .pk-show, .pk-tags, .pk-pts, .pk-actions, .pk-car-dots, .pk-pack-shop .pk-sec').count(), 0, 'Owner Packs only shows the packs and Purchase');
+  assert.equal(await page.locator('.pk-free, .pk-show, .pk-tags, .pk-pts, .pk-actions, .pk-car-dots, .pk-pack-shop .pk-sec').count(), 0, 'The pack shop keeps its compact shelf and checkout');
   assert.equal(await page.locator('.pk-pack-buy').count(), 1);
-  for (const [width, height] of [[390, 844], [320, 568], [430, 932], [768, 1024], [390, 667]]) {
+  await packPreviews(page);
+  for (const [width, height] of [[390, 844], [320, 568], [430, 932], [768, 1024], [390, 667], [844, 390]]) {
     await page.setViewportSize({width, height});
     await page.evaluate(notch => {
       document.documentElement.style.setProperty('--sa-t', notch ? '59px' : '0px');
@@ -130,17 +197,14 @@ async function ownerPacksFlow(page, reduced) {
     }, height === 667);
     await settle();
     assert.match(await front(), /Starter Pack/, 'Resizing preserves the selected pack');
-    const fit = await page.evaluate(() => {
-      const pane = document.querySelector('.pk-pane'), nav = document.querySelector('.pk-nav').getBoundingClientRect();
-      const stage = document.querySelector('.pk-pack-stage').getBoundingClientRect();
-      const pack = document.querySelector('.pk-pack-slot.is-cur .pk-pack').getBoundingClientRect();
-      const buy = document.querySelector('.pk-pack-buy').getBoundingClientRect();
-      return {fits: pane.scrollHeight <= pane.clientHeight + 1 && pane.scrollWidth <= pane.clientWidth + 1,
-        pack: pack.top >= stage.top && pack.bottom <= stage.bottom,
-        buy: buy.top >= stage.bottom && buy.bottom <= nav.top && buy.height >= 44};
-    });
-    assert.deepEqual(fit, {fits: true, pack: true, buy: true}, `Owner Packs fits ${width}x${height}`);
     await snap(page, `evan-packs-${width}-${height}${reduced ? '-rm' : ''}`);
+    const fit = await packPreviewFit(page);
+    if (Object.values(fit).some(v => !v)) console.error('Pack layout diagnostics', await page.locator('.pk-pack-slot.is-cur .pk-pack-preview-card').evaluateAll(cards => cards.map(card => {
+      const caption = card.querySelector(':scope > span');
+      return {name: caption.textContent, width: caption.clientWidth, height: caption.clientHeight, textWidth: caption.scrollWidth, textHeight: caption.scrollHeight,
+        card: card.querySelector('.pk-card').getBoundingClientRect().toJSON(), preview: card.closest('.pk-pack-preview').getBoundingClientRect().toJSON()};
+    })));
+    assert.deepEqual(fit, {fits: true, pack: true, preview: true, cards: true, buy: true}, `Packs and top players fit ${width}x${height}`);
   }
   await page.evaluate(() => { document.documentElement.style.removeProperty('--sa-t'); document.documentElement.style.removeProperty('--sa-b'); });
   await page.setViewportSize({width: 390, height: 844}); await settle();
@@ -149,6 +213,7 @@ async function ownerPacksFlow(page, reduced) {
   for (const name of ['Standard', 'Team', 'Epic', 'Starter', 'Standard']) {
     await page.keyboard.press('ArrowRight'); await settle();
     assert.match(await front(), new RegExp(name + ' Pack'), `Right arrow selects ${name}: ` + JSON.stringify(await shelf.evaluate(el => ({left: el.scrollLeft, current: [...el.children].findIndex(s => s.classList.contains('is-cur')), focus: document.activeElement.className}))));
+    assert.deepEqual(await packPreviewFit(page), {fits: true, pack: true, preview: true, cards: true, buy: true}, name + ': preview stays above its own pack after selection');
   }
   for (const name of ['Starter', 'Epic', 'Team', 'Standard', 'Starter']) {
     await page.keyboard.press('ArrowLeft'); await settle();
@@ -387,11 +452,66 @@ async function playerFlow(page, p, {reduced}) {
   assert.equal(failed.length, 0, T + ': Dynasty kit checks failed');
 }
 
+async function packProfileFlow(browser, url) {
+  const profiles = [
+    {tag: 'evan', me: 'evan', owner: true, packs: true, coins: false},
+    {tag: 'jayton', me: 'jayton', owner: false, packs: false, coins: true},
+    {tag: 'ryan-stewart', me: 'none', guest: 'Ryan Stewart', owner: false, packs: true, coins: false},
+    {tag: 'ryan-younggreen', me: 'none', guest: 'Ryan Younggreen', owner: false, packs: false, coins: false}
+  ];
+  for (const p of profiles) {
+    const context = await browser.newContext({viewport: {width: 390, height: 844}, serviceWorkers: 'block', reducedMotion: 'reduce'});
+    await context.route('**/*', route => route.request().url().startsWith(url) ? route.continue() : route.abort());
+    await context.addInitScript(p => {
+      localStorage.setItem('gg-me', p.me);
+      if (p.guest) localStorage.setItem('gg-guest', p.guest);
+      localStorage.setItem('gg-welcome', '1'); sessionStorage.setItem('gg-skip-title', '1');
+      ['evan', 'jayton', 'mason', 'user%3Aryan-stewart', 'user%3Aryan-younggreen'].forEach(k => localStorage.setItem('gg-release-3.0:' + k, '1'));
+    }, p);
+    try {
+      const page = await context.newPage(), errors = [];
+      page.on('pageerror', e => errors.push(String(e)));
+      await page.goto(url + '/#/puzzles');
+      await page.waitForFunction(() => window.__ggBooted);
+      assert.equal(await page.evaluate(async () => (await import('/js/core/fire.js')).canWrite()), false, 'Profile checks cannot write live data');
+      await page.evaluate(async () => (await import('/js/app.js')).nav('/puzzles/dynasty'));
+      await page.waitForSelector('.pk-start.is-ready'); await page.locator('.pk-start').click();
+      await page.waitForFunction(() => !document.querySelector('.pk-start'));
+      const state = () => page.evaluate(async () => {
+        const D = await import('/js/core/dynasty.js'), data = await import('/js/core/data.js');
+        return {save: JSON.stringify(D.mine()), owner: data.isOwner(), packs: D.unlimited(), coins: D.unlimitedCoins()};
+      });
+      const before = await state();
+      assert.deepEqual({owner: before.owner, packs: before.packs, coins: before.coins}, {owner: p.owner, packs: p.packs, coins: p.coins}, p.tag + ': individual privileges stay intact');
+      await page.locator('.pk-tab[data-dy-tab="packs"]').click();
+      await page.waitForSelector('.pk-pack-slot.is-cur .pk-pack-preview'); await page.waitForTimeout(300);
+      await packPreviews(page);
+      const shelf = page.locator('.pk-pack-shelf'); await shelf.focus();
+      for (const name of ['Starter', 'Standard', 'Team', 'Epic']) {
+        assert.match(await page.locator('.pk-pack-buy').getAttribute('aria-label'), new RegExp(name + ' Pack'), p.tag + ': correct selected pack');
+        assert.deepEqual(await packPreviewFit(page), {fits: true, pack: true, preview: true, cards: true, buy: true}, p.tag + ': ' + name + ' preview fits');
+        await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
+      }
+      assert.deepEqual(await state(), before, p.tag + ': browsing top players preserves progress and privileges');
+      assert.equal(await page.locator('div.pk-open').count(), 0, p.tag + ': browsing never opens packs');
+      await snap(page, p.tag + '-pack-preview');
+      await page.evaluate(async () => (await import('/js/core/data.js')).setMe('mason'));
+      await page.waitForFunction(() => location.hash === '#/puzzles' && !document.querySelector('.pk, .pk-start, .pk-pack-shop, .pk-pack-studio, .pk-pack-preview'));
+      assert.equal(await page.locator('.pk, .pk-start').count(), 0, p.tag + ': switching to an unauthorized profile removes the pack screen');
+      assert.deepEqual(errors, [], p.tag + ': preview browser exceptions');
+    } finally { await context.close(); }
+  }
+  console.log('PASS pack previews: four authorized profiles, all pack options, unchanged saves/privileges and live profile switching');
+}
+
 async function run(url) {
-  const {chromium} = require('playwright');
+  let pw;
+  try { pw = require('playwright'); }
+  catch (_) { pw = require(path.join(process.env.USERPROFILE, '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright')); }
+  const {chromium} = pw;
   const browser = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--no-sandbox']});
   try {
-    for (const p of PROFILES.filter(p => !packsOnly || p.tag === 'evan')) for (const reduced of (p.plays && p.tag === 'evan' ? [false, true] : [false])) {
+    for (const p of PROFILES.filter(p => !packProfilesOnly && (!packsOnly || p.tag === 'evan'))) for (const reduced of (p.plays && p.tag === 'evan' ? [false, true] : [false])) {
       const context = await browser.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2, serviceWorkers: 'block', reducedMotion: reduced ? 'reduce' : 'no-preference'});
       await context.route('https://**/*', route => route.abort());
       await context.addInitScript(p => {
@@ -421,8 +541,9 @@ async function run(url) {
       assert.deepEqual(errors, [], p.tag + ': unexpected browser exceptions');
       await context.close();
     }
+    await packProfileFlow(browser, url);
   } finally { await browser.close(); }
-  console.log(packsOnly ? 'PASS: owner Packs shelf in normal and reduced motion' : 'PASS: Rivals title screen, play-first navigation, collections and access boundaries');
+  console.log(packProfilesOnly ? 'PASS: player previews and access boundaries for all four profiles' : packsOnly ? 'PASS: Packs shelf and player previews in normal/reduced motion and all four profiles' : 'PASS: Rivals title screen, navigation, collections, pack previews and access boundaries');
 }
 
 (async () => {
