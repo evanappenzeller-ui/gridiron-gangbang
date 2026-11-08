@@ -130,11 +130,17 @@ const rgbOf = h => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || '')); const
 const WHITE = '#F3F3F0', OFFWHITE = '#ECEAE3';
 /** A team's uniform in the pictures: jersey, pants, helmet. Coloured: its colour with off-white pants; white: a white
  *  jersey with pants in its colour. The helmet is its colour either way. */
-function kitOf(team, colored) {
+function kitOf(team, colored, uniform) {
+  // Return Man can supply its purchased uniform; Drill's existing team kits are unchanged.
+  if (uniform) {
+    const hex = value => '#' + value.toString(16).padStart(6, '0');
+    return {J: hex(uniform.jersey), P: hex(uniform.pants), H: hex(uniform.helmet)};
+  }
   const c0 = team[0];
   return colored ? {J: c0, P: OFFWHITE, H: c0} : {J: WHITE, P: c0, H: c0};
 }
 const KITS = new Map(); // 'J,P,H' -> canvas
+const CUSTOM_KITS = new Set(); // Return Man keeps only its six most recently worn sprite palettes.
 let PIX = null; // the atlas's and the mask's pixels, read once
 const keyOf = kit => `${kit.J},${kit.P},${kit.H}`;
 function pixels() {
@@ -183,6 +189,19 @@ function atlasFor(kit) {
   const out = new ImageData(ART.naturalWidth, ART.naturalHeight);
   paint(out.data, tonesOf(kit), 0, out.data.length);
   return finish(kit, out);
+}
+function uniformAtlas(kit) {
+  const key = keyOf(kit), shared = KITS.has(key) && !CUSTOM_KITS.has(key), atlas = atlasFor(kit);
+  if (shared) return atlas;
+  CUSTOM_KITS.delete(key); CUSTOM_KITS.add(key);
+  while (CUSTOM_KITS.size > 6) {
+    const old = CUSTOM_KITS.values().next().value, canvas = KITS.get(old);
+    const made = MADES.get(canvas);
+    CUSTOM_KITS.delete(old); KITS.delete(old); MADES.delete(canvas);
+    if (made) made.cv.width = made.cv.height = 0;
+    if (canvas) canvas.width = canvas.height = 0;
+  }
+  return atlas;
 }
 // Recolouring an atlas is some 800,000 pixels: on a phone half a second or more in one go, which landed in the first
 // frame of the first snap each uniform played in. warm() makes them ahead, a slice at a time while nothing else is
@@ -338,9 +357,11 @@ export function giveOf(p, mo) {
   return v;
 }
 /** Draws a pick at (x, y) on g (screen px: his feet), tallPx a runner's height there; mo: how he's moving (giveOf);
- *  ex: more on top of that ({lift (a share of his height), sx, sy, rot}: a move's own arc, turn and squash). */
-export function draw(g, p, team, colored, x, y, tallPx, mo, ex) {
-  let fr = FRAMES[p.f], atlas = fr || MADE[p.f] ? atlasFor(kitOf(team, colored)) : null;
+ *  ex: more on top of that ({lift (a share of his height), sx, sy, rot}: a move's own arc, turn and squash).
+ *  Optional look supplies a Return Man uniform and a paint callback in the sprite's local pose coordinates. */
+export function draw(g, p, team, colored, x, y, tallPx, mo, ex, look = null) {
+  const kit = kitOf(team, colored, look?.uniform);
+  let fr = FRAMES[p.f], atlas = fr || MADE[p.f] ? (look?.uniform ? uniformAtlas(kit) : atlasFor(kit)) : null;
   if (!fr && MADE[p.f]) { const m = madeFor(atlas); fr = m.fr[p.f]; atlas = m.cv; }
   if (!fr) return false;
   const k = tallPx / TALL;
@@ -355,6 +376,8 @@ export function draw(g, p, team, colored, x, y, tallPx, mo, ex) {
     g.scale((p.flip ? -k : k) * v.sx, k * v.sy);
   } else g.setTransform(p.flip ? -k : k, 0, 0, k, x, y);
   g.drawImage(atlas, fr[0], fr[1], fr[2], fr[3], -fr[4], -fr[5], fr[2], fr[3]);
+  // Optional uniform print uses the exact pose transform, including bounce and lean.
+  look?.paint?.(g, p, look.uniform);
   g.setTransform(1, 0, 0, 1, 0, 0);
   return true;
 }

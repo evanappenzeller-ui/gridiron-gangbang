@@ -20,7 +20,7 @@ async function main() {
         const file = path.resolve(root,'.'+decodeURIComponent(u.pathname)); assert(!path.relative(root,file).startsWith('..'));
         let body = fs.readFileSync(file);
         if (u.pathname === '/js/views/return.js') body += '\nexport {draw,frame,patchHud,pause,resume,go,onEvents,setCard};';
-        if (u.pathname === '/js/views/return-3d.js') body += '\nexport {GL};';
+        if (u.pathname === '/js/views/return-3d.js') body += '\nexport {GL,SKIN_VARIANTS,JERSEY_PRINTS};';
         await route.fulfill({body,contentType:mime[path.extname(file)]||'application/octet-stream'});
       } catch(e) { errors.push(e.message); await route.fulfill({status:404,body:'missing'}); }
     });
@@ -122,11 +122,63 @@ async function main() {
     assert(await page.evaluate(()=>qa.C.snapshot().coins===0 && qa.st.cosmetics.skin==='home'),'profile wallet and skin isolated');
     await page.evaluate(()=>qa.D.setMe('evan'));
     assert(await page.evaluate(()=>qa.C.snapshot().coins===140 && qa.st.cosmetics.skin==='outlaw'),'profile restores own cosmetics');
+
+    // Buy a team jersey through the real shop, then customize its printed number.
+    await page.evaluate(()=>qa.C.credit(qa.C.beginRun({n:99999,k:0},{practice:false}),500));
+    await page.locator('[data-rm-customize]').click();
+    for (const width of [320,390]) {
+      await page.setViewportSize({width,height:width===320?568:844});
+      assert.equal(await page.locator('.rmc-skin .rmc-runner').count(),7,'original outfits stay in Skins');
+      assert(await page.locator('.rmc-runner').evaluateAll(icons=>icons.every(icon=>{
+        const r=icon.getBoundingClientRect(), b=icon.getBBox(), style=getComputedStyle(icon);
+        return r.width>80&&r.height>100&&b.width>50&&b.height>100&&style.display!=='none'&&style.visibility==='visible'&&style.filter==='none';
+      })),'every outfit has visible, nonempty artwork without a fragile SVG CSS filter');
+      await page.screenshot({path:path.join(output,'detailed-skins-'+width+'.png')});
+    }
+    await page.locator('[data-rmc-tab="jerseys"]').click();
+    assert.equal(await page.locator('[data-rmc-skin]').count(),32,'all NFL teams can be browsed');
+    const beforeJersey=await page.evaluate(()=>qa.C.snapshot().coins);
+    await page.locator('[data-rmc-skin="nfl-buf"]').click();
+    assert(await page.evaluate(coins=>qa.C.snapshot().skin==='nfl-buf'&&qa.C.snapshot().coins===coins-200,beforeJersey),'team purchase spends once and equips');
+    await page.locator('#rmc-number').fill('99');
+    await page.locator('[data-rmc-number-save]').click();
+    assert(await page.evaluate(()=>qa.C.snapshot().number==='99'&&qa.st.skin.num==='99'&&qa.D3.GL.skinNumber==='99'),'saved number reaches gameplay');
+    const numberTextures=await page.evaluate(()=>{
+      const pair=qa.D3.SKIN_VARIANTS.get(qa.D3.GL.skinKey);qa.uniformRoot=qa.D3.GL.players.us.root;
+      return qa.D3.JERSEY_PRINTS.get(pair.kit).map(p=>p.canvas.toDataURL());
+    });
+    await page.locator('#rmc-number').fill('00');await page.locator('[data-rmc-number-save]').click();
+    assert(await page.evaluate(()=>qa.C.snapshot().number==='00'&&qa.D3.GL.skinNumber==='00'&&qa.D3.GL.players.us.root===qa.uniformRoot),'00 is preserved without cloning another model');
+    assert(await page.evaluate(before=>{
+      const pair=qa.D3.SKIN_VARIANTS.get(qa.D3.GL.skinKey);
+      return qa.D3.JERSEY_PRINTS.get(pair.kit).every((p,i)=>p.canvas.toDataURL()!==before[i]);
+    },numberTextures),'front/back/ghost number textures actually repaint');
+    assert.equal(await page.evaluate(()=>qa.C.snapshot().coins),beforeJersey-200,'number choices cost no coins');
+    await page.screenshot({path:path.join(output,'team-jerseys-390.png')});
+    await page.keyboard.press('Escape');await page.waitForFunction(()=>qa.st.warmed);
+    await page.evaluate(()=>{qa.st.mode='run';qa.st.flat=false;qa.st.run=qa.R.startRun(88888,0,true,true,true);qa.st.co=qa.st.run.co;qa.st.run.z=20;qa.V.setCard(qa.st,false);qa.V.draw(qa.st);});
+    await page.screenshot({path:path.join(output,'bills-number-00-game.png')});
+    // The canvas renderer receives the same complete palette and chosen number.
+    assert(await page.evaluate(()=>{qa.st.flat=true;qa.V.draw(qa.st);return qa.st.skin.num==='00'&&qa.st.skin.pants===qa.C.skinOf('nfl-buf').kit.pants;}),'canvas fallback keeps selected jersey/number');
+    await page.screenshot({path:path.join(output,'bills-number-00-canvas.png')});
+    await page.evaluate(()=>qa.V.unmount(document.querySelector('main'),qa.ctx));
+    await page.reload();
+    await page.evaluate(async()=>{
+      const [D,R,V,D3,C]=await Promise.all([import('/js/core/data.js'),import('/js/core/return.js'),import('/js/views/return.js'),import('/js/views/return-3d.js'),import('/js/core/return-customize.js')]);
+      await D.load();R.setTest(true);const ctx={visible:true,timer:()=>()=>{}};V.mount(document.querySelector('main'),ctx);window.qa={D,R,V,D3,C,ctx};
+    });
+    await page.waitForFunction(()=>document.querySelector('[data-rm-cv]').__rm.warmed);
+    assert(await page.evaluate(()=>qa.C.snapshot().number==='00'&&qa.C.snapshot().skin==='nfl-buf'&&qa.D3.GL.skinNumber==='00'),'equipped jersey and number survive reload');
+    await page.evaluate(()=>qa.D.setMe('ben'));
+    assert(await page.evaluate(()=>qa.C.snapshot().number==='22'&&document.querySelector('[data-rm-cv]').__rm.skin.num==='22'),'other profile retains its own default number');
+    await page.evaluate(()=>qa.D.setMe('evan'));
+    assert(await page.evaluate(()=>qa.D3.GL.skinNumber==='00'&&qa.C.snapshot().skin==='nfl-buf'),'returning profile restores its chosen jersey number');
     await page.evaluate(()=>qa.V.unmount(document.querySelector('main'),qa.ctx));
     assert.deepEqual(errors,[],'no runtime errors or external writes');
     console.log('PASS Phone/tablet locker, purchase/equip, live renderer skin, rides menu and focus restoration');
     console.log('PASS Real double tap, single tap, swipe, cancellation, keyboard/button, recharge, pause and canvas rides');
     console.log('PASS Pickup wallet hook, no practice earnings, idempotent credit and live profile isolation');
+    console.log('PASS Visible outfit art, 32 team jerseys, exact purchase debit, free 99/00 printing, canvas fallback and reload/profile isolation');
   } finally { await browser.close(); }
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

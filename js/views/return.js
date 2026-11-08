@@ -109,7 +109,7 @@ const koLabel = k => (k ? `Run ${k + 1} today` : 'Today’s kickoff');
 // board shows it on another of this person's (core ranElsewhere); then there's no kickoff till tomorrow's course.
 // Test play's sandbox runs as often as he likes.
 const doneToday = st => !R.testing() && (st.day.done || R.ranElsewhere(st.n));
-const customizeButton = () => features.returnManUpdated() ? '<button type="button" class="rm-customize-link" data-rm-customize>CUSTOMIZE <span>Skins &amp; rides</span></button>' : '';
+const customizeButton = () => features.returnManUpdated() ? '<button type="button" class="rm-customize-link" data-rm-customize>CUSTOMIZE <span>Skins, jerseys &amp; rides</span></button>' : '';
 /** The card over the stage: before a kickoff (the first of the day: how to play), after he's run down, or paused. */
 function cardHTML(st) {
   const d = st.day, k = d.next;
@@ -324,7 +324,8 @@ function shadow(st, c, x, y, z, w = .55) {
 /** A picture of a move (a: {f, flip, mo (his stride's give: drill-sprites.js giveOf), ex (the move's own lift, squeeze,
  *  lean)}) at his feet (x, y, z). */
 function sprite(st, c, a, team, x, y, z, alpha = 1) {
-  if (team === US && st.skin?.jersey != null) team = ['#' + st.skin.jersey.toString(16).padStart(6, '0')];
+  const kit = team === US ? st.skin : null;
+  if (kit?.jersey != null) team = ['#' + kit.jersey.toString(16).padStart(6, '0')];
   if (z < st.camZ + W.NEAR) return;
   const p = P(st, x, y, z), tall = p.s * TALL_YD;
   if (p.y < st.y0 - 40 || tall < 2) return;
@@ -332,7 +333,7 @@ function sprite(st, c, a, team, x, y, z, alpha = 1) {
   if (SP.ready() && SP.hasFrame(a.f)) {
     // (the pictures draw in device pixels: through the camera's sway, if any)
     const m = c.getTransform(), k = Math.hypot(m.a, m.b);
-    SP.draw(c, {f: a.f, flip: !!a.flip}, team, true, m.a * p.x + m.c * p.y + m.e, m.b * p.x + m.d * p.y + m.f, tall * k, a.mo || null, a.ex || null);
+    SP.draw(c, {f: a.f, flip: !!a.flip}, team, true, m.a * p.x + m.c * p.y + m.e, m.b * p.x + m.d * p.y + m.f, tall * k, a.mo || null, a.ex || null, kit ? {uniform: kit, paint: spriteUniform} : null);
     c.setTransform(m);
   } else {
     const low = /dive|flat|down|fallen/.test(a.f);
@@ -340,11 +341,34 @@ function sprite(st, c, a, team, x, y, z, alpha = 1) {
     if (low) { c.beginPath(); c.ellipse(p.x, p.y - tall * .12, tall * .42, tall * .12, 0, 0, Math.PI * 2); c.fill(); }
     else {
       c.beginPath(); c.roundRect ? c.roundRect(p.x - tall * .17, p.y - tall * .78, tall * .34, tall * .5, tall * .08) : c.rect(p.x - tall * .17, p.y - tall * .78, tall * .34, tall * .5); c.fill();
-      c.fillStyle = '#EDEFF5'; c.fillRect(p.x - tall * .13, p.y - tall * .3, tall * .26, tall * .3);
-      c.fillStyle = team[0]; c.beginPath(); c.arc(p.x, p.y - tall * .88, tall * .11, 0, Math.PI * 2); c.fill();
+      c.fillStyle = kit ? kitHex(kit.pants) : '#EDEFF5'; c.fillRect(p.x - tall * .13, p.y - tall * .3, tall * .26, tall * .3);
+      c.fillStyle = kit ? kitHex(kit.helmet) : team[0]; c.beginPath(); c.arc(p.x, p.y - tall * .88, tall * .11, 0, Math.PI * 2); c.fill();
+      if (kit) {
+        c.save(); c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.font = `900 ${tall * .19}px Arial`; c.fillStyle = kitHex(kit.numFill);
+        c.fillText(String(kit.num), p.x, p.y - tall * .57); c.restore();
+      }
     }
   }
   c.globalAlpha = 1;
+}
+const kitHex = color => '#' + color.toString(16).padStart(6, '0');
+/** Keep the chosen number legible on front/back canvas poses if WebGL is unavailable. */
+function spriteUniform(c, pose, kit) {
+  if (!/(?:r_[bf]|wr\.high)/.test(pose.f)) return;
+  const high = pose.f === 'wr.high', y = high ? -73 : -77;
+  c.save();
+  // A flipped sprite mirrors its body, never the lettering on its jersey.
+  if (pose.flip) c.scale(-1, 1);
+  c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+  c.font = '900 17px Arial'; c.lineWidth = 2.5;
+  c.strokeStyle = kitHex(kit.numEdge); c.fillStyle = kitHex(kit.numFill);
+  c.strokeText(String(kit.num), 0, y); c.fillText(String(kit.num), 0, y);
+  c.fillStyle = kitHex(kit.stripe); c.fillRect(-21, y - 12, 7, 2); c.fillRect(14, y - 12, 7, 2);
+  if (kit.wordmark) {
+    c.font = '800 4px Arial'; c.fillText(kit.wordmark, 0, y - 13, 26);
+  }
+  c.restore();
 }
 const HINT_YDS = 50;
 function hint(st, c, type, x, z) {
@@ -1024,9 +1048,9 @@ function setDay(st, n) {
   st.day = R.dayState(n);
 }
 function syncCustomize(st, state = customize.snapshot()) {
-  const changed = st.cosmetics?.skin !== state.skin;
+  const changed = st.cosmetics?.skin !== state.skin || st.cosmetics?.number !== state.number;
   st.cosmetics = state;
-  st.skin = customize.skinOf(state.skin).kit;
+  st.skin = customize.kitFor(state);
   D3.setSkin(st.skin);
   if (changed) st.warmed = false;
 }
@@ -1128,6 +1152,8 @@ function go(st) {
   if (st.customizing) return;
   if (st.mode === 'run' || st.mode === 'catch') return;
   if (doneToday(st)) { st.mode = 'ready'; st.run = null; setCard(st, true); return; } // (one a day: today's is run)
+  // A different tab may have saved a new jersey or number since this title was warmed.
+  syncCustomize(st);
   // (the 3D still coming: the kickoff waits for it, mount's settle3D; a run begun without it stays in the pictures)
   if (waiting3D(st)) { st.goOn3D = true; if (features.returnManUpdated()) setCard(st, true); return; }
   if (features.returnManUpdated() && D3.ready() && !st.warmed) { st.goOn3D = true; setCard(st, true); st.prepare?.(); return; }
@@ -1139,7 +1165,6 @@ function go(st) {
   // (the owner's: the hard course; the coins on the day's first run alone, core coinsOpen)
   const own = features.available(), k = st.day.next, coins = own && R.coinsOpen(st.n, k, own);
   st.run = R.startRun(st.n, k, own, coins, features.returnManUpdated());
-  syncCustomize(st);
   st.walletRun = customize.beginRun(st.run, {practice: R.testing()});
   st.lastTap = null; st.ptr = null;
   // (his first run here, but the board shows another of his phones ran the day's first: the end card says so)
@@ -1574,11 +1599,11 @@ export function mount(el, ctx) {
     syncCustomize(st);
     if (features.returnManUpdated() && D3.ready() && !st.warmed && (st.mode === 'ready' || st.mode === 'tackled')) {
       draw(st); st.preparing = true;
-      const skin = st.cosmetics.skin;
+      const look = `${st.cosmetics.skin}:${st.cosmetics.number}`;
       try {
         await D3.prepare(st);
         await Promise.all(['salts', 'pills', 'booze', 'jetpack'].map(async kind => { const img = new Image(); img.src = iconURL(kind); await img.decode().catch(() => {}); }));
-      } finally { st.preparing = false; st.warmed = st.cosmetics.skin === skin; }
+      } finally { st.preparing = false; st.warmed = `${st.cosmetics.skin}:${st.cosmetics.number}` === look; }
       if (!st.warmed && !st.dead) { settle3D(); return; }
     }
     if (st.dead) return;

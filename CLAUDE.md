@@ -452,6 +452,19 @@ Do not restore legacy score or Keepfall save fields into the v3 save namespaces.
 
 ## Return Man art direction
 
+November 7 wardrobe follow-up (every Return Man profile): Customize has Skins, Team jerseys and
+Rides tabs. The seven original outfits gain stitched panels, collars, stripes and themed markings;
+32 NFL home-inspired jerseys cost 200 Return Man coins each (`core/return-team-kits.js`). Existing
+outfit IDs, ownership, balances and per-day receipts stay in the same v1 local profile save.
+The optional `number` field defaults to `22` on old saves. `setNumber()` saves a free choice of
+0–99 or `00`; `kitFor()` passes it to previews, the 3D runner and canvas fallback. Invalid input or
+storage failure never changes the saved number or spends coins. Profile switches close the shop.
+Player previews use inline SVG with intrinsic dimensions and painted shadows, without SVG CSS
+filters inside the scrolling dialog. `return-jersey-art.js` shares the gameplay uniform prints;
+number changes repaint textures without creating new model variants. Keep cache growth bounded.
+Verify Customize wallet/integration checks, visible artwork at phone widths, jersey purchase and
+number reload/profile boundaries, plus the existing Return Man motion/intro/performance checks.
+
 November 7 difficulty follow-up (everyone): the opening football field has training benches, hurdles, slide bars
 and divots, with no team buses or train cars. Enhanced stadium vehicle picks replace `teambus` with `bench`;
 incoming trains still begin only after leaving the 500-yard stadium. `speedAt(z, hard, enhanced)` applies
