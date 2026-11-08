@@ -1,5 +1,16 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals visual deck editing (November 7, 2026)
+
+The four `features.rivalsUpdated()` profiles see the actual printed cards in deck details and the editor
+(`views/dynasty-pocket-decks.js`). Identical IDs share a tile with a top-left copy tag. A plus slot shows the
+number of missing cards out of 20 and opens the collection picker. Move handles support touch/mouse dragging,
+tap-then-target and keyboard arrows; duplicate groups move together. Reordering changes only the draft's
+existing ordered IDs until Save. Closing or switching profile discards edits. Rental decks stay fixed; ownership,
+canonical copy limits, Energy choices, saved matches and collection progress stay unchanged.
+Verify `check-visual-decks.cjs`, deck-shelf-browser, Pocket browser/integration, title-screen, preview/access and
+scope checks. Visual checks cover phone/tablet layouts, copy tags, empty slots, touch/keyboard, save/reload and cancellation.
+
 ## Rivals binder image loading (November 7, 2026)
 
 The four-profile `features.rivalsUpdated()` binder loads each rendered 60-card page's portraits and Energy artwork

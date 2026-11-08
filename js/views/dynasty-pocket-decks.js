@@ -21,6 +21,16 @@ const canonicalCount = (ids, c) => ids.filter(id => label(C.card(id)) === label(
 const check = (d, s) => C.checkDeck(d.ids, d.rental ? null : s.o, d.energy);
 const rental = () => ({...C.rentalDeck(), id: 'rental', rental: true});
 
+// Use the same printed faces as collection and battle; copy tags sit outside the card's clipping.
+function cardTile(id, n, {controls = '', pool = false, face = printedCard(id)} = {}) {
+  const c = C.card(id);
+  if (!c) return `<div class="pd-card-tile"><p>${esc(id)} · unavailable</p></div>`;
+  return `<div class="pd-card-tile" ${pool ? 'data-pd-pool' : 'data-pd-selected'}="${esc(id)}">
+    <button type="button" class="pd-card-preview" data-pd-inspect="${esc(id)}" aria-label="${esc(label(c))}${n ? `, ${n} in deck` : ''}. Read card">${face}<span class="pd-card-caption">${esc(label(c))}</span></button>
+    ${n > 1 ? `<b class="pd-copy-tag" aria-hidden="true">×${n}</b>` : ''}${controls}</div>`;
+}
+const addSlot = (n, edit = false) => n > 0 ? `<button type="button" class="pd-add-slot" ${edit ? 'data-pd-edit' : 'data-pd-add-slot'} aria-label="Add cards, ${n} open slot${n === 1 ? '' : 's'}"><span aria-hidden="true">+</span><b>Add cards</b><small>${n} open slot${n === 1 ? '' : 's'}</small></button>` : '';
+
 function art(c, portrait) {
   const source = c?.sourceId && D.card(c.sourceId), p = source && portrait?.(source, 300);
   return p?.url ? `<img src="${esc(p.url)}" alt="" loading="lazy" decoding="async" draggable="false"${p.alt ? ` data-alt="${esc(p.alt)}" onerror="if(this.dataset.alt){this.src=this.dataset.alt;this.removeAttribute('data-alt')}"` : ''}>`
@@ -34,14 +44,6 @@ function credit(c, portrait) {
   if (!meta || meta.own) return '';
   if (meta.card) return `<p class="pd-note">Photo: ${esc(realName(meta.card))} trading card.</p>`;
   return `<p class="pd-note">Photo: ${esc(meta.author)} · ${meta.licenceUrl ? `<a href="${esc(meta.licenceUrl)}" target="_blank" rel="noopener">${esc(meta.licence)}</a>` : esc(meta.licence)} · <a href="${esc(meta.page)}" target="_blank" rel="noopener">${esc(meta.site || 'Wikimedia Commons')}</a></p>`;
-}
-
-function cardFacts(c) {
-  if (c.kind !== 'player') return `<span>${esc(kind(c))} · ${c.kind === 'supporter' ? 'One per turn' : c.kind === 'tool' ? 'One per athlete' : c.kind === 'stadium' ? 'One shared Stadium' : 'Play when eligible'}</span><small>${esc(c.text || '')}</small>`;
-  const from = c.predecessor ? C.card(c.predecessor) : null;
-  return `<span>${esc(c.stage)} · ${c.hp} HP · ${esc((c.types || []).join(' / '))} · ${points(c)} KO point${points(c) === 1 ? '' : 's'}</span>`
-    + (from ? `<small>Develops from ${esc(label(from))}</small>` : '')
-    + `<small>${(c.attacks || []).map(a => `${esc(a.name)}: ${esc(a.cost?.length ? a.cost.join(' + ') : 'No Energy')} → ${a.damage} damage`).join('<br>')}</small>`;
 }
 
 const energyBadge = type => `<span class="pd-energy-mark" style="--deck-energy:${ENERGY_COLOR[type] || ENERGY_COLOR.Colorless}" title="${esc(type)} Energy">${energySVG(type)}</span>`;
@@ -92,64 +94,166 @@ function editor(onChange, slot, portrait) {
   if (!rivalsUpdated()) return;
   const openedFor = profileKey(), s = D.mine(), starting = slot || C.defaultDeck(s.o);
   let draft = starting.rental ? [] : starting.ids.slice(), energy = starting.rental ? ['Fire'] : (starting.energy || ['Fire']).slice();
-  let search = '', category = 'all', limit = 60;
+  let search = '', category = 'all', limit = 60, moving = '', drag = null, ignoreClick = false;
   const pool = C.availableCards(s.o);
   const available = id => C.availableCopies(s.o, id);
+  const faces = new Map();
+  const face = id => { if (!faces.has(id)) faces.set(id, printedCard(id)); return faces.get(id); };
+  const canAdd = c => c && draft.length < 20 && (copies(draft)[c.id] || 0) < Math.min(2, available(c.id)) && canonicalCount(draft, c) < 2;
+  const selected = () => Object.entries(copies(draft)).map(([id, n]) => {
+    const c = C.card(id);
+    const controls = c ? `<div class="pd-card-controls"><button type="button" data-pd-minus="${esc(id)}" aria-label="Remove ${esc(label(c))}">−</button><b aria-label="${n} copies in deck">${n}</b><button type="button" data-pd-plus="${esc(id)}" aria-label="Add ${esc(label(c))}" ${canAdd(c) ? '' : 'disabled'}>+</button></div>
+      <button type="button" class="pd-move" data-pd-move="${esc(id)}" aria-label="Move ${esc(label(c))}" aria-pressed="${moving === id}">↔ Move</button>` : '';
+    return cardTile(id, n, {controls, face: face(id)});
+  }).join('') + addSlot(20 - draft.length);
   const rows = () => {
     const matched = pool.filter(c => (category === 'all' || category === 'selected' && draft.includes(c.id) || category === c.kind)
       && `${label(c)} ${c.position || ''} ${c.stage || ''} ${(c.types || []).join(' ')}`.toLowerCase().includes(search.toLowerCase()))
       .sort((a, b) => Number(draft.includes(b.id)) - Number(draft.includes(a.id)) || label(a).localeCompare(label(b)));
     const html = matched.slice(0, limit).map(c => {
-      const n = draft.filter(id => id === c.id).length, cap = Math.min(2, available(c.id));
-      return `<div class="pd-row"><button type="button" class="pd-card-label" data-pd-inspect="${esc(c.id)}"><b>${esc(label(c))}</b>${cardFacts(c)}<small>${c.kind !== 'player' ? 'Reusable support playbook' : c.rental ? 'Development rental · Base owned' : `${available(c.id)} owned`}</small></button>
-      <div class="pd-stepper"><button type="button" data-pd-minus="${esc(c.id)}" aria-label="Remove ${esc(label(c))}" ${n ? '' : 'disabled'}>−</button><b aria-label="${n} copies in deck">${n}</b><button type="button" data-pd-plus="${esc(c.id)}" aria-label="Add ${esc(label(c))}" ${n < cap && canonicalCount(draft, c) < 2 && draft.length < 20 ? '' : 'disabled'}>+</button></div></div>`;
+      const n = draft.filter(id => id === c.id).length;
+      const controls = `<small class="pd-pool-count">${n} in deck · ${c.kind !== 'player' ? 'Reusable' : c.rental ? 'Development' : `${available(c.id)} owned`}</small>
+        <button type="button" class="pd-add" data-pd-add="${esc(c.id)}" aria-label="Add ${esc(label(c))}" ${canAdd(c) ? '' : 'disabled'}>+ Add card</button>`;
+      return cardTile(c.id, n, {controls, pool: true, face: face(c.id)});
     }).join('') || '<p class="pd-note">No matching cards. Try another search or collect more Base Players.</p>';
     return html + (matched.length > limit ? `<p class="pd-note">Showing ${limit} of ${matched.length} cards. Search by name or show more.</p><button type="button" class="pk-btn" data-pd-more>Show more cards</button>` : '');
   };
-  let stop;
-  const sh = ui.openSheet({title: slot ? 'Edit deck' : 'Build a deck', cls: 'pk-sheet pocket-deck-sheet', detents: ['large'], onClose: () => stop?.(), body: `<div class="pd-editor">
+  let stop, scrollFrame = 0;
+  const lifecycle = new AbortController();
+  const sh = ui.openSheet({title: slot ? 'Edit deck' : 'Build a deck', cls: 'pk-sheet pocket-deck-sheet', detents: ['large'], onClose: () => { cancelDrag(); lifecycle.abort(); stop?.(); }, body: `<div class="pd-editor">
     <label class="pd-field">Deck name<input type="text" data-pd-name maxlength="32" value="${esc(slot?.name || 'My new deck')}" autocomplete="off"></label>
-    <p class="pd-note">20 cards · at least one Base · two of each canonical name. Tap a name to read its card. Custom decks use your collection and the reusable playbook.</p>
+    <div class="pd-editor-tools"><b data-pd-count role="status" aria-live="polite"></b><button type="button" class="pk-btn" data-pd-auto>Auto-build</button><button type="button" class="pk-btn is-go" data-pd-save>Save deck</button></div>
+    <h3 class="pd-grid-heading">Cards in your deck</h3><p class="pd-note">Tap a card to read it. Drag its Move handle to rearrange, or tap Move then another card. Use + and − to change copies.</p>
+    <p class="pd-reorder-status" data-pd-reorder-status role="status" aria-live="polite"></p>
+    <div class="pd-card-grid" data-pd-selected-grid></div>
     <fieldset class="pd-energy"><legend>Energy Zone · choose 1–3 types</legend>${ENERGIES.map(t => `<label><input type="checkbox" data-pd-energy="${t}" ${energy.includes(t) ? 'checked' : ''}><span>${t}</span></label>`).join('')}</fieldset>
     <p class="pd-note">Your normal Energy is random among your chosen types. Colorless costs accept any type.</p>
-    <div class="pd-editor-tools"><b data-pd-count role="status" aria-live="polite"></b><button type="button" class="pk-btn" data-pd-auto>Auto-build</button><button type="button" class="pk-btn is-go" data-pd-save>Save deck</button></div>
+    <h3 class="pd-grid-heading">Add cards</h3><p class="pd-note">20 cards per deck · at least one Base · up to two of each card name. Choose from your collection and reusable playbook.</p>
     <label class="pd-field">Find a card<input type="search" data-pd-search placeholder="Athlete, stage or battle type"></label>
     <label class="pd-field">Show<select data-pd-filter><option value="all">All available cards</option><option value="selected">Cards in this deck</option><option value="player">Players</option><option value="item">Items</option><option value="supporter">Supporters</option><option value="tool">Tools</option><option value="stadium">Stadiums</option></select></label>
-    <div data-pd-rows></div><p class="pd-note">Battle stats are fictional balance examples, independent of NFL ratings.</p></div>`});
+    <div class="pd-card-grid" data-pd-rows></div><p class="pd-note">Battle stats are fictional balance examples, independent of NFL ratings.</p></div>`});
   stop = data.subscribe(type => { if (type === 'me') sh.close(); });
-  function draw() {
+  function draw({poolOnly = false, focusId = '', focusAction = ''} = {}) {
+    cancelDrag();
     const result = C.checkDeck(draft, s.o, energy);
     sh.body.querySelector('[data-pd-count]').textContent = `${draft.length}/20 · ${result.ok ? 'Ready to battle' : result.why}`;
+    if (!poolOnly) sh.body.querySelector('[data-pd-selected-grid]').innerHTML = selected();
     sh.body.querySelector('[data-pd-rows]').innerHTML = rows();
     sh.body.querySelectorAll('[data-pd-energy]').forEach(el => { el.checked = energy.includes(el.dataset.pdEnergy); el.disabled = energy.length >= 3 && !el.checked; });
     sh.body.querySelector('[data-pd-save]').disabled = !energy.length;
+    showMoving();
+    if (focusId) {
+      const action = [...sh.body.querySelectorAll(`[data-pd-${focusAction}]`)].find(el => el.getAttribute(`data-pd-${focusAction}`) === focusId && !el.disabled);
+      const tile = [...sh.body.querySelectorAll('[data-pd-selected]')].find(el => el.dataset.pdSelected === focusId);
+      const fallback = tile?.querySelector('[data-pd-minus]') || sh.body.querySelector('[data-pd-move], [data-pd-add-slot], [data-pd-search]');
+      (action || fallback)?.focus({preventScroll: true});
+    }
   }
+  function showMoving(message = '') {
+    sh.body.querySelectorAll('[data-pd-selected]').forEach(el => el.classList.toggle('is-moving', el.dataset.pdSelected === moving));
+    sh.body.querySelectorAll('[data-pd-move]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.pdMove === moving)));
+    sh.body.querySelector('[data-pd-reorder-status]').textContent = message || (moving ? `Move ${label(C.card(moving))}: choose another card, or use the arrow keys. Escape cancels.` : '');
+  }
+  function moveCard(id, target) {
+    const counts = copies(draft), order = Object.keys(counts), from = order.indexOf(id), to = order.indexOf(target);
+    if (from < 0 || to < 0 || from === to) { moving = ''; showMoving(); return; }
+    order.splice(from, 1); order.splice(to, 0, id);
+    draft = order.flatMap(key => Array(counts[key]).fill(key));
+    moving = ''; draw({focusId: id, focusAction: 'move'});
+    showMoving(`${label(C.card(id))} moved to position ${to + 1}. Save deck to keep your changes.`);
+  }
+  function cancelDrag() {
+    const previous = drag; drag = null;
+    cancelAnimationFrame(scrollFrame); scrollFrame = 0;
+    if (previous?.handle.hasPointerCapture?.(previous.pointerId)) previous.handle.releasePointerCapture(previous.pointerId);
+    sh.body.querySelectorAll('.is-drop-target').forEach(el => el.classList.remove('is-drop-target'));
+  }
+  function updateTarget() {
+    if (!drag?.active) return;
+    const target = document.elementFromPoint(drag.x, drag.y)?.closest('[data-pd-selected]');
+    drag.target = target && sh.body.contains(target) ? target.dataset.pdSelected : '';
+    sh.body.querySelectorAll('[data-pd-selected]').forEach(el => el.classList.toggle('is-drop-target', el.dataset.pdSelected === drag.target && drag.target !== drag.id));
+  }
+  function autoScroll() {
+    if (!drag?.active) return;
+    const box = sh.body.getBoundingClientRect(), edge = 48;
+    const dy = drag.y < box.top + edge ? -8 : drag.y > box.bottom - edge ? 8 : 0;
+    if (dy) { sh.body.scrollTop += dy; updateTarget(); }
+    scrollFrame = requestAnimationFrame(autoScroll);
+  }
+  sh.body.addEventListener('pointerdown', e => {
+    const handle = e.target.closest('[data-pd-move]');
+    if (!handle || drag || !e.isPrimary || e.button !== 0 || profileKey() !== openedFor || !rivalsUpdated()) return;
+    drag = {id: handle.dataset.pdMove, handle, pointerId: e.pointerId, x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, active: false};
+    handle.setPointerCapture(e.pointerId);
+  });
+  sh.body.addEventListener('pointermove', e => {
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    drag.x = e.clientX; drag.y = e.clientY;
+    if (!drag.active && Math.hypot(drag.x - drag.startX, drag.y - drag.startY) > 8) {
+      drag.active = true; moving = drag.id; showMoving(); scrollFrame = requestAnimationFrame(autoScroll);
+    }
+    if (drag.active) { e.preventDefault(); updateTarget(); }
+  });
+  sh.body.addEventListener('pointerup', e => {
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const {id, target, active} = drag; cancelDrag();
+    if (active) { ignoreClick = true; setTimeout(() => { ignoreClick = false; }, 0); moving = ''; if (target) moveCard(id, target); else showMoving(); }
+  });
+  const resetMove = () => { cancelDrag(); moving = ''; showMoving(); };
+  sh.body.addEventListener('pointercancel', resetMove);
+  sh.body.addEventListener('lostpointercapture', e => { if (drag?.pointerId === e.pointerId) resetMove(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) resetMove(); }, {signal: lifecycle.signal});
+  window.addEventListener('blur', resetMove, {signal: lifecycle.signal});
+  sh.body.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && moving) { e.preventDefault(); e.stopPropagation(); cancelDrag(); moving = ''; showMoving('Move cancelled.'); return; }
+    const handle = e.target.closest('[data-pd-move]');
+    if (!handle || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) || profileKey() !== openedFor || !rivalsUpdated()) return;
+    e.preventDefault();
+    const order = Object.keys(copies(draft)), from = order.indexOf(handle.dataset.pdMove), dir = ['ArrowLeft', 'ArrowUp'].includes(e.key) ? -1 : 1;
+    if (order[from + dir]) moveCard(handle.dataset.pdMove, order[from + dir]);
+  });
   sh.body.addEventListener('input', e => {
     if (profileKey() !== openedFor) return;
-    if (e.target.matches('[data-pd-search]')) { search = e.target.value; limit = 60; draw(); }
+    if (e.target.matches('[data-pd-search]')) { search = e.target.value; limit = 60; draw({poolOnly: true}); }
   });
   sh.body.addEventListener('change', e => {
     if (profileKey() !== openedFor) return;
-    if (e.target.matches('[data-pd-filter]')) { category = e.target.value; limit = 60; draw(); }
+    if (e.target.matches('[data-pd-filter]')) { category = e.target.value; limit = 60; draw({poolOnly: true}); }
     if (e.target.matches('[data-pd-energy]')) {
       const type = e.target.dataset.pdEnergy;
       energy = e.target.checked ? [...new Set([...energy, type])].slice(0, 3) : energy.filter(t => t !== type); draw();
     }
   });
   sh.body.addEventListener('click', e => {
-    if (profileKey() !== openedFor || !rivalsUpdated()) return;
+    if (ignoreClick || profileKey() !== openedFor || !rivalsUpdated()) return;
     let b;
-    if (e.target.closest('[data-pd-more]')) { limit += 60; draw(); }
-    if ((b = e.target.closest('[data-pd-inspect]'))) inspectCard(b.dataset.pdInspect, portrait);
-    if ((b = e.target.closest('[data-pd-minus]'))) { const i = draft.indexOf(b.dataset.pdMinus); if (i >= 0) draft.splice(i, 1); draw(); }
-    if ((b = e.target.closest('[data-pd-plus]'))) {
-      const id = b.dataset.pdPlus, c = C.card(id);
-      if (c && draft.length < 20 && draft.filter(x => x === id).length < Math.min(2, available(id)) && canonicalCount(draft, c) < 2) draft.push(id); draw();
+    if ((b = e.target.closest('[data-pd-move]'))) {
+      if (moving && moving !== b.dataset.pdMove) moveCard(moving, b.dataset.pdMove);
+      else { moving = moving === b.dataset.pdMove ? '' : b.dataset.pdMove; showMoving(); }
+      return;
+    }
+    if ((b = e.target.closest('[data-pd-inspect]'))) {
+      if (moving && b.closest('[data-pd-selected]')) { const id = moving; moving = ''; moveCard(id, b.dataset.pdInspect); }
+      else inspectCard(b.dataset.pdInspect, portrait);
+      return;
+    }
+    if (e.target.closest('[data-pd-add-slot]')) {
+      moving = ''; search = ''; category = 'all'; limit = 60;
+      const input = sh.body.querySelector('[data-pd-search]'); input.value = '';
+      sh.body.querySelector('[data-pd-filter]').value = 'all'; draw({poolOnly: true});
+      input.scrollIntoView({block: 'start', behavior: 'instant'}); input.focus({preventScroll: true}); return;
+    }
+    if (e.target.closest('[data-pd-more]')) { limit += 60; draw({poolOnly: true}); return; }
+    if ((b = e.target.closest('[data-pd-minus]'))) { const id = b.dataset.pdMinus, i = draft.indexOf(id); if (i >= 0) draft.splice(i, 1); moving = ''; draw({focusId: id, focusAction: 'minus'}); }
+    if ((b = e.target.closest('[data-pd-plus], [data-pd-add]'))) {
+      const id = b.dataset.pdPlus || b.dataset.pdAdd, c = C.card(id), action = b.hasAttribute('data-pd-plus') ? 'plus' : 'add';
+      if (canAdd(c)) draft.push(id); moving = ''; draw({focusId: id, focusAction: action});
     }
     if (e.target.closest('[data-pd-auto]')) {
       const built = C.defaultDeck(s.o);
       if (built.rental) { ui.toast('Collect more Base Players to build a custom deck. The starter rental is ready in My decks.'); return; }
-      draft = built.ids.slice(); energy = built.energy.slice(); draw();
+      draft = built.ids.slice(); energy = built.energy.slice(); moving = ''; draw();
     }
     if (e.target.closest('[data-pd-save]')) {
       const r = D.savePocketDeck({id: slot?.id, name: sh.body.querySelector('[data-pd-name]').value, ids: draft.slice(), energy: energy.slice(), rental: false});
@@ -187,7 +291,7 @@ export function handleDeckShelf(e, onChange = () => {}, portrait) {
     <p>${d.ids.length}/20 cards · ${result.ok ? 'Ready to battle' : esc(result.why)}</p><p>Energy Zone: <b>${esc((d.energy || []).join(' / '))}</b></p>
     ${d.rental ? '<p class="pd-note">A fixed starter rental. Its cards are available for matches without being added to your collection. Build a custom deck to use the athletes you collect.</p>' : ''}
     <div class="pd-detail-actions"><button type="button" class="pk-btn is-go" data-pd-use ${!result.ok || active ? 'disabled' : ''}>${active ? 'Active deck' : 'Use deck'}</button>${!d.rental ? '<button type="button" class="pk-btn" data-pd-edit>Edit deck</button>' : ''}${!d.rental && !active ? '<button type="button" class="pk-btn" data-pd-delete>Delete deck</button>' : ''}</div>
-    <div>${Object.entries(copies(d.ids)).map(([id, n]) => { const c = C.card(id); return c ? `<button type="button" class="pd-list-card" data-pd-inspect="${esc(id)}"><b>${n}× ${esc(label(c))}</b>${cardFacts(c)}</button>` : `<p>${esc(id)} · unavailable</p>`; }).join('')}</div></div>`});
+    <div class="pd-card-grid">${Object.entries(copies(d.ids)).map(([id, n]) => cardTile(id, n)).join('')}${!d.rental ? addSlot(20 - d.ids.length, true) : ''}</div></div>`});
   stop = data.subscribe(type => { if (type === 'me') sh.close(); });
   sh.body.addEventListener('click', ev => {
     if (profileKey() !== openedFor || !rivalsUpdated()) return;

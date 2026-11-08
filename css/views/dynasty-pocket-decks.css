@@ -80,6 +80,33 @@
 .pk-sheet.pocket-deck-sheet .pd-attacks strong{font-size:22px;line-height:1}
 .pk-sheet.pocket-deck-sheet .pd-attacks small{display:block;margin-top:5px;font-size:11px;color:#577179}
 .pk-sheet.pocket-deck-sheet .pd-attacks p{font-size:12px;margin:7px 0 0}
+/* Deck contents and the collection picker share actual printed card faces. Keep count badges
+   outside the face's clipping box; controls and captions never restyle its descendants. */
+.pk-sheet.pocket-deck-sheet .pd-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:26px 14px;padding:10px 6px;margin:8px -6px 20px}
+.pk-sheet.pocket-deck-sheet .pd-card-tile{position:relative;min-width:0;border-radius:10px;overflow:visible}
+.pk-sheet.pocket-deck-sheet .pd-card-preview{display:flex;flex-direction:column;align-items:stretch;gap:9px;width:100%;min-width:0;padding:0;border:0;background:none;color:#214550;text-align:center;font:inherit;cursor:pointer;border-radius:8px;overflow:visible}
+.pk-sheet.pocket-deck-sheet .pd-card-preview>.pk-card{width:100%;max-width:none;margin:0;pointer-events:none}
+.pk-sheet.pocket-deck-sheet .pd-card-caption{display:block;min-height:2.8em;font:700 12px/1.4 var(--font-text);overflow-wrap:anywhere;color:#214550}
+.pk-sheet.pocket-deck-sheet .pd-copy-tag{position:absolute;z-index:5;top:-8px;left:-5px;display:grid;place-items:center;min-width:32px;min-height:28px;padding:3px 7px;border:2px solid #f4fbff;border-radius:9px;background:#214d60;color:#fff;box-shadow:0 2px 5px #23485835;font:800 13px/1 var(--font-text);pointer-events:none}
+.pk-sheet.pocket-deck-sheet .pd-card-controls{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:4px;margin-top:8px;text-align:center}
+.pk-sheet.pocket-deck-sheet .pd-card-controls>button{display:grid;place-items:center;min-height:44px;width:44px;padding:0;border:1px solid #b6cbd5;border-radius:10px;background:#f8fcff;color:#24596b;font:600 24px/1 var(--font-text);cursor:pointer;box-shadow:0 2px 3px #537c8a12}
+.pk-sheet.pocket-deck-sheet .pd-card-controls>b{font:750 14px/1.2 var(--font-text);color:#264e5b}
+.pk-sheet.pocket-deck-sheet .pd-move,.pk-sheet.pocket-deck-sheet .pd-add{display:flex;align-items:center;justify-content:center;gap:5px;width:100%;min-height:44px;padding:8px;border:1px solid #c1d5de;border-radius:10px;background:#eaf4f9;color:#315c6e;font:700 12px/1.3 var(--font-text);cursor:pointer}
+.pk-sheet.pocket-deck-sheet .pd-move{margin-top:7px;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.pk-sheet.pocket-deck-sheet .pd-move:active{cursor:grabbing}
+.pk-sheet.pocket-deck-sheet .pd-move[aria-pressed="true"]{background:#d5ebf4;border-color:#3987a2;color:#164b60;box-shadow:inset 0 0 0 1px #3987a2}
+.pk-sheet.pocket-deck-sheet .pd-card-tile.is-moving>.pd-card-preview>.pk-card{box-shadow:0 0 0 3px #438ca5,0 5px 12px #31566b35}
+.pk-sheet.pocket-deck-sheet .pd-card-tile.is-drop-target{outline:3px dashed #2b9b83;outline-offset:5px;background:#dff3ec}
+.pk-sheet.pocket-deck-sheet .pd-pool-count{display:block;margin:5px 0 8px;min-height:1.4em;text-align:center;font:600 11px/1.4 var(--font-text);color:#5b7783}
+.pk-sheet.pocket-deck-sheet .pd-add{background:#e5f3f1;border-color:#b4d2cf;color:#246454}
+.pk-sheet.pocket-deck-sheet .pd-add-slot{display:flex;flex-direction:column;align-items:center;justify-content:center;align-self:start;gap:7px;width:100%;min-width:0;aspect-ratio:63/88;padding:12px;border:2px dashed #9ebac9;border-radius:12px;background:#eaf4fa;color:#5b7e92;text-align:center;cursor:pointer}
+.pk-sheet.pocket-deck-sheet .pd-add-slot>span{font:300 52px/1 var(--font-text);color:#779db2}
+.pk-sheet.pocket-deck-sheet .pd-add-slot>b{font:750 13px/1.35 var(--font-text)}
+.pk-sheet.pocket-deck-sheet .pd-add-slot>small{font:500 11px/1.45 var(--font-text)}
+.pk-sheet.pocket-deck-sheet .pd-grid-heading{margin:22px 0 6px;font:750 16px/1.35 var(--font-text);color:#244e5d}
+.pk-sheet.pocket-deck-sheet .pd-grid-heading h3{margin:0;font:inherit;color:inherit}
+.pk-sheet.pocket-deck-sheet .pd-reorder-status{min-height:1.6em;margin:6px 0 12px;font:600 12px/1.6 var(--font-text);color:#3b697a}
+@media(min-width:600px){.pk-sheet.pocket-deck-sheet .pd-card-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:28px 18px}}
 .pk-sheet .pd-guide{font-size:14px;line-height:1.7;color:#214550}
 .pk-sheet .pd-guide>ol{padding-left:24px}
 .pk-sheet .pd-guide>ol>li{padding:0 0 13px 3px}
