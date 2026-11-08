@@ -20,6 +20,8 @@ The four `features.rivalsUpdated()` profiles see the Pokémon-inspired My decks 
 printed player covers and Energy logos, a saved-deck count, Edit/Done and deck-building help.
 The starter rental, 30 custom slots, chosen Energy Zones and 20-card rules stay unchanged.
 Browsing and toggling Edit never write saves; editing, selecting and deleting keep existing actions.
+Shelf numbers have their own row above the deck box, with space for its raised lid, so both digits
+remain visible on phones and tablets. Verify the deck-shelf browser and stylesheet scope checks.
 
 Player faces carry `.pk-energy-card` only for the shared Rivals group. Their paper, name, attack,
 weakness and footer panels use the printed Energy color; a large outlined logo and full Energy
