@@ -148,8 +148,13 @@ async function run(url) {
     assert.equal(scenery.team, 'PIT', 'the reported card uses Pittsburgh scenery in its actual detail sheet');
     assert.ok(scenery.width === 500 && scenery.url.includes('/team-graphics-v2/pit.png'), 'Pittsburgh team graphic loads in the Mythic card detail');
     assert.ok(await detail.locator('.pk-zoom .pk-c-foil, .pk-zoom .pk-c-glint').evaluateAll(els => els.every(el => getComputedStyle(el).pointerEvents === 'none')), 'Decorative foil never blocks card interaction');
-    assert.equal(await detail.locator('.pk-info .pk-atk li').count(), 2, 'Full attack rules remain available in detail');
-    assert.equal(await detail.locator('.pk-signature-note').count(), 1, 'Signature energy spend is explained in detail');
+    const printed = await detail.evaluate(async id => {
+      const c = (await import('/js/core/dynasty-pocket-cards.js')).card(id);
+      return {energy: c.types[0], attacks: c.attacks.length};
+    }, id);
+    assert.equal(await detail.locator('.pk-info .pk-atk li').count(), printed.attacks, 'Current printed attack rules remain available in detail');
+    assert.equal(await detail.locator('.pk-zoom .pk-c-energy').getAttribute('data-card-energy'), printed.energy, 'The prominent Energy band matches the current printed card');
+    assert.equal(await detail.locator('.pk-signature-note').count(), 0, 'Current v7 details do not show legacy signature Energy spending');
     if (process.env.CARD_LIVE_PORTRAITS === '1') await detail.locator('.pk-zoom .pk-c-ph').evaluate(image => image.decode());
     if (shots) await detail.screenshot({path: path.join(shots, 'tj-watt-prime-detail.png')});
     console.log('PASS: T.J. Watt Prime Mythic detail uses its decoded Pittsburgh team graphic and clear rules');

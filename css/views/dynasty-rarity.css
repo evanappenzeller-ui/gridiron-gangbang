@@ -446,6 +446,26 @@ div.pk-open .pk-card.pk-rivals-card {
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card::after { animation: none !important; }
 }
 
+/* Energy stays readable as a named band rather than a tiny mark beside HP.
+   Only the four-profile Rivals renderer emits this band; the portrait remains unobstructed. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card .pk-c-energy {
+  position: relative; z-index: 4; flex: none; display: flex; align-items: center; gap: 2cqw;
+  margin: .4cqw .6cqw 1cqw; padding: 1cqw 2cqw; border-radius: 1.5cqw;
+  border: .45cqw solid var(--energy-color); background: color-mix(in srgb, var(--energy-color) 15%, #fff);
+  color: #172c3a; text-align: left;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card .pk-c-energy > .pk-e {
+  flex: none; font-size: 9cqw; box-shadow: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card .pk-c-energy > b {
+  display: flex; align-items: baseline; gap: 1.8cqw; font: 800 5.3cqw/1 var(--font-text); letter-spacing: 0;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card .pk-c-energy small {
+  font: 600 3.4cqw/1 var(--font-text);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.sz-s .pk-c-energy > .pk-e { font-size: 12cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.sz-s .pk-c-energy > b { font-size: 7.2cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.sz-s .pk-c-energy small { display: none; }
 /* Ability/support cards: one solid color, a clear effect, and the play limit.
    The renderer adds this class only for the four-profile Rivals rollout. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer.pk-ability-card {

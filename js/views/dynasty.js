@@ -106,14 +106,17 @@ export function cardHTML(c, o = {}) {
   const portrait = portraitOf(c, o.size === 'l' ? 520 : 300);
   const photo = portrait.url ? `<img class="pk-c-ph${portrait.photo ? ' is-photo' : portrait.action ? ' is-action' : ''}" src="${esc(portrait.url)}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async" draggable="false"${imgFallback(portrait)}>` : '';
   const rarity = String(c.r || 'common'), stage = pc ? 0 : B.stageOf(c.id, o.rulesVersion || B.RULES_VERSION);
+  const energy = pc ? st.type : B.typeEnergy(st.type, o.roundEnergy ?? currentEnergyRule());
+  const energyBadge = rivalsUpdated() ? `<span class="pk-c-energy" data-card-energy="${esc(energy)}" style="--energy-color:${ENERGY_COLOR[energy] || '#697c85'}">${pipHTML(energy)}<b>${esc(B.ENERGY[energy] || energy)}<small>Energy</small></b></span>` : '';
   const label = pc ? `${pc.canonicalName}, ${rarity}, ${pc.position}, ${pc.hp} HP, ${pc.types.join(' / ')}, ${PC.pointValue(pc)} knockout point, fictional balance values${o.count > 1 ? `, ${o.count} copies` : ''}` : `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const atk = st.attacks.map((a, n) => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}</em></span>`
     + (pc ? a.text ? `<span class="pk-c-fx">${esc(a.text)}</span>` : '' : n === 1 ? `<span class="pk-c-fx">${esc([B.fxText(a), B.signatureText({v: o.rulesVersion || B.RULES_VERSION}, n)].filter(Boolean).join(' '))}</span>` : '')).join('');
   const ability = st.ability ? `<span class="pk-c-ab"><i>Ability</i><b>${esc(pc ? pc.ability.name : B.ABILITY[st.ability].name)}</b></span>${pc?.ability.text ? `<span class="pk-c-fx">${esc(pc.ability.text)}</span>` : ''}` : '';
   const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
   const inner = `<span class="pk-c-face" aria-hidden="true">`
-    + `<span class="pk-c-head"><span class="pk-c-stage">${pc ? esc(pc.stage.toUpperCase()) : stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(pc?.athlete || c.name)}${pc && st.ex ? `<span class="pk-c-ex">${pc.classification === 'mega-ex' ? 'Mega ex' : 'ex'}</span>` : ''}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${typeHTML(st.type, o.roundEnergy ?? currentEnergyRule())}</span></span>`
+    + `<span class="pk-c-head"><span class="pk-c-stage">${pc ? esc(pc.stage.toUpperCase()) : stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(pc?.athlete || c.name)}${pc && st.ex ? `<span class="pk-c-ex">${pc.classification === 'mega-ex' ? 'Mega ex' : 'ex'}</span>` : ''}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${energyBadge ? '' : typeHTML(st.type, o.roundEnergy ?? currentEnergyRule())}</span></span>`
     + (pc?.predecessor ? `<span class="pk-c-evo">Develops from ${esc(PC.card(pc.predecessor)?.canonicalName || pc.predecessor)}</span>` : '')
+    + energyBadge
     + `<span class="pk-c-art">${teamSceneHTML(c.team)}<span class="pk-c-num">${esc(String(c.num || c.pos))}</span>${photo}<span class="pk-c-art-team">${esc(c.team)}</span></span>`
     + `<span class="pk-c-strip">${esc(c.pos)} · ${esc(T.name)} · ${esc(S.short)}</span>`
     + `<span class="pk-c-body${st.ability ? ' has-ability' : ''}">${ability}${atk}</span>`
@@ -517,9 +520,17 @@ function pointsSheet(st) {
 // ---------------------------------------------------------------------------------------------------- My Cards
 const POS_ORDER = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'];
 const PAGE = 60;
-// The binder's order (Nov 1 2026, Evan: "Add a section to sort cards by rarity, team, position"): best first, else
-// grouped under a heading per rarity (Mythic down), team (A-Z) or position (QB to K), best first within each; Trainers last.
+// Current Rivals binders always group by the card's printed Energy, then the chosen secondary order.
+// The original sort preference remains valid, and viewers outside the rollout keep their original grouping.
 const SORTS = [{id: '', label: 'Best'}, {id: 'rar', label: 'Rarity'}, {id: 'team', label: 'Team'}, {id: 'pos', label: 'Position'}];
+const BINDER_ENERGY = [...PC.ENERGY_TYPES, 'Colorless', 'Dragon'];
+const energyOf = c => PC.card(c.id)?.types[0] || B.typeEnergy(B.stats(c.id).type, currentEnergyRule());
+const energyAt = e => { const i = BINDER_ENERGY.indexOf(e); return i < 0 ? BINDER_ENERGY.length : i; };
+const energyGroupOf = c => {
+  if (!D.card(c.id)) return {k: 'trainers', label: 'Trainers'};
+  const energy = energyOf(c);
+  return {k: energy, label: energy, energy};
+};
 const SORT_KEY = 'gg-dy-sort';
 const sortLoad = () => { try { const v = localStorage.getItem(SORT_KEY) || ''; return SORTS.some(x => x.id === v) ? v : ''; } catch (e) { return ''; } };
 const sortSave = v => { try { localStorage.setItem(SORT_KEY, v); } catch (e) { /* (kept for this visit only) */ } };
@@ -543,7 +554,8 @@ function cardsHTML(st) {
     + `<button type="button" class="pk-toggle${f.view === 'all' ? ' is-on' : ''}" data-dy-all aria-pressed="${f.view === 'all'}" aria-label="Show every card in the game"><i></i></button>`
     + `<button type="button" class="pk-iconb${filters ? ' is-on' : ''}" data-dy-filter aria-label="Filter">${ui.icon('sort', {size: 20})}${filters ? `<i>${filters}</i>` : ''}</button></div>`
     + `<div class="pk-search">${ui.searchField({name: 'dy-q', placeholder: 'Search players, teams or cards', value: f.q})}</div>`
-    + `<div class="pk-sortr" role="group" aria-label="Sort cards"><span>Sort</span>${SORTS.map(x => `<button type="button" data-dy-sort="${x.id}" aria-pressed="${(f.sort || '') === x.id}">${x.label}</button>`).join('')}</div></div>`;
+    + (rivalsUpdated() ? '<p class="pk-energy-note">Grouped by energy type <span>Sort within each type</span></p>' : '')
+    + `<div class="pk-sortr${rivalsUpdated() ? ' is-energy-sort' : ''}" role="group" aria-label="${rivalsUpdated() ? 'Sort within energy types' : 'Sort cards'}"><span>Sort</span>${SORTS.map(x => `<button type="button" data-dy-sort="${x.id}" aria-pressed="${(f.sort || '') === x.id}">${x.label}</button>`).join('')}</div></div>`;
   const sp = D.spares(s);
   if (sp.list.length && f.view === 'mine') h += `<button type="button" class="pk-alert is-soft" data-dy-spares>${ui.icon('bolt', {size: 18})}<span>Quick sell ${sp.list.reduce((t, x) => t + x.n, 0)} spare cop${sp.list.reduce((t, x) => t + x.n, 0) === 1 ? 'y' : 'ies'} for ${nf(sp.coins)} coins</span></button>`;
   return h + '<div data-dy-grid></div>';
@@ -568,7 +580,7 @@ function filtered(st) {
   const f = st.f, s = D.mine(), q = data.norm(f.q || '');
   const tr = !f.pos && (!f.ser || f.ser === 'T') ? D.TRAINER_IDS.map(D.trainer).filter(t => (f.view === 'all' || s.o[t.id] > 0) && (!f.rar || t.r === f.rar)
     && (!q || data.norm(`${t.name} ${t.text}`).includes(q))) : [];
-  if (f.ser === 'T') return tr;
+  if (f.ser === 'T' && !rivalsUpdated()) return tr;
   const best = (a, b) => b.o - a.o || D.SERIES_ORDER.indexOf(a.s) - D.SERIES_ORDER.indexOf(b.s) || a.name.localeCompare(b.name);
   const by = {
     rar: (a, b) => D.RARITY.indexOf(b.r) - D.RARITY.indexOf(a.r),
@@ -576,9 +588,12 @@ function filtered(st) {
     pos: (a, b) => posAt(a.pos) - posAt(b.pos)
   }[f.sort];
   if (by) tr.sort((a, b) => D.RARITY.indexOf(b.r) - D.RARITY.indexOf(a.r) || a.name.localeCompare(b.name));
+  if (f.ser === 'T') return tr;
+  const compare = (a, b) => (by ? by(a, b) : 0) || best(a, b);
+  const updated = rivalsUpdated();
   return D.CARDS.filter(c => (f.view === 'all' || s.o[c.id] > 0) && (!f.ser || c.s === f.ser) && (!f.pos || c.pos === f.pos) && (!f.rar || c.r === f.rar)
     && (!q || data.norm(`${c.name} ${c.team} ${D.teamOf(c.team).name}`).includes(q)))
-    .sort(by ? (a, b) => by(a, b) || best(a, b) : best).concat(tr);
+    .sort(updated ? (a, b) => energyAt(energyOf(a)) - energyAt(energyOf(b)) || energyOf(a).localeCompare(energyOf(b)) || compare(a, b) : compare).concat(tr);
 }
 /** A card in the binder. Copies stack (Nov 2 2026, the owner: "If a user has more than one player card, should stack in
  *  the cards screen with a number in the corner showing how many total"): one card on top, the copies' edges behind it
@@ -597,14 +612,25 @@ function drawGrid(st, more = false) {
   st.gridKey = key; st.renderedKey = key;
   st.shown = from + PAGE;
   // (a heading opens each group: its name and how many cards it holds in this view)
-  const sort = st.f.sort || '', n = {};
-  if (sort) list.forEach(c => { const k = groupOf(sort, c).k; n[k] = (n[k] || 0) + 1; });
+  const sort = st.f.sort || '', updated = rivalsUpdated(), n = {}, sub = {};
+  const primary = c => updated ? energyGroupOf(c) : groupOf(sort, c);
+  const subkey = c => `${energyGroupOf(c).k}:${groupOf(sort, c).k}`;
+  if (updated || sort) list.forEach(c => {
+    const k = primary(c).k; n[k] = (n[k] || 0) + 1;
+    if (updated && sort && D.card(c.id)) { const sk = subkey(c); sub[sk] = (sub[sk] || 0) + 1; }
+  });
+  const heading = (g, count, secondary = false) => {
+    const lead = g.energy ? pipHTML(g.energy) : g.team ? `<img src="${esc(logoUrl(g.team, 64))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : g.sym ? `<i class="is-${esc(g.k)}" aria-hidden="true">${g.sym}</i>` : '';
+    const tag = secondary ? 'h4' : 'h3';
+    const attrs = updated ? secondary ? ` data-dy-subgroup="${esc(g.k)}"` : ` data-dy-energy="${esc(g.k)}"` : '';
+    return `<${tag} class="pk-gh${updated ? secondary ? ' pk-subgh' : ' pk-energy-gh' : ''}"${attrs}>${lead}<span>${esc(g.label)}</span><small>${nf(count)}</small></${tag}>`;
+  };
   const head = i => {
-    if (!sort) return '';
-    const g = groupOf(sort, list[i]);
-    if (i > 0 && groupOf(sort, list[i - 1]).k === g.k) return '';
-    const lead = g.team ? `<img src="${esc(logoUrl(g.team, 64))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : g.sym ? `<i class="is-${esc(g.k)}" aria-hidden="true">${g.sym}</i>` : '';
-    return `<h3 class="pk-gh">${lead}<span>${esc(g.label)}</span><small>${nf(n[g.k])}</small></h3>`;
+    if (!updated && !sort) return '';
+    const c = list[i], prev = list[i - 1], g = primary(c);
+    let h = !prev || primary(prev).k !== g.k ? heading(g, n[g.k]) : '';
+    if (updated && sort && D.card(c.id) && (!prev || subkey(prev) !== subkey(c))) h += heading(groupOf(sort, c), sub[subkey(c)], true);
+    return h;
   };
   const cards = list.slice(from, st.shown).map((c, j) => head(from + j) + stackHTML(c.id, s.o[c.id] || 0, D.isNew(c.id, s))).join('');
   const next = list.length > st.shown ? `<button type="button" class="pk-more" data-dy-more>Show more (${nf(list.length - st.shown)})</button>` : '';
