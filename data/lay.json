@@ -123,6 +123,23 @@
       ]
     },
     {
+      "year": 2026, "week": 8,
+      "legs": [
+        {"by": "ben", "bet": "Josh Allen Anytime TD Scorer", "hit": true, "stat": "1 rush TD"},
+        {"by": "corbin", "bet": "Wan'Dale Robinson 4+ Receptions", "hit": true, "stat": "6 catches for 57 yds"},
+        {"by": "dresden", "bet": "Kansas City Chiefs @ Denver Broncos Over 40.5", "hit": true, "stat": "Broncos 28, Chiefs 24: 52 points"},
+        {"by": "evan", "bet": "Justin Jefferson Anytime TD Scorer", "hit": true, "stat": "1 TD catch, 5 catches for 33 yds"},
+        {"by": "jackson", "bet": "Detroit Lions -3", "hit": true, "stat": "Lions won 19–15"},
+        {"by": "jacob", "bet": "Cleveland Browns @ Pittsburgh Steelers Over 38.5", "hit": false, "stat": "Steelers 27, Browns 6: 33 points"},
+        {"by": "jaymin", "bet": "Bijan Robinson Anytime TD Scorer", "hit": false, "stat": "No TD: 19 carries for 76 yds"},
+        {"by": "jayton", "bet": "Jahmyr Gibbs Anytime TD Scorer", "hit": true, "stat": "1 rush TD"},
+        {"by": "john", "bet": "Rhamondre Stevenson Anytime TD Scorer", "hit": false, "stat": "No TD: 19 carries for 82 yds, 3 catches for 8"},
+        {"by": "mason", "bet": "Atlanta Falcons Moneyline", "hit": false, "stat": "Buccaneers won 16–0"},
+        {"by": "mitch", "bet": "Trevor Lawrence 2+ Passing TDs", "hit": true, "stat": "3 TD passes, 10 of 14 for 210 yds"},
+        {"by": "sayer", "bet": "Keon Coleman 2+ Receptions", "hit": false, "stat": "1 catch for 4 yds"}
+      ]
+    },
+    {
       "year": 2026, "week": 9,
       "legs": [
         {"by": "mason", "for": "corbin", "bet": "Jahmyr Gibbs Anytime TD Scorer", "hit": null}
