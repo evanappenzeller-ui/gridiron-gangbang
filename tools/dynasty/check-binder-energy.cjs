@@ -1,4 +1,4 @@
-// Offline binder regression: energy groups, secondary sorting, paging, filters and card labels.
+// Offline binder regression: default Overall, independent sort options, paging, filters and card labels.
 // Firebase is removed from served HTML and every nonlocal request is blocked.
 // Usage: node tools/dynasty/check-binder-energy.cjs [--shots=<dir>] [--profile=evan]
 const fs = require('node:fs');
@@ -63,30 +63,40 @@ async function expected(page, sort, filter = {}) {
     const players = D.CARDS.filter(c => (filter.all || s.o[c.id] > 0) && (!filter.pos || c.pos === filter.pos) && (!filter.rar || c.r === filter.rar)
       && (!q || norm(`${c.name} ${c.team} ${D.teamOf(c.team).name}`).includes(q)));
     const best = (a, b) => b.o - a.o || D.SERIES_ORDER.indexOf(a.s) - D.SERIES_ORDER.indexOf(b.s) || a.name.localeCompare(b.name);
-    const secondary = (a, b) => sort === 'team' ? D.teamOf(a.team).name.localeCompare(D.teamOf(b.team).name)
+    const compare = (a, b) => sort === 'energy' ? energyOrder.indexOf(PC.card(a.id).types[0]) - energyOrder.indexOf(PC.card(b.id).types[0])
+      : sort === 'team' ? D.teamOf(a.team).name.localeCompare(D.teamOf(b.team).name)
       : sort === 'pos' ? positions.indexOf(a.pos) - positions.indexOf(b.pos)
       : sort === 'rar' ? D.RARITY.indexOf(b.r) - D.RARITY.indexOf(a.r) : 0;
-    players.sort((a, b) => energyOrder.indexOf(PC.card(a.id).types[0]) - energyOrder.indexOf(PC.card(b.id).types[0]) || secondary(a, b) || best(a, b));
+    players.sort((a, b) => compare(a, b) || best(a, b));
     const trainers = filter.pos ? [] : D.TRAINER_IDS.map(D.trainer).filter(t => (filter.all || s.o[t.id] > 0) && (!filter.rar || t.r === filter.rar)
       && (!q || norm(`${t.name} ${t.text}`).includes(q)));
-    // Trainers are separate from player-energy groups; preserve their existing order when Best is selected.
+    // Trainers stay last, preserving their existing order when Overall is selected.
     if (sort) trainers.sort((a, b) => D.RARITY.indexOf(b.r) - D.RARITY.indexOf(a.r) || a.name.localeCompare(b.name));
-    const kinds = [...new Set(players.map(c => PC.card(c.id).types[0]))];
-    return {ids: [...players, ...trainers].map(c => c.id), groups: Object.fromEntries(kinds.map(type => [type, players.filter(c => PC.card(c.id).types[0] === type).length]))};
+    const groupOf = c => !sort ? null : !D.card(c.id) ? sort === 'energy' ? 'trainers' : 'T'
+      : sort === 'energy' ? PC.card(c.id).types[0] : sort === 'team' ? c.team : sort === 'pos' ? c.pos : c.r;
+    const cards = [...players, ...trainers], groups = {};
+    if (sort) cards.forEach(c => { const key = groupOf(c); groups[key] = (groups[key] || 0) + 1; });
+    return {sort, ids: cards.map(c => c.id), groupById: Object.fromEntries(cards.map(c => [c.id, groupOf(c)])), groups};
   }, {sort, filter});
 }
 async function inspect(page, want, label) {
   const got = await page.evaluate(() => ({
     ids: [...document.querySelectorAll('[data-dy-grid] [data-dy-card]')].map(c => c.dataset.dyCard),
-    headings: [...document.querySelectorAll('h3[data-dy-energy]')].map(h => ({type: h.dataset.dyEnergy, count: Number(h.querySelector('small')?.textContent.replace(/,/g, ''))})),
+    headings: [...document.querySelectorAll('[data-dy-grid] h3.pk-gh')].map(h => ({key: h.dataset.dyEnergy || h.dataset.dyGroup, energy: h.hasAttribute('data-dy-energy'), count: Number(h.querySelector('small')?.textContent.replace(/,/g, ''))})),
+    secondaryHeadings: document.querySelectorAll('[data-dy-subgroup], [data-dy-grid] h4').length,
     labels: [...document.querySelectorAll('[data-dy-grid] .pk-card:not(.pk-trainer)')].map(c => ({id: c.dataset.dyCard, energy: c.querySelector('.pk-c-energy')?.dataset.cardEnergy, text: c.querySelector('.pk-c-energy > b')?.firstChild?.textContent, caption:c.querySelector('.pk-c-energy small')?.textContent}))
   }));
-  assert.deepEqual(got.ids, want.ids.slice(0, got.ids.length), label + ': displayed cards follow energy then secondary order');
+  assert.deepEqual(got.ids, want.ids.slice(0, got.ids.length), label + ': displayed cards follow the selected independent sort');
   assert.equal(new Set(got.ids).size, got.ids.length, label + ': one card per owned player, copies stacked');
-  assert.equal(new Set(got.headings.map(h => h.type)).size, got.headings.length, label + ': no repeated energy headings across pages');
-  for (const h of got.headings) if (want.groups[h.type] != null) assert.equal(h.count, want.groups[h.type], label + ': heading counts filtered cards for ' + h.type);
+  const visibleGroups = want.sort ? [...new Set(got.ids.map(id => want.groupById[id]))] : [];
+  assert.deepEqual(got.headings.map(h => h.key), visibleGroups, label + ': each visible group has one correctly ordered heading across pages');
+  assert.equal(got.secondaryHeadings, 0, label + ': no nested grouping remains');
+  for (const h of got.headings) {
+    assert.equal(h.energy, want.sort === 'energy', label + ': energy headers belong only to Energy Type sort');
+    assert.equal(h.count, want.groups[h.key], label + ': heading counts filtered cards for ' + h.key);
+  }
   const names = await page.evaluate(async ids => { const PC = await import('/js/core/dynasty-pocket-cards.js'); return Object.fromEntries(ids.map(id => [id, PC.card(id)?.types[0]])); }, got.labels.map(c => c.id));
-  for (const c of got.labels) { assert.equal(c.energy, names[c.id], label + ': card badge matches group'); assert.equal(c.text, names[c.id]); assert.equal(c.caption, 'Energy'); }
+  for (const c of got.labels) { assert.equal(c.energy, names[c.id], label + ': card badge matches printed energy'); assert.equal(c.text, names[c.id]); assert.equal(c.caption, 'Energy'); }
   return got.ids.length;
 }
 async function chooseSort(page, sort) {
@@ -122,18 +132,25 @@ async function run(url) {
       await enter(page, url);
       const fixture = await seed(page);
       await page.locator('.pk-nav [data-dy-tab="cards"]').click();
-      await page.waitForSelector('[data-dy-energy]');
-      assert.equal(await page.locator('.pk-energy-note').filter({hasText:'Grouped by energy type'}).count(), 1);
-      assert.equal(await page.getByRole('group', {name:'Sort within energy types', exact:true}).count(), 1);
-      for (const sort of ['', 'team', 'pos', 'rar']) {
+      await page.waitForSelector('[data-dy-grid] [data-dy-card]');
+      assert.equal(await page.locator('[data-dy-sort=""]').getAttribute('aria-pressed'), 'true', label + ': Overall is the default');
+      assert.equal(await page.locator('.pk-energy-note').count(), 0, 'no permanent energy-grouping instruction remains');
+      assert.equal(await page.getByRole('group', {name:'Sort cards', exact:true}).count(), 1);
+      const controls = await page.locator('[data-dy-sort]').evaluateAll(buttons => Object.fromEntries(buttons.map(b => [b.dataset.dySort, b.textContent.trim().toLowerCase()])));
+      assert.deepEqual(controls, {'':'overall', energy:'energy type', team:'team', pos:'position', rar:'rarity'}, 'all five independent sort controls are labelled');
+      await inspect(page, await expected(page, ''), label + ' initial Overall');
+      const ratings = await page.evaluate(async () => { const D = await import('/js/core/dynasty.js'); return [...document.querySelectorAll('[data-dy-grid] [data-dy-card]')].map(el => D.card(el.dataset.dyCard)?.o).filter(rating => rating != null); });
+      assert(ratings.every((rating, i) => !i || ratings[i - 1] >= rating), 'default Overall descends globally across all energies');
+      if (shots && label === 'evan') await page.screenshot({path:path.join(shots, 'binder-overall-390.png')});
+      for (const sort of ['', 'energy', 'team', 'pos', 'rar']) {
         await chooseSort(page, sort);
         const want = await expected(page, sort);
-        let shown = await inspect(page, want, `${label}/${sort || 'best'}`);
+        let shown = await inspect(page, want, `${label}/${sort || 'overall'}`);
         assert.equal(shown, 60, 'first binder page stays bounded');
         await page.evaluate(() => { window.firstBinderCard = document.querySelector('[data-dy-grid] [data-dy-card]'); });
         while (await page.locator('[data-dy-more]').count()) {
           await page.locator('[data-dy-more]').click(); await settle(page);
-          shown = await inspect(page, want, `${label}/${sort || 'best'} more`);
+          shown = await inspect(page, want, `${label}/${sort || 'overall'} more`);
           assert.equal(await page.evaluate(() => window.firstBinderCard === document.querySelector('[data-dy-grid] [data-dy-card]')), true, 'paging appends instead of rebuilding');
         }
         assert.equal(shown, fixture.size, 'paging reaches every owned card');
@@ -145,7 +162,7 @@ async function run(url) {
       await inspect(page, await expected(page, 'rar', {q:query}), label + ' search');
       await page.locator('input[name="dy-q"]').fill('no-such-athlete-314159'); await page.waitForTimeout(220);
       assert.equal(await page.locator('[data-dy-grid] [data-dy-card]').count(), 0, 'empty search hides stale groups/cards');
-      assert.equal(await page.locator('[data-dy-energy]').count(), 0);
+      assert.equal(await page.locator('[data-dy-energy], [data-dy-group]').count(), 0);
       await page.locator('input[name="dy-q"]').fill(''); await page.waitForTimeout(220);
       await filterChip(page, 'pos', 'QB');
       await inspect(page, await expected(page, 'rar', {pos:'QB'}), label + ' position filter');
@@ -157,28 +174,35 @@ async function run(url) {
       await page.locator('[data-dy-all]').click(); await settle(page);
       await inspect(page, await expected(page, 'rar', {all:true}), label + ' all cards');
       await page.locator('[data-dy-all]').click(); await settle(page);
+      await chooseSort(page, 'energy');
       for (const width of [320, 390, 768]) {
         await page.setViewportSize({width, height:width === 320 ? 568 : 844}); await settle(page);
         const fit = await page.evaluate(() => {
           const pane = document.querySelector('.pk-pane');
           const badges = [...document.querySelectorAll('[data-dy-grid] .pk-c-energy')].slice(0, 8);
-          return {fits:pane.scrollWidth <= pane.clientWidth + 1, badges:badges.every(el => {
+          const buttons = [...document.querySelectorAll('[data-dy-sort]')];
+          const controls = buttons.map(button => {
+            const r = button.getBoundingClientRect(), range = document.createRange(); range.selectNodeContents(button); const text = range.getBoundingClientRect();
+            return {label:button.textContent, width:r.width, height:r.height, left:r.left, right:r.right, top:r.top, bottom:r.bottom, text:{left:text.left,right:text.right,top:text.top,bottom:text.bottom}, overflow:button.scrollWidth - button.clientWidth,
+              fits:r.width >= 44 && r.height >= 44 && text.left >= r.left - 1 && text.right <= r.right + 1 && text.top >= r.top - 1 && text.bottom <= r.bottom + 1 && button.scrollWidth <= button.clientWidth + 1};
+          });
+          return {fits:pane.scrollWidth <= pane.clientWidth + 1, controls, badges:badges.every(el => {
             const r = el.getBoundingClientRect(), card = el.closest('.pk-card'), face = card.querySelector('.pk-c-face').getBoundingClientRect(), art = card.querySelector('.pk-c-art').getBoundingClientRect();
             return r.width > 25 && r.height > 10 && r.left >= face.left - 1 && r.right <= face.right + 1 && r.bottom <= art.top + 1 && el.scrollWidth <= el.clientWidth + 1;
           })};
         });
-        assert.deepEqual(fit, {fits:true, badges:true}, label + ' visible energy badges and binder fit ' + width);
+        assert.deepEqual({fits:fit.fits, controls:fit.controls.length === 5 && fit.controls.every(c => c.fits), badges:fit.badges}, {fits:true, controls:true, badges:true}, label + ' labelled sort controls, energy badges and binder fit ' + width + ': ' + JSON.stringify(fit.controls));
         if (shots && label === 'evan') await page.screenshot({path:path.join(shots, 'binder-' + width + '.png')});
       }
       assert.equal(await page.evaluate(async () => JSON.stringify((await import('/js/core/dynasty.js')).mine())), fixture.before, label + ': sorting, filtering and paging never change collection, deck or balances');
       await page.setViewportSize({width:390, height:844});
       await enter(page, url);
       await page.locator('.pk-nav [data-dy-tab="cards"]').click(); await settle(page);
-      assert.equal(await page.locator('[data-dy-sort="rar"]').getAttribute('aria-pressed'), 'true', label + ': saved secondary sort is restored');
-      await inspect(page, await expected(page, 'rar'), label + ' reload');
+      assert.equal(await page.locator('[data-dy-sort="energy"]').getAttribute('aria-pressed'), 'true', label + ': saved Energy Type sort is restored');
+      await inspect(page, await expected(page, 'energy'), label + ' reload');
       assert.deepEqual(errors, [], label + ': no browser errors');
       await context.close();
-      console.log('PASS ' + label + ': energy groups, secondary sorts, paging, filters, copy stacks, badges, phone layouts and unchanged saves');
+      console.log('PASS ' + label + ': default Overall, independent Energy Type/Team/Position/Rarity sorts, paging, filters, stacks, labels, phone layouts and unchanged saves');
     }
   } finally { await browser.close(); }
 }

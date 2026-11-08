@@ -28,17 +28,19 @@ dimensions. Legacy matches, rules, saves and access are unchanged.
 Verify `check-pocket-framing.cjs` (dense boards, long hands, phone/tablet sizes and safe areas),
 Pocket touch at 320/390, browser/presentation, felt/choices, title-screen, scope and preview/access.
 
-## Rivals binder Energy sorting (November 7, 2026)
+## Rivals binder sorting (November 7, 2026)
 
-The four `features.rivalsUpdated()` profiles now browse player cards grouped by their printed
-Energy (`PC.card(id).types[0]`). Best, Team, Position and Rarity sort within each Energy group;
-team/position/rarity subheadings retain their own counts. Trainers follow the player groups.
-Search, filters and Show more preserve the grouping, copy stacks and existing sort preference.
+The four `features.rivalsUpdated()` profiles default to Overall, highest rating first. Energy type,
+Team, Position and Rarity are independent sort options for the whole binder. Energy type groups
+by the printed Energy (`PC.card(id).types[0]`); each other grouping uses its selected field, with
+Overall as the tie-breaker. Trainers follow players. Search, filters and Show more preserve the
+selected order, group counts, copy stacks and existing sort preference. Five labeled sort buttons
+wrap on phones to retain their touch targets. No permanent Energy grouping or secondary headings.
 The player face has a named Energy band with a larger symbol between its header and portrait,
 shared by binder, details, reveals and battles. Legacy matches keep their saved Energy semantics;
 other profiles retain their existing presentation. No collection or gameplay save changes.
-Verify `check-binder-energy.cjs`, navigation/card-layout, Pocket browser/touch/presentation,
-title-screen, scope and preview/access checks before release.
+Verify `check-binder-energy.cjs`, title-screen, scope and preview/access for binder sorting changes.
+Card-face changes also need card-layout and Pocket browser/touch/presentation checks.
 
 ## Rivals Energy logos (November 7, 2026)
 

@@ -521,9 +521,10 @@ function pointsSheet(st) {
 // ---------------------------------------------------------------------------------------------------- My Cards
 const POS_ORDER = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'];
 const PAGE = 60;
-// Current Rivals binders always group by the card's printed Energy, then the chosen secondary order.
-// The original sort preference remains valid, and viewers outside the rollout keep their original grouping.
+// Overall is the default. Energy, team, position and rarity are independent binder sort options.
+// The original sort preference remains valid, and viewers outside the rollout keep their original controls.
 const SORTS = [{id: '', label: 'Best'}, {id: 'rar', label: 'Rarity'}, {id: 'team', label: 'Team'}, {id: 'pos', label: 'Position'}];
+const sortsOf = () => rivalsUpdated() ? [{id: '', label: 'Overall'}, {id: 'energy', label: 'Energy type'}, SORTS[2], SORTS[3], SORTS[1]] : SORTS;
 const BINDER_ENERGY = [...PC.ENERGY_TYPES, 'Colorless', 'Dragon'];
 const energyOf = c => PC.card(c.id)?.types[0] || B.typeEnergy(B.stats(c.id).type, currentEnergyRule());
 const energyAt = e => { const i = BINDER_ENERGY.indexOf(e); return i < 0 ? BINDER_ENERGY.length : i; };
@@ -533,11 +534,12 @@ const energyGroupOf = c => {
   return {k: energy, label: energy, energy};
 };
 const SORT_KEY = 'gg-dy-sort';
-const sortLoad = () => { try { const v = localStorage.getItem(SORT_KEY) || ''; return SORTS.some(x => x.id === v) ? v : ''; } catch (e) { return ''; } };
+const sortLoad = () => { try { const v = localStorage.getItem(SORT_KEY) || ''; return sortsOf().some(x => x.id === v) ? v : ''; } catch (e) { return ''; } };
 const sortSave = v => { try { localStorage.setItem(SORT_KEY, v); } catch (e) { /* (kept for this visit only) */ } };
 const posAt = p => { const i = POS_ORDER.indexOf(p); return i < 0 ? POS_ORDER.length : i; };
 function groupOf(sort, c) {
   if (!sort) return null;
+  if (sort === 'energy' && rivalsUpdated()) return energyGroupOf(c);
   if (!D.card(c.id)) return {k: 'T', label: 'Trainers'};
   if (sort === 'rar') return {k: c.r, label: D.RARITY_NAME[c.r] || c.r, sym: RAR_SYM[c.r]};
   if (sort === 'team') { const t = D.teamOf(c.team); return {k: c.team, label: t.name || c.team, team: c.team}; }
@@ -555,8 +557,7 @@ function cardsHTML(st) {
     + `<button type="button" class="pk-toggle${f.view === 'all' ? ' is-on' : ''}" data-dy-all aria-pressed="${f.view === 'all'}" aria-label="Show every card in the game"><i></i></button>`
     + `<button type="button" class="pk-iconb${filters ? ' is-on' : ''}" data-dy-filter aria-label="Filter">${ui.icon('sort', {size: 20})}${filters ? `<i>${filters}</i>` : ''}</button></div>`
     + `<div class="pk-search">${ui.searchField({name: 'dy-q', placeholder: 'Search players, teams or cards', value: f.q})}</div>`
-    + (rivalsUpdated() ? '<p class="pk-energy-note">Grouped by energy type <span>Sort within each type</span></p>' : '')
-    + `<div class="pk-sortr${rivalsUpdated() ? ' is-energy-sort' : ''}" role="group" aria-label="${rivalsUpdated() ? 'Sort within energy types' : 'Sort cards'}"><span>Sort</span>${SORTS.map(x => `<button type="button" data-dy-sort="${x.id}" aria-pressed="${(f.sort || '') === x.id}">${x.label}</button>`).join('')}</div></div>`;
+    + `<div class="pk-sortr${rivalsUpdated() ? ' is-binder-sort' : ''}" role="group" aria-label="Sort cards"><span>Sort</span>${sortsOf().map(x => `<button type="button" data-dy-sort="${x.id}" aria-pressed="${(f.sort || '') === x.id}">${x.label}</button>`).join('')}</div></div>`;
   const sp = D.spares(s);
   if (sp.list.length && f.view === 'mine') h += `<button type="button" class="pk-alert is-soft" data-dy-spares>${ui.icon('bolt', {size: 18})}<span>Quick sell ${sp.list.reduce((t, x) => t + x.n, 0)} spare cop${sp.list.reduce((t, x) => t + x.n, 0) === 1 ? 'y' : 'ies'} for ${nf(sp.coins)} coins</span></button>`;
   return h + '<div data-dy-grid></div>';
@@ -584,6 +585,7 @@ function filtered(st) {
   if (f.ser === 'T' && !rivalsUpdated()) return tr;
   const best = (a, b) => b.o - a.o || D.SERIES_ORDER.indexOf(a.s) - D.SERIES_ORDER.indexOf(b.s) || a.name.localeCompare(b.name);
   const by = {
+    energy: rivalsUpdated() ? (a, b) => energyAt(energyOf(a)) - energyAt(energyOf(b)) || energyOf(a).localeCompare(energyOf(b)) : null,
     rar: (a, b) => D.RARITY.indexOf(b.r) - D.RARITY.indexOf(a.r),
     team: (a, b) => (D.teamOf(a.team).name || a.team || '').localeCompare(D.teamOf(b.team).name || b.team || ''),
     pos: (a, b) => posAt(a.pos) - posAt(b.pos)
@@ -591,10 +593,9 @@ function filtered(st) {
   if (by) tr.sort((a, b) => D.RARITY.indexOf(b.r) - D.RARITY.indexOf(a.r) || a.name.localeCompare(b.name));
   if (f.ser === 'T') return tr;
   const compare = (a, b) => (by ? by(a, b) : 0) || best(a, b);
-  const updated = rivalsUpdated();
   return D.CARDS.filter(c => (f.view === 'all' || s.o[c.id] > 0) && (!f.ser || c.s === f.ser) && (!f.pos || c.pos === f.pos) && (!f.rar || c.r === f.rar)
     && (!q || data.norm(`${c.name} ${c.team} ${D.teamOf(c.team).name}`).includes(q)))
-    .sort(updated ? (a, b) => energyAt(energyOf(a)) - energyAt(energyOf(b)) || energyOf(a).localeCompare(energyOf(b)) || compare(a, b) : compare).concat(tr);
+    .sort(compare).concat(tr);
 }
 /** A card in the binder. Copies stack (Nov 2 2026, the owner: "If a user has more than one player card, should stack in
  *  the cards screen with a number in the corner showing how many total"): one card on top, the copies' edges behind it
@@ -613,25 +614,17 @@ function drawGrid(st, more = false) {
   st.gridKey = key; st.renderedKey = key;
   st.shown = from + PAGE;
   // (a heading opens each group: its name and how many cards it holds in this view)
-  const sort = st.f.sort || '', updated = rivalsUpdated(), n = {}, sub = {};
-  const primary = c => updated ? energyGroupOf(c) : groupOf(sort, c);
-  const subkey = c => `${energyGroupOf(c).k}:${groupOf(sort, c).k}`;
-  if (updated || sort) list.forEach(c => {
-    const k = primary(c).k; n[k] = (n[k] || 0) + 1;
-    if (updated && sort && D.card(c.id)) { const sk = subkey(c); sub[sk] = (sub[sk] || 0) + 1; }
-  });
-  const heading = (g, count, secondary = false) => {
+  const sort = st.f.sort || '', energySort = sort === 'energy' && rivalsUpdated(), n = {};
+  if (sort) list.forEach(c => { const k = groupOf(sort, c).k; n[k] = (n[k] || 0) + 1; });
+  const heading = (g, count) => {
     const lead = g.energy ? pipHTML(g.energy) : g.team ? `<img src="${esc(logoUrl(g.team, 64))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : g.sym ? `<i class="is-${esc(g.k)}" aria-hidden="true">${g.sym}</i>` : '';
-    const tag = secondary ? 'h4' : 'h3';
-    const attrs = updated ? secondary ? ` data-dy-subgroup="${esc(g.k)}"` : ` data-dy-energy="${esc(g.k)}"` : '';
-    return `<${tag} class="pk-gh${updated ? secondary ? ' pk-subgh' : ' pk-energy-gh' : ''}"${attrs}>${lead}<span>${esc(g.label)}</span><small>${nf(count)}</small></${tag}>`;
+    const attrs = energySort ? ` data-dy-energy="${esc(g.k)}"` : ` data-dy-group="${esc(g.k)}"`;
+    return `<h3 class="pk-gh${energySort ? ' pk-energy-gh' : ''}"${attrs}>${lead}<span>${esc(g.label)}</span><small>${nf(count)}</small></h3>`;
   };
   const head = i => {
-    if (!updated && !sort) return '';
-    const c = list[i], prev = list[i - 1], g = primary(c);
-    let h = !prev || primary(prev).k !== g.k ? heading(g, n[g.k]) : '';
-    if (updated && sort && D.card(c.id) && (!prev || subkey(prev) !== subkey(c))) h += heading(groupOf(sort, c), sub[subkey(c)], true);
-    return h;
+    if (!sort) return '';
+    const g = groupOf(sort, list[i]);
+    return i > 0 && groupOf(sort, list[i - 1]).k === g.k ? '' : heading(g, n[g.k]);
   };
   const cards = list.slice(from, st.shown).map((c, j) => head(from + j) + stackHTML(c.id, s.o[c.id] || 0, D.isNew(c.id, s))).join('');
   const next = list.length > st.shown ? `<button type="button" class="pk-more" data-dy-more>Show more (${nf(list.length - st.shown)})</button>` : '';
