@@ -1,5 +1,13 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals binder image loading (November 7, 2026)
+
+The four-profile `features.rivalsUpdated()` binder loads each rendered 60-card page's portraits and Energy artwork
+eagerly, before scrolling reaches it (`views/dynasty.js` `stackHTML`). Keep `content-visibility` for offscreen paint
+savings, append pagination and cached card nodes. Unopened pages remain on demand. Preserve the NFL-to-ESPN and
+jersey-number fallbacks. Verify `node tools/dynasty/check-card-images.cjs` for delayed images, fast scrolling,
+pagination, cached panes, filtering, unchanged saves and all four profiles (`--baseline` reproduces the pre-fix delay).
+
 ## Rivals player headlines and Energy calling cards (November 7, 2026)
 
 The four `features.rivalsUpdated()` profiles see larger, condensed player names at the top of

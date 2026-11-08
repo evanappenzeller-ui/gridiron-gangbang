@@ -601,7 +601,9 @@ function filtered(st) {
  *  the cards screen with a number in the corner showing how many total"): one card on top, the copies' edges behind it
  *  (two at most) and the total in a badge at the top-left corner. */
 function stackHTML(id, n, isNew) {
-  const one = anyHTML(id, {size: 's', count: n, noCount: n > 1, ghost: !(n > 0), isNew});
+  // Load the bounded binder page ahead of scrolling. Lazy portraits inside content-visibility
+  // wait for offscreen cards to render, leaving players blank during a fast swipe.
+  const one = anyHTML(id, {size: 's', count: n, noCount: n > 1, ghost: !(n > 0), isNew, eager: rivalsUpdated()});
   if (n < 2) return one;
   return `<div class="pk-stack is-${n > 2 ? 3 : 2}">${'<i class="pk-stack-l" aria-hidden="true"></i>'.repeat(n > 2 ? 2 : 1)}${one}<b class="pk-stack-n" aria-hidden="true">${nf(n)}</b></div>`;
 }
