@@ -1257,7 +1257,8 @@ function clearPickupPop(st) {
 }
 function catchphrase(st, kind) {
   ungot(st);
-  if (features.returnManUpdated() && kind === 'jetpack') { clearPickupPop(st); return ''; }
+  // All shared Return Man pickups stay text-free; their HUD, haptics and announcements remain.
+  if (features.returnManUpdated()) { clearPickupPop(st); return ''; }
   const owner = features.available(), line = owner ? pickupLine(st, kind) : CATCHPHRASE[kind] || 'WOOOO!';
   pop(st, line, `is-${kind} is-catch${owner ? ' is-quippy' : ''}`);
   return owner ? line : '';

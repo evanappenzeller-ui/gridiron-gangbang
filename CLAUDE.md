@@ -557,9 +557,9 @@ Pause/resume preserves the shot; reduced motion uses a shorter catch with a fixe
 `D3.prepare` preloads player, pickup and jetpack shaders under the title. Callouts use transform/opacity without
 layout flushes; the HUD and beer effect avoid full-scene blur. `check-performance.cjs` verifies no new shader
 compilation or forced layout reads during pickups/stumbles; software-GPU timings are diagnostic.
-No obstacle hint arrows or train/flight instruction banners appear during gameplay. Painkillers, beer and salts
-rotate through the three chosen lines (`UPDATED_PICKUP_LINES`) without consecutive repeats; jetpack has no text
-popup. Start-screen help and screen-reader announcements remain.
+No obstacle hint arrows or train/flight instruction banners appear during gameplay. November 8, 2026: all power-up
+pickups (painkillers, beer, salts and jetpack) have no text popup for any Return Man player. Boost effects, HUD,
+haptics, start-screen help and screen-reader announcements remain.
 
 Every scenery lasts 500 physical yards (`zoneLength`), including the opening stadium, which never
 recurs. Touchdowns remain every 100 physical yards; render tiles and markings stay at 100 for bounded batch sizes.
@@ -573,7 +573,7 @@ Before publishing, run `node tools/return/check-motion.cjs`, `check-intro.cjs`, 
 `check-environments.cjs`, `check-city-bus.cjs` and `check-city-cache.cjs` in tools/return. Motion checks shared
 courses across profiles, no stadium trains, and movement against the deployed owner pilot (c90656a); environment
 checks compare all nine shared scenes with that art, including guests, account transitions, reduced motion and canvas fallback.
-Intro checks exercise actual Play, preloading, camera/catch and pickup rotation across profiles.
+Intro checks exercise actual Play, preloading, camera/catch and text-free pickups across profiles.
 
 November 5 replay reset (everyone, explicitly requested): November 5 is Return Man day 17. `RETURN_REPLAY` in
 `score-release.js` redirects only that day's cloud result from `scoresV3.rm2.17` to `scoresV3.rm2.17r1` and projects

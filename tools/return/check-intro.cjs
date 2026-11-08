@@ -100,10 +100,11 @@ async function main() {
     await page.evaluate(() => { const {D,st,I}=window.qa; D.setMe('ben'); if (st.run.over || !I.enabled(st)) throw new Error('profile change must retain shared intro'); });
     await page.emulateMedia({reducedMotion:'no-preference'});
     await page.waitForFunction(() => !window.qa.V.getRM());
-    for (const profile of ['ben','Ryan Dow','Ryan Stewart','Evan Appenzeller','Guest Runner',null]) {
+    for (const profile of ['evan','ben','Ryan Dow','Ryan Stewart','Evan Appenzeller','Guest Runner',null]) {
       const state=await page.evaluate(profile => {
         const {D,V,ctx,I,R}=window.qa; V.unmount(document.querySelector('main'),ctx);
-        D.setMe(profile==='ben'?'ben':'none'); D.setGuest(profile==='ben'?null:profile);
+        const member = profile==='evan' || profile==='ben';
+        D.setMe(member?profile:'none'); D.setGuest(member?null:profile);
         R.setTest(true);
         const markup=V.render(ctx), probe={intro:true,mode:'catch',catchAt:0};
         V.mount(document.querySelector('main'),ctx);
@@ -117,21 +118,19 @@ async function main() {
       const shared = await page.evaluate(() => {
         const {V,D3,I,st,R}=window.qa, now=performance.now(); st.catchAt=now-1180; st.last=now; V.frame(st,now);
         const intro = st.mode==='catch' && st.run.co.enhanced && st.run.z===0 && D3.GL.punt.visible && !!I.shot(st,now);
-        const lines={pills:['I CAN’T FEEL A THING','POP A PERKY JUST TO START UP','I AM THE CONCUSSION PROTOCOL'],booze:['CASE RACE TIME','NECTAR FROM THE GODS','BUTT CHUG TIME'],salts:['LET’S GO BABY','I FEEL LIKE A SUPERHERO','OOOO THAT’S NICE']};
         let item=0;
-        for (const [kind, expected] of Object.entries(lines)) {
-          const seen=[];
-          for (let i=0;i<6;i++) { V.onEvents(st,[{type:'pickup',kind,item:{i:item++}}]); seen.push(st.el.querySelector('[data-rm-pop]').textContent); }
-          if (seen.some((s,i)=>!expected.includes(s) || (i && s===seen[i-1])) || new Set(seen.slice(0,3)).size!==3) throw new Error('Wrong shared pickup rotation '+kind);
+        for (const kind of ['pills','booze','salts','jetpack']) {
+          for (let i=0;i<6;i++) {
+            V.onEvents(st,[{type:'pickup',kind,item:{i:item++}}]);
+            if (st.el.querySelector('[data-rm-pop]').textContent || !st.el.querySelector('[data-rm-got]').hidden) throw new Error('Pickup must stay text-free: '+kind);
+          }
         }
-        V.onEvents(st,[{type:'pickup',kind:'jetpack',item:{i:item++}}]);
-        if (st.el.querySelector('[data-rm-pop]').textContent || !st.el.querySelector('[data-rm-got]').hidden) throw new Error('Jetpack must stay text-free');
         if(st.el.querySelector('[data-rm-flight-note]')) throw new Error('No gameplay instruction banner');
         return {intro, zone:R.zoneLength(st.run.co), updated:!!st.el.querySelector('.is-updated-return')};
       });
       assert.deepEqual(shared,{intro:true,zone:500,updated:true},'complete updated presentation '+profile);
     }
-    results.push('Member, app user, named guest and unselected players share title, preload, intro, course and pickup messages');
+    results.push('Owner, member, app user, named guest and unselected players share title, preload, intro, course and text-free pickups');
     assert.deepEqual(errors,[]); console.log(results.map(s=>'PASS '+s).join('\n'));
     fs.writeFileSync(path.join(output,'report.json'),JSON.stringify({passed:true,results,frames,errors},null,2));
   } finally { await browser.close(); }
