@@ -189,10 +189,10 @@ const pickW = (items, weight, R = luck) => {
 // are retired: kept only so a pack already held turns into Epic Packs (clean(): RETIRED), never sold or opened. No pack
 // holds the same card, or the same player, twice (drawPack).
 export const PACKS = {
-  std: {name: 'Standard Pack', price: 1000, blurb: 'Four player cards and a Trainer card.', color: '#2F6FDE',
-    slots: [{n: 4, pool: 'live', odds: {common: 62, epic: 26, legendary: 10, mythic: 2}}, {n: 1, pool: 'trainer', odds: {epic: 70, legendary: 30}}]},
-  team: {name: 'Team Pack', price: 1200, blurb: 'Three player cards, all from the team you pick.', color: '#1E9E6A', team: true,
-    slots: [{n: 3, pool: 'live', odds: {common: 52, epic: 33, legendary: 12, mythic: 3}}]},
+  std: {maxRarity: 'epic', name: 'Standard Pack', price: 1000, blurb: 'Four player cards and a Trainer card. Common and Epic only.', color: '#2F6FDE',
+    slots: [{n: 4, pool: 'live', odds: {common: 62, epic: 38}}, {n: 1, pool: 'trainer', odds: {epic: 100}}]},
+  team: {maxRarity: 'legendary', name: 'Team Pack', price: 1200, blurb: 'Three player cards from your team, up to Legendary.', color: '#1E9E6A', team: true,
+    slots: [{n: 3, pool: 'live', odds: {common: 52, epic: 33, legendary: 15}}]},
   prem: {name: 'Epic Pack', price: 5000, blurb: 'Five cards, every one Epic or better, the last Legendary or better. Rookies and specials inside. Earned in Solo and from rewards, or bought.', color: '#8B3FD9',
     slots: [{n: 3, pool: 'all', odds: {epic: 65, legendary: 27, mythic: 8}}, {n: 1, pool: 'trainer', odds: {epic: 50, legendary: 50}},
       {n: 1, pool: 'all', odds: {legendary: 75, mythic: 25}}]},
@@ -203,8 +203,8 @@ export const PACKS = {
   // (the owner, Oct 29 2026: "Players will get a starter pack when they open the game with 15 common players 4 rare
   // players and one epic or better player": given once (fresh, and kit3 for a Dynasty begun before it), never sold,
   // twenty different players; with Rare retired, Nov 2 2026, the four are Epic)
-  start: {name: 'Starter Pack', price: 0, starter: true, unique: true, blurb: '15 Common players, 4 Epic and one Epic or better.', color: '#D6453D',
-    slots: [{n: 15, pool: 'live', odds: {common: 100}}, {n: 4, pool: 'live', odds: {epic: 100}}, {n: 1, pool: 'live', odds: {epic: 75, legendary: 20, mythic: 5}}]}
+  start: {maxRarity: 'epic', name: 'Starter Pack', price: 0, starter: true, unique: true, blurb: '15 Common players and 5 Epic players.', color: '#D6453D',
+    slots: [{n: 15, pool: 'live', odds: {common: 100}}, {n: 4, pool: 'live', odds: {epic: 100}}, {n: 1, pool: 'live', odds: {epic: 100}}]}
 };
 export const PACK_ORDER = ['std', 'team', 'prem'];
 /** A retired pack still held: the Epic Packs it becomes (clean()). */
@@ -225,14 +225,15 @@ function poolOf(pool, team, rarity) {
   return list;
 }
 /** One card for a slot of a pack: R the randomness (luck by default). {id, ...} (a Coach or Stadium card: trainer()'s). */
-export function drawCard(slot, {team = null, R = luck, avoid = null} = {}) {
+export function drawCard(slot, {team = null, R = luck, avoid = null, maxRarity = 'mythic'} = {}) {
   // (avoid: the cards and players a pack holds already: none of them comes again; their key is keyOf's)
-  const ok = c => !avoid || !avoid.has(keyOf(c));
+  const allowed = c => RARITY.indexOf(c.r) <= RARITY.indexOf(maxRarity);
+  const ok = c => allowed(c) && (!avoid || !avoid.has(keyOf(c)));
   const rar = pickW(Object.keys(slot.odds), r => slot.odds[r], R);
   if (slot.pool === 'trainer') {
     let ids = TRAINER_IDS.filter(id => B.TRAINERS[id].r === rar && ok(trainer(id)));
     if (!ids.length) ids = TRAINER_IDS.filter(id => ok(trainer(id)));
-    if (!ids.length) ids = TRAINER_IDS;
+    if (!ids.length) ids = TRAINER_IDS.filter(id => allowed(trainer(id)));
     return trainer(ids[Math.floor(R() * ids.length)]);
   }
   let list = [];
@@ -263,7 +264,7 @@ export function drawCard(slot, {team = null, R = luck, avoid = null} = {}) {
   }
   if (!list.length) list = CARDS.filter(c => c.s !== 'X' && (!team || c.team === team) && ok(c));
   if (!list.length) list = CARDS.filter(c => c.s !== 'X' && ok(c));
-  if (!list.length) list = CARDS.filter(c => c.s !== 'X');
+  if (!list.length) list = CARDS.filter(c => c.s !== 'X' && allowed(c));
   return list[Math.floor(R() * list.length)];
 }
 /** What makes two cards in a pack the same: the player (any of his cards), else the card. */
@@ -276,7 +277,7 @@ export function drawPack(kind, {team = null, R = luck} = {}) {
   // (every pack: no card, and no player, twice)
   P.slots.forEach(sl => {
     for (let i = 0; i < sl.n; i++) {
-      const c = drawCard(sl, {team, R, avoid: seen});
+      const c = drawCard(sl, {team, R, avoid: seen, maxRarity: P.maxRarity});
       seen.add(keyOf(c)); out.push(c.id);
     }
   });

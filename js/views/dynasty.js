@@ -22,6 +22,7 @@ import * as SOLO from '../core/dynasty-solo.js';
 import * as LIVE from '../core/rivals-live.js';
 import {profileKey} from '../core/realm-active.js';
 import {packHTML, designsOf} from './dynasty-packs.js';
+import {nextPackPreview} from './dynasty-pack-preview.js';
 import {packShelfHTML, mountPackShelf} from './dynasty-pack-shelf.js';
 import {openScene} from './dynasty-open.js';
 import {bindCardFoil} from './dynasty-foil.js';
@@ -313,7 +314,7 @@ function packsHTML(st) {
   // (the Starter Pack first while it waits; once opened, back to the Standard Pack)
   if (s.pk.start && !st.startShown) { st.pack = 'start'; st.startShown = true; }
   if (!D.PACKS[st.pack] || (D.PACKS[st.pack].starter && !s.pk[st.pack])) st.pack = D.DAILY_PACK;
-  if (rivalsUpdated()) return packShelfHTML(packKinds(s), st.pack, kind => artAt(st, kind), c => cardHTML(c, {size: 's', tag: false, noCount: true}));
+  if (rivalsUpdated()) return packShelfHTML(packKinds(s), st.pack, kind => artAt(st, kind), c => cardHTML(c, {size: 's', tag: false, noCount: true}), st.packPreview ||= nextPackPreview(profileKey(), ui.lsGet, ui.lsSet));
   const kind = st.pack, P = D.PACKS[kind], have = s.pk[kind] || 0, free = D.dailyReady(s) && kind === D.DAILY_PACK;
   const wait = waitingOf(st), ready = D.claimable(s);
   const best = packBest(kind);
@@ -1169,6 +1170,7 @@ function go(st, tab, {keep = false} = {}) {
   st.tab = tab;
   if (tab === 'battle' && !keep) st.bv = '';
   if (previous === tab && st.renderedKey === paneKey(st) && st.renderedRevision === st.revision && paneFresh(tab, st.renderedAt)) return;
+  if (tab === 'packs' && previous !== tab) { st.packPreview = null; st.panes.delete(tab); }
   const cached = st.panes.get(tab);
   st.panes.delete(tab);
   if (cached && cached.key === paneKey(st) && paneFresh(tab, cached.at)) {

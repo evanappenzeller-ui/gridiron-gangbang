@@ -52,7 +52,7 @@ async function packPreviews(page) {
     const slots = [...document.querySelectorAll('.pk-pack-slot')];
     return slots.map(slot => {
       const kind = slot.dataset.packKind, preview = slot.querySelector('.pk-pack-preview');
-      const expected = packTopPlayers(kind).map(c => c.name);
+      const expected = packTopPlayers(kind, {limit: 12}).map(c => c.name);
       const cards = [...(preview?.querySelectorAll('.pk-pack-preview-card') || [])];
       return {
         kind, label: preview?.getAttribute('aria-label'), expected,
@@ -69,11 +69,12 @@ async function packPreviews(page) {
   assert.ok(result.length >= 9, 'The looping shelf has three copies of every pack option');
   for (const row of result) {
     assert.equal(row.label, `Top available players in ${row.packName}`, row.kind + ': accessible preview label');
-    assert.equal(row.expected.length, 4, row.kind + ': four eligible top players');
+    assert.ok(row.expected.length >= 4, row.kind + ': eligible top players');
     assert.equal(row.passive, true, row.kind + ': previews are noninteractive cards');
     assert.equal(row.cloneHidden, true, row.kind + ': duplicate previews remain hidden from assistive technology');
     assert.equal(row.teamNote, true, row.kind + ': team choice is explained');
-    row.expected.forEach((name, i) => {
+    row.names.forEach((name, i) => {
+      assert.ok(row.expected.includes(name), row.kind + ": eligible rotating player");
       assert.ok(row.names[i]?.includes(name), `${row.kind}: visible caption names ${name}`);
       assert.ok(row.cardNames[i]?.includes(name), `${row.kind}: card face matches ${name}`);
     });
@@ -492,6 +493,13 @@ async function packProfileFlow(browser, url) {
         assert.deepEqual(await packPreviewFit(page), {fits: true, pack: true, preview: true, cards: true, buy: true}, p.tag + ': ' + name + ' preview fits');
         await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
       }
+      const names = () => page.locator('.pk-pack-slot.is-cur .pk-pack-preview-card > span').allTextContents();
+      const first = await names();
+      await page.locator('.pk-tab[data-dy-tab="home"]').click();
+      await page.locator('.pk-tab[data-dy-tab="packs"]').click();
+      await page.waitForTimeout(300);
+      assert.notDeepEqual(await names(), first, 'Revisiting Packs rotates the featured players');
+      await packPreviews(page);
       assert.deepEqual(await state(), before, p.tag + ': browsing top players preserves progress and privileges');
       assert.equal(await page.locator('div.pk-open').count(), 0, p.tag + ': browsing never opens packs');
       await snap(page, p.tag + '-pack-preview');

@@ -21,3 +21,14 @@ export function packTopPlayers(kind, {team = null, limit = 4} = {}) {
     return true;
   }).slice(0, Math.max(0, Math.floor(Number(limit) || 0)));
 }
+
+// Cosmetic cursor, independent of game saves.
+export function nextPackPreview(profile, read, write) {
+  const key = 'gg-rivals-pack-preview:' + profile + ':v1';
+  const cursor = Math.floor(Math.max(0, Number(read(key)) || 0)) % 3;
+  write(key, String((cursor + 1) % 3));
+  return Object.fromEntries(['start', ...D.PACK_ORDER].map(kind => {
+    const pool = packTopPlayers(kind, {limit: 12});
+    return [kind, Array.from({length: Math.min(4, pool.length)}, (_, i) => pool[(cursor * 4 + i) % pool.length])];
+  }));
+}

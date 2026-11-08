@@ -11,12 +11,12 @@ export function purchaseHTML(kind) {
   return `<span>Purchase</span><span class="pk-pack-price">${free ? 'Free' : `${data.nf(P.price)} coins`}</span>`;
 }
 
-export function packShelfHTML(kinds, selected, design, renderCard) {
+export function packShelfHTML(kinds, selected, design, renderCard, players) {
   // A display-only strip avoids nested controls and keeps the looping copies out of the tab order.
   const previews = Object.fromEntries(kinds.map(kind => [kind,
     `<section class="pk-pack-preview" aria-hidden="${kind !== selected}" aria-label="Top available players in ${data.esc(D.PACKS[kind].name)}">`
     + '<h2>Top available players</h2><div class="pk-pack-preview-row">'
-    + packTopPlayers(kind).map(c => `<div class="pk-pack-preview-card">${renderCard(c)}<span aria-hidden="true">${data.esc(c.name)}</span></div>`).join('')
+    + (players?.[kind] || packTopPlayers(kind)).map(c => `<div class="pk-pack-preview-card">${renderCard(c)}<span aria-hidden="true">${data.esc(c.name)}</span></div>`).join('')
     + `</div><p>${kind === 'team' ? 'Across teams · choose at purchase' : 'Possible pulls · not guaranteed'}</p></section>`]));
   const row = clone => kinds.map(kind => `<div class="pk-pack-slot" data-pack-kind="${kind}"${clone ? ' data-pack-clone aria-hidden="true"' : ''}>`
     + previews[kind]

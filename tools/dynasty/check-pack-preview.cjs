@@ -10,11 +10,11 @@ const source = file => fs.readFileSync(path.join(root, file), 'utf8').replace(/^
   const TABLE = await import(pathToFileURL(path.join(root, 'js/core/dynasty-table.js')));
   const POCKET = await import(pathToFileURL(path.join(root, 'js/core/dynasty-pocket-cards.js')));
   const ctx = vm.createContext({B, TABLE, POCKET, REAL: {}, ACTION: {}});
-  vm.runInContext(source('js/core/dynasty.js') + '\nthis.api={setData,drawCard,PACKS,SCALE,get CARDS(){return CARDS},get TEAMS(){return TEAMS}}', ctx);
+  vm.runInContext(source('js/core/dynasty.js') + '\nthis.api={setData,drawCard,PACKS,SCALE,drawPack,rng,anyCard,PACK_ORDER,get CARDS(){return CARDS},get TEAMS(){return TEAMS}}', ctx);
   const D = ctx.api;
   D.setData(JSON.parse(fs.readFileSync(path.join(root, 'data/dynasty.json'))));
   const preview = vm.createContext({D});
-  vm.runInContext(source('js/views/dynasty-pack-preview.js') + '\nthis.top=packTopPlayers;', preview);
+  vm.runInContext(source('js/views/dynasty-pack-preview.js') + '\nthis.top=packTopPlayers;this.next=nextPackPreview;', preview);
   const top = preview.top, before = JSON.stringify(D.CARDS), packBefore = JSON.stringify(D.PACKS);
   const ids = cards => Array.from(cards, c => c.id);
   const order = (a,b) => b.o-a.o || (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
@@ -44,7 +44,16 @@ const source = file => fs.readFileSync(path.join(root, file), 'utf8').replace(/^
       if (kind === 'prem') assert.ok(all.every(c => c.o >= D.SCALE.epic), 'Epic preview contains no common cards');
     }
   }
-  assert.ok(top('std').some(c => c.s !== 'L'), 'Canonical special-series stars are included in Standard');
+  for (const kind of ['std','start','team','prem']) for (const team of kind === 'team' ? Object.keys(D.TEAMS) : [null]) for(let i=0;i<100;i++) {
+    const cards = D.drawPack(kind,{team,R:D.rng(kind+team+i)}).map(D.anyCard);
+    assert.equal(new Set(cards.map(c=>c.p || c.id)).size,cards.length);
+    assert.ok(cards.every(c=>kind === 'prem' || (kind === 'team' ? c.r !== 'mythic' : ['common','epic'].includes(c.r))));
+    if(team) assert.ok(cards.every(c=>c.team===team));
+  }
+  const memory = new Map(), next = key => preview.next(key,k=>memory.get(k),(k,v)=>memory.set(k,v));
+  const a=next('m_evan'), b=next('m_evan');
+  for(const k of ['std','team','prem','start']) {assert.notDeepEqual(ids(a[k]),ids(b[k]));assert.ok(b[k].every(c=>top(k,{limit:12}).includes(c)));}
+  assert.deepEqual(ids(next('m_jayton').std),ids(a.std));
   assert.equal(top('team', {team:'invalid'}).length, 0);
   for (const kind of ['gday','leg','invalid']) assert.equal(top(kind).length, 0, 'Unavailable packs have no preview');
   assert.equal(top('std', {limit:0}).length, 0);

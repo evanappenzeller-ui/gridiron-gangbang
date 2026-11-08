@@ -951,3 +951,5 @@ red, silver and charcoal broadcast-studio backdrop; all styles stay inside the R
 Verify `check-pack-preview.cjs`, `check-start-browser.cjs`, `check-preview.cjs`, `check-access.cjs`, `check-rollout.cjs`
 and `check-scope.cjs` in `tools/dynasty`. The start check covers phone/tablet/landscape, keyboard/touch, reduced
 motion, all four profiles and unchanged individual pack/coin privileges.
+
+Pack update: Standard and Starter cap at Epic (including Standard trainers); Team caps at Legendary. Mythic pulls are exclusive to Epic packs. Removed odds flow to the highest allowed tier. Preview groups rotate through the top 12 eligible players per stable profile on each Packs visit, stored separately from gameplay saves. Existing collections are unchanged.
