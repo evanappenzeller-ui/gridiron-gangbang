@@ -121,6 +121,12 @@
         {"by": "mitch", "bet": "Los Angeles Rams Moneyline", "hit": true, "stat": "Rams won 35–21"},
         {"by": "sayer", "bet": "Brandin Cooks 15+ Receiving Yards", "hit": false, "stat": "1 catch for 13 yds"}
       ]
+    },
+    {
+      "year": 2026, "week": 9,
+      "legs": [
+        {"by": "mason", "for": "corbin", "bet": "Jahmyr Gibbs Anytime TD Scorer", "hit": null}
+      ]
     }
   ]
 }
