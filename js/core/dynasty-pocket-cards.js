@@ -152,6 +152,33 @@ export function isRentalDeck(ids, energy) {
   return Array.isArray(ids) && ids.length === rental.ids.length && [...ids].sort().join('|') === [...rental.ids].sort().join('|')
     && Array.isArray(energy) && energy.length === 1 && energy[0] === 'Fire';
 }
+/** A collection-backed deck for the requested Energy, or null if it cannot reach 20.
+ * Matching Bases lead each chosen type; Colorless players and the reusable playbook may fill it.
+ * Count canonical names across alternate art and include each development's exact predecessor. */
+export function energyDeck(owned = {}, energy = []) {
+  if (!Array.isArray(energy) || !energy.length || energy.length > 3 || new Set(energy).size !== energy.length || energy.some(e => !ENERGY_TYPES.includes(e))) return null;
+  const bases = BASES.filter(c => availableCopies(owned, c.id) && (energy.includes(c.type) || c.type === 'Colorless'))
+    .sort((a, b) => availableCopies(owned, b.id) - availableCopies(owned, a.id) || a.canonicalName.localeCompare(b.canonicalName));
+  const leads = [...new Set(energy.map(type => bases.find(c => c.type === type) || bases.find(c => c.type === 'Colorless')))];
+  if (leads.some(c => !c)) return null;
+  const pool = [...leads, ...bases.filter(c => !leads.includes(c))];
+  const ids = [], names = new Map(), counts = new Map();
+  const add = id => {
+    const c = card(id);
+    if (!c || ids.length >= DECK_SIZE || (counts.get(id) || 0) >= availableCopies(owned, id) || (names.get(c.canonicalName) || 0) >= MAX_COPIES) return;
+    if (c.predecessor && !ids.includes(c.predecessor)) return;
+    ids.push(id); counts.set(id, (counts.get(id) || 0) + 1); names.set(c.canonicalName, (names.get(c.canonicalName) || 0) + 1);
+  };
+  const players = Math.max(6, leads.length * 3);
+  for (let pass = 0; pass < MAX_COPIES && ids.length < players; pass++) {
+    for (const c of pool) {
+      add(c.id); add(`${c.id}~breakout`); add(`${c.id}~prime`);
+      if (ids.length >= players) break;
+    }
+  }
+  for (const c of SUPPORTS) for (let n = 0; n < MAX_COPIES; n++) add(c.id);
+  return checkDeck(ids, owned, energy).ok ? {ids, energy: energy.slice(), name: `${energy.join(' / ')} deck`, rental: false} : null;
+}
 /** Build a coherent owned deck, falling back to the visibly labeled rental. Never save here. */
 export function defaultDeck(owned = {}) {
   const bases = BASES.filter(c => availableCopies(owned, c.id) >= 2).sort((a, b) => a.canonicalName.localeCompare(b.canonicalName));

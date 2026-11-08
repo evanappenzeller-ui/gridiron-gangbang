@@ -12,7 +12,7 @@ import {printedCard} from './dynasty-pocket-card.js';
 import {ENERGY_COLOR, energySVG} from './dynasty-energy.js';
 
 const esc = data.esc;
-const ENERGIES = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal'];
+const ENERGIES = C.ENERGY_TYPES;
 const label = c => c?.canonicalName || c?.name || 'Unknown card';
 const kind = c => c.kind === 'player' ? c.stage : ({item: 'Item', supporter: 'Supporter', tool: 'Tool', stadium: 'Stadium'}[c.kind] || c.kind);
 const points = c => c.classification === 'mega-ex' ? 3 : c.classification === 'ex' ? 2 : 1;
@@ -93,10 +93,18 @@ export function inspectCard(id, portrait) {
 function editor(onChange, slot, portrait) {
   if (!rivalsUpdated()) return;
   const openedFor = profileKey(), s = D.mine(), starting = slot || C.defaultDeck(s.o);
-  let draft = starting.rental ? [] : starting.ids.slice(), energy = starting.rental ? ['Fire'] : (starting.energy || ['Fire']).slice();
+  let draft = starting.rental ? [] : starting.ids.slice(), energy = starting.rental ? [] : (starting.energy || ['Fire']).slice();
   let search = '', category = 'all', limit = 60, moving = '', drag = null, ignoreClick = false;
   const pool = C.availableCards(s.o);
   const available = id => C.availableCopies(s.o, id);
+  let energyStock = '', energyDecks = new Map();
+  const refreshEnergy = () => {
+    const stock = JSON.stringify(s.o);
+    if (stock !== energyStock) { energyStock = stock; energyDecks = new Map(ENERGIES.map(type => [type, C.energyDeck(s.o, [type])])); }
+  };
+  refreshEnergy();
+  const energyChoices = () => `<fieldset class="pd-energy pd-energy-choices"><legend>Energy Zone · choose 1–3 types</legend>${ENERGIES.map(t => `<label data-pd-energy-choice="${t}" style="--choice-energy:${ENERGY_COLOR[t]}"><input type="checkbox" data-pd-energy="${t}"><span class="pd-energy-icon">${energySVG(t)}</span><span class="pd-energy-copy"><b>${t}</b><small data-pd-energy-status></small></span></label>`).join('')}</fieldset>
+    <p class="pd-note">Dark choices need more matching cards for a 20-card deck. Colorless cards can help any type; development and support playbook cards count too. Auto-build uses your selected Energy. With multiple types, battle Energy is random among them.</p>`;
   const faces = new Map();
   const face = id => { if (!faces.has(id)) faces.set(id, printedCard(id)); return faces.get(id); };
   const canAdd = c => c && draft.length < 20 && (copies(draft)[c.id] || 0) < Math.min(2, available(c.id)) && canonicalCount(draft, c) < 2;
@@ -122,12 +130,11 @@ function editor(onChange, slot, portrait) {
   const lifecycle = new AbortController();
   const sh = ui.openSheet({title: slot ? 'Edit deck' : 'Build a deck', cls: 'pk-sheet pocket-deck-sheet', detents: ['large'], onClose: () => { cancelDrag(); lifecycle.abort(); stop?.(); }, body: `<div class="pd-editor">
     <label class="pd-field">Deck name<input type="text" data-pd-name maxlength="32" value="${esc(slot?.name || 'My new deck')}" autocomplete="off"></label>
+    ${energyChoices()}
     <div class="pd-editor-tools"><b data-pd-count role="status" aria-live="polite"></b><button type="button" class="pk-btn" data-pd-auto>Auto-build</button><button type="button" class="pk-btn is-go" data-pd-save>Save deck</button></div>
     <h3 class="pd-grid-heading">Cards in your deck</h3><p class="pd-note">Tap a card to read it. Drag its Move handle to rearrange, or tap Move then another card. Use + and − to change copies.</p>
     <p class="pd-reorder-status" data-pd-reorder-status role="status" aria-live="polite"></p>
     <div class="pd-card-grid" data-pd-selected-grid></div>
-    <fieldset class="pd-energy"><legend>Energy Zone · choose 1–3 types</legend>${ENERGIES.map(t => `<label><input type="checkbox" data-pd-energy="${t}" ${energy.includes(t) ? 'checked' : ''}><span>${t}</span></label>`).join('')}</fieldset>
-    <p class="pd-note">Your normal Energy is random among your chosen types. Colorless costs accept any type.</p>
     <h3 class="pd-grid-heading">Add cards</h3><p class="pd-note">20 cards per deck · at least one Base · up to two of each card name. Choose from your collection and reusable playbook.</p>
     <label class="pd-field">Find a card<input type="search" data-pd-search placeholder="Athlete, stage or battle type"></label>
     <label class="pd-field">Show<select data-pd-filter><option value="all">All available cards</option><option value="selected">Cards in this deck</option><option value="player">Players</option><option value="item">Items</option><option value="supporter">Supporters</option><option value="tool">Tools</option><option value="stadium">Stadiums</option></select></label>
@@ -139,7 +146,16 @@ function editor(onChange, slot, portrait) {
     sh.body.querySelector('[data-pd-count]').textContent = `${draft.length}/20 · ${result.ok ? 'Ready to battle' : result.why}`;
     if (!poolOnly) sh.body.querySelector('[data-pd-selected-grid]').innerHTML = selected();
     sh.body.querySelector('[data-pd-rows]').innerHTML = rows();
-    sh.body.querySelectorAll('[data-pd-energy]').forEach(el => { el.checked = energy.includes(el.dataset.pdEnergy); el.disabled = energy.length >= 3 && !el.checked; });
+    refreshEnergy();
+    sh.body.querySelectorAll('[data-pd-energy]').forEach(el => {
+      const supported = !!energyDecks.get(el.dataset.pdEnergy), selected = energy.includes(el.dataset.pdEnergy);
+      el.checked = selected; el.disabled = !selected && (!supported || energy.length >= 3);
+      const tile = el.closest('[data-pd-energy-choice]');
+      tile.classList.toggle('is-unavailable', !supported); tile.classList.toggle('is-selected', selected);
+      tile.classList.toggle('is-at-limit', supported && el.disabled);
+      tile.querySelector('[data-pd-energy-status]').textContent = supported ? 'Deck available' : selected ? 'Saved choice · tap to remove' : 'Need more cards';
+    });
+    sh.body.querySelector('[data-pd-auto]').disabled = !C.energyDeck(s.o, energy);
     sh.body.querySelector('[data-pd-save]').disabled = !energy.length;
     showMoving();
     if (focusId) {
@@ -222,7 +238,9 @@ function editor(onChange, slot, portrait) {
     if (e.target.matches('[data-pd-filter]')) { category = e.target.value; limit = 60; draw({poolOnly: true}); }
     if (e.target.matches('[data-pd-energy]')) {
       const type = e.target.dataset.pdEnergy;
-      energy = e.target.checked ? [...new Set([...energy, type])].slice(0, 3) : energy.filter(t => t !== type); draw();
+      refreshEnergy();
+      if (e.target.checked && (!energyDecks.get(type) || energy.length >= 3 && !energy.includes(type))) { draw({poolOnly: true}); return; }
+      energy = e.target.checked ? [...new Set([...energy, type])].slice(0, 3) : energy.filter(t => t !== type); draw({poolOnly: true});
     }
   });
   sh.body.addEventListener('click', e => {
@@ -251,8 +269,8 @@ function editor(onChange, slot, portrait) {
       if (canAdd(c)) draft.push(id); moving = ''; draw({focusId: id, focusAction: action});
     }
     if (e.target.closest('[data-pd-auto]')) {
-      const built = C.defaultDeck(s.o);
-      if (built.rental) { ui.toast('Collect more Base Players to build a custom deck. The starter rental is ready in My decks.'); return; }
+      const built = C.energyDeck(s.o, energy);
+      if (!built) { ui.toast('Choose available Energy types to auto-build from your collection.'); return; }
       draft = built.ids.slice(); energy = built.energy.slice(); moving = ''; draw();
     }
     if (e.target.closest('[data-pd-save]')) {

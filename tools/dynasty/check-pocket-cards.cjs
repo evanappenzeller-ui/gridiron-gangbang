@@ -71,5 +71,28 @@ const assert = require('node:assert/strict');
   assert.deepEqual(effects, ['draw','search-base','heal','fast-track','max-hp','matchup-change','base-max-hp']);
   assert(C.card('P7-matchup').text.includes('opponent chooses'));
   assert(C.card('P7-scout').text.includes('random'));
+  // Energy availability must represent a complete, playable collection-backed deck, not a count of pictures.
+  C.setCards([...fixtures, ...Array.from({length: 100}, (_, i) => ({id: `energy-${i}`, name: `Energy Athlete ${i}`, pos: 'QB'}))]);
+  const selected = C.ENERGY_TYPES.map(type => C.allCards().find(c => !c.rentalOnly && c.stage === 'Base' && c.type === type));
+  assert(selected.every(Boolean), 'fixtures cover all eight Energy types');
+  for (const c of selected) {
+    assert.equal(C.energyDeck({}, [c.type]), null, 'support playbook alone cannot unlock an Energy type');
+    assert.equal(C.energyDeck({[c.id]: 1}, [c.type]), null, 'one Base plus its forms and supports is only 19 available cards');
+    const owned = {[c.id]: 2}, before = JSON.stringify(owned), built = C.energyDeck(owned, [c.type]);
+    assert(built && C.checkDeck(built.ids, owned, built.energy).ok, c.type + ': exactly enough owned copies unlock a legal 20-card deck');
+    assert.equal(built.rental, false); assert.equal(built.ids.length, 20);
+    assert(built.ids.filter(id => C.card(id).kind === 'player').every(id => C.card(id).type === c.type));
+    assert.equal(JSON.stringify(owned), before, 'availability and building never mutate ownership');
+    for (const id of built.ids) if (C.card(id).predecessor) assert(built.ids.includes(C.card(id).predecessor), 'development retains its exact predecessor');
+  }
+  const mixedOwned = Object.fromEntries(selected.slice(0, 3).map(c => [c.id, 2])), types = selected.slice(0, 3).map(c => c.type);
+  const mixed = C.energyDeck(mixedOwned, types);
+  assert(mixed && C.checkDeck(mixed.ids, mixedOwned, types).ok);
+  assert(types.every(type => mixed.ids.some(id => C.card(id).type === type)), 'Auto-build includes each requested Energy');
+  const artOwned = {'owned-a': 1, 'owned-a-art': 1}, alt = C.energyDeck(artOwned, ['Fire']);
+  assert(alt && C.checkDeck(alt.ids, artOwned, alt.energy).ok, 'alternate artwork combines copies within canonical limits');
+  for (const type of C.ENERGY_TYPES) assert(C.energyDeck({'owned-b': 2}, [type]), 'Colorless cards can use any actual Energy type');
+  for (const energy of [[], ['Dragon'], ['Colorless'], ['Fire', 'Fire'], C.ENERGY_TYPES]) assert.equal(C.energyDeck(mixedOwned, energy), null);
   console.log('PASS Pocket catalog: legal decks, canonical copies, independent metadata, rental ownership and CPU recipes.');
+  console.log('PASS Energy availability: eight types, exact/sparse/alternate/Colorless collections, coherent 20-card builds and no mutations.');
 })().catch(e => { console.error(e); process.exitCode = 1; });

@@ -1,5 +1,18 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals deck Energy availability (November 7, 2026)
+
+For the four Rivals profiles, the deck builder shows all eight selectable Energy Zone types above the cards.
+`core/dynasty-pocket-cards.js` `energyDeck()` tests whether owned matching/Colorless Bases, their available
+development forms and reusable supports can form a legal 20-card deck. It respects canonical copy limits and
+exact development predecessors without granting cards. Insufficient types remain visible, dark and disabled.
+An unsupported choice already in a saved deck stays intact and may be removed, but cannot be selected anew.
+Auto-build uses the chosen 1–3 Energy types; changing a checkbox alone never replaces cards or writes a save.
+Colorless cards can use any Energy; Colorless and Dragon remain card types rather than new Energy generators.
+Verify `check-deck-energy-browser.cjs`, `check-pocket-cards.cjs`, deck-shelf-browser, Pocket integration/browser,
+title-screen, preview/access and scope. Browser checks cover all four profiles, sparse inventory, phone/tablet
+layouts, rejected unavailable toggles, incomplete drafts, chosen Auto-build and save/reload.
+
 ## Rivals visual deck editing (November 7, 2026)
 
 The four `features.rivalsUpdated()` profiles see the actual printed cards in deck details and the editor
