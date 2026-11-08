@@ -158,6 +158,70 @@
 @media (prefers-reduced-motion:reduce) {
   .v-dynasty-battle .rp-hand>.rp-card {transition:none;}
 }
+/* Fit the face-up cards to the usable felt, reserving actual space for the hand,
+   HP, Energy and turn controls. Decorative backs use the upper-left gutter. */
+.v-dynasty-battle .rp-battle {
+  --rp-arena-height:clamp(440px,calc(var(--rp-screen-height,100svh) - 104px - env(safe-area-inset-top) - env(safe-area-inset-bottom)),1050px);
+  --rp-bench-w:clamp(44px,min(19vw,calc(var(--rp-arena-height)*.09)),90px);
+  --rp-bench-h:calc(var(--rp-bench-w)*88/63);
+  --rp-hand-w:clamp(54px,min(24vw,calc(var(--rp-arena-height)*.116)),100px);
+  --rp-hand-h:calc(var(--rp-hand-w)*88/63);
+  --rp-start:clamp(16px,calc(var(--rp-arena-height)*.0216),18px);
+  --rp-gap:clamp(8px,calc(var(--rp-arena-height)*.0135),10px);
+  --rp-mid:clamp(28px,calc(var(--rp-arena-height)*.046),34px);
+  --rp-after:clamp(23px,calc(var(--rp-arena-height)*.036),26px);
+  --rp-active-h:calc((var(--rp-arena-height) - var(--rp-bench-h)*2 - var(--rp-hand-h) - var(--rp-start) - var(--rp-gap)*2 - var(--rp-mid) - var(--rp-after) - 25px)/2);
+  --rp-opp-active:calc(var(--rp-start) + var(--rp-bench-h) + var(--rp-gap));
+  --rp-own-active:calc(var(--rp-opp-active) + var(--rp-active-h) + var(--rp-mid));
+  --rp-own-bench:calc(var(--rp-own-active) + var(--rp-active-h) + var(--rp-after));
+  --rp-hand-top:calc(var(--rp-own-bench) + var(--rp-bench-h) + var(--rp-gap));
+}
+:root.is-rot .v-dynasty-battle .rp-battle {--rp-screen-height:var(--lock-w);}
+.v-dynasty-battle .rp-top {height:44px;}
+.v-dynasty-battle .rp-arena::before {bottom:0;}
+.v-dynasty-battle .rp-arena::after {bottom:17px;}
+.v-dynasty-battle .rp-active {width:calc(var(--rp-active-h)*63/88);height:var(--rp-active-h);}
+.v-dynasty-battle .rp-bench {width:calc(var(--rp-bench-w)*3 + 18px);height:var(--rp-bench-h);gap:9px;}
+.v-dynasty-battle .is-opponent>.rp-bench {top:var(--rp-start);}
+.v-dynasty-battle .is-opponent>.rp-active {top:var(--rp-opp-active);}
+.v-dynasty-battle .is-mine>.rp-active {top:var(--rp-own-active);}
+.v-dynasty-battle .is-mine>.rp-bench {top:var(--rp-own-bench);}
+.v-dynasty-battle .rp-active .rp-live-hp {left:calc(100% + 5px);right:auto;top:0;font-size:22px;}
+.v-dynasty-battle .rp-active .rp-hp {left:calc(100% + 5px);right:auto;top:26px;width:30px;min-width:0;height:4px;box-shadow:0 0 0 1px #3c7085;}
+.v-dynasty-battle .rp-status {top:calc(var(--rp-opp-active) + var(--rp-active-h) + 9px);height:calc(var(--rp-mid) - 11px);left:20%;right:20%;}
+.v-dynasty-battle .rp-opponent-hand {top:5px;left:12px;transform:none;width:52px;height:38px;}
+.v-dynasty-battle .rp-opponent-hand>small {bottom:-8px;font-size:7px;white-space:nowrap;letter-spacing:0;}
+.v-dynasty-battle .rp-opponent-hand>span+span {margin-left:-34%;}
+.v-dynasty-battle .rp-manager.is-opponent {top:5px;right:4px;max-width:70px;}
+.v-dynasty-battle .rp-manager {line-height:1.2;}
+.v-dynasty-battle .rp-manager>span:first-child {white-space:normal;overflow-wrap:anywhere;}
+.v-dynasty-battle .rp-manager.is-mine {top:max(220px,calc(var(--rp-own-active) + 28px));left:4px;}
+.v-dynasty-battle .rp-energy-zone.is-opponent {top:64px;left:8px;}
+.v-dynasty-battle .rp-energy-zone.is-mine {top:var(--rp-own-bench);bottom:auto;right:8px;}
+.v-dynasty-battle .rp-deck {width:44px;height:62px;}
+.v-dynasty-battle .rp-deck.is-opponent {left:auto;right:12px;top:70px;}
+.v-dynasty-battle .rp-deck.is-mine {right:12px;top:calc(var(--rp-own-active) - 40px);}
+.v-dynasty-battle .rp-discard {width:44px;height:48px;min-height:44px;}
+.v-dynasty-battle .rp-discard.is-opponent {left:8px;top:124px;height:44px;}
+.v-dynasty-battle .rp-discard.is-mine {right:8px;top:calc(var(--rp-own-bench) - 58px);}
+.v-dynasty-battle .rp-stadium {top:max(170px,calc(var(--rp-own-active) - 22px));left:8px;width:50px;}
+.v-dynasty-battle .rp-menu {top:var(--rp-own-bench);bottom:auto;left:8px;}
+.v-dynasty-battle .rp-hand-section {top:var(--rp-hand-top);bottom:auto;height:var(--rp-hand-h);}
+.v-dynasty-battle .rp-hand {--rp-hand-card:var(--rp-hand-w);}
+.v-dynasty-battle .rp-hand>.rp-card:not(.is-preview):not(.is-held):not(:focus-visible) {transform:translate(-50%,min(var(--fan-lift,0px),12px)) rotate(var(--fan-angle,0deg));}
+.v-dynasty-battle .rp-turn-action {margin-top:0;}
+.v-dynasty-battle .rp-turn-action.is-choice {padding-left:8px;}
+.v-dynasty-battle .rp-turn-action.is-choice .rp-section-heading {display:none;}
+.v-dynasty-battle .rp-section-heading {top:8px;left:8px;right:auto;width:48px;height:44px;display:block;}
+.v-dynasty-battle .rp-section-heading h2 {position:absolute;top:3px;left:0;width:100%;white-space:nowrap;font-size:6.5px;text-align:center;}
+.v-dynasty-battle .rp-expand-hand {font-size:9px;padding:12px 0 0;min-height:44px;width:48px;}
+/* The table's attack names, costs and effects get more of each printed face.
+   Collection, inspection and reveal typography retains its existing proportions. */
+.v-dynasty-battle .rp-field .pk-card.pk-rivals-card:not(.pk-trainer):not(.sz-s) .pk-c-atk {min-height:8cqw;}
+.v-dynasty-battle .rp-field .pk-card.pk-rivals-card:not(.pk-trainer):not(.sz-s) .pk-c-atk>b {font-size:6.5cqw;line-height:1.05;}
+.v-dynasty-battle .rp-field .pk-card.pk-rivals-card:not(.pk-trainer):not(.sz-s) .pk-c-atk>em {font-size:7cqw;}
+.v-dynasty-battle .rp-field .pk-c-atk .pk-e {font-size:5cqw;}
+.v-dynasty-battle .rp-field .pk-card.pk-rivals-card:not(.pk-trainer):not(.sz-s) .pk-c-fx {font-size:3.8cqw;line-height:1.15;}
 .pk-sheet .rp-sheet-content {max-width:600px;margin:auto;color:var(--ink,#21372d);font-size:14px;line-height:1.55;}
 .pk-sheet .rp-inspect-card {width:240px;max-width:100%;height:auto;aspect-ratio:63/88;margin:0 auto 12px;cursor:default;}
 .pk-sheet .rp-caption {text-align:center;}
@@ -197,7 +261,7 @@
 .pk-sheet.rp-card-focus .rp-actions {margin:16px 0;}
 @media (max-height:650px) {
   .v-dynasty-battle .rp-live-hp {font-size:21px;top:-17px;}
-  .v-dynasty-battle .is-mine>.rp-active .rp-live-hp {top:-9px;}
+  .v-dynasty-battle .rp-active .rp-live-hp {top:0;}
   .v-dynasty-battle .rp-bench .rp-live-hp {font-size:15px;top:-13px;}
   .v-dynasty-battle .rp-hand>.rp-card:is(.is-preview,:focus-visible) {transform:translate(-50%,-40px) rotate(0) scale(1.16);}
   .v-dynasty-battle .rp-hand>.rp-card.is-held {transform:translate(-50%,-48px) rotate(-2deg) scale(1.18);}

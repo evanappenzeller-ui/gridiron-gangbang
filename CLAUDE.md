@@ -1,5 +1,18 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals battle card framing (November 7, 2026)
+
+The four `features.rivalsUpdated()` profiles get larger v7 Active cards and larger printed attack
+names, damage and effects on the table. `dynasty-pocket.css` budgets the usable screen height
+between both lineups, the hand and turn controls, preserving 63:88 card proportions. Active HP
+sits beside the card; the compact opponent hand and resource piles stay inside the side gutters.
+View all and the hand count sit beside End turn, with the existing full-width choice buttons
+during a required replacement. The options menu still offers View your hand. Notches, home
+indicators and crowded fans keep their space; a turned phone uses the existing portrait lock's
+dimensions. Legacy matches, rules, saves and access are unchanged.
+Verify `check-pocket-framing.cjs` (dense boards, long hands, phone/tablet sizes and safe areas),
+Pocket touch at 320/390, browser/presentation, felt/choices, title-screen, scope and preview/access.
+
 ## Rivals Energy logos (November 7, 2026)
 
 The four `features.rivalsUpdated()` profiles see distinct SVG marks for Grass, Fire, Water,
