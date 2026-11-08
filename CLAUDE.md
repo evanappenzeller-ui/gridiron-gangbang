@@ -1,5 +1,18 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals player headlines and Energy calling cards (November 7, 2026)
+
+The four `features.rivalsUpdated()` profiles see larger, condensed player names at the top of
+their cards and illustrated Energy banners directly below. `views/dynasty-energy.js` maps ten
+Energy types to versioned, on-demand `img/rivals/energy-banners/*-v1.webp` artwork; legacy Energy
+symbols keep their original names and map to matching artwork. The calling-card images are
+decorative, with separate readable type labels and SVG symbols plus a solid-color fallback.
+Names wrap in full; HP, rarity finishes, portraits, printed rules and 63:88 proportions remain.
+Collection, details, reveals and the current battle use the shared `cardHTML()` face. No rules,
+saves, privileges or profile access change. Artwork prompts are in `tools/dynasty/energy-banners-prompts.txt`.
+Verify energy-faces, card-layout, binder-energy, Pocket browser/touch/framing/presentation,
+title-screen, scope, preview and access before release.
+
 ## Rivals deck boxes and Energy card colors (November 7, 2026)
 
 The four `features.rivalsUpdated()` profiles see the Pokémon-inspired My decks shelf in

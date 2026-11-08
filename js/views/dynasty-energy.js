@@ -7,6 +7,15 @@ export const ENERGY_COLOR = Object.freeze({
   P: '#3D9BE9', R: '#4FAE3E', B: '#E8573A', C: '#9562D9', K: '#B88911', '*': '#A9A391'
 });
 
+// Calling-card art is shared by the current printed types and their saved-match equivalents.
+// Keep the original Energy label and symbol when showing an older match.
+const BANNER_TYPE = Object.freeze({P: 'water', R: 'grass', B: 'fire', C: 'psychic', K: 'lightning', '*': 'colorless'});
+export const energyBannerUrl = energy => {
+  const type = Object.hasOwn(BANNER_TYPE, energy) ? BANNER_TYPE[energy]
+    : Object.hasOwn(ENERGY_COLOR, energy) ? energy.toLowerCase() : 'colorless';
+  return `img/rivals/energy-banners/${type}-v1.webp`;
+};
+
 const MARKS = Object.freeze({
   Grass: '<path d="M20 3C9 2 3 7 4 14c.6 4.4 5 7 9 5 6-3 7-10 7-16Z"/><path d="M5 20 16 8m-7 8v-5m3 2h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
   Fire: '<path d="M13 2c1 5-4 6-3 10 2-1 3-3 3-5 5 3 8 7 6 11-2 4-10 5-13 1C2 14 7 8 9 6c-1 4 0 5 1 5 2-3 1-6 3-9Z"/><path d="M12 13c0 3-3 3-2 6 .7 2 4 2 4.7 0 .8-2-1-3-2.7-6Z" fill="currentColor"/>',

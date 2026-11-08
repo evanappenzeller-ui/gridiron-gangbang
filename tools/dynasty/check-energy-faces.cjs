@@ -22,6 +22,28 @@ const server = http.createServer((req,res) => {
   fs.readFile(file,(error,bytes) => error ? res.writeHead(404).end() : res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'application/octet-stream'}).end(bytes));
 });
 
+// Read real text ink as well as CSS boxes: a large name can overflow its line box
+// without scrollWidth/scrollHeight revealing that the last letters were clipped.
+async function nameGeometry(page, label) {
+  const result=await page.locator('figure .pk-card').evaluateAll(cards=>cards.map(card=>{
+    const q=s=>card.querySelector(s),rect=el=>el.getBoundingClientRect();
+    const name=q('.pk-c-name'),hp=q('.pk-c-hp'),head=rect(q('.pk-c-head'));
+    const banner=rect(q('.pk-c-energy')),art=rect(q('.pk-c-art')),face=q('.pk-c-face');
+    const nr=rect(name),hr=rect(hp),nameStyle=getComputedStyle(name);
+    const range=document.createRange();range.selectNodeContents(name);const ink=rect(range);
+    return {name:card.getAttribute('aria-label'),headline:parseFloat(nameStyle.fontSize)>parseFloat(getComputedStyle(hp).fontSize),
+      nameFits:ink.left>=head.left-1 && ink.right<=head.right+1 && ink.top>=head.top-1 && ink.bottom<=head.bottom+1,
+      separated:nr.right<=hr.left+1 && ink.right<=hr.left+1 && head.bottom<=banner.top+1 && banner.bottom<=art.top+1,
+      unclipped:nameStyle.textOverflow!=='ellipsis' && (nameStyle.overflowX==='visible' || name.scrollWidth<=name.clientWidth+1) && (nameStyle.overflowY==='visible' || name.scrollHeight<=name.clientHeight+1),
+      faceFits:face.scrollHeight<=face.clientHeight+1 && face.scrollWidth<=face.clientWidth+1,
+      inkOverflow:{left:head.left-ink.left,right:ink.right-head.right,top:head.top-ink.top,bottom:ink.bottom-head.bottom},
+      faceOverflow:{x:face.scrollWidth-face.clientWidth,y:face.scrollHeight-face.clientHeight}};
+  }));
+  const failures=result.filter(row=>!row.headline || !row.nameFits || !row.separated || !row.unclipped || !row.faceFits);
+  assert.equal(failures.length,0,label+': every full player name is the headline, with separate HP, banner and portrait; '+JSON.stringify(failures.slice(0,8)));
+  return result.length;
+}
+
 async function run(url) {
   const browser = await pw.chromium.launch({executablePath:process.env.CHROMIUM_PATH || (process.platform === 'win32' ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined)});
   try {
@@ -44,6 +66,7 @@ async function run(url) {
       return {energies,rarities:D.RARITY,widths};
     });
     await page.evaluate(()=>document.fonts.ready);
+    await nameGeometry(page,'Energy/rarity/size matrix');
     const rows=await page.locator('figure').evaluateAll(figures=>{
       const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const ctx=canvas.getContext('2d');
       const rgb=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data];};
@@ -78,6 +101,81 @@ async function run(url) {
     for(const energy of matrix.energies) assert.equal(new Set(rows.filter(r=>r.energy===energy).map(r=>r.paper.join(','))).size,1,energy+': same energy paper across every rarity and size');
     assert.equal(new Set(rows.filter(r=>r.width==='280' && r.rarity==='common').map(r=>r.paper.join(','))).size,10,'all ten energy colors stay distinct');
     if(shots) await page.screenshot({path:path.join(shots,'energy-cards.png'),fullPage:false});
+
+    // All real names, plus their development forms. The same proportional layout must
+    // survive the smallest collection cards and a phone's full detail card.
+    let catalogCount=0;
+    for(const width of [92,280]) {
+      catalogCount=await page.evaluate(async width=>{
+        const D=await import('/js/core/dynasty.js'),PC=await import('/js/core/dynasty-pocket-cards.js'),V=await import('/js/views/dynasty.js');
+        const base=D.CARDS;
+        const long=[...base].sort((a,b)=>b.name.length-a.name.length).slice(0,12);
+        const samples=base.map(c=>({c,pc:PC.card(c.id)})).concat(long.flatMap(c=>['breakout','prime'].map(form=>({c,pc:PC.card(c.id+'~'+form)}))));
+        document.querySelector('main').innerHTML=samples.map(({c,pc})=>`<figure style="width:${width}px">${V.cardHTML(c,{size:width===280?'l':'s',tag:false,pocketCard:pc})}</figure>`).join('');
+        return samples.length;
+      },width);
+      await page.evaluate(()=>document.fonts.ready);
+      await nameGeometry(page,'Catalog at '+width+'px');
+      const portraitMinimum=await page.locator('figure .pk-card').evaluateAll(cards=>Math.min(...cards.map(card=>card.querySelector('.pk-c-art').getBoundingClientRect().height/card.getBoundingClientRect().width)));
+      assert(portraitMinimum>=.345,'Normal catalog portraits retain at least 35% of card width (allowing subpixel rounding)');
+    }
+    // A failed font download must not make the longest athletes unreadable.
+    const fallback=await page.addStyleTag({content:'.pk-c-head .pk-c-name{font-family:Arial,sans-serif!important}'});
+    await nameGeometry(page,'Catalog with fallback font');
+    await fallback.evaluate(el=>el.remove());
+
+    const artwork=await page.evaluate(async energies=>{
+      const {energyBannerUrl}=await import('/js/views/dynasty-energy.js');
+      return Promise.all(energies.map(async energy=>{
+        const image=new Image(),src=energyBannerUrl(energy);image.src=src;
+        try {await image.decode();return {energy,src,ok:true,width:image.naturalWidth,height:image.naturalHeight};}
+        catch {return {energy,src,ok:false};}
+      }));
+    },matrix.energies);
+    for(const art of artwork) {
+      assert(art.ok,art.energy+': calling-card artwork loads from '+art.src);
+      assert(art.width>=640 && art.width/art.height>=3,art.energy+': sufficiently detailed panoramic art');
+    }
+    assert.equal(new Set(artwork.map(a=>a.src)).size,matrix.energies.length,'each current Energy has its own illustrated banner');
+
+    // Phone reference shots and missing-art fallback use actual athletes, not renamed fixtures.
+    for(const width of [320,390]) {
+      await page.setViewportSize({width,height:844});
+      await page.evaluate(async width=>{
+        const D=await import('/js/core/dynasty.js'),V=await import('/js/views/dynasty.js');
+        const players=[D.CARDS.find(c=>c.name==='Brett Favre'),[...D.CARDS].sort((a,b)=>b.name.length-a.name.length)[0]];
+        document.querySelector('main').innerHTML=players.map(c=>`<figure style="width:${width-40}px">${V.cardHTML(c,{size:'l',tag:false,eager:true})}</figure>`).join('');
+      },width);
+      await page.evaluate(async()=>{await document.fonts.ready;await Promise.all([...document.querySelectorAll('.pk-c-energy-art')].map(img=>img.decode()));await Promise.all([...document.images].map(img=>img.decode().catch(()=>{})));});
+      await nameGeometry(page,'Phone '+width);
+      if(shots) {
+        await page.screenshot({path:path.join(shots,'calling-cards-'+width+'.png'),fullPage:true});
+        await page.locator('figure').first().screenshot({path:path.join(shots,'brett-favre-'+width+'.png')});
+      }
+    }
+    await page.route('**/energy-banners/*',route=>route.abort());
+    await page.evaluate(()=>document.querySelectorAll('.pk-c-energy-art').forEach(img=>{img.src += '?unavailable';}));
+    await page.waitForFunction(()=>!document.querySelector('.pk-c-energy-art'));
+    await nameGeometry(page,'Unavailable banner artwork');
+    assert(await page.locator('.pk-c-energy').evaluateAll(banners=>banners.every(b=>b.querySelector('b')?.textContent.includes('Energy') && b.querySelector('svg')?.getBoundingClientRect().width>0)),'Energy labels and symbols survive missing art');
+    if(shots) await page.screenshot({path:path.join(shots,'calling-cards-fallback.png'),fullPage:true});
+
+    // Compact contact sheet shows all ten visual identities beside their full labels.
+    if(shots) {
+      await page.unroute('**/energy-banners/*');
+      await page.setViewportSize({width:900,height:900});
+      await page.evaluate(async energies=>{
+        const D=await import('/js/core/dynasty.js'),PC=await import('/js/core/dynasty-pocket-cards.js'),V=await import('/js/views/dynasty.js');
+        const c=D.CARDS.find(c=>c.name==='Brett Favre');
+        const main=document.querySelector('main');
+        main.innerHTML=energies.map(energy=>`<figure style="width:400px">${V.cardHTML(c,{size:'l',tag:false,eager:true,pocketCard:{...PC.card(c.id),types:[energy]}})}</figure>`).join('');
+        main.querySelectorAll('.pk-c-face').forEach(face=>[...face.children].filter(el=>!el.matches('.pk-c-energy')).forEach(el=>el.remove()));
+      },matrix.energies);
+      const sheet=await page.addStyleTag({content:'.pk-card.pk-rivals-card{aspect-ratio:auto!important;height:110px!important}.pk-card.pk-rivals-card .pk-c-face{padding:0!important;background:transparent!important;box-shadow:none!important}.pk-c-energy{margin:0!important;height:100%!important}'});
+      await page.evaluate(async()=>{await document.fonts.ready;await Promise.all([...document.querySelectorAll('.pk-c-energy-art')].map(img=>img.decode()));});
+      await page.screenshot({path:path.join(shots,'energy-banners.png'),fullPage:true});
+      await sheet.evaluate(el=>el.remove());
+    }
     const scope=await page.evaluate(async()=>{
       const data=await import('/js/core/data.js'),D=await import('/js/core/dynasty.js'),V=await import('/js/views/dynasty.js');
       const c=D.CARDS[0],out=[];
@@ -91,6 +189,7 @@ async function run(url) {
     for(const row of scope){assert.equal(row.marked,row.allowed,JSON.stringify(row));assert(row.unchanged,'rendering does not change saves');}
     assert.deepEqual(errors,[]);
     console.log('PASS 120 player faces: ten distinct energy colors across four rarities and three sizes, readable contrast, prominent logos, intact geometry, rarity foil and reduced motion.');
+    console.log('PASS '+catalogCount+' catalog/development names at compact and detail sizes, fallback fonts, ten panoramic assets, 320/390px phone cards and unavailable-art fallback.');
     console.log('PASS four-profile energy presentation, excluded member/guest/unselected boundaries, and unchanged saves.');
     await context.close();
   } finally {await browser.close();}
