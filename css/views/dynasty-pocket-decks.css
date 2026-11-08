@@ -1,24 +1,51 @@
-/* Isolated Rivals v7 deck shelf and sheets. */
-.v-dynasty .pocket-decks{padding:16px 12px 28px;max-width:1000px;margin:auto;color:#153844}
-.v-dynasty .pocket-decks .pd-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
-.v-dynasty .pocket-decks .pd-heading small{font-size:10px;letter-spacing:.16em;font-weight:800;color:#607b82}
-.v-dynasty .pocket-decks .pd-heading h2{font-size:27px;margin:4px 0}
-.v-dynasty .pocket-decks .pd-heading>b{border:1px solid #adc0c3;border-radius:99px;padding:7px 10px;white-space:nowrap;font-size:12px}
-.v-dynasty .pocket-decks .pd-intro{font-size:14px;line-height:1.5;margin:0 0 18px;color:#48636b}
-.v-dynasty .pocket-decks .pd-shelf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px}
-.v-dynasty .pocket-decks .pd-deck,.v-dynasty .pocket-decks .pd-new{font:inherit;text-align:left;appearance:none;border:1px solid #bdcbcf;border-radius:16px;overflow:hidden;padding:0;background:#f8fcfb;color:inherit;cursor:pointer;min-width:0}
-.v-dynasty .pocket-decks .pd-deck.is-active{border:2px solid #207d68;box-shadow:0 0 0 3px #207d6812}
-.v-dynasty .pocket-decks .pd-deck-art{height:136px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 80%,#568d97,#163e49);color:#eaf6f4}
-.v-dynasty .pocket-decks .pd-deck-art>img{width:100%;height:100%;object-fit:contain;object-position:center bottom}
-.v-dynasty .pocket-decks .pd-deck-art>span:not(.pd-deck-mark){font-size:46px;font-weight:900;opacity:.8}
-.v-dynasty .pocket-decks .pd-deck-mark{position:absolute;top:10px;left:8px;background:#102d36e8;color:#f2fffb;border:1px solid #c2dcd356;border-radius:5px;font-size:9px;font-weight:850;letter-spacing:.08em;padding:5px 7px}
-.v-dynasty .pocket-decks .pd-deck.is-active .pd-deck-mark{background:#136b57}
-.v-dynasty .pocket-decks .pd-deck-copy{display:flex;flex-direction:column;gap:4px;padding:12px 10px}
-.v-dynasty .pocket-decks .pd-deck-copy b{font-size:15px;line-height:1.3;overflow-wrap:anywhere}
-.v-dynasty .pocket-decks .pd-deck-copy small{font-size:11px;color:#57717a}
-.v-dynasty .pocket-decks .pd-new{min-height:220px;border-style:dashed;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;background:#ffffff62}
-.v-dynasty .pocket-decks .pd-new>span{font-size:38px;font-weight:300;color:#478778}
-.v-dynasty .pocket-decks .pd-new>small{font-size:12px;color:#647a80}
+/* Pocket-style deck boxes. The Energy Zone colors the case; printed cards keep their own type and rarity. */
+.v-dynasty .pk-pane:has(.pocket-decks){background:#e8f3f9}
+.v-dynasty .pocket-decks{padding:6px 0 28px;max-width:1000px;margin:auto;color:#324653}
+.v-dynasty .pocket-decks .pd-shelf-head{margin:0 -4px 20px}
+.v-dynasty .pocket-decks .pd-heading{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 4px 16px}
+.v-dynasty .pocket-decks .pd-heading::after{content:'';position:absolute;bottom:0;left:-12px;right:-12px;height:3px;background:linear-gradient(90deg,#dfce56,#e99b72,#e68cb5,#a986d8,#7dcad6);box-shadow:0 2px 0 #fff}
+.v-dynasty .pocket-decks .pd-heading h2{font:750 27px/1.2 var(--font-text);letter-spacing:-.8px;margin:0}
+.v-dynasty .pocket-decks .pd-heading-actions{display:flex;align-items:center;gap:10px}
+.v-dynasty .pocket-decks .pd-edit-toggle{display:grid;place-items:center;padding:0;min-width:82px;min-height:38px;border:1px solid #f9fdff;border-radius:22px;background:#edf7fc;color:#657c8b;box-shadow:0 4px 10px #7895ae35,inset 0 1px 2px #fff;font:600 13px/1 var(--font-text);cursor:pointer}
+.v-dynasty .pocket-decks .pd-help{display:grid;place-items:center;padding:0;width:38px;height:38px;border:0;border-radius:50%;background:transparent;color:#8199ad;font:600 25px/1 var(--font-text);box-shadow:inset 0 0 0 2px #a5bbce;cursor:pointer}
+.v-dynasty .pocket-decks .pd-shelf-count{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-radius:0 0 22px 22px;background:#f0f8fc;box-shadow:0 7px 12px #6385a025}
+.v-dynasty .pocket-decks .pd-shelf-count>span{display:flex;align-items:center;gap:7px}
+.v-dynasty .pocket-decks .pd-shelf-count .ic{color:#8096a8}
+.v-dynasty .pocket-decks .pd-shelf-count b{font-size:15px;letter-spacing:.2px}
+.v-dynasty .pocket-decks .pd-shelf-count b>span{font-weight:500;color:#718797}
+.v-dynasty .pocket-decks .pd-shelf-count small{font-size:11px;color:#6d8293}
+.v-dynasty .pocket-decks .pd-shelf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 16px;margin-bottom:24px}
+.v-dynasty .pocket-decks .pd-deck,.v-dynasty .pocket-decks .pd-new{font-family:var(--font-text);text-align:center;appearance:none;border:0;border-radius:15px;overflow:hidden;padding:0;background:#f0f7fb;color:inherit;cursor:pointer;min-width:0;box-shadow:0 5px 10px #6686a035,inset 0 0 0 2px #ffffffa6}
+.v-dynasty .pocket-decks .pd-deck{display:flex;flex-direction:column}
+.v-dynasty .pocket-decks .pd-deck.is-active{box-shadow:0 0 0 2px #63a0b7,0 6px 13px #6686a03d}
+.v-dynasty .pocket-decks .pd-deck-art{width:100%;aspect-ratio:1/.97;display:grid;place-items:center;position:relative;isolation:isolate}
+.v-dynasty .pocket-decks .pd-deck-art::before{content:'';position:absolute;z-index:-1;inset:0 0 42%;background:linear-gradient(110deg,color-mix(in srgb,var(--deck-energy) 57%,#fff36d),color-mix(in srgb,var(--deck-energy) 72%,white));clip-path:polygon(0 0,100% 0,100% 62%,0 100%)}
+.v-dynasty .pocket-decks .pd-deck-number{position:absolute;top:0;left:8px;font:700 clamp(44px,12vw,76px)/1.08 var(--font-text);letter-spacing:-3px;color:#fffffff0}
+.v-dynasty .pocket-decks .pd-deck-box{position:relative;width:53%;aspect-ratio:63/88;margin:22% 6% 0 0;filter:drop-shadow(4px 5px 3px #60788b36)}
+.v-dynasty .pocket-decks .pd-box-front{position:absolute;inset:0;display:grid;align-items:start;padding:6% 6% 10%;background:linear-gradient(165deg,color-mix(in srgb,var(--deck-energy) 88%,white) 0 52%,#e5edf3 52%);box-shadow:inset 1px 0 #ffffffb0,inset 0 -2px #b2c5d3;border-radius:1px}
+.v-dynasty .pocket-decks .pd-box-front .pk-card{width:100%;margin:0;pointer-events:none;box-shadow:0 1px 3px #253e5b45}
+.v-dynasty .pocket-decks .pd-box-top{position:absolute;left:0;right:0;top:-7%;height:8%;background:color-mix(in srgb,var(--deck-energy) 70%,white);transform:skewX(-65deg);transform-origin:bottom left}
+.v-dynasty .pocket-decks .pd-box-side{position:absolute;left:100%;top:0;width:17%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(164deg,color-mix(in srgb,var(--deck-energy) 72%,#182c43) 0 52%,#b6c9dc 52%);transform:skewY(-22deg);transform-origin:left top}
+.v-dynasty .pocket-decks .pd-energy-mark{display:inline-flex;flex:none;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--deck-energy);color:var(--deck-energy);box-shadow:inset 0 0 0 1px #ffffff85,0 1px 2px #49647830}
+.v-dynasty .pocket-decks .pd-energy-mark svg{width:78%;height:78%}
+.v-dynasty .pocket-decks .pd-box-side .pd-energy-mark{width:115%;height:auto;aspect-ratio:1;border:1px solid #ffffffa0;background:color-mix(in srgb,var(--deck-energy) 70%,#172433);color:color-mix(in srgb,var(--deck-energy) 70%,#172433)}
+.v-dynasty .pocket-decks .pd-empty-card{display:grid;place-items:center;aspect-ratio:63/88;border:2px solid #ffffffa3;border-radius:5px;color:var(--deck-energy);background:color-mix(in srgb,var(--deck-energy) 20%,#f2f6f9)}
+.v-dynasty .pocket-decks .pd-empty-card svg{width:60%;fill:var(--deck-energy)}
+.v-dynasty .pocket-decks .pd-deck-mark{position:absolute;right:7px;bottom:0;background:#4c8194;color:#fff;border:1px solid #ffffffa0;border-radius:12px;font-size:9px;font-weight:700;padding:3px 7px;line-height:1.2}
+.v-dynasty .pocket-decks .pd-deck-copy{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:11px 6px;margin:8px 5px 5px;min-height:81px;border:1px solid #d2e0ea;border-radius:9px;background:linear-gradient(#eef6fa,#f5fafc);box-shadow:inset 0 2px 3px #a9c0d032,0 1px 0 #fff}
+.v-dynasty .pocket-decks .pd-deck-copy b{font-size:14px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.v-dynasty .pocket-decks .pd-deck-copy small{font-size:10px;color:#687e8e;line-height:1.35}
+.v-dynasty .pocket-decks .pd-deck-energy{display:flex;align-items:center;justify-content:center;gap:3px;flex-wrap:wrap;margin-top:3px}
+.v-dynasty .pocket-decks .pd-deck-energy small{margin-left:2px;font-weight:600}
+.v-dynasty .pocket-decks .pd-new{min-height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;background:#eaf4fa;box-shadow:inset 0 0 0 2px #cbdde9,inset 0 -4px 0 4px #ffffff65}
+.v-dynasty .pocket-decks .pd-new>span{font-size:65px;font-weight:200;line-height:1.2;color:#9cb5c9}
+.v-dynasty .pocket-decks .pd-new>b{font-size:15px;font-weight:600;color:#698396}
+.v-dynasty .pocket-decks .pd-new>small{font-size:11px;color:#7c92a2}
+.v-dynasty .pocket-decks .pd-edit-hint{display:none;margin:0 0 15px;font-size:12px;color:#58748b}
+.v-dynasty .pocket-decks .pd-edit-mark{display:none;position:absolute;left:50%;bottom:3px;transform:translateX(-50%);white-space:nowrap;padding:5px 13px;border-radius:15px;background:#eaf5fb;box-shadow:0 2px 7px #57789440;color:#3c6780;font-size:11px;font-weight:700}
+.v-dynasty .pocket-decks.is-editing .pd-edit-hint,.v-dynasty .pocket-decks.is-editing .pd-deck:not(.is-rental) .pd-edit-mark{display:block}
+.v-dynasty .pocket-decks.is-editing .pd-deck:not(.is-rental) .pd-deck-mark{display:none}
+.v-dynasty .pocket-decks.is-editing .pd-edit-toggle{background:#d6eaf5;color:#2c6383}
 .v-dynasty .pocket-decks .pd-note,.pk-sheet.pocket-deck-sheet .pd-note{font-size:12px;line-height:1.6;color:#56717a}
 .v-dynasty .pocket-decks .pd-info{border:1px solid #baccd0;border-radius:12px;padding:14px;margin:16px 0}
 .v-dynasty .pocket-decks .pd-info summary{font-weight:750;cursor:pointer}

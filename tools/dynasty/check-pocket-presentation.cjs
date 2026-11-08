@@ -13,11 +13,28 @@ const server=http.createServer((req,res)=>{
     res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'application/octet-stream'}).end(bytes);
   });
 });
+async function startPresentationMatch(page,opening=0){
+  return page.evaluate(async opening=>{
+    const S=await import('/js/core/dynasty-solo.js');
+    // Only synchronous match creation uses fixed clock/random values; UI timers stay real.
+    const now=Date.now,random=Math.random,base=1794000000000+opening*1000;
+    try{
+      Math.random=()=>.5;
+      for(let i=0;i<120;i++){
+        Date.now=()=>base+i;
+        const r=S.start('g1');if(!r.ok)throw Error(r.why);
+        const x=S.get(r.mid);
+        if(x.G.first===1&&x.G.p[0].hand.includes('R7-jefferson'))return r;
+      }
+      throw Error('No deterministic Jefferson opening');
+    }finally{Date.now=now;Math.random=random;}
+  },opening);
+}
 async function drain(page){
   // Each CPU play now waits for presentation and a full reading interval.
   for(let i=0;i<600;i++){
     const skip=page.locator('[data-rp-skip]');if(await skip.count())await skip.first().click({timeout:1500}).catch(()=>{});
-    const done=await page.evaluate(async()=>{const x=(await import('/js/core/dynasty-solo.js')).current();return x.state!=='theirs'&&!document.querySelector('.rp-cinema');});
+    const done=await page.evaluate(async()=>{const x=(await import('/js/core/dynasty-solo.js')).get(window.testMid);if(!x||x.state==='over')throw Error('Presentation fixture ended before its assertions');return x.state!=='theirs'&&!document.querySelector('.rp-cinema');});
     if(done)return;
     await page.waitForTimeout(100);
   }
@@ -36,19 +53,24 @@ async function run(url){
       const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(String(e)));
       await page.goto(url+'/#/puzzles');await page.waitForFunction(()=>window.__ggBooted);
       await page.evaluate(async()=>{
-        const D=await import('/js/core/dynasty.js'),S=await import('/js/core/dynasty-solo.js');await D.load();
+        const D=await import('/js/core/dynasty.js');await D.load();
         if(!(await import('/js/core/features.js')).rivalsUpdated())throw Error('wrong profile');
         if((await import('/js/core/fire.js')).canWrite())throw Error('live writes enabled');
-        D.usePocketDeck('rental');const r=S.start('g1');if(!r.ok)throw Error(r.why);window.testMid=r.mid;
-        await(await import('/js/app.js')).nav('/puzzles/dynasty/battle/'+r.mid);
+        D.usePocketDeck('rental');
       });
+      const started=await startPresentationMatch(page);
+      await page.evaluate(async mid=>{
+        window.testMid=mid;await(await import('/js/app.js')).nav('/puzzles/dynasty/battle/'+mid);
+      },started.mid);
       await page.waitForSelector('.rp-hidden .rp-card-back img');
       const backs=await page.locator('.rp-card-back img').evaluateAll(async imgs=>{await Promise.all(imgs.map(img=>img.decode()));return imgs.map(img=>({src:img.getAttribute('src'),width:img.naturalWidth,paint:getComputedStyle(img).display}));});
       assert(backs.length>=4);assert(backs.every(x=>x.src==='img/rivals/card-back-v1.webp'&&x.width>0&&x.paint!=='none'),label+' printed back loads in opening, hand and decks');
       if(label==='evan')await page.screenshot({path:path.join(out,'card-backs.png')});
       await page.evaluate(async()=>{
         const S=await import('/js/core/dynasty-solo.js'),B=await import('/js/core/dynasty-pocket.js');const x=S.get(window.testMid);
-        const m=B.legalActions(x.G,0).find(m=>m.a==='setup');const r=S.move(window.testMid,m);if(!r.ok)throw Error(r.why);
+        const m=B.legalActions(x.G,0).find(m=>m.a==='setup'&&m.act==='R7-jefferson');
+        if(x.G.p[0].hand.includes('R7-mahomes'))m.bench=['R7-mahomes'];
+        const r=S.move(window.testMid,m);if(!r.ok)throw Error(r.why);
       });
       let attacked=false;
       for(let step=0;step<35&&!attacked;step++){
@@ -177,6 +199,14 @@ async function run(url){
       // Your drawn card turns over at center, then flies into its place in the fan; it waits hidden there until it lands.
       const drawn=await page.evaluate(async()=>{
         const C=await import('/js/core/dynasty-pocket-cards.js'),id=window.testX.G.p[0].hand.at(-1);
+        // Observe before enqueue: screenshots can take longer than the 380ms flight.
+        // Record the actual departure class and running Web Animation, not elapsed time.
+        window.testDrawLeaving=null;
+        const observer=new MutationObserver(()=>{
+          const scene=document.querySelector('.rp-draw-scene.is-mine.is-leaving');
+          if(scene){window.testDrawLeaving={moving:[...scene.querySelectorAll('.rp-draw-card')].every(card=>card.getAnimations().some(a=>a.playState==='running'))};observer.disconnect();}
+        });
+        observer.observe(document.querySelector('.v-dynasty-battle'),{subtree:true,attributes:true,attributeFilter:['class']});
         window.testPresentation.enqueue([{k:'draw',who:0,id}],window.testX);return C.card(id).athlete||C.card(id).name;
       });
       await page.waitForSelector('[data-rp-scene="draw"].is-mine');
@@ -185,7 +215,8 @@ async function run(url){
       assert(await page.locator('.rp-hand>[data-rp-hand]').last().evaluate(el=>el.classList.contains('is-incoming')&&getComputedStyle(el).visibility==='hidden'),'the drawn card waits hidden in the fan');
       assert(await page.locator('[data-rp]').evaluate(el=>el.inert),'table cannot send moves during the draw');
       if(label==='evan'){await page.waitForTimeout(800);await page.screenshot({path:path.join(out,'draw-preview.png')});}
-      await page.waitForSelector('.rp-draw-scene.is-leaving',{timeout:2500});
+      await page.waitForFunction(()=>window.testDrawLeaving,null,{timeout:2500});
+      assert(await page.evaluate(()=>window.testDrawLeaving.moving),'the leaving card animates toward its hand slot');
       if(label==='evan'){await page.waitForTimeout(190);await page.screenshot({path:path.join(out,'draw-to-hand.png')});}
       await page.waitForFunction(()=>!document.querySelector('.rp-cinema'),null,{timeout:2500});
       assert(await page.locator('.rp-hand>[data-rp-hand]').last().evaluate(el=>!el.classList.contains('is-incoming')&&el.classList.contains('is-drawn')),'the card lands in the hand');
@@ -206,16 +237,13 @@ async function run(url){
       if(label==='evan'){
         // A real Sleep attack from the card preview: the name banner, the Asleep pill and the Checkup flip,
         // and the table agrees with the seeded flip (still Asleep on tails, awake on heads).
-        const sleepMid=await page.evaluate(async()=>{
-          const S=await import('/js/core/dynasty-solo.js'),B=await import('/js/core/dynasty-pocket.js');
-          for(let i=0;i<120;i++){
-            const r=S.start('g1'),x=S.get(r.mid);
-            if(x.G.first!==1||!x.G.p[0].hand.includes('R7-jefferson'))continue;
-            if(!S.move(r.mid,{a:'setup',act:'R7-jefferson',bench:[]}).ok)continue;
-            return r.mid;
-          }
-          throw Error('no Jefferson opening');
-        });
+        const sleepStart=await startPresentationMatch(page,1);
+        const sleepMid=await page.evaluate(async r=>{
+          const S=await import('/js/core/dynasty-solo.js');
+          const result=S.move(r.mid,{a:'setup',act:'R7-jefferson',bench:[]});
+          if(!result.ok)throw Error(result.why);
+          return r.mid;
+        },sleepStart);
         await page.evaluate(async mid=>{window.testMid=mid;await(await import('/js/app.js')).nav('/puzzles/dynasty/battle/'+mid);},sleepMid);
         await page.waitForSelector('.rp-arena');await drain(page);
         const ready=await page.evaluate(async()=>{

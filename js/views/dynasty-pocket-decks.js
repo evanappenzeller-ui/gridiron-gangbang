@@ -9,6 +9,7 @@ import {actionCredit} from '../core/dynasty-action.js';
 import {legendCredit} from '../core/dynasty-legends.js';
 import {realName} from '../core/dynasty-real.js';
 import {printedCard} from './dynasty-pocket-card.js';
+import {ENERGY_COLOR, energySVG} from './dynasty-energy.js';
 
 const esc = data.esc;
 const ENERGIES = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal'];
@@ -43,20 +44,26 @@ function cardFacts(c) {
     + `<small>${(c.attacks || []).map(a => `${esc(a.name)}: ${esc(a.cost?.length ? a.cost.join(' + ') : 'No Energy')} → ${a.damage} damage`).join('<br>')}</small>`;
 }
 
-function deckTile(d, active, s, portrait) {
-  const result = check(d, s), star = d.ids.map(C.card).find(c => c?.kind === 'player');
-  return `<button type="button" class="pd-deck${active ? ' is-active' : ''}" data-pd-deck="${esc(d.id)}" aria-label="${esc(d.name)}, ${active ? 'active, ' : ''}${d.rental ? 'rental, ' : ''}${d.ids.length} cards, ${result.ok ? 'ready' : 'draft'}">
-    <span class="pd-deck-art">${art(star, portrait)}<span class="pd-deck-mark">${active ? '✓ ACTIVE' : d.rental ? 'RENTAL' : 'YOUR DECK'}</span></span>
-    <span class="pd-deck-copy"><b>${esc(d.name)}</b><small>${d.ids.length}/20 cards · ${result.ok ? 'Ready' : 'Draft'}</small><small>${esc((d.energy || []).join(' / '))}</small></span></button>`;
+const energyBadge = type => `<span class="pd-energy-mark" style="--deck-energy:${ENERGY_COLOR[type] || ENERGY_COLOR.Colorless}" title="${esc(type)} Energy">${energySVG(type)}</span>`;
+function deckTile(d, active, s, i) {
+  const result = check(d, s), players = d.ids.map(C.card).filter(c => c?.kind === 'player');
+  const energy = d.energy?.length ? d.energy : ['Colorless'], primary = energy[0];
+  const star = players.find(c => c.types?.includes(primary)) || players[0];
+  return `<button type="button" class="pd-deck${active ? ' is-active' : ''}${d.rental ? ' is-rental' : ''}" style="--deck-energy:${ENERGY_COLOR[primary] || ENERGY_COLOR.Colorless}" data-deck-energy="${esc(primary)}" data-pd-deck="${esc(d.id)}" aria-label="${esc(d.name)}, ${active ? 'active, ' : ''}${d.rental ? 'rental, ' : ''}${d.ids.length} cards, ${result.ok ? 'ready' : 'draft'}, ${esc(energy.join(' / '))} Energy">
+    <span class="pd-deck-art" aria-hidden="true"><span class="pd-deck-number">${String(i + 1).padStart(2, '0')}</span>
+      <span class="pd-deck-box"><span class="pd-box-top"></span><span class="pd-box-side">${energyBadge(primary)}</span><span class="pd-box-front">${star ? printedCard(star.id) : `<span class="pd-empty-card">${energySVG(primary)}</span>`}</span></span>
+      ${active ? '<span class="pd-deck-mark">✓ Active</span>' : ''}<span class="pd-edit-mark">Edit deck</span></span>
+    <span class="pd-deck-copy"><b>${esc(d.name)}</b><small>${d.rental ? 'Starter rental' : `${d.ids.length}/20 cards · ${result.ok ? 'Ready' : 'Draft'}`}</small><span class="pd-deck-energy" aria-hidden="true">${energy.map(energyBadge).join('')}<small>${esc(energy.join(' / '))}</small></span></span></button>`;
 }
 
 export function deckShelfHTML(portrait) {
   if (!rivalsUpdated()) return '';
   const s = D.mine(), selected = D.pocketDeck(s), decks = D.pocketLoadouts(s).filter(d => !d.rental && d.id !== 'rental');
   const active = selected.id || s.pocket?.active || 'rental';
-  return `<section class="pocket-decks"><header class="pd-heading"><div><small>BUILD YOUR NEXT WIN</small><h2>My decks</h2></div><b>20 cards</b></header>
-    <p class="pd-intro">One plan. One Active athlete. Three knockout points to win.</p>
-    <div class="pd-shelf">${deckTile(rental(), active === 'rental', s, portrait)}${decks.map(d => deckTile(d, d.id === active, s, portrait)).join('')}
+  return `<section class="pocket-decks"><div class="pd-shelf-head"><header class="pd-heading"><h2>My Decks</h2><div class="pd-heading-actions"><button type="button" class="pd-edit-toggle" data-pd-edit-mode aria-pressed="false" ${decks.length ? '' : 'disabled'}>Edit</button><button type="button" class="pd-help" data-pd-help aria-label="Deck-building help">?</button></div></header>
+    <div class="pd-shelf-count"><span>${ui.icon('copy', {size: 19})}<b>${decks.length}<span>/30</span></b><small>saved</small></span><small>20-card decks</small></div></div>
+    <p class="pd-edit-hint" role="status">Choose one of your decks to edit.</p>
+    <div class="pd-shelf">${deckTile(rental(), active === 'rental', s, 0)}${decks.map((d, i) => deckTile(d, d.id === active, s, i + 1)).join('')}
     <button type="button" class="pd-new" data-pd-new ${decks.length >= 30 ? 'disabled' : ''}><span aria-hidden="true">+</span><b>Build a deck</b><small>Use your collection</small></button></div>
     <p class="pd-note">The starter rental is ready to try. It lends its cards only for battles. Your custom decks use collected Base Players, reusable Support Cards, and matching development forms from the rental playbook.</p>
     <details class="pd-info"><summary>Deck-building rules</summary><p>Exactly 20 cards, at least one Base Player, and no more than two of the same canonical card name. Alternate artwork shares the same limit. Breakout and Prime are different card names with exact development requirements.</p><p>Choose one to three Energy types for your Energy Zone. Energy cards never go in the deck. Position, NFL team, rarity and real player statistics do not add battle bonuses.</p><p>Battle values are fictional game-balance examples. Old saved decks are preserved, and matches already in progress keep their original rules. This shelf prepares new matches.</p></details>
@@ -154,12 +161,26 @@ function editor(onChange, slot, portrait) {
 
 export function handleDeckShelf(e, onChange = () => {}, portrait) {
   if (!rivalsUpdated()) return false;
+  const edit = e.target.closest('[data-pd-edit-mode]');
+  if (edit) {
+    const editing = edit.closest('.pocket-decks').classList.toggle('is-editing');
+    edit.setAttribute('aria-pressed', String(editing)); edit.textContent = editing ? 'Done' : 'Edit';
+    return true;
+  }
+  if (e.target.closest('[data-pd-help]')) {
+    const rules = e.target.closest('.pocket-decks').querySelector('.pd-info');
+    let stop;
+    const sh = ui.openSheet({title: 'Building your deck', cls: 'pk-sheet pocket-deck-sheet', detents: ['medium', 'large'], body: `<div class="pd-detail">${Array.from(rules.querySelectorAll('p'), p => p.outerHTML).join('')}</div>`, onClose: () => stop?.()});
+    stop = data.subscribe(type => { if (type === 'me') sh.close(); });
+    return true;
+  }
   if (e.target.closest('[data-pd-new]')) { editor(onChange, null, portrait); return true; }
   const button = e.target.closest('[data-pd-deck]');
   if (!button) return false;
   const openedFor = profileKey(), s = D.mine();
   const d = button.dataset.pdDeck === 'rental' ? rental() : D.pocketLoadouts(s).find(x => x.id === button.dataset.pdDeck);
   if (!d) return true;
+  if (!d.rental && button.closest('.pocket-decks').classList.contains('is-editing')) { editor(onChange, d, portrait); return true; }
   const result = check(d, s), active = (D.pocketDeck(s).id || s.pocket?.active || 'rental') === d.id;
   let stop;
   const sh = ui.openSheet({title: d.name, cls: 'pk-sheet pocket-deck-sheet', detents: ['large'], onClose: () => stop?.(), body: `<div class="pd-detail">

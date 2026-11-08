@@ -32,6 +32,14 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,'.'+decodeU
   assert.equal(await page.locator('[data-pd-deck]').count(),2,'rental and collection loadout');
   assert.equal(await page.locator('[data-rd-theme],.rd-chem-tag').count(),0,'new decks have no automatic team or position bonus');
   assert.equal(await page.evaluate(async()=>JSON.stringify((await import('/js/core/dynasty.js')).mine().table)),legacy.table,'viewing v7 shelf preserves legacy deck');
+  const beforeControls=await page.evaluate(async()=>JSON.stringify((await import('/js/core/dynasty.js')).mine()));
+  await page.getByRole('button',{name:'Deck-building help'}).focus();await page.keyboard.press('Enter');
+  await page.waitForSelector('.pocket-deck-sheet');assert.match(await page.locator('.pd-detail').innerText(),/Exactly 20 cards/);await close();
+  await page.getByRole('button',{name:'Edit',exact:true}).focus();await page.keyboard.press('Enter');
+  assert.equal(await page.locator('[data-pd-edit-mode]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-pd-deck]:not([data-pd-deck="rental"])').first().click();await page.waitForSelector('[data-pd-name]');await close();
+  await page.getByRole('button',{name:'Done',exact:true}).click();assert.equal(await page.locator('[data-pd-edit-mode]').getAttribute('aria-pressed'),'false');
+  assert.equal(await page.evaluate(async()=>JSON.stringify((await import('/js/core/dynasty.js')).mine())),beforeControls,'opening help/edit and cancelling never alters a save');
   await page.evaluate(async mid=>{await(await import('/js/app.js')).nav('/puzzles/dynasty/battle/'+mid)},legacy.mid);
   await page.waitForSelector('.db');
   assert.equal(await page.evaluate(async mid=>(await import('/js/core/dynasty-solo.js')).get(mid).G.v,legacy.mid),6,'saved v6 keeps its engine and screen');
@@ -51,6 +59,20 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,'.'+decodeU
   assert.equal(restored.pocket,snapshot.pocket);assert.equal(restored.table,legacy.table);assert.equal(restored.G,snapshot.G,'reloaded v7 state is identical');
   for(const width of [320,390,768]){await page.setViewportSize({width,height:844});await page.locator('[data-pd-new]').scrollIntoViewIfNeeded();const metrics=await page.evaluate(()=>{const grid=document.querySelector('.pd-shelf'),a=grid.children[0].getBoundingClientRect(),b=grid.children[1].getBoundingClientRect();return{columns:getComputedStyle(grid).gridTemplateColumns.split(' ').length,overflow:document.documentElement.scrollWidth>innerWidth,sameRow:Math.abs(a.top-b.top)<2}});assert.equal(metrics.overflow,false);assert.equal(metrics.sameRow,true);assert.equal(metrics.columns,width>=650?3:2);if(width!==320)await page.screenshot({path:path.join(out,'decks-'+width+'.png')});}
   await page.setViewportSize({width:390,height:844});
+  const showcase=await page.evaluate(async()=>{
+    const D=await import('/js/core/dynasty.js'),C=await import('/js/core/dynasty-pocket-cards.js'),s=D.mine();
+    const support=C.rentalDeck().ids.filter(id=>C.card(id)?.kind!=='player');
+    return ['Fire','Water','Grass','Lightning','Psychic','Fighting'].map(type=>{
+      const players=C.availableCards(s.o).filter(c=>c.kind==='player'&&c.stage==='Base'&&c.types.includes(type))
+        .sort((a,b)=>Number(String(D.card(b.sourceId)?.head).startsWith('a:'))-Number(String(D.card(a.sourceId)?.head).startsWith('a:'))||(D.card(b.sourceId)?.o||0)-(D.card(a.sourceId)?.o||0)).slice(0,4);
+      const ids=[...players.flatMap(c=>[c.id,c.id]),...support],r=D.savePocketDeck({name:type+' lineup',ids,energy:[type]});
+      if(!r.ok)throw Error(r.why);return {id:r.id,type};
+    });
+  });
+  await open();
+  for(const {id,type} of showcase){const tile=page.locator(`[data-pd-deck="${id}"]`);assert.equal(await tile.getAttribute('data-deck-energy'),type);assert(await tile.locator('.pd-box-front .pk-card').count(),'deck cover uses the actual printed card');assert.match(await tile.getAttribute('aria-label'),new RegExp(type+' Energy'));}
+  await page.evaluate(id=>{const tile=document.querySelector(`[data-pd-deck="${id}"]`),pane=tile.closest('.pk-pane');pane.scrollTop+=tile.getBoundingClientRect().top-pane.getBoundingClientRect().top-10},showcase[0].id);
+  await page.waitForTimeout(300);await page.screenshot({path:path.join(out,'energy-decks-390.png')});
   await page.locator('[data-pd-deck="rental"]').click();assert.equal(await page.locator('[data-pd-edit]').count(),0,'fixed rental cannot be edited');await page.locator('[data-pd-use]').click();await page.waitForFunction(()=>!document.querySelector('.sheet'));
   assert.equal(await page.evaluate(async()=>(await import('/js/core/dynasty.js')).pocketDeck().id),'rental');
   assert.equal(await page.locator('[data-rd-friends]').count(),0,'friend battles remain paused');
@@ -61,7 +83,9 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,'.'+decodeU
   assert.equal(await page.evaluate(async()=>{const D=await import('/js/core/dynasty.js');return D.savePocketDeck({name:'Jayton draft',ids:[],energy:['Fire']}).ok}),true);
   await page.reload();await page.waitForFunction(()=>window.__ggBooted);await open();
   assert.equal(await page.getByRole('button',{name:/Sunday Starters,/}).count(),0,'decks stay profile-specific');
+  await page.getByRole('button',{name:'Deck-building help'}).click();await page.waitForSelector('.pocket-deck-sheet');
   const other=await page.evaluate(async()=>{const data=await import('/js/core/data.js'),D=await import('/js/core/dynasty.js'),S=await import('/js/core/dynasty-solo.js');data.setGuest('Ryan Stewart');await D.load();D.usePocketDeck('rental');const r=S.start('g1');return{ok:r.ok,v:S.get(r.mid).G.v}});assert.equal(other.ok,true);assert.equal(other.v,7);
+  await page.waitForFunction(()=>!document.querySelector('.pocket-deck-sheet'));
   await page.evaluate(async()=>{const data=await import('/js/core/data.js');data.setGuest('');data.setMe(null)});await page.waitForFunction(()=>!document.querySelector('.pocket-decks'));assert.equal(await page.evaluate(async()=>(await import('/js/core/dynasty.js')).tableOpen()),false);
   assert.deepEqual(errors,[]);console.log('PASS v7 phone/tablet shelf, create/edit/select, preserved v6 replay/decks, save/reload, fixed rental, drafts, keyboard and profile boundaries');await ctx.close();
  }finally{await browser.close()}

@@ -466,6 +466,42 @@ div.pk-open .pk-card.pk-rivals-card {
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.sz-s .pk-c-energy > .pk-e { font-size: 12cqw; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.sz-s .pk-c-energy > b { font-size: 7.2cqw; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.sz-s .pk-c-energy small { display: none; }
+/* Player paper follows its printed Energy across every rarity. The metal rim, foil and
+   portrait retain their rarity/team artwork; the name and rules use readable colored stock.
+   This class is emitted only for the four-profile Rivals presentation. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) {
+  --energy-paper: color-mix(in srgb, var(--energy-color) 48%, #fff);
+  --energy-panel: color-mix(in srgb, var(--energy-color) 32%, #fff);
+  --energy-deep: color-mix(in srgb, var(--energy-color) 72%, #101e2a);
+  --card-ink: #142632; --card-muted: #293d49;
+  --card-panel: var(--energy-panel); --card-line: color-mix(in srgb, var(--energy-color) 65%, #263744);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) .pk-c-face {
+  background: var(--energy-paper);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) :is(.pk-c-head, .pk-c-body, .pk-c-meta) {
+  background: var(--energy-panel);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) .pk-c-head {
+  border-radius: 1.3cqw; box-shadow: inset 0 0 0 .3cqw #ffffff65;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) .pk-c-body {
+  border-radius: 1.3cqw; box-shadow: inset 0 0 0 .3cqw #ffffff65;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) .pk-c-strip {
+  background: var(--energy-paper); color: var(--card-ink);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card .pk-c-energy {
+  gap: 2.4cqw; padding: .8cqw 1.8cqw; border-color: var(--energy-deep);
+  background: var(--energy-deep); color: #fff; box-shadow: inset 0 0 0 .3cqw #ffffff35;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card .pk-c-energy > .pk-e {
+  font-size: 11.5cqw; background: var(--energy-color);
+  box-shadow: 0 0 0 .55cqw #ffffffe0, 0 .5cqw 1cqw #0003;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card .pk-c-energy > b { font-size: 5.6cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card.sz-s .pk-c-energy > .pk-e { font-size: 13cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card.sz-s .pk-c-energy > b { font-size: 7.2cqw; }
 /* Ability/support cards: one solid color, a clear effect, and the play limit.
    The renderer adds this class only for the four-profile Rivals rollout. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer.pk-ability-card {

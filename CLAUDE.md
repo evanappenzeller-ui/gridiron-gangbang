@@ -1,5 +1,20 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals deck boxes and Energy card colors (November 7, 2026)
+
+The four `features.rivalsUpdated()` profiles see the Pokémon-inspired My decks shelf in
+`views/dynasty-pocket-decks.js`: numbered Energy-colored tiles, dimensional deck boxes with
+printed player covers and Energy logos, a saved-deck count, Edit/Done and deck-building help.
+The starter rental, 30 custom slots, chosen Energy Zones and 20-card rules stay unchanged.
+Browsing and toggling Edit never write saves; editing, selecting and deleting keep existing actions.
+
+Player faces carry `.pk-energy-card` only for the shared Rivals group. Their paper, name, attack,
+weakness and footer panels use the printed Energy color; a large outlined logo and full Energy
+name sit on a darker band. Rarity still controls the foil rim and portrait artwork. Colors derive
+from the same `dynasty-energy.js` palette as Energy symbols, including old saved-match symbols.
+Support cards keep their existing type colors. Verify `check-energy-faces.cjs`, binder-energy,
+card-layout, Pocket deck/browser/framing/presentation, title-screen, scope and preview/access checks.
+
 ## Rivals battle card framing (November 7, 2026)
 
 The four `features.rivalsUpdated()` profiles get larger v7 Active cards and larger printed attack

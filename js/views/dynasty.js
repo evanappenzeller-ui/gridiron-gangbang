@@ -124,8 +124,8 @@ export function cardHTML(c, o = {}) {
     + `<span class="pk-c-meta"><span class="pk-c-rar is-${m.kind}">${esc(rarity)}</span>${pc ? `<span class="pk-c-set">${PC.pointValue(pc)} POINT${PC.pointValue(pc) === 1 ? '' : 'S'}</span>` : `<span class="pk-c-ovr"><b>${c.o}</b><small>OVR</small></span>${st.ex ? '<span class="pk-c-set">2 PT</span>' : ''}`}`
     + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
     + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + `</span>${finish}</span>`;
-  const cls = `pk-card pk-rivals-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${rarity} s-${c.s} sz-${o.size || 'm'}${st.ex ? ' is-ex' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
-  const style = `--tp:${T.pri};--ts:${T.sec};--type-color:${B.TYPES[st.type]?.color || ENERGY_COLOR[st.type] || '#697c85'}${teamSceneStyle(c.team)}`;
+  const cls = `pk-card pk-rivals-card${energyBadge ? ' pk-energy-card' : ''} t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${rarity} s-${c.s} sz-${o.size || 'm'}${st.ex ? ' is-ex' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
+  const style = `--tp:${T.pri};--ts:${T.sec};--type-color:${B.TYPES[st.type]?.color || ENERGY_COLOR[st.type] || '#697c85'}${energyBadge ? `;--energy-color:${ENERGY_COLOR[energy] || '#697c85'}` : ''}${teamSceneStyle(c.team)}`;
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(c.id)}" aria-label="${esc(label)}">${inner}</button>`;
 }
