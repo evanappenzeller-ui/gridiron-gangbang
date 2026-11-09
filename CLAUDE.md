@@ -3,10 +3,13 @@
 ## Case scoreboard controls (November 9, 2026)
 
 Keep the shelf cases at their existing dimensions. A sibling button overlays the bottom of each
-case for Evan: Scoreboard flips to the board, Front cover flips back, even before today's first
-score. Keepfall retains its printed back with a Back cover button. The four Rivals profiles get
-the same controls on Rivals, with the existing `dynasty.others(..., {withMe: true})` trophy rankings
-on the shelf back; the opened play case retains its printed artwork. No new scoring or save data.
+case for Evan: Scoreboard flips to the board and Front cover flips back. Hide the scoreboard
+and its control until someone has played (a board entry or this profile's completed game).
+The button is a small translucent pill with a larger touch target, leaving the cover visible.
+Keepfall retains its printed back with a Back cover button. November 9 follow-up: remove
+the Scoreboard control from Gridiron Rivals. Rivals retains its original printed case back,
+with no scoreboard or bottom flip button; its in-game Rankings remain unchanged. No new scoring
+or save data.
 Verify `check-case-flip.cjs`, home-browser and Rivals preview/access before publishing.
 
 ## Rivals first-play tutorial (November 8, 2026)

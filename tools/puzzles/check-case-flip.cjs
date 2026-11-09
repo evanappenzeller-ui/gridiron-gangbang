@@ -26,7 +26,7 @@ function serve() {
   return new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', () => resolve(server)); });
 }
 
-const current = page => page.locator('.gm-slot.is-cur').filter({has:page.locator('.gm-case-control[data-gm-case-flip]')}).first();
+const current = page => page.locator('.gm-slot.is-cur').first();
 const control = page => current(page).locator('.gm-case-control[data-gm-case-flip]');
 const geometry = page => current(page).evaluate(slot => {
   const c = slot.querySelector('.gm-case'), shelf = slot.closest('.gm-shelf');
@@ -83,51 +83,55 @@ async function run(url) {
       await page.goto(url + '/#/puzzles');
       await page.waitForFunction(() => window.__ggBooted);
       await page.waitForFunction(() => document.querySelector('.gm-slot.is-cur')?.dataset.gmSlot === 'dynasty');
-      await label(page, 'Scoreboard');
       await page.waitForTimeout(1300);
-      assert.equal(await control(page).evaluate(b => b.parentElement.classList.contains('gm-slot') && !b.closest('.gm-case')), true, 'control is a sibling, not a nested button');
       const original = await geometry(page);
+      assert.equal(await current(page).locator('[data-gm-case-flip]').count(), 0, 'Rivals has no scoreboard control');
+      assert.equal(await current(page).locator('.gm-scr').count(), 0, 'Rivals case has no scoreboard');
+      assert.equal(await current(page).locator('.gm-dy-print img').getAttribute('src'), 'img/games/dynasty-back-v2.webp', 'Rivals retains its printed back');
       await page.screenshot({path:path.join(shots, `${viewport.width}-rivals-front.png`)});
+
+      await select(page, 'keep');
+      await label(page, 'Back cover');
+      assert.equal(await control(page).evaluate(b => b.parentElement.classList.contains('gm-slot') && !b.closest('.gm-case')), true, 'control is a sibling, not a nested button');
       await flip(page, 'Front cover');
-      await page.screenshot({path:path.join(shots, `${viewport.width}-rivals-back.png`)});
-      await flip(page, 'Scoreboard', true);
-      assert.deepEqual(await geometry(page), original);
+      await flip(page, 'Back cover', true);
 
       // Horizontal scrolling away and back resets the case and its button together.
       await flip(page, 'Front cover');
+      await select(page, 'dynasty');
+      assert.equal(await current(page).locator('[data-gm-case-flip]').count(), 0, 'Rivals stays without a scoreboard after scrolling');
+      assert.deepEqual(await geometry(page), original, 'Rivals dimensions stay unchanged');
       await select(page, 'keep');
       await label(page, 'Back cover');
-      await flip(page, 'Front cover');
-      await flip(page, 'Back cover');
-      await select(page, 'dynasty');
-      await label(page, 'Scoreboard');
-      assert.deepEqual(await geometry(page), original);
 
       await select(page, 'puzzles');
       assert.equal(await seedDaily(page, false), 0);
-      await label(page, 'Scoreboard');
+      await page.waitForFunction(() => {
+        const slot = document.querySelector('.gm-slot.is-cur');
+        return slot && !slot.querySelector('[data-gm-case-flip], .gm-back');
+      });
+      assert.equal(await current(page).locator('[data-gm-case-flip]').count(), 0, 'no scoreboard button before anyone plays');
+      assert.equal(await current(page).locator('.gm-back').count(), 0, 'empty daily scoreboard is not on the back');
       const emptySize = await geometry(page);
-      await flip(page, 'Front cover');
       await page.screenshot({path:path.join(shots, `${viewport.width}-daily-empty.png`)});
-      await flip(page, 'Scoreboard');
       assert.equal(await seedDaily(page, true), 1, 'fixture supplies one real daily board row');
       await label(page, 'Scoreboard');
       assert.deepEqual(await geometry(page), emptySize, 'score arrival does not resize the case');
+      await page.screenshot({path:path.join(shots, `${viewport.width}-daily-scoreboard-button.png`)});
       await flip(page, 'Front cover');
       assert(await current(page).locator('.gm-back').innerText().then(t => t.includes('Mason')), 'populated back shows existing scoreboard rows');
       await page.screenshot({path:path.join(shots, `${viewport.width}-daily-populated.png`)});
       await flip(page, 'Scoreboard', true);
 
-      // The new general shelf controls stay with Evan; Jayton receives only the Rivals change.
+      // The new general shelf controls stay with Evan; no Rivals profile gets a case scoreboard.
       await page.evaluate(async () => { (await import('/js/core/data.js')).setMe('mason'); });
       await page.waitForFunction(() => !document.querySelector('[data-gm-case-flip]'));
       await page.evaluate(async () => { (await import('/js/core/data.js')).setMe('jayton'); });
-      await page.waitForFunction(() => document.querySelector('[data-gm-case-flip]'));
-      assert.deepEqual(await page.locator('[data-gm-case-flip]').evaluateAll(bs => [...new Set(bs.map(b => b.closest('.gm-slot').dataset.gmSlot))]), ['dynasty']);
+      await page.waitForFunction(() => !document.querySelector('[data-gm-case-flip]'));
       await select(page, 'dynasty');
-      await label(page, 'Scoreboard');
-      await flip(page, 'Front cover');
-      await flip(page, 'Scoreboard');
+      assert.equal(await page.locator('[data-gm-case-flip]').count(), 0, 'Jayton has no new case controls');
+      assert.equal(await current(page).locator('.gm-scr').count(), 0, 'Jayton Rivals case has no scoreboard');
+      assert.equal(await current(page).locator('.gm-dy-print img').getAttribute('src'), 'img/games/dynasty-back-v2.webp', 'Jayton retains the Rivals printed back');
       assert.deepEqual(errors, [], 'no browser exceptions');
       console.log(`PASS ${viewport.width}x${viewport.height}: stable case size, shelf flips, keyboard, empty/populated boards, scroll reset and profile boundaries`);
       await context.close();
