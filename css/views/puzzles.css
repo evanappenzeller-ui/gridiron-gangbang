@@ -764,3 +764,10 @@ button.gm-r:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 
 /* A game's own page (pushed over the list): Daily Puzzles' card and leaderboard start under the nav bar. */
 .v-puzzles .c-pz-pane > .c-hero-wrap { margin-top: 8px; }
+
+/* The case footer overlays its existing footprint: flipping never resizes the cover. */
+.v-puzzles .gm-case-control {position:absolute;z-index:15;left:12%;right:12%;bottom:8px;min-height:44px;display:flex;align-items:center;justify-content:center;gap:7px;padding:8px 12px;border:1px solid #b7e9c66b;border-radius:12px;background:linear-gradient(#17472eef,#0a271ced);color:#f3f7e9;font:700 13px/1.2 var(--font-text);box-shadow:0 2px 8px #0006;cursor:pointer;}
+.v-puzzles .gm-case-control .ic {width:16px;height:16px;}
+.v-puzzles .gm-slot:not(.is-cur)>.gm-case-control {visibility:hidden;pointer-events:none;}
+.v-puzzles .gm-case-control:focus-visible {outline:3px solid #fff;outline-offset:2px;}
+.v-puzzles .gm-slot:has(>.gm-case-control) .gm-bk-in {padding-bottom:58px;}

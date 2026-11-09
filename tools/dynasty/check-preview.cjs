@@ -11,7 +11,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
   const errors = [];
   const ctx = vm.createContext({console:{error:e => errors.push(String(e))}, URLSearchParams, URL, setTimeout, clearTimeout});
   const noop = () => '';
-  const data = {OWNER:'evan', ids:league.managers.map(m => m.id), me:() => member, user:() => user, USERS,
+  const data = {OWNER:'evan', ids:league.managers.map(m => m.id), me:() => member, user:() => user, isOwner:() => member === 'evan', USERS,
     esc:s => String(s ?? ''), nf:String, name:id => id, subscribe:() => noop};
   const ui = {lsGet:() => null, icon:noop, button:({label}) => '<button>' + label + '</button>', ordinal:String};
   const daily = {status:'loading', LB:{raw:[]}};

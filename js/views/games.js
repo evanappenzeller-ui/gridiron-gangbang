@@ -45,6 +45,14 @@ export const GAMES = [
 // The games that go on with no day's final, countdown or board (Keepfall, Gridiron Dynasty): a printed back on their
 // case, never IN PROGRESS.
 const LASTING = ['keep', 'dynasty'];
+// Bottom controls stay inside the existing case footprint. Preserve other profiles' shelf.
+const caseControls = g => g.id === 'dynasty' ? features.rivalsUpdated() : data.isOwner();
+const rivalsBoard = g => g.id === 'dynasty' && caseControls(g);
+let rivalsCore = null, rivalsLoading = null;
+function loadRivalsBoard(then) {
+  if (!features.rivalsUpdated() || rivalsCore || rivalsLoading) return;
+  rivalsLoading = import('../core/dynasty.js').then(async m => { await m.load(); rivalsCore = m; then(); }).catch(() => {}).finally(() => { rivalsLoading = null; });
+}
 const byId = id => GAMES.find(g => g.id === id);
 // Game access and shelf visibility are separate: Rivals is playable by the four approved
 // profiles in features.js; every other league member sees its case with Coming Soon.
@@ -277,7 +285,12 @@ function dynastyWaiting(key = profileKey(), docs = daily.LB.raw || []) {
 function dynastyState() {
   if (!gameOpen('dynasty')) return {kind: 'coming-soon', sticker: 'COMING SOON'};
   const n = features.rivalsVersus() ? safeN(() => dynastyWaiting()) : 0;
-  return {kind: ui.lsGet('gg-dynasty-seen') === '1' ? 'started' : 'new', sticker: n ? 'YOUR MOVE' : ''};
+  // The shelf's profile listener runs before the lazily loaded game's listener.
+  // Select the current save without creating one before reading its rankings.
+  rivalsCore?.started();
+  const rows = rivalsCore ? rivalsCore.others(undefined, {withMe: true}).map((r, i) => ({...r, rank: i + 1, managerId: r.member, val: `${nf(r.tr)} trophies`, sub: `${r.rec.w}–${r.rec.l} · ${nf(r.cards)} cards`})) : [];
+  return {kind: ui.lsGet('gg-dynasty-seen') === '1' ? 'started' : 'new', sticker: n ? 'YOUR MOVE' : '',
+    ...(features.rivalsUpdated() ? {turns: true, board: rivalsCore ? 'ready' : 'loading', rows, tag: 'RANKINGS', head: 'Rivals scoreboard', lines: ['Trophies · All time']} : {})};
 }
 const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState, keep: keepState, dynasty: dynastyState};
 
@@ -367,13 +380,14 @@ function placeText(s) {
 /** A case's back: the band, the result, today's leaderboard (no name: the owner's ask, Oct 2026, for the room; the
  *  case's label still says it, and up close it's in the band). */
 function backHTML(g, s) {
-  const place = placeText(s), note = boardNote(s.board, s.rows || []);
-  const rows = note || `<div class="gm-scr-rows" role="list" aria-label="Today’s leaderboard">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r, {ale: RANKED.includes(g.id) && 'short'}) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
+  const rivals = rivalsBoard(g), heading = rivals ? 'Rivals rankings' : 'Today’s leaderboard';
+  const place = rivals ? '' : placeText(s), note = rivals && s.board === 'ready' && !s.rows?.length ? '<p class="gm-scr-note">NO RANKINGS YET</p>' : boardNote(s.board, s.rows || []);
+  const rows = note || `<div class="gm-scr-rows" role="list" aria-label="${heading}">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r, {ale: RANKED.includes(g.id) && 'short'}) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
   return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : s.tag || 'FINAL'}</span>`, g.beta)}`
     + `<span class="gm-bk-in">`
     + `<span class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>`
     + `${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}${place ? `<em>${esc(place)}</em>` : ''}</span></span>`
-    + `<span class="gm-scr"><span class="gm-scr-h">Today’s leaderboard</span>${rows}</span>`
+    + `<span class="gm-scr"><span class="gm-scr-h">${heading}</span>${rows}</span>`
     + `<span class="gm-bk-foot"><span class="gm-bk-tap">Tap for the full leaderboard ›</span></span></span></div>`;
 }
 /** Gridiron Dynasty's printed back: the owner's full back-cover art (Oct 29 2026, his Gridiron Rivals case: "Every pack.
@@ -405,7 +419,7 @@ const caseLabel = (g, s) => {
   return `${name}${s.kind === 'started' && !LASTING.includes(g.id) ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
 };
 /** A case's faces: its front, and its back when it has one (a game finished; one that turns before it's played). */
-const facesHTML = (g, s) => sidesHTML(g) + frontHTML(g, s) + (isKeepCase(g) ? keepBackHTML(g) : s.kind === 'done' || s.turns ? backHTML(g, s) : '');
+const facesHTML = (g, s) => sidesHTML(g) + frontHTML(g, s) + (rivalsBoard(g) ? backHTML(g, s) : isKeepCase(g) ? keepBackHTML(g) : s.kind === 'done' || s.turns ? backHTML(g, s) : '');
 // The one place a case on the shelf is taken hold of to turn it, its top right corner (the owner's ask, Oct 27 2026:
 // "It is too easy to flip the game cases. Make the only part to swivel the case in the top right"), and the small mark
 // there that shows where, once you've looked at the case a while (mountList's hint)
@@ -418,7 +432,14 @@ function caseHTML(g, s, i, n, clone) {
   return `<div class="gm-slot" ${slot} data-gm-slot="${g.id}">`
     + `<button type="button" class="gm-case${done ? ' is-done' : s.turns ? ' is-turns' : ''}${isKeepCase(g) ? ' is-swivel' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-disabled="${s.kind === 'coming-soon'}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
     + `<span class="gm-flip">${facesHTML(g, s)}</span><span class="gm-gloss" aria-hidden="true"></span>`
-    + GRIP + `</button></div>`; // (views/game-case.js shelfTurner)
+    + GRIP + `</button>${caseControlHTML(g, s)}</div>`; // (views/game-case.js shelfTurner)
+}
+
+// A sibling button avoids nesting controls inside the clickable case. It never adds shelf height.
+function caseControlHTML(g, s) {
+  if (!caseControls(g) || !(s.turns || s.kind === 'done' || isKeepCase(g))) return '';
+  const on = s.kind === 'done', label = on ? 'Front cover' : g.id === 'keep' ? 'Back cover' : 'Scoreboard';
+  return `<button type="button" class="gm-case-control" data-gm-case-flip aria-label="${esc(label + ': ' + g.name)}" aria-pressed="${on}">${ui.icon(on || g.id === 'keep' ? 'swap' : 'trophy')}<span>${label}</span></button>`;
 }
 
 // ---------------------------------------------------------------- What's under the shelf: the game you're on
@@ -454,7 +475,7 @@ function selHTML(g, s) {
   // on it brings the whole board up close (with the way into the game's own page).
   return `<h2 class="sr-only">${esc(g.name)}</h2>`
     + (s.kind === 'error' && s.meta ? `<div class="gm-meta">${s.meta}</div>` : '')
-    + (done ? cdHTML(g) + flipHTML(s) : ctaHTML(s));
+    + (done ? cdHTML(g) + (caseControls(g) ? '' : flipHTML(s)) : caseControls(g) && !['loading', 'error'].includes(s.kind) ? '' : ctaHTML(s));
 }
 function stateOf(g) {
   try { return STATE[g.id](); } catch (e) { console.error(e); return {kind: 'new'}; }
@@ -610,6 +631,15 @@ export function mountList(el, ctx, opts = {}) {
   // The flip button under a case that turns (flipHTML) says what it'll do: to the scoreboard, or back to the cover
   // (and a tap on the case, turned round, brings the whole board up close)
   function syncFlip() {
+    if (st.dead) return;
+    slots().forEach(slot => {
+      const b = slot.querySelector('[data-gm-case-flip]'), cs = slot.querySelector('.gm-case'), g = byId(slot.dataset.gmSlot);
+      if (!b || !cs || !g) return;
+      const on = turner.back(cs), label = on ? 'Front cover' : g.id === 'keep' ? 'Back cover' : 'Scoreboard';
+      b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', label + ': ' + g.name);
+      b.querySelector('span').textContent = label;
+      b.querySelector('use')?.setAttribute('href', on || g.id === 'keep' ? '#i-swap' : '#i-trophy');
+    });
     const b = sel.querySelector('[data-gm-flip]');
     if (!b || st.dead) return;
     const g = list()[st.cur % n()], cs = g && curCase(g.id), on = !!cs && turner.back(cs);
@@ -650,17 +680,18 @@ export function mountList(el, ctx, opts = {}) {
   }
   // ---------------------------------------------------------------- the back, up close
   function rowsFor(g, mode) {
+    if (rivalsBoard(g)) { const s = stateOf(g); return {board: s.board, rows: s.rows || []}; }
     if (mode === 'season') return {board: g.id === 'puzzles' ? dailyBoard() : boardOf({'17-0': C.sv, drill: C.dr, kick: C.kk, return: C.rm}[g.id] || {boardState: () => 'loading'}), rows: seasonRowsOf(g.id)};
     const s = stateOf(g);
     return {board: s.board, rows: (s.rows || []).map(r => ({...r, sub: SUB_TODAY[g.id](r)}))};
   }
   function zoomBody(g, mode) {
-    const {board, rows} = rowsFor(g, mode), note = boardNote(board, rows, mode === 'season');
+    const {board, rows} = rowsFor(g, mode), note = rivalsBoard(g) && board === 'ready' && !rows.length ? '<p class="gm-scr-note">NO RANKINGS YET</p>' : boardNote(board, rows, mode === 'season');
     const me = rows.find(r => r.me);
     // (17-0's teams, a tap on a name, and its best team only once you've played: before, they'd give today's away)
     const teams = g.id === '17-0' && stateOf(g).kind === 'done';
     return (me ? `<p class="gm-z-me">You: ${esc(ui.ordinal(me.rank))} of ${rows.length} · ${esc(me.val)}</p>` : '')
-      + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true, who: teams, ale: mode === 'today' && RANKED.includes(g.id)})).join('')}</div>`)
+      + (note || `<div class="gm-scr-rows" role="list" aria-label="${rivalsBoard(g) ? 'Rivals rankings' : mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true, who: teams, ale: mode === 'today' && RANKED.includes(g.id)})).join('')}</div>`)
       + (teams && mode === 'today' ? bestHTML() : '');
   }
   // Under 17-0's Today up close, the board's best possible team (the owner's ask, Oct 2026; only once you've played,
@@ -707,9 +738,9 @@ export function mountList(el, ctx, opts = {}) {
     // (the game's name up in the black band, where the cover has GRIDIRON HUB: the owner's ask, Oct 2026)
     const band = `<span class="gm-band is-z">${g.beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
       + `<span class="gm-bk-tag">${s.test ? 'TEST' : s.tag || 'FINAL'}</span></span>`;
-    const back = isKeepCase(g) ? keepBackHTML(g, true) : play ? '' : `<div class="gm-face gm-back gm-z-back">${band}<div class="gm-bk-in">`
+    const back = isKeepCase(g) && (play || !rivalsBoard(g)) ? keepBackHTML(g, true) : play ? '' : `<div class="gm-face gm-back gm-z-back">${band}<div class="gm-bk-in">`
       + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
-      + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`
+      + (rivalsBoard(g) ? '<p class="gm-z-me">All-time Rivals rankings</p>' : `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`)
       + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div></div>${GLOSS}</div>`;
     // its sides (the spine with the name down it), the tray inside with the disc on its hub, the cover on its hinge
     // (the cover outside, inside the booklet held in by two clips)
@@ -905,6 +936,13 @@ export function mountList(el, ctx, opts = {}) {
   }
   // ---------------------------------------------------------------- taps, keys
   const onClick = e => {
+    const control = e.target.closest('[data-gm-case-flip]');
+    if (control) {
+      const slot = control.closest('.gm-slot'), cs = slot.querySelector('.gm-case');
+      if (!slot.classList.contains('is-cur')) return;
+      if (turner.flip(cs) != null) { ui.haptic('light'); syncFlip(); }
+      return;
+    }
     if (e.target.closest('[data-gm-flip]')) { // (the case in the middle turns round, and back)
       const g = list()[st.cur % n()], c = g && curCase(g.id);
       if (c && turner.flip(c) != null) { ui.haptic('light'); syncFlip(); }
@@ -965,6 +1003,7 @@ export function mountList(el, ctx, opts = {}) {
   const refresh = (animate = true) => {
     if (st.dead) return;
     syncOwner();
+    loadRivalsBoard(() => refresh(false));
     // A profile change can add or remove Keepfall, including from a hidden shelf.
     const ids = gamesFor().map(g => g.id).join(' ');
     if (el.dataset.ids !== ids) {
@@ -983,7 +1022,7 @@ export function mountList(el, ctx, opts = {}) {
     list().forEach((g, i) => {
       const css = [...el.querySelectorAll(`.gm-case[data-gm="${g.id}"]`)]; // the game and its copies
       if (!css.length) return;
-      const s = stateOf(g), key = sig(g, s);
+      const s = stateOf(g), key = sig(g, s) + '|' + caseControls(g);
       if (shown.get(g.id) === key) return;
       shown.set(g.id, key);
       css.forEach(cs => {
@@ -991,6 +1030,8 @@ export function mountList(el, ctx, opts = {}) {
         cs.dataset.kind = s.kind;
         const fl = cs.querySelector('.gm-flip');
         fl.innerHTML = facesHTML(g, s);
+        const slot = cs.closest('.gm-slot'), control = slot.querySelector('[data-gm-case-flip]');
+        control?.remove(); slot.insertAdjacentHTML('beforeend', caseControlHTML(g, s));
         cs.classList.toggle('is-swivel', isKeepCase(g));
         ui.hydrate(fl);
         cs.classList.toggle('is-turns', !!s.turns && s.kind !== 'done');
@@ -1002,6 +1043,7 @@ export function mountList(el, ctx, opts = {}) {
       });
       if (i === st.cur % n()) setCur(i, animate);
     });
+    syncFlip();
     room();
     if (st.zoom && !st.zoom.play) {
       const body = st.zoom.el.querySelector('[data-gm-zbody]'), g = byId(st.zoom.id), html = zoomBody(g, st.zoom.mode);
@@ -1009,7 +1051,7 @@ export function mountList(el, ctx, opts = {}) {
     }
   };
   list().forEach(g => shown.set(g.id, sig(g, stateOf(g))));
-  ui.whenIdle(() => loadCores(() => refresh(true)));
+  ui.whenIdle(() => { loadCores(() => refresh(true)); loadRivalsBoard(() => refresh(false)); });
   const tick = () => {
     const t = ui.untilText(msToMidnight());
     el.querySelectorAll('[data-gm-cd]').forEach(v => { if (v.textContent !== t) v.textContent = t; });

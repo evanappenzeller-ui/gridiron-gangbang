@@ -1,5 +1,14 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Case scoreboard controls (November 9, 2026)
+
+Keep the shelf cases at their existing dimensions. A sibling button overlays the bottom of each
+case for Evan: Scoreboard flips to the board, Front cover flips back, even before today's first
+score. Keepfall retains its printed back with a Back cover button. The four Rivals profiles get
+the same controls on Rivals, with the existing `dynasty.others(..., {withMe: true})` trophy rankings
+on the shelf back; the opened play case retains its printed artwork. No new scoring or save data.
+Verify `check-case-flip.cjs`, home-browser and Rivals preview/access before publishing.
+
 ## Rivals first-play tutorial (November 8, 2026)
 
 The four `features.rivalsUpdated()` profiles enter practice after Tap to Start until they

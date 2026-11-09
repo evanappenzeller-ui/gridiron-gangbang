@@ -374,7 +374,7 @@ export function shelfTurner(shelf, {rest = () => {}} = {}) {
       return target(S) === BACK;
     },
     flip(cs) {
-      if (!cs || !cs.matches('.gm-case.is-done, .gm-case.is-turns') || (P && P.cs === cs)) return null; // (not one in your hand)
+      if (!cs || !cs.matches('.gm-case.is-done, .gm-case.is-turns, .gm-case.is-swivel') || (P && P.cs === cs)) return null; // (not one in your hand)
       const S = stateOf(cs);
       S.held = false; S.goal = target(S) === BACK ? FRONT : BACK;
       wake(S);
