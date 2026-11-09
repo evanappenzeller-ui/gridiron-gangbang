@@ -44,8 +44,23 @@ async function select(page, id) {
 async function label(page, expected) {
   await page.waitForFunction(expected => [...document.querySelectorAll('.gm-slot.is-cur [data-gm-case-flip]')].some(b => b.textContent.trim() === expected), expected);
 }
+async function footerLayout(page) {
+  const layout = await page.evaluate(() => {
+    const slot = document.querySelector('.gm-slot.is-cur'), c = slot.querySelector('.gm-case').getBoundingClientRect();
+    const b = slot.querySelector('[data-gm-case-flip]').getBoundingClientRect();
+    const appsTop = Math.min(...[...document.querySelectorAll('.hm-app')].map(el => el.getBoundingClientRect().top));
+    return {caseBottom:c.bottom, top:b.top, bottom:b.bottom, left:b.left, right:b.right, appsTop, width:innerWidth, height:innerHeight};
+  });
+  assert(layout.top >= layout.caseBottom, 'flip control sits underneath the case');
+  assert(layout.bottom <= layout.appsTop && layout.bottom <= layout.height, 'control stays above app icons and within the screen');
+  assert(layout.left >= 0 && layout.right <= layout.width, 'control fits the phone width');
+  assert.equal(await page.locator('.gm-case-control:visible').count(), 1, 'only one visible flip control');
+  assert.equal(await page.locator('.gm-list .gm-cd, .gm-list .gm-cdw, .gm-list [data-gm-cd]').count(), 0, 'no countdown below the cases');
+  assert.equal(await page.locator('.gm-sel > :not(.sr-only)').count(), 0, 'no extra text or controls below the cases');
+}
 async function flip(page, expected, keyboard = false) {
   const before = await geometry(page);
+  await footerLayout(page);
   if (keyboard) { await control(page).focus(); await page.keyboard.press('Enter'); }
   else await control(page).click();
   await label(page, expected);
@@ -54,6 +69,7 @@ async function flip(page, expected, keyboard = false) {
   assert.equal(new URL(page.url()).hash, '#/puzzles', 'flip never launches a game');
   assert.deepEqual(await geometry(page), before, 'case and shelf dimensions remain unchanged');
   assert.equal(await control(page).getAttribute('aria-pressed'), String(expected === 'Front cover'));
+  await footerLayout(page);
 }
 async function seedDaily(page, populated) {
   return page.evaluate(async populated => {
@@ -117,10 +133,27 @@ async function run(url) {
       assert.equal(await seedDaily(page, true), 1, 'fixture supplies one real daily board row');
       await label(page, 'Scoreboard');
       assert.deepEqual(await geometry(page), emptySize, 'score arrival does not resize the case');
+      await footerLayout(page);
       await page.screenshot({path:path.join(shots, `${viewport.width}-daily-scoreboard-button.png`)});
       await flip(page, 'Front cover');
       assert(await current(page).locator('.gm-back').innerText().then(t => t.includes('Mason')), 'populated back shows existing scoreboard rows');
       await page.screenshot({path:path.join(shots, `${viewport.width}-daily-populated.png`)});
+      await flip(page, 'Scoreboard', true);
+
+      // A completed day formerly added the countdown shown in the user's screenshot.
+      await page.evaluate(async () => {
+        const D = await import('/js/core/daily.js');
+        const entry = {...D.boardEntry(), p:400, r:D.relOf(D.PNUM)};
+        const rows = [...D.LB.raw, {id:'case-owner', nick:'Evan', days:{[D.PNUM]:entry}, total:400, played:1}];
+        Object.assign(D.LB, {raw:rows, players:rows});
+        D.__dev.emit('lb', {prev:[], why:'offline completed case fixture'});
+      });
+      await page.waitForFunction(() => document.querySelector('.gm-slot.is-cur .gm-case')?.dataset.kind === 'done');
+      await label(page, 'Front cover');
+      await page.waitForTimeout(700);
+      await footerLayout(page);
+      assert.deepEqual(await geometry(page), emptySize, 'completed game does not resize the case');
+      await page.screenshot({path:path.join(shots, `${viewport.width}-daily-completed.png`)});
       await flip(page, 'Scoreboard', true);
 
       // The new general shelf controls stay with Evan; no Rivals profile gets a case scoreboard.
@@ -133,7 +166,7 @@ async function run(url) {
       assert.equal(await current(page).locator('.gm-scr').count(), 0, 'Jayton Rivals case has no scoreboard');
       assert.equal(await current(page).locator('.gm-dy-print img').getAttribute('src'), 'img/games/dynasty-back-v2.webp', 'Jayton retains the Rivals printed back');
       assert.deepEqual(errors, [], 'no browser exceptions');
-      console.log(`PASS ${viewport.width}x${viewport.height}: stable case size, shelf flips, keyboard, empty/populated boards, scroll reset and profile boundaries`);
+      console.log(`PASS ${viewport.width}x${viewport.height}: stable case size, control below case, no countdown, keyboard, empty/populated/completed boards and profile boundaries`);
       await context.close();
     }
   } finally { await browser.close(); }

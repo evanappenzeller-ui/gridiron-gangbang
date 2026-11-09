@@ -423,7 +423,7 @@ function caseHTML(g, s, i, n, clone) {
     + GRIP + `</button>${caseControlHTML(g, s)}</div>`; // (views/game-case.js shelfTurner)
 }
 
-// A sibling button avoids nesting controls inside the clickable case. It never adds shelf height.
+// A sibling button sits just beneath the case, in the shelf's existing bottom padding.
 function caseControlHTML(g, s) {
   if (!caseControls(g) || !(s.turns || s.kind === 'done' || isKeepCase(g))) return '';
   const on = s.kind === 'done', label = on ? 'Front cover' : g.id === 'keep' ? 'Back cover' : 'Scoreboard';
@@ -463,7 +463,7 @@ function selHTML(g, s) {
   // on it brings the whole board up close (with the way into the game's own page).
   return `<h2 class="sr-only">${esc(g.name)}</h2>`
     + (s.kind === 'error' && s.meta ? `<div class="gm-meta">${s.meta}</div>` : '')
-    + (done ? cdHTML(g) + (caseControls(g) ? '' : flipHTML(s)) : caseControls(g) && !['loading', 'error'].includes(s.kind) ? '' : ctaHTML(s));
+    + (done ? (caseControls(g) ? '' : cdHTML(g) + flipHTML(s)) : caseControls(g) && !['loading', 'error'].includes(s.kind) ? '' : ctaHTML(s));
 }
 function stateOf(g) {
   try {

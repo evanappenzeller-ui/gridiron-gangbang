@@ -2,8 +2,9 @@
 
 ## Case scoreboard controls (November 9, 2026)
 
-Keep the shelf cases at their existing dimensions. A sibling button overlays the bottom of each
-case for Evan: Scoreboard flips to the board and Front cover flips back. Hide the scoreboard
+Keep the shelf cases large. A sibling button sits underneath each case for Evan, using the shelf's
+existing bottom space: Scoreboard flips to the board and Front cover flips back. Remove the
+new-puzzles/game countdown beneath his cases; the flip control is the only normal footer content. Hide the scoreboard
 and its control until someone has played (a board entry or this profile's completed game).
 The button is a small translucent pill with a larger touch target, leaving the cover visible.
 Keepfall retains its printed back with a Back cover button. November 9 follow-up: remove

@@ -765,10 +765,12 @@ button.gm-r:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 /* A game's own page (pushed over the list): Daily Puzzles' card and leaderboard start under the nav bar. */
 .v-puzzles .c-pz-pane > .c-hero-wrap { margin-top: 8px; }
 
-/* The case footer overlays its existing footprint: flipping never resizes the cover. */
-.v-puzzles .gm-case-control {position:absolute;z-index:15;left:50%;bottom:8px;transform:translateX(-50%);width:max-content;max-width:76%;height:28px;min-height:28px;display:flex;align-items:center;justify-content:center;gap:5px;padding:4px 10px;border:1px solid #d9f4e240;border-radius:9px;background:#0a271c55;color:#f3f7e9e6;font:700 11px/1.2 var(--font-text);cursor:pointer;}
+/* The compact control uses the space beneath the case without covering its artwork. */
+.v-puzzles .gm-case-control {position:absolute;z-index:15;left:50%;top:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:76%;height:28px;min-height:28px;display:flex;align-items:center;justify-content:center;gap:5px;padding:4px 10px;border:1px solid #d9f4e240;border-radius:9px;background:#0a271c55;color:#f3f7e9e6;font:700 11px/1.2 var(--font-text);cursor:pointer;}
 .v-puzzles .gm-case-control::before {content:"";position:absolute;inset:-8px -6px;}
 .v-puzzles .gm-case-control .ic {width:12px;height:12px;}
 .v-puzzles .gm-slot:not(.is-cur)>.gm-case-control {visibility:hidden;pointer-events:none;}
 .v-puzzles .gm-case-control:focus-visible {outline:3px solid #fff;outline-offset:2px;}
-.v-puzzles .gm-slot:has(>.gm-case-control) .gm-bk-in {padding-bottom:42px;}
+@media (max-height:650px) {
+  .v-puzzles .gm-list:has(.gm-case-control) .gm-shelf {top:-16px;}
+}
