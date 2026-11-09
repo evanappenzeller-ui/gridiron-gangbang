@@ -78,6 +78,10 @@
 <link rel="stylesheet" href="css/themes.css">
 <link rel="stylesheet" href="css/finish.css">
 <link rel="stylesheet" href="css/release.css">
+<!-- The game cases' own styles, in from the start so the cases never restyle under you (games.js reuses them) -->
+<link rel="stylesheet" href="css/views/game-case-owner.css" data-gm-static="game-case-owner">
+<link rel="stylesheet" href="css/views/game-case-controls.css" data-gm-static="game-case-controls">
+<link rel="stylesheet" href="css/views/game-launch.css" data-gm-static="game-launch">
 </head>
 <body>
 <!--
@@ -164,7 +168,8 @@
 
 <!-- The opening (Oct 2026, after ESPN's): on every launch, over the app (which loads underneath, inert). The logo
      pops, the burst flies out round it, the logo breaks apart and slams back together, then we fly through it into
-     the app: 1.7 s in all (css/base.css, the opening). A tap skips it. -->
+     the app: 1.7 s in all (css/base.css, the opening), held before the break until the app is ready (Nov 9 2026: the
+     script below, js/core/opening.js). A tap skips it. -->
 <div id="title" aria-hidden="true">
   <svg class="ts-defs" width="0" height="0" focusable="false">
     <symbol id="ts-ball" viewBox="0 0 120 72"><path d="M6 36C30 2 90 2 114 36 90 70 30 70 6 36Z" fill="#fff" stroke="#0A1660" stroke-width="5" stroke-linejoin="round"/><path d="M27 15c-5 13-5 29 0 42M93 15c5 13 5 29 0 42M42 36h36M48 30v12M55 30v12M62 30v12M69 30v12" fill="none" stroke="#0A1660" stroke-width="5" stroke-linecap="round"/></symbol>
@@ -238,45 +243,139 @@
 <!-- Firebase web config for the shared leaderboard. Leave {} to run without it. -->
 <script id="firebase-config" type="application/json">{"apiKey":"AIzaSyDWcOeYQcoz7T2oi0NqBsgbq9I-6Zrrm34","authDomain":"gridiron-gangbang.firebaseapp.com","projectId":"gridiron-gangbang","storageBucket":"gridiron-gangbang.firebasestorage.app","messagingSenderId":"996712077165","appId":"1:996712077165:web:05d0d7c1df7fa20c69ac64"}</script>
 <script>
-// The opening: plays once and gets out of the way (1.7 s), the app live under it from the fly-through on; a tap
-// skips it. Runs before the app's modules, so it starts with the first paint.
+// The opening: pops, holds while the app loads underneath, then flies through into it; a tap skips it. Runs before
+// the app's modules, so it starts with the first paint. It waits for the app (Nov 9 2026, Evan: "Fix this so the app
+// has sufficient time to load during the opening animation"): from the end of the pop the burst drifts in slow motion,
+// and if the app still isn't ready when the logo is about to break apart, everything holds there, the logo breathing,
+// until js/core/opening.js calls __ggTitle.ready() (the first screen drawn, its pictures decoded). Then the logo
+// breaks, slams back together and we fly through, at full speed. The beats (buzzes, the app coming in) follow the
+// animation's own clock. A start that takes too long (CAP) goes on anyway: the app's own loading screen takes over.
 (function () {
-  var t = document.getElementById('title'), app = document.getElementById('app');
+  var t = document.getElementById('title'), app = document.getElementById('app'), root = document.documentElement;
   var live = function () { if (app) { app.inert = false; app.removeAttribute('inert'); } };
-  if (!t) { live(); return; }
+  var waiting = [], gone = false, isReady = false;
+  var api = window.__ggTitle = {
+    gone: false,
+    ready: function () { isReady = true; },
+    onGone: function (fn) { if (gone) { try { fn(); } catch (_) {} } else waiting.push(fn); }
+  };
+  var finish = function () {
+    if (gone) return;
+    gone = api.gone = true;
+    waiting.splice(0).forEach(function (fn) { try { fn(); } catch (_) {} });
+  };
+  if (!t) { live(); finish(); return; }
   // An update reload (the app swapping in a new version mid-session) skips the opening.
   try {
     if (sessionStorage.getItem('gg-skip-title')) {
       sessionStorage.removeItem('gg-skip-title');
-      t.remove(); live();
+      t.remove(); live(); finish();
       return;
     }
   } catch (_) {}
-  var done = false, timers = [];
+  var CAP = 7000;                                   // the longest the opening waits for the app
+  var POP = .094, TOGETHER = .756, THROUGH = .82;   // the beats, in parts of the clock (css/base.css: 160, 1285, 1400 of 1700 ms)
+  var SLOW = .24, HOLD = .56, BREAK = .575, RATE = .3; // slow motion from the burst's landing; hold just before the break
+  var t0 = Date.now(), done = false, skipping = false, timers = [], held = false, rate = 1, fired = {}, breath = [];
+  var reduced = false;
+  try { reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || root.classList.contains('rm'); } catch (_) {}
+  // The app under it is its own layer from the start (css/base.css html.ts-on), painted while the opening plays, so
+  // flying in costs the phone nothing new.
+  root.classList.add('ts-on');
   var end = function () {
     if (done) return;
     done = true;
     timers.forEach(clearTimeout);
     live();
     t.remove();
+    root.classList.remove('ts-on');
+    // (the fly-in's class goes with its animation; with reduced motion, or a skip, there's none to end)
+    setTimeout(function () { root.classList.remove('ts-in'); }, 600);
+    finish();
   };
   var buzz = function (ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (_) {} };
-  timers.push(setTimeout(function () { buzz(10); }, 160));                       // the pop
-  timers.push(setTimeout(function () { buzz(16); }, 1285));                      // back together
-  timers.push(setTimeout(function () { live(); document.documentElement.classList.add('ts-in'); }, 1400)); // through it
-  timers.push(setTimeout(end, 2500));                                            // (in case the animation never ends)
+  var through = function () { if (fired.thr) return; fired.thr = 1; live(); root.classList.add('ts-in'); };
   t.addEventListener('animationend', function (e) { if (e.animationName === 'ts-bg') end(); });
   if (app) app.addEventListener('animationend', function off(e) {
     if (e.animationName !== 'ts-app') return;
-    document.documentElement.classList.remove('ts-in');
+    root.classList.remove('ts-in');
     app.removeEventListener('animationend', off);
   });
   t.addEventListener('click', function () {
-    if (done || t.classList.contains('is-skip')) return;
+    if (done || skipping) return;
+    skipping = true;
     live();
     t.classList.add('is-skip');
     timers.push(setTimeout(end, 220));
   });
+  var anims = null, bg = null, T = 0;
+  try {
+    anims = t.getAnimations ? t.getAnimations({subtree: true}) : null;
+    var bgEl = t.querySelector('.ts-bg');
+    if (anims) for (var i = 0; i < anims.length; i++) if (anims[i].effect && anims[i].effect.target === bgEl) bg = anims[i];
+    if (bg) T = +bg.effect.getComputedTiming().duration || 0;
+  } catch (_) { anims = null; }
+  if (!anims || !bg || !T) {
+    // (no Web Animations: the opening as it was, on its own clock)
+    timers.push(setTimeout(function () { buzz(10); }, 160));
+    timers.push(setTimeout(function () { buzz(16); }, 1285));
+    timers.push(setTimeout(through, 1400));
+    timers.push(setTimeout(end, 2500));
+    return;
+  }
+  timers.push(setTimeout(end, CAP + T + 2000)); // (in case the animation never ends)
+  var each = function (fn) { for (var i = 0; i < anims.length; i++) { try { fn(anims[i]); } catch (_) {} } };
+  var setRate = function (r) { if (rate === r) return; rate = r; each(function (a) { a.playbackRate = r; }); };
+  // Held, the logo and its rings breathe and the burst bobs (individual scale / translate: they add to the paused
+  // transforms, on the compositor), so a slow start never looks frozen.
+  var breathe = function () {
+    if (reduced) return;
+    var add = function (el, kf, ms, delay) {
+      try { breath.push(el.animate(kf, {duration: ms, delay: delay || 0, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out'})); } catch (_) {}
+    };
+    var mark = t.querySelector('.ts-mark');
+    if (mark) add(mark, [{scale: '1'}, {scale: '1.035'}], 820);
+    [].forEach.call(t.querySelectorAll('.ts-rings > i'), function (el, i) { add(el, [{scale: '1'}, {scale: String(1.05 + i * .03)}], 820, 60 * (i + 1)); });
+    [].forEach.call(t.querySelectorAll('.ts-o'), function (el, i) { add(el, [{translate: '0 0'}, {translate: '0 ' + (i % 2 ? 8 : -8) + 'px'}], 1100 + (i % 4) * 160); });
+  };
+  // and settle back from wherever they are as the logo breaks
+  var unbreathe = function () {
+    breath.splice(0).forEach(function (a) {
+      try {
+        var el = a.effect.target, cs = getComputedStyle(el), from = {scale: cs.scale, translate: cs.translate};
+        a.cancel();
+        var kf = [{}, {}];
+        if (from.scale && from.scale !== 'none') { kf[0].scale = from.scale; kf[1].scale = '1'; }
+        if (from.translate && from.translate !== 'none') { kf[0].translate = from.translate; kf[1].translate = '0 0'; }
+        if (kf[0].scale || kf[0].translate) el.animate(kf, {duration: 200, easing: 'ease-out'});
+      } catch (_) { try { a.cancel(); } catch (__) {} }
+    });
+  };
+  var tick = function () {
+    if (done || skipping) return;
+    var p = (+bg.currentTime || 0) / T;
+    var go = isReady || Date.now() - t0 > CAP;
+    if (go) {
+      // (the app wakes as the logo breaks, not as we fly in: waking it restyles the whole app, a frame's work that
+      // would make the fly-through start late)
+      live();
+      if (held) { held = false; unbreathe(); each(function (a) { a.play(); }); }
+      setRate(1);
+    } else if (!held && p >= HOLD && p < BREAK) {
+      held = true;
+      each(function (a) { a.pause(); });
+      breathe();
+    } else if (!held && p >= SLOW && p < HOLD && !reduced) {
+      setRate(RATE);
+    } else if (p >= BREAK) {
+      setRate(1); // (too late to hold: carry on as it was)
+    }
+    if (p >= POP && !fired.pop) { fired.pop = 1; buzz(10); }
+    if (p >= TOGETHER && !fired.tog) { fired.tog = 1; buzz(16); }
+    if (p >= THROUGH) through();
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 })();
 </script>
 <script>

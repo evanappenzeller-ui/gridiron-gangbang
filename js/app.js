@@ -39,6 +39,7 @@ import {needsWelcome, showWelcome} from './views/welcome.js';
 import {available, dynastyOpen} from './core/features.js';
 import {showReleaseNotice} from './core/release.js';
 import {beginHomeTransition, syncHomeChrome} from './core/home-navigation.js';
+import * as opening from './core/opening.js';
 
 export const APP_VERSION = '3.0';
 
@@ -2015,7 +2016,7 @@ function setupTabSwipe() {
   };
   stage.addEventListener('touchend', end, {passive: true});
   stage.addEventListener('touchcancel', end, {passive: true});
-  ui.onIdle(() => warmNeighbours(S.tab));
+  opening.done().then(() => setTimeout(() => ui.onIdle(() => warmNeighbours(S.tab)), 450)); // (not under the fly-through)
 }
 
 // ============================================================================ Swipe-back (3.4; iOS standalone only)
@@ -2252,6 +2253,7 @@ function removeBoot() {
 }
 function showFatal() {
   removeBoot();
+  opening.release($('app')); // (the opening lifts on the message, never waits it out)
   const f = document.createElement('div');
   f.className = 'fatal';
   f.innerHTML = ui.empty({icon: 'football', title: "Can't load the league. Check your connection.", action: {label: 'Try again', kind: 'primary', attrs: {'data-boot-retry': ''}}});
@@ -2347,13 +2349,16 @@ async function start() {
   }
   await deepLink(hash0, {warm: false});
   removeBoot();
+  // The opening (index.html) holds until this first screen is whole (core/opening.js), then flies through into it.
+  opening.release($('app'));
   // First open on this phone: ask who they are (a full-screen picker over whatever screen the link opened).
   if (needsWelcome()) showWelcome().then(showReleaseNotice);
   else showReleaseNotice();
   setupTabBar();
   setupTabSwipe();
   if (ui.IOS_STANDALONE) enableSwipeBack();
-  requestAnimationFrame(() => ui.onIdle(() => {
+  // (after the opening: none of this is for the first screen, and it would only make the fly-through stutter)
+  opening.done().then(() => setTimeout(() => requestAnimationFrame(() => ui.onIdle(() => {
     daily.ensure().catch(() => {});
     // Live Rivals: presence, challenges and the challenge notice (core/rivals-live.js; the Rivals group alone publishes).
     import('./core/rivals-live.js').then(m => m.start({nav})).catch(e => console.error(e));
@@ -2365,7 +2370,7 @@ async function start() {
     }).catch(() => {}));
     ui.onIdle(() => ['season', 'profile', 'review', 'wrap', 'run', 'results'].forEach(id => loadView(id).catch(() => {})));
     registerSW();
-  }));
+  })), 450));
   document.addEventListener('visibilitychange', onVisibility);
   addEventListener('pagehide', persistScroll);
   setInterval(() => { if (!document.hidden) { try { daily.checkDay(); } catch (_) {} } }, 60 * 1000);

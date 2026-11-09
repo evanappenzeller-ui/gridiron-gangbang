@@ -1,5 +1,22 @@
 # Gridiron Gangbang: rules for working on this app
 
+## App opening waits for the app (November 9, 2026)
+
+Evan: "The app lags when first entered. Fix this so the app has sufficient time to load during the opening animation so
+that it runs smoothly. Lags include glitching with the game cases and screen flashes" (everyone). The opening
+(index.html `#title`) no longer ends on a fixed 1.7 s clock: from the burst's landing (24%) it drifts at 0.3 speed and,
+if the app isn't ready by 56%, pauses with the logo, rings and burst breathing (individual `scale`/`translate` Web
+Animations; none with reduced motion) until `js/core/opening.js` `release()` calls `__ggTitle.ready()`; then it breaks
+and flies through at full speed. Beats (buzzes, waking the app, `ts-in`) follow the animation's own clock. Ready means
+the first screen drawn (`start()` after `deepLink`), every `opening.hold()` settled (the shelf's case stylesheets, game
+cores, `daily.ensure()`, the board for up to 1.5 s), fonts in and on-screen `<img>`s decoded. `CAP` 7 s then goes on to
+the app's own skeleton; a tap still skips; `gg-skip-title` reloads have none. The app wakes (`inert` removed) as the logo
+breaks, and `html.ts-on` keeps `#app` its own layer under the opening, so the fly-in has no long frames. Rivals live,
+tab/view warm-ups, neighbour screens and the service worker start after `opening.done()`. The three game-case
+stylesheets are linked in index.html (games.js reuses them), and a case refresh moves its decoded pictures into the
+new faces (`swapFaces`), so covers never flash empty. Verify `node tools/puzzles/check-opening-browser.cjs` (CPU x4:
+Evan, a member, a visitor; slow start, cap, tap skip, reduced motion, update reload, cold link) plus the home checks.
+
 ## Rivals first-play tutorial (November 8, 2026)
 
 The four `features.rivalsUpdated()` profiles enter practice after Tap to Start until they

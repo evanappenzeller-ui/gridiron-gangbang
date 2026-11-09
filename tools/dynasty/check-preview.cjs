@@ -24,7 +24,8 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
     'board.js':stub(named('ringHTML stepParts maxPts gradeGold msToMidnight countdownHTML itemCount shortSub'),'board'),
     'game-case.js':stub({...named('turnable shelfTurner'), shellHTML:noop},'case'),
     'realm-pay.js':stub({RANKED:[],aleFor:noop},'pay'),
-    'realm-active.js':stub({profileKey:() => member ? 'm_' + member : user ? 'u_' + user.id : ''},'profile')
+    'realm-active.js':stub({profileKey:() => member ? 'm_' + member : user ? 'u_' + user.id : ''},'profile'),
+    'opening.js':stub({active:() => false, hold:noop, done:() => Promise.resolve(), release:noop},'opening')
   };
   const featureSource = read('js/core/features.js'), gameSource = read('js/views/games.js');
   const F = new vm.SourceTextModule(featureSource,{context:ctx,identifier:'features'});

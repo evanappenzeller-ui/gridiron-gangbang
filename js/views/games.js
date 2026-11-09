@@ -22,6 +22,7 @@ import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {ringHTML, stepParts, maxPts, gradeGold, msToMidnight, countdownHTML, itemCount, shortSub} from './board.js';
 import {turnable, shelfTurner, shellHTML} from './game-case.js';
+import * as opening from '../core/opening.js';
 import {RANKED, aleFor} from '../core/realm-pay.js';
 import {profileKey} from '../core/realm-active.js';
 
@@ -133,14 +134,18 @@ const unplayed = (board = 'loading', rows = [], started = false, line = '') => (
 const C = {sv: null, dr: null, kk: null, rm: null};
 export const __dev = {cores: C}; // (the kit's checks build the shelf with a core in place)
 let coresAsked = false;
+/** Loads the games' cores (then() as each comes in); resolves once all have come in or failed. */
 function loadCores(then) {
-  if (coresAsked) return;
+  if (coresAsked) return Promise.resolve();
   coresAsked = true;
   const got = (k, m) => { C[k] = m; if (TEST_ALL && !m.testing()) m.setTest(true); then(); }; // (one loaded in test mode joins it)
-  import('../core/seventeen.js').then(m => m.load().then(() => got('sv', m))).catch(() => {});
-  import('../core/drill.js').then(m => m.load().then(() => got('dr', m))).catch(() => {});
-  import('../core/kick.js').then(m => got('kk', m)).catch(() => {});
-  if (gameOpen('return')) import('../core/return.js').then(m => got('rm', m)).catch(() => {});
+  const jobs = [
+    import('../core/seventeen.js').then(m => m.load().then(() => got('sv', m))).catch(() => {}),
+    import('../core/drill.js').then(m => m.load().then(() => got('dr', m))).catch(() => {}),
+    import('../core/kick.js').then(m => got('kk', m)).catch(() => {})
+  ];
+  if (gameOpen('return')) jobs.push(import('../core/return.js').then(m => got('rm', m)).catch(() => {}));
+  return Promise.all(jobs);
 }
 
 // ============================================================================ The owner's test mode
@@ -474,6 +479,28 @@ export function listHTML() {
 
 // ============================================================================ Behavior
 const SHELF_KEY = 'gg-shelf';
+/** A case's faces replaced with html, keeping the pictures it already shows (the cover, the printed backs): moved into
+ *  the new faces as they are, decoded, so a refresh (the board coming in, a game's state) never flashes a case empty
+ *  while a new picture decodes. */
+function swapFaces(fl, html) {
+  const had = new Map();
+  fl.querySelectorAll('img').forEach(im => {
+    const k = im.getAttribute('src');
+    if (!had.has(k)) had.set(k, []);
+    had.get(k).push(im);
+  });
+  const t = document.createElement('div');
+  t.innerHTML = html;
+  t.querySelectorAll('img').forEach(im => {
+    const old = (had.get(im.getAttribute('src')) || []).shift();
+    if (!old) return;
+    [...old.attributes].forEach(a => { if (!im.hasAttribute(a.name)) old.removeAttribute(a.name); });
+    [...im.attributes].forEach(a => { if (old.getAttribute(a.name) !== a.value) old.setAttribute(a.name, a.value); });
+    im.replaceWith(old);
+  });
+  fl.replaceChildren(...t.childNodes);
+}
+
 /** Wires the shelf in el: the cores load at idle; refresh(animate) brings every case (and what's under the shelf) up to
  *  date (a game just finished turns its case round), tick() moves the countdown. opts.play(id): open a game. */
 export function mountList(el, ctx, opts = {}) {
@@ -499,6 +526,20 @@ export function mountList(el, ctx, opts = {}) {
     st.assets = null;
     if (!owner) return;
     const css = ['game-case-owner', 'game-case-controls', 'game-launch'].map(name => new Promise(resolve => {
+      // (index.html links them from the start, so the cases never restyle once drawn: use those when they're there;
+      // scoped to .gm-owner, so they stay linked when a shelf goes)
+      const fixed = document.querySelector(`link[data-gm-static="${name}"]`);
+      if (fixed) {
+        if (fixed.sheet) { resolve(true); return; }
+        let timer;
+        const fin = ok => { clearTimeout(timer); fixed.removeEventListener('load', yes); fixed.removeEventListener('error', no); resolve(ok); };
+        const yes = () => fin(true), no = () => fin(false);
+        fixed.addEventListener('load', yes);
+        fixed.addEventListener('error', no);
+        timer = setTimeout(() => fin(!!fixed.sheet), 5000);
+        st.styles.push({link: {remove() {}}, cancel: () => fin(false)});
+        return;
+      }
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = new URL(`../../css/views/${name}.css`, import.meta.url).href;
@@ -511,6 +552,7 @@ export function mountList(el, ctx, opts = {}) {
       document.head.appendChild(link);
     }));
     st.assets = Promise.all([import('./game-launch.js'), ...css]).then(([mod, ...ready]) => ready.every(Boolean) ? mod : null).catch(() => null);
+    opening.hold(Promise.all(css), 3000);
   }
   const unprofile = data.subscribe(type => {
     if (type === 'me' && !st.dead) { closeZoom(true); refresh(false); }
@@ -990,7 +1032,7 @@ export function mountList(el, ctx, opts = {}) {
         const flipNow = s.kind === 'done' && cs.dataset.kind !== 'done';
         cs.dataset.kind = s.kind;
         const fl = cs.querySelector('.gm-flip');
-        fl.innerHTML = facesHTML(g, s);
+        swapFaces(fl, facesHTML(g, s));
         cs.classList.toggle('is-swivel', isKeepCase(g));
         ui.hydrate(fl);
         cs.classList.toggle('is-turns', !!s.turns && s.kind !== 'done');
@@ -1009,7 +1051,18 @@ export function mountList(el, ctx, opts = {}) {
     }
   };
   list().forEach(g => shown.set(g.id, sig(g, stateOf(g))));
-  ui.whenIdle(() => loadCores(() => refresh(true)));
+  // Under the opening, the cases come up whole before it lifts (index.html, core/opening.js): every game's state now,
+  // not at idle (a case otherwise turned round or changed its sticker just after the reveal), the day's puzzles, and
+  // the board for a while (it's the network's: a slow one fills the backs in later). Otherwise they load at idle.
+  if (opening.active()) {
+    opening.hold(loadCores(() => refresh(!opening.active())), 2500);
+    opening.hold(daily.ensure(), 3000);
+    opening.hold(new Promise(resolve => {
+      if (daily.LB.ready) { resolve(); return; }
+      const off = daily.subscribe(() => { if (daily.LB.ready) { off(); resolve(); } });
+      setTimeout(() => { off(); resolve(); }, 1500);
+    }), 1500);
+  } else ui.whenIdle(() => loadCores(() => refresh(true)));
   const tick = () => {
     const t = ui.untilText(msToMidnight());
     el.querySelectorAll('[data-gm-cd]').forEach(v => { if (v.textContent !== t) v.textContent = t; });

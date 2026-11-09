@@ -263,7 +263,8 @@ html.lite .bar {
    streaks cross the screen, and slam back together smaller; then we fly through it into the app (which comes in from
    a little way back: html.ts-in). Transforms and opacity only, so it keeps its frame rate while the app starts
    underneath. One clock (--ts) for everything, its beats in percent of it: pop 0-20, drift to 58, break 58-68, back
-   together 68-77, through 81-100. */
+   together 68-77, through 81-100. Since Nov 9 2026 the clock waits for the app (index.html's script, js/core/opening.js):
+   slow motion from 24, and a hold at 56 (the logo breathing) until the first screen is whole; then on at full speed. */
 html { font-synthesis: none; } /* the pixel faces have one weight: never smear them with a fake bold */
 #title {
   --ts: 1700ms; --S: min(66vw, 300px);
@@ -366,6 +367,7 @@ html { font-synthesis: none; } /* the pixel faces have one weight: never smear t
 @keyframes ts-foot { 0%, 8% { opacity: 0; transform: translateY(8px); } 18%, 60% { opacity: 1; transform: none; } 66%, 100% { opacity: 0; transform: none; } }
 /* Through it: the app comes in from a little way back. A tap skips the lot. */
 html.ts-in #app { animation: ts-app 420ms cubic-bezier(.2,.8,.25,1) both; }
+html.ts-on #app { will-change: transform, opacity; } /* (its own layer under the opening, painted before it flies in) */
 @keyframes ts-app { from { transform: scale(.9); opacity: .35; } to { transform: none; opacity: 1; } }
 #title.is-skip { pointer-events: none; animation: ts-skip 200ms ease-out forwards; }
 @keyframes ts-skip { to { opacity: 0; transform: scale(1.08); } }
