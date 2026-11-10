@@ -81,7 +81,7 @@ async function run(url) {
       }
       for(const [id,cid] of Object.entries(D.SOLO_BOSSES)) {
         const started=S.start(id);ok(started.ok,'start boss '+id);
-        const x=S.get(started.mid),r=JSON.parse(localStorage.getItem('gg-dys-m_evan'));
+        const x=S.get(started.mid),r=JSON.parse(localStorage.getItem('gg-dys2-m_evan'));
         ok(r.boss.v===2,'new match stores alternating reward version');
         ok(x.boss===cid&&x.G.p[1].active.id===cid,'boss actually fields reward card '+id);
         ok(r.v===7&&r.decks.every(d=>d.length===20),'new boss uses v7/20');
@@ -112,14 +112,14 @@ async function run(url) {
       // UI begins with four wins: match 5 open, match 6 still locked until the saved victory is settled.
       s.so=Object.fromEntries([1,2,3,4].map(n=>['g'+n,1]));D.touch();
       const count=s.pk.std||0, fixture=fixtures.g5;
-      localStorage.setItem('gg-dys-m_evan',snap(fixture));
+      localStorage.setItem('gg-dys2-m_evan',snap(fixture));
       return {rows,fixture,cardFixture:fixtures.g10,count};
     });
     console.log('PASS ladder progression, six Epic+ bosses, 24 legal decks, exact featured lineups, one-time rewards and save round trips',result.rows);
     await page.reload();await page.waitForFunction(()=>window.__ggBooted);
     const settled=await page.evaluate(async()=>{
       const D=await import('/js/core/dynasty.js'),S=await import('/js/core/dynasty-solo.js');await D.load();const x=S.get(),s=D.mine();
-      S.get();return {state:x.state,result:x.result,card:x.pay.card,pack:x.pay.bossPack,count:s.pk.std,next:S.unlocked('g6'),locked:!S.unlocked('g7'),receipt:s.bossRewards,record:JSON.parse(localStorage.getItem('gg-dys-m_evan'))};
+      S.get();return {state:x.state,result:x.result,card:x.pay.card,pack:x.pay.bossPack,count:s.pk.std,next:S.unlocked('g6'),locked:!S.unlocked('g7'),receipt:s.bossRewards,record:JSON.parse(localStorage.getItem('gg-dys2-m_evan'))};
     });
     assert.equal(settled.state,'over');assert.equal(settled.result,'w');assert.equal(settled.card,undefined);assert.equal(settled.pack,'std');assert.equal(settled.count,result.count+1);assert.equal(settled.next,true);assert.equal(settled.locked,true);
     await page.evaluate(async()=>{const a=await import('/js/app.js');await a.nav('/puzzles/dynasty');});
@@ -152,14 +152,14 @@ async function run(url) {
     await page.goBack();await page.waitForSelector('.rl-ladder');
     assert.equal(await page.locator('.rl-resume').isVisible(),true);
     // Render the real boss victory after returning from the game without restarting anything.
-    await page.evaluate(r=>localStorage.setItem('gg-dys-m_evan',JSON.stringify(r)),settled.record);
+    await page.evaluate(r=>localStorage.setItem('gg-dys2-m_evan',JSON.stringify(r)),settled.record);
     await page.reload();await page.waitForFunction(()=>window.__ggBooted);
     await page.evaluate(async mid=>{const D=await import('/js/core/dynasty.js');await D.load();await (await import('/js/app.js')).nav('/puzzles/dynasty/battle/'+mid);},result.fixture.id);
     await page.waitForSelector('.db-boss-prize');
     assert.match(await page.locator('.db-boss-prize').textContent(),/Standard Pack/);
     assert.equal(await page.evaluate(async()=>{const D=await import('/js/core/dynasty.js');return D.mine().pk.std;}),result.count+1,'reload did not duplicate pack');
     await page.screenshot({path:path.join(out,'boss-victory-pack.png')});
-    const cardBefore=await page.evaluate(async r=>{const D=await import('/js/core/dynasty.js'),s=D.mine();for(let n=1;n<10;n++)s.so['g'+n]=1;D.touch();localStorage.setItem('gg-dys-m_evan',JSON.stringify(r));return {count:s.o[r.boss.card]||0,packs:s.pk};},result.cardFixture);
+    const cardBefore=await page.evaluate(async r=>{const D=await import('/js/core/dynasty.js'),s=D.mine();for(let n=1;n<10;n++)s.so['g'+n]=1;D.touch();localStorage.setItem('gg-dys2-m_evan',JSON.stringify(r));return {count:s.o[r.boss.card]||0,packs:s.pk};},result.cardFixture);
     await page.reload();await page.waitForFunction(()=>window.__ggBooted);
     await page.evaluate(async mid=>{await(await import('/js/app.js')).nav('/puzzles/dynasty/battle/'+mid);},result.cardFixture.id);
     await page.waitForSelector('.db-boss-prize');
@@ -169,7 +169,7 @@ async function run(url) {
     await page.screenshot({path:path.join(out,'boss-victory-card.png')});
     // A pending v1 boss save retains its promised player reward; rules and moves replay identically.
     const legacy={...result.fixture,id:result.fixture.id+'legacy',boss:{v:1,card:'L0036322'}};
-    const legacyBefore=await page.evaluate(async r=>{const D=await import('/js/core/dynasty.js'),s=D.mine();delete s.bossRewards.g5;D.touch();localStorage.setItem('gg-dys-m_evan',JSON.stringify(r));return s.o.L0036322||0;},legacy);
+    const legacyBefore=await page.evaluate(async r=>{const D=await import('/js/core/dynasty.js'),s=D.mine();delete s.bossRewards.g5;D.touch();localStorage.setItem('gg-dys2-m_evan',JSON.stringify(r));return s.o.L0036322||0;},legacy);
     await page.reload();await page.waitForFunction(()=>window.__ggBooted);
     const legacyAfter=await page.evaluate(async()=>{const D=await import('/js/core/dynasty.js'),S=await import('/js/core/dynasty-solo.js');await D.load();const x=S.get();return {card:x.pay.card,count:D.mine().o.L0036322};});
     assert.equal(legacyAfter.card,'L0036322');assert.equal(legacyAfter.count,legacyBefore+1);

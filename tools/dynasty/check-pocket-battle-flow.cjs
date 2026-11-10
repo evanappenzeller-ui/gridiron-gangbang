@@ -89,7 +89,7 @@ async function run(url) {
     });
     for (const key of ['setup','attack','bench','retreat','win']) assert(fixtures[key], 'legal ' + key + ' fixture found');
     async function load(fixture, opp='g1') {
-      await page.evaluate(record => localStorage.setItem('gg-dys-m_evan',JSON.stringify(record)), {...fixture.record,opp});
+      await page.evaluate(record => localStorage.setItem('gg-dys2-m_evan',JSON.stringify(record)), {...fixture.record,opp});
       await page.goto(url + '/?flow=' + Math.random() + '#/puzzles/dynasty/battle/cpuflow');
       await page.waitForSelector('.rp-arena');
       await drain(page);
@@ -103,10 +103,10 @@ async function run(url) {
     assert.equal(await hp(page,1,target.u),beforeHP,'defender HP stays unchanged while the attack animates');
     await page.waitForTimeout(800);
     assert.equal(await hp(page,1,target.u),beforeHP,'the attack wind-up cannot reveal damage early');
-    const logBeforeSkip = await page.evaluate(() => localStorage.getItem('gg-dys-m_evan'));
+    const logBeforeSkip = await page.evaluate(() => localStorage.getItem('gg-dys2-m_evan'));
     await skip(page);
     assert.equal(await hp(page,1,target.u),String((await page.evaluate(async s=>(await import('/js/core/dynasty-pocket.js')).hpOf(s.G,s.slot), {G:fixtures.attack.after,slot:fixtures.attack.after.p[1].active})) - fixtures.attack.after.p[1].active.dmg),'HP changes after attack completion');
-    assert.equal(await page.evaluate(() => localStorage.getItem('gg-dys-m_evan')),logBeforeSkip,'skip does not apply the move twice');
+    assert.equal(await page.evaluate(() => localStorage.getItem('gg-dys2-m_evan')),logBeforeSkip,'skip does not apply the move twice');
     await drain(page);
 
     for (const [fixtureKey, expected] of [['bench','bench'],['retreat','switch']]) {
@@ -183,24 +183,24 @@ async function run(url) {
     await page.emulateMedia({reducedMotion:'no-preference'});
     await load(fixtures.win); await move(fixtures.win);
     await page.waitForSelector('[data-rp-scene="attack"]');
-    const hiddenSave = await page.evaluate(()=>localStorage.getItem('gg-dys-m_evan'));
+    const hiddenSave = await page.evaluate(()=>localStorage.getItem('gg-dys2-m_evan'));
     await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});
     assert.equal(await scene(page).count(),0,'backgrounding clears the winning attack');
     assert.equal(await page.locator('.rp-solo-victory').count(),0,'backgrounded victory waits for the player');
     await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));});
     await page.locator('[data-rp-next-level]').waitFor();
     assert.equal(await scene(page).count(),0,'foreground resume does not replay old animations');
-    assert.equal(await page.evaluate(()=>localStorage.getItem('gg-dys-m_evan')),hiddenSave,'foreground resume preserves the result and reward');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('gg-dys2-m_evan')),hiddenSave,'foreground resume preserves the result and reward');
     await page.locator('[data-rp-leave-battles]').click();
     await load(fixtures.win); await move(fixtures.win);
     await page.waitForSelector('[data-rp-scene="attack"]');
-    const finishedSave = await page.evaluate(()=>localStorage.getItem('gg-dys-m_evan'));
+    const finishedSave = await page.evaluate(()=>localStorage.getItem('gg-dys2-m_evan'));
     await page.evaluate(async()=>{(await import('/js/core/data.js')).setMe('mason');});
     await page.waitForFunction(()=>!document.querySelector('.rp-battle'));
     await page.waitForTimeout(350);
     assert.equal(await scene(page).count(),0,'profile switch cancels every pending scene');
     assert.equal(await page.locator('.rp-solo-victory').count(),0,'old profile victory popup cannot appear after profile switch');
-    assert.equal(await page.evaluate(()=>localStorage.getItem('gg-dys-m_evan')),finishedSave,'profile cancellation preserves the completed match');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('gg-dys2-m_evan')),finishedSave,'profile cancellation preserves the completed match');
     assert.deepEqual(errors,[],'no browser exceptions');
     console.log('PASS Rivals battle flow: attack HP timing, placement, switches, intro, knockout, points, game over, Solo next/leave/final level, reduced motion and cancellation');
     await context.close();

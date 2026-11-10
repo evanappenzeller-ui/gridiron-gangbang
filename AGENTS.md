@@ -17,7 +17,16 @@ Its movement, course/scenery, jetpack, scoring, pursuit, title/intro and pickup 
 The November 5 follow-up explicitly includes every Return Man change for all user accounts, including smelling
 salts expiring with their speed boost. Do not keep Return Man gameplay or presentation behind owner-only gates.
 
-## Rivals league preview (November 5, 2026)
+## Gridiron Rivals is everyone's (November 10, 2026)
+
+Evan made Gridiron Rivals available to everyone and reset the preview's progress (CLAUDE.md, top section).
+Every league member, app user and named guest plays, with every completed and future Rivals update
+(`features.dynastyOpen()`, `rivalsUpdated()`, `dynastyKey()`). Saves start fresh in `dy2`; the preview's
+`dy1` saves stay untouched as an archive. Owner/admin tools and individual pack/coin privileges are unchanged.
+Use the existing local profile selection, not verified per-person authentication. This supersedes the
+four-profile preview below.
+
+## Rivals league preview (November 5, 2026; superseded November 10, 2026)
 
 Evan authorized the Gridiron Rivals case for every league member. Only Evan (`evan`), Jayton Hull
 (`jayton`), Ryan Stewart (`ryan-stewart`) and Ryan Younggreen (`ryan-younggreen`) may play.
@@ -28,7 +37,7 @@ Profile changes close the case and cancel pending launches. This uses the existi
 selection, not verified per-person authentication. Preserve owner tools, pack/coin privileges and saves.
 Verify `node --experimental-vm-modules tools/dynasty/check-preview.cjs` and the existing access checks.
 
-## Standing Rivals updates (November 5, 2026)
+## Standing Rivals updates (November 5, 2026; now everyone's, November 10, 2026)
 
 Evan explicitly authorized the updated Rivals game and all future Rivals updates for Evan (`evan`),
 Jayton Hull (`jayton`), Ryan Stewart (`ryan-stewart`, Ryan S), and Ryan Younggreen

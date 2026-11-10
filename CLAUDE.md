@@ -1,5 +1,26 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Gridiron Rivals launch: everyone plays, preview progress reset (November 10, 2026)
+
+Evan: "Make the gridiron rivals game mode available to everyone and reset the progress that Jayton, Ryan, and I have
+made so far. Make the gridiron rivals case the front option when loading the game with a new or just released tag on
+the top of the game." `features.dynastyOpen()` / `rivalsUpdated()` now open Rivals, with every completed Rivals update,
+to every league member, app user and named guest (any profile with a save key, as Keepfall's `mayPlay`); a phone that
+hasn't said who it is waits for "Who are you?". `dynastyKey()` accepts any member/app-user/guest key, so everyone's
+Dynasty shows as an opponent. `DYNASTY` remains only as the record of the four-profile preview. Live battles
+(`core/rivals-live.js` `liveKeys()`) list every member and app user; guests play Solo. The owner/admin tools and the
+individual pack/coin privileges (Evan's and Ryan S's unlimited packs, Jayton's unlimited coins) are unchanged.
+Reset: saves moved from `dy1` to `dy2` (`D.FIELD`; `D.PREVIEW_FIELD` names the old one), locally `gg-dy2-<key>` and the
+Solo record `gg-dys2-<key>`. Every preview save (Evan, Jayton, Ryan S and Ryan Y) is left untouched as an archive in its
+board doc's `dy1` and the phone's `gg-dy1-`/`gg-dys-` keys, which nothing reads; old cached clients write only `dy1`. Everyone
+starts a fresh save (Starter Pack, welcome packs, first-play tutorial, Solo ladder from game 1, coins earned from today).
+Friend matches (`dyb`, still paused), music/effects settings and pack-preview rotation are not progress and are kept.
+The shelf: Gridiron Rivals is first in `views/games.js` `GAMES`, so it is the case the shelf opens on, and its
+`fresh: '2026-12-01'` puts a red NEW tag at the left of its GRIDIRON HUB band (front, printed back and up close; "(new)" in
+its label) until December 1, 2026 (`isFresh`). Verify `tools/dynasty/check-launch-reset.cjs` (optional `--shots`),
+`check-preview.cjs`, `check-access.cjs`, `check-rollout.cjs`, Pocket integration and the start/live/tutorial/ladder,
+deck-shelf, home and case-flip checks. This supersedes the four-profile limits in the Rivals sections below and in AGENTS.md.
+
 ## Rivals battle flow (November 10, 2026)
 
 The four `features.rivalsUpdated()` profiles get v7 battle-start, opening placement,

@@ -3,8 +3,8 @@ import * as POCKET from './dynasty-pocket-cards.js';
 // Gridiron Dynasty (the owner's ask, Oct 27 2026: "most comparable to Ultimate Team in Madden. Players can earn points to
 // open packs to unlock players. Players are based on real life [players]... inspiration [from] how MLB The Show does
 // their player cards with different types and collections"). A persistent game on Daily Games for Evan, Ryan
-// Stewart and Jayton (core/features.js dynastyOpen): only approved profiles play or post to it, and only
-// their Dynasties show (others()).
+// Stewart and Jayton at first; everyone's since Nov 10 2026 (core/features.js dynastyOpen), each profile's Dynasty showing
+// to everyone (others()).
 //
 // The cards (data/dynasty.json, tools/dynasty/build.py): real NFL players from nflverse, in six series after The Show's
 // card types: Live Series (every active player, OVR from his 2025 and 2026 play), Rookie, Prime, Gameday (a week's best
@@ -25,8 +25,8 @@ import * as POCKET from './dynasty-pocket-cards.js';
 // rewards claimed once: cl), your battle deck (dk: 20 cards, core/dynasty-battle.js checkDeck) and what battles paid
 // (bt, tr: trophies, rec). The battles themselves: core/dynasty-match.js.
 //
-// Where it lives: this phone's board doc (players/{uid}, daily.js) as dy1 under the profile's own key (profileKey: m_<member>,
-// u_<app user>, g_<guest>), so a player's Dynasty is the same on every phone of theirs; locally under gg-dy1-<key>. Other
+// Where it lives: this phone's board doc (players/{uid}, daily.js) as dy2 under the profile's own key (profileKey: m_<member>,
+// u_<app user>, g_<guest>), so a player's Dynasty is the same on every phone of theirs; locally under gg-dy2-<key>. Other
 // players' Dynasties and the Dynasty board follow the scoreboards' rule (CLAUDE.md): everyone to everyone, read from
 // daily.LB.raw (never LB.all, except for finding your own saved copy, as Keepfall does).
 import * as daily from './daily.js';
@@ -37,12 +37,17 @@ import {dynastyOpen, dynastyKey, packsUnlimited, coinsUnlimited, rivalsUpdated} 
 import {REAL} from './dynasty-real.js';
 import {ACTION} from './dynasty-action.js';
 
-export const FIELD = 'dy1';
+// The launch reset (Nov 10 2026, Evan: "Make the gridiron rivals game mode available to everyone and reset the progress
+// that Jayton, Ryan, and I have made so far"): saves moved from dy1 (the preview's, kept untouched on the board docs and
+// in gg-dy1-<key> on each phone as the archive) to dy2, so every Rivals player starts a fresh save at launch. Old clients
+// still write only dy1, which nothing reads any more.
+export const FIELD = 'dy2';
+export const PREVIEW_FIELD = 'dy1';
 export const VERSION = 1;
 export const SEASON_MARK = 'gridiron-hub-v3';
 export const STARTER_COINS = 2500;
 export const DAILY_PACK = 'std';
-const LOCAL = key => `gg-dy1-${key}`;
+const LOCAL = key => `gg-dy2-${key}`;
 
 /** Whether this phone's selected profile can play (core/features.js dynastyOpen). */
 export const mayPlay = () => dynastyOpen();
@@ -569,7 +574,7 @@ export function fold(s) {
 /** Whether a stored save still holds a retired card (so its original is kept before folding: keepOriginal). */
 const holdsRetired = raw => !!(raw && typeof raw === 'object' && ALIAS.size
   && (Object.keys(raw.o || {}).some(id => ALIAS.has(id)) || (Array.isArray(raw.dk) && raw.dk.some(id => ALIAS.has(id)))));
-/** The save as it was before one card a player, kept once on this phone (gg-dy1-<key>-premerge). */
+/** The save as it was before one card a player, kept once on this phone (gg-dy2-<key>-premerge). */
 function keepOriginal(raw) {
   if (!PROFILE || !holdsRetired(raw)) return;
   try { const k = LOCAL(PROFILE) + '-premerge'; if (!localStorage.getItem(k)) localStorage.setItem(k, JSON.stringify(raw)); } catch (_) {}

@@ -238,7 +238,7 @@ function board(B, version = 3, attacker = 'pass', defender = 'anchor') {
   const storage = new Map(); let profile = 'm_evan';
   const localStorage = {getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k)};
   const D = {tableOpen: () => false, status: 'ready', mayPlay: () => true, mine: () => ({}), deckOf: () => ({ok: true, ids: decks[0]}), CARDS: cards,
-    FIELD: 'dy1', autoDeck: () => decks[1], rng: () => () => .5, payBattle: () => {}, paySolo: () => null};
+    FIELD: 'dy2', autoDeck: () => decks[1], rng: () => () => .5, payBattle: () => {}, paySolo: () => null};
   const shared = {B, D, localStorage, profileKey: () => profile, rivalsUpdated: () => false, setTimeout: () => 1, clearTimeout: () => {}};
   const S = loadIsolated('js/core/dynasty-solo.js', shared, ['get', 'start', 'nextMove']);
   const cpu = board(B, 3, 'kick', 'juke');
@@ -248,17 +248,17 @@ function board(B, version = 3, attacker = 'pass', defender = 'anchor') {
   finish.p[0].hand = []; finish.p[0].en = null; finish.p[0].used.retreat = true;
   finish.p[1].active.dmg = B.hpOf(finish.p[1].active) - 5;
   assert.equal(S.nextMove(finish, 0, 'int').n, 0, 'CPU uses a quick knockout without spending signature energy');
-  storage.set('gg-dys-m_evan', JSON.stringify({id: 'cpu-old', opp: 'rookie-camp', seed: 'old', decks, log: [], at: 1}));
+  storage.set('gg-dys2-m_evan', JSON.stringify({id: 'cpu-old', opp: 'rookie-camp', seed: 'old', decks, log: [], at: 1}));
   assert.equal(S.get('cpu-old').G.v, 2, 'unversioned solo saves stay v2');
   assert.equal(S.start('rookie-camp').ok, true);
-  const saved = JSON.parse(storage.get('gg-dys-m_evan'));
+  const saved = JSON.parse(storage.get('gg-dys2-m_evan'));
   assert.equal(saved.v, 5, 'new solo records explicitly save v5');
   profile = 'u_ryan-stewart'; S.get(); profile = 'm_evan';
   assert.equal(S.get(saved.id).G.v, 5, 'solo reload preserves v5');
-  storage.set('gg-dys-m_evan', JSON.stringify({...saved, id: 'cpu-v4', v: 4, log: []}));
+  storage.set('gg-dys2-m_evan', JSON.stringify({...saved, id: 'cpu-v4', v: 4, log: []}));
   profile = 'u_ryan-stewart'; S.get(); profile = 'm_evan';
   assert.equal(S.get('cpu-v4').G.v, 4, 'a v4 solo save keeps v4 (upgrades)');
-  storage.set('gg-dys-m_evan', JSON.stringify({...saved, id: 'cpu-v3', v: 3, log: []}));
+  storage.set('gg-dys2-m_evan', JSON.stringify({...saved, id: 'cpu-v3', v: 3, log: []}));
   profile = 'u_ryan-stewart'; S.get(); profile = 'm_evan';
   assert.equal(S.get('cpu-v3').G.v, 3, 'a v3 solo save keeps v3 (energy by hand)');
   const daily = {LB: {raw: [], all: [], ready: false}};

@@ -13,7 +13,7 @@ const server=http.createServer((req,res)=>{
 const settle=async p=>{await p.waitForFunction(()=>!document.querySelector('.sheet'));if(phone)await p.waitForTimeout(250);await p.waitForFunction(()=>!document.querySelector('.rp-cinema')&&!document.querySelector('[data-rp]')?.inert);};
 const waitStep=async(p,n)=>{await p.waitForSelector(`[data-rt-step="${n}"]`);await settle(p);};
 const nav=(p,url)=>p.evaluate(async url=>(await import('/js/app.js')).nav(url),url);
-const snapshot=p=>p.evaluate(async()=>{const D=await import('/js/core/dynasty.js');return {save:JSON.stringify(D.mine()),solo:localStorage.getItem('gg-dys-m_evan')};});
+const snapshot=p=>p.evaluate(async()=>{const D=await import('/js/core/dynasty.js');return {save:JSON.stringify(D.mine()),solo:localStorage.getItem('gg-dys2-m_evan')};});
 const inspectHand=async(p,name)=>{await settle(p); // Accessible labels are stable across artwork.
   const target=p.locator('.rp-hand [data-rp-hand]').and(p.getByRole('button',{name:new RegExp('Inspect '+name)})).first();await target.focus();await p.keyboard.press('Enter');await p.waitForSelector('.rp-sheet');};
 const inspectActive=async p=>{await settle(p);await p.locator('.rp-side.is-mine .rp-active [data-rp-slot]').click();await p.waitForSelector('[data-rp-preview-act]');};
@@ -71,7 +71,7 @@ async function run(url){
       await p.reload();await p.waitForFunction(()=>window.__ggBooted);await p.waitForSelector('.pk-start.is-ready');await p.locator('.pk-start').click({position:{x:180,y:400}});await p.waitForFunction(()=>!document.querySelector('.pk-start'));assert.equal(await p.locator('.rt-coach').count(),0);
     }
     await nav(p,'/puzzles/dynasty/battle/tutorial');await waitStep(p,0);await p.locator('[data-rt-start]').click();
-    await p.evaluate(async()=>(await import('/js/core/data.js')).setMe('mason'));await p.waitForFunction(()=>!document.querySelector('.rt-coach'));await nav(p,'/puzzles/dynasty/battle/tutorial');await p.waitForFunction(()=>location.hash==='#/puzzles');
+    await p.evaluate(async()=>{const data=await import('/js/core/data.js');data.setGuest(null);data.setMe('none');});await p.waitForFunction(()=>!document.querySelector('.rt-coach'));await nav(p,'/puzzles/dynasty/battle/tutorial');await p.waitForFunction(()=>location.hash==='#/puzzles');
     assert.equal(await p.evaluate(async()=>(await import('/js/core/dynasty.js')).finishTutorial('completed','u_ryan-younggreen')),false,'stale profile cannot save');
     assert.deepEqual(errors,[]);await ctx.close();console.log('PASS tutorial browser: first entry, full gameplay, phone/tablet, save isolation, reload, Skip, replay and all four profiles');
   }catch(e){if(debugPage&&!debugPage.isClosed()){await debugPage.screenshot({path:path.join(shots,'failure.png')});console.error(await debugPage.evaluate(()=>({hash:location.hash,focus:document.activeElement?.outerHTML.slice(0,300),starts:[...document.querySelectorAll('.pk-start')].map(e=>({cls:e.className,inert:!!e.closest('[inert]')})),text:document.body.innerText.slice(-1500)})));}throw e;}finally{await browser.close();}

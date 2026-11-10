@@ -41,7 +41,7 @@ function bodyHTML() {
 }
 /** Opens the lobby sheet (rematch: a profile key to challenge at once). */
 export async function openLobby({rematch = null} = {}) {
-  if (!L.enabled()) { ui.toast('Live battles are for the Rivals group.', {icon: 'info'}); return; }
+  if (!L.enabled()) { ui.toast('Live battles are for league members and app users.', {icon: 'info'}); return; }
   if (open) { open.close(); open = null; }
   try { await D.load(); } catch (_) {}
   const sh = ui.openSheet({title: 'Live battle', cls: 'pk-sheet rlv-sheet', detents: ['large'], body: bodyHTML(), onClose: () => { stop(); if (open === sh) open = null; }});

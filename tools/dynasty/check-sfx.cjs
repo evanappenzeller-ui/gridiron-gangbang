@@ -155,7 +155,7 @@ async function main() {
       let g,seed;for(let n=0;n<5000;n++){seed='ui'+n;g=B.newGame(seed,[deck,deck],6);const h=g.p[0].hand;if(g.first===0&&h.includes('I-charge')&&h.includes('I-draw')&&h.filter(B.isBasic).length>=2)break;}
       const h=g.p[0].hand;if(!h.includes('I-charge')||!h.includes('I-draw'))throw Error('no fixture seed');
       const move={a:'setup',act:g.p[1].hand.find(B.isBasic),bench:[]};
-      localStorage.setItem('gg-dys-m_evan',JSON.stringify({id:'cputable',opp:'g1',seed,v:6,decks:[deck,deck],log:[[1,move]],at:Date.now(),z:'',paid:0}));
+      localStorage.setItem('gg-dys2-m_evan',JSON.stringify({id:'cputable',opp:'g1',seed,v:6,decks:[deck,deck],log:[[1,move]],at:Date.now(),z:'',paid:0}));
       D.touch();D.flush();return {players:h.map((id,i)=>B.isBasic(id)?i:null).filter(i=>i!=null),charge:h.indexOf('I-charge'),draw:h.indexOf('I-draw'),friend:old};
     });
 

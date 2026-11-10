@@ -273,7 +273,8 @@ export function nextMove(G, who, lv = 'int') {
 }
 
 // ---------------------------------------------------------------------------------------------------- the battle
-const KEY = () => `gg-dys-${profileKey()}`;
+// (gg-dys2 since the launch reset, Nov 10 2026: a battle begun in the preview, under gg-dys, stays there unplayed)
+const KEY = () => `gg-dys2-${profileKey()}`;
 const subs = new Set();
 export function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
 const emit = why => subs.forEach(fn => { try { fn(why); } catch (e) { console.error(e); } });

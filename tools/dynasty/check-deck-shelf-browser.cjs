@@ -21,7 +21,7 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,'.'+decodeU
     const record={id:'cpulegacydeck',opp:'g1',seed:'legacy-deck-shelf-v6',v:6,decks:[recipe.ids.slice(),T.cpuDeck(s.dk,D.CARDS.map(c=>c.id))],log:[],at:Date.now(),z:'',paid:0,pay:null,roundEnergy:2,chemistry:{v:1,team:'KC'}};
     const G=B.newGame(record.seed,record.decks,6,record.chemistry,record.roundEnergy),bases=G.p[1].hand.filter(id=>B.basicIn(id,6));
     const setup={a:'setup',act:bases[0],bench:bases.slice(1,4)};if(!B.play(G,1,setup).ok)throw Error('Invalid legacy setup fixture');record.log.push([1,setup]);
-    localStorage.setItem('gg-dys-m_evan',JSON.stringify(record));
+    localStorage.setItem('gg-dys2-m_evan',JSON.stringify(record));
     return {table:JSON.stringify(s.table),collection:JSON.stringify(s.o),mid:record.id,record:JSON.stringify(record),themes:D.deckThemes().length};
   });
   assert.equal(legacy.themes,16,'legacy themed recipes remain available to saved rules');
@@ -43,7 +43,7 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,'.'+decodeU
   await page.evaluate(async mid=>{await(await import('/js/app.js')).nav('/puzzles/dynasty/battle/'+mid)},legacy.mid);
   await page.waitForSelector('.db');
   assert.equal(await page.evaluate(async mid=>(await import('/js/core/dynasty-solo.js')).get(mid).G.v,legacy.mid),6,'saved v6 keeps its engine and screen');
-  assert.equal(await page.evaluate(()=>localStorage.getItem('gg-dys-m_evan')),legacy.record,'opening legacy match does not rewrite its record');
+  assert.equal(await page.evaluate(()=>localStorage.getItem('gg-dys2-m_evan')),legacy.record,'opening legacy match does not rewrite its record');
   await open();
   await page.locator('[data-pd-new]').click();await page.locator('[data-pd-name]').fill('Sunday Squad');await page.locator('[data-pd-auto]').click();
   assert.match(await page.locator('[data-pd-count]').innerText(),/^20\/20 · Ready/);
@@ -51,7 +51,7 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,'.'+decodeU
   await page.getByRole('button',{name:/Sunday Squad,/}).click();await page.locator('[data-pd-use]').click();await page.waitForFunction(()=>document.querySelector('.pd-deck.is-active')?.textContent.includes('Sunday Squad'));
   await page.locator('.pd-deck.is-active').click();await page.locator('[data-pd-edit]').click();await page.locator('[data-pd-name]').fill('Sunday Starters');
   await page.locator('[data-pd-energy="Water"]').check();await page.locator('[data-pd-save]').click();await page.waitForFunction(()=>document.querySelector('.pd-deck.is-active')?.textContent.includes('Sunday Starters'));
-  const snapshot=await page.evaluate(async()=>{const D=await import('/js/core/dynasty.js'),S=await import('/js/core/dynasty-solo.js');const r=S.start('g1');if(!r.ok)throw Error(r.why);const record=JSON.parse(localStorage.getItem('gg-dys-m_evan'));return{pocket:JSON.stringify(D.mine().pocket),table:JSON.stringify(D.mine().table),collection:JSON.stringify(D.mine().o),mid:r.mid,record,G:JSON.stringify(S.get(r.mid).G)}});
+  const snapshot=await page.evaluate(async()=>{const D=await import('/js/core/dynasty.js'),S=await import('/js/core/dynasty-solo.js');const r=S.start('g1');if(!r.ok)throw Error(r.why);const record=JSON.parse(localStorage.getItem('gg-dys2-m_evan'));return{pocket:JSON.stringify(D.mine().pocket),table:JSON.stringify(D.mine().table),collection:JSON.stringify(D.mine().o),mid:r.mid,record,G:JSON.stringify(S.get(r.mid).G)}});
   assert.equal(snapshot.record.v,7);assert.equal(snapshot.record.decks[0].length,20);assert.equal(snapshot.record.chemistry,undefined);assert.equal(snapshot.record.roundEnergy,undefined);
   assert(snapshot.record.energy[0].includes('Water'),'selected Energy Zone is saved');assert.equal(snapshot.table,legacy.table);assert.equal(snapshot.collection,legacy.collection);
   await page.reload();await page.waitForFunction(()=>window.__ggBooted);await open();

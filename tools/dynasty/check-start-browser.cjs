@@ -40,7 +40,7 @@ function server() {
 const PROFILES = [
   {tag: 'evan', me: 'evan', plays: true},
   {tag: 'ryan-stewart', me: 'none', guest: 'Ryan Stewart', plays: true},
-  {tag: 'mason', me: 'mason', plays: false},
+  {tag: 'mason', me: 'mason', plays: true}, // (everyone's since Nov 10 2026)
   {tag: 'visitor', me: 'none', plays: false}
 ];
 const snap = (page, name) => (shots ? page.screenshot({path: path.join(shots, name + '.png')}) : Promise.resolve());
@@ -290,7 +290,7 @@ async function playerFlow(page, p, {reduced}) {
   }));
   assert.ok(labels.length >= 4 && labels.every(Boolean), T + ': navigation labels are visually readable');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-play`);
-  assert.match((await page.locator('[data-dy-hud]').innerText()).replace(/\s+/g, ' '), /∞ MAX [\d,]+ coins/, T + ': the header’s counters (unlimited packs, coins)');
+  assert.match((await page.locator('[data-dy-hud]').innerText()).replace(/\s+/g, ' '), p.tag === 'mason' ? /^\d+ [\d,]+ coins$/ : /∞ MAX [\d,]+ coins/, T + ': the header’s counters (packs held or unlimited packs, coins)');
   await page.locator('.pk-tab[data-dy-tab="packs"]').click();
   if (owner) await ownerPacksFlow(page, reduced);
   else {
@@ -510,9 +510,9 @@ async function packProfileFlow(browser, url) {
       assert.deepEqual(await state(), before, p.tag + ': browsing top players preserves progress and privileges');
       assert.equal(await page.locator('div.pk-open').count(), 0, p.tag + ': browsing never opens packs');
       await snap(page, p.tag + '-pack-preview');
-      await page.evaluate(async () => (await import('/js/core/data.js')).setMe('mason'));
+      await page.evaluate(async () => { const data = await import('/js/core/data.js'); data.setGuest(null); data.setMe('none'); });
       await page.waitForFunction(() => location.hash === '#/puzzles' && !document.querySelector('.pk, .pk-start, .pk-pack-shop, .pk-pack-studio, .pk-pack-preview'));
-      assert.equal(await page.locator('.pk, .pk-start').count(), 0, p.tag + ': switching to an unauthorized profile removes the pack screen');
+      assert.equal(await page.locator('.pk, .pk-start').count(), 0, p.tag + ': switching to no profile removes the pack screen');
       assert.deepEqual(errors, [], p.tag + ': preview browser exceptions');
     } finally { await context.close(); }
   }

@@ -59,7 +59,7 @@ async function run(url) {
                 if (!next || ['attack','end'].includes(next.a)) continue;
                 if (!B.apply(after,1,next).ok || after.who !== 1) continue;
                 const saved = {id:'cpupacing',opp:'g1',seed:G.seed,v:7,rev:2,decks,energy,log,at:Date.now(),z:'',paid:0,pay:null};
-                const key = 'gg-dys-' + (await import('/js/core/realm-active.js')).profileKey();
+                const key = 'gg-dys2-' + (await import('/js/core/realm-active.js')).profileKey();
                 localStorage.setItem(key,JSON.stringify(saved));
                 return {key,attack};
               }

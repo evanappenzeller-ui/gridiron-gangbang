@@ -20,17 +20,19 @@ const started = key => {
 
 export async function dynastyChecks(check) {
   await D.load();
-  check('Gridiron Rivals: four approved profiles can play; the rest of the league sees a Coming Soon case', async () => {
+  check('Gridiron Rivals is everyone\'s (Nov 10 2026): every member, app user and named guest plays, its case leads the shelf with NEW, and saves start fresh in dy2 (the preview\'s dy1 left untouched)', async () => {
     const [app, games, data, F] = await Promise.all([import('../app.js'), import('../views/games.js'), import('./data.js'), import('./features.js')]);
     const ryan = data.USERS.find(u => u.id === 'ryan-stewart'), dow = data.USERS.find(u => u.id === 'ryan-dow');
-    const who = [F.dynastyOpen('evan'), F.dynastyOpen('jayton'), F.dynastyOpen('mason'), F.dynastyOpen(null, ryan), F.dynastyOpen(null, dow), F.dynastyOpen(null, null), F.dynastyOpen(null, data.USERS.find(u => u.id === 'ryan-younggreen'))];
-    const lists = ['evan', 'jayton', 'mason'].map(w => games.gamesFor(w).some(g => g.id === 'dynasty'));
-    const keys = ['m_evan', 'm_jayton', 'u_ryan-stewart', 'm_mason', 'u_ryan-dow', 'g_72_79', 'u_ryan-younggreen'].map(F.dynastyKey);
+    const who = [F.dynastyOpen('evan'), F.dynastyOpen('jayton'), F.dynastyOpen('mason'), F.dynastyOpen(null, ryan), F.dynastyOpen(null, dow), F.dynastyOpen(null, data.USERS.find(u => u.id === 'ryan-younggreen'))];
+    const lists = ['evan', 'jayton', 'mason'].map(w => games.gamesFor(w)[0]?.id === 'dynasty');
+    const keys = ['m_evan', 'm_jayton', 'u_ryan-stewart', 'm_mason', 'u_ryan-dow', 'g_72_79', 'u_ryan-younggreen', '', 'm_', 'u_nobody', 'x_1'].map(F.dynastyKey);
     const mine = F.dynastyOpen(), r = app.parseRoute('/puzzles/dynasty'), rb = app.parseRoute('/puzzles/dynasty/battle/b1234abcd');
     const routed = mine ? r.view === 'dynasty' && rb.view === 'dynasty-battle' && rb.open === 'cover' : r.view !== 'dynasty' && rb.view !== 'dynasty-battle';
     const shown = D.others(daily.LB.raw || [], {withMe: true}).every(o => F.dynastyKey(o.key));
-    return {pass: who.join() === 'true,true,false,true,false,false,true' && lists.join() === 'true,true,true' && keys.join() === 'true,true,true,false,false,false,true' && routed && D.mayPlay() === mine && shown,
-      detail: `Evan, Jayton, Mason, Ryan S, Ryan D, a guest, Ryan Y: ${who.join(', ')}`};
+    const g = games.GAMES[0], fresh = games.isFresh(g, new Date(2026, 10, 10)) && !games.isFresh(g, new Date(2026, 11, 1));
+    return {pass: who.every(Boolean) && lists.every(Boolean) && keys.join() === 'true,true,true,true,true,true,true,false,false,false,false' && routed && D.mayPlay() === mine && shown
+      && g.id === 'dynasty' && fresh && D.FIELD === 'dy2' && D.PREVIEW_FIELD === 'dy1',
+      detail: `Evan, Jayton, Mason, Ryan S, Ryan D, Ryan Y: ${who.join(', ')}; first on the shelf: ${lists.join(', ')}`};
   });
   check('Gridiron Dynasty: the cards: real players in six series, every position, one card a player (the owner, Nov 2 2026: "There should be no two cards for the same player ... common (79 overall or less ...), epic (80-89), legendary (90-95), mythic (96+)"; Nov 7 2026: "Epic is players with ratings 85-89. Legendary is 90-95. Mythic is 96-99"): his best card, the rest aliases of it; rarity by OVR alone; every rarity of active players has cards to draw', () => {
     const series = new Set(D.CARDS.map(c => c.s)), pos = new Set(D.CARDS.filter(c => c.s === 'L').map(c => c.pos));

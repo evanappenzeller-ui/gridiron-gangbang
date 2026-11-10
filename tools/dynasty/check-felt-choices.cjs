@@ -51,14 +51,14 @@ async function run(url) {
     });
     for (const [kind, record] of Object.entries(fixtures)) for (const [width,height] of [[320,568],[390,844]]) {
       await page.setViewportSize({width,height});
-      await page.evaluate(record => localStorage.setItem('gg-dys-m_evan',JSON.stringify(record)), record);
+      await page.evaluate(record => localStorage.setItem('gg-dys2-m_evan',JSON.stringify(record)), record);
       await page.goto(url + '/?felt-choice=' + kind + width + '#/puzzles/dynasty/battle/' + record.id);
       await page.waitForSelector('.rp-turn-action.is-choice');
       await page.waitForFunction(() => window.__ggBooted);
       await page.waitForTimeout(350); // Let the initial route transition finish before screenshots/hit tests.
       const before = await page.evaluate(async mid => {
         const S = await import('/js/core/dynasty-solo.js'), B = await import('/js/core/dynasty-pocket.js'), x = S.get(mid);
-        return {move:B.legalActions(x.G,0)[2],collection:JSON.stringify((await import('/js/core/dynasty.js')).mine().o),log:JSON.parse(localStorage.getItem('gg-dys-m_evan')).log.length};
+        return {move:B.legalActions(x.G,0)[2],collection:JSON.stringify((await import('/js/core/dynasty.js')).mine().o),log:JSON.parse(localStorage.getItem('gg-dys2-m_evan')).log.length};
       }, record.id);
       assert.equal(before.move.a, kind === 'promote' ? 'promote' : 'choose-switch');
       assert.equal(await page.locator('[data-rp-choice]').count(),3,'all three replacements remain available');
@@ -81,7 +81,7 @@ async function run(url) {
       await page.locator('[data-rp-choice="2"]').click();
       const after = await page.evaluate(async mid => {
         const x=(await import('/js/core/dynasty-solo.js')).get(mid);
-        return {active:x.G.p[0].active.u,promote:x.G.p[0].promote,pending:x.G.pending,collection:JSON.stringify((await import('/js/core/dynasty.js')).mine().o),record:JSON.parse(localStorage.getItem('gg-dys-m_evan'))};
+        return {active:x.G.p[0].active.u,promote:x.G.p[0].promote,pending:x.G.pending,collection:JSON.stringify((await import('/js/core/dynasty.js')).mine().o),record:JSON.parse(localStorage.getItem('gg-dys2-m_evan'))};
       }, record.id);
       assert.equal(after.active,before.move.u,'the tapped replacement becomes Active');
       assert.equal(after.promote,false); assert.equal(after.pending,null);

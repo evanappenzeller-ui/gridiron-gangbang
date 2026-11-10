@@ -52,14 +52,14 @@ async function main(){
         const before=JSON.stringify(s),deck=s.dk.slice(),G=B.newGame('old-'+profile.key,[deck,deck],5);
         const move={a:'setup',act:G.p[1].hand.find(B.isBasic),bench:[]};B.play(G,1,move);
         const record={id:'legacy',opp:'g1',seed:'old-'+profile.key,v:5,decks:[deck,deck],log:[[1,move]],at:1,z:'',paid:0};
-        localStorage.setItem('gg-dys-'+profile.key,JSON.stringify(record));
+        localStorage.setItem('gg-dys2-'+profile.key,JSON.stringify(record));
         return {before,game:JSON.stringify(G),record:JSON.stringify(record),owner:data.isOwner(),coins:F.coinsUnlimited(profile.key),packs:F.packsUnlimited(profile.key)};
       },profile);
       assert.equal(seed.owner,profile.me==='evan');assert.equal(seed.coins,profile.me==='jayton');assert.equal(seed.packs,['m_evan','u_ryan-stewart'].includes(profile.key));
       await page.reload();await page.waitForFunction(()=>window.__ggBooted);
       const legacy=await page.evaluate(async key=>{
         const D=await import('/js/core/dynasty.js'),S=await import('/js/core/dynasty-solo.js');await D.load();const x=S.get('legacy');
-        return {save:JSON.stringify(D.mine()),game:JSON.stringify(x.G),record:localStorage.getItem('gg-dys-'+key)};
+        return {save:JSON.stringify(D.mine()),game:JSON.stringify(x.G),record:localStorage.getItem('gg-dys2-'+key)};
       },profile.key);
       assert.equal(legacy.save,seed.before,'collections, balances, progress and claims preserved: '+profile.key);
       assert.equal(legacy.game,seed.game,'legacy v5 match unchanged: '+profile.key);assert.equal(legacy.record,seed.record);

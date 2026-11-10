@@ -32,15 +32,18 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The games in list order. art: its case's cover (the owner's art, Oct 2026); book, disc: the booklet in its lid and
 // the disc in it (the owner's art too, cut out of his photos: the disc round, its clear middle see-through); badge: the
 // pixel scoreboard badge (tools/seventeen/badges.py); title: the game page's nav title; cd: the countdown's words once
-// it's played; beta: an optional tag for a game still being worked on.
+// it's played; beta: an optional tag for a game still being worked on; fresh: NEW on the case's band until that day
+// (YYYY-MM-DD, the phone's local date), for a game just released.
 export const GAMES = [
+  // (Gridiron Rivals leads the shelf, NEW on its band, since its release to everyone: Nov 10 2026, Evan: "Make the
+  // gridiron rivals case the front option when loading the game with a new or just released tag on the top of the game")
+  {id: 'dynasty', name: 'Gridiron Rivals', title: 'Gridiron Rivals', art: 'img/games/dynasty-cover-v3.webp', book: 'img/games/dynasty-book-v4.webp', disc: 'img/games/dynasty-disc-v4.webp', fresh: '2026-12-01'},
   {id: 'puzzles', name: 'Daily Puzzles', title: 'Daily Puzzles', art: 'img/games/puzzles-cover-v2.webp', book: 'img/games/puzzles-book.webp', disc: 'img/games/puzzles-disc.webp', badge: 'img/puzzles.webp', cd: 'New puzzles in'},
   {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-cover.webp', book: 'img/games/seventeen-book.webp', disc: 'img/games/seventeen-disc.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover-v2.webp', book: 'img/games/drill-book.webp', disc: 'img/games/drill-disc.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover-v3.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
   {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-man-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in'},
-  {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'},
-  {id: 'dynasty', name: 'Gridiron Rivals', title: 'Gridiron Rivals', art: 'img/games/dynasty-cover-v3.webp', book: 'img/games/dynasty-book-v4.webp', disc: 'img/games/dynasty-disc-v4.webp'}
+  {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'}
 ];
 // The games that go on with no day's final, countdown or board (Keepfall, Gridiron Dynasty): a printed back on their
 // case, never IN PROGRESS.
@@ -50,13 +53,13 @@ const caseControls = g => g.id !== 'dynasty' && data.isOwner();
 // The room under the shelf a case flip button needs (it sits 8px under the case and is 28px tall).
 const CASE_CONTROL_ROOM = 22;
 const byId = id => GAMES.find(g => g.id === id);
-// Game access and shelf visibility are separate: Rivals is playable by the four approved
-// profiles in features.js; every other league member sees its case with Coming Soon.
+// Game access and shelf visibility: Rivals is everyone's with a profile (features.js dynastyOpen, Nov 10 2026); a phone
+// that hasn't said who it is gets its case once it has.
 const ONLY = {dynasty: who => features.dynastyOpen(who, who ? null : data.user())};
 /** Whether game id is open on this phone (who: the phone's member). */
 export const gameOpen = (id, who = data.me()) => !ONLY[id] || ONLY[id](who);
 /** The games this phone's list shows, in order. */
-export const gamesFor = (who = data.me()) => GAMES.filter(g => gameOpen(g.id, who) || (g.id === 'dynasty' && data.ids.includes(who)));
+export const gamesFor = (who = data.me()) => GAMES.filter(g => gameOpen(g.id, who));
 /** A game's page (pushed over the list): Daily Puzzles' is /puzzles/daily. */
 export const gamePath = id => (id === 'puzzles' ? '/puzzles/daily' : `/puzzles/${id}`);
 
@@ -294,7 +297,11 @@ const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState,
 const ACCENT = {puzzles: '#B5452F', '17-0': '#A0721F', drill: '#D23B2F', kick: '#C9A227', return: '#A31F34', keep: '#AEB9BD', dynasty: '#3FA9F5'};
 // The band: the name in the middle, a BETA tag at its left end for a game still being worked on, a tag or the close
 // button at its right.
-const bandHTML = (end = '', beta = false) => `<span class="gm-band">${beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-band-t">GRIDIRON HUB</span>${end}</span>`;
+/** Whether a game is still just released (its fresh day not yet come). */
+export const isFresh = (g, t = new Date()) => !!(g && g.fresh) && `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}` < g.fresh;
+/** The tag at the band's left end: BETA, or NEW for a game just released. */
+const markHTML = g => (g && g.beta ? '<span class="gm-beta">BETA</span>' : isFresh(g) ? '<span class="gm-beta gm-new">NEW</span>' : '');
+const bandHTML = (end = '', g = null) => `<span class="gm-band">${markHTML(g)}<span class="gm-band-t">GRIDIRON HUB</span>${end}</span>`;
 const tileHTML = (big, small, cls = '') => `<span class="gm-tile ${cls}"><b class="n2">${esc(big)}</b>${small ? `<small>${esc(small)}</small>` : ''}</span>`;
 // A line under each row: what it was today, or over the season.
 const SUB_TODAY = {
@@ -323,7 +330,7 @@ const sidesHTML = g => shellHTML(`<span class="gm-spine"><b>GRIDIRON HUB</b><spa
  *  26 2026: a realm is never finished). up: the case up close (a tap on it opens it, a shine moves over it as it turns). */
 function frontHTML(g, s, up = false) {
   const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.sticker ? sticker('is-go', s.sticker) : s.kind === 'started' && !LASTING.includes(g.id) ? sticker('is-go', 'IN PROGRESS') : '';
-  return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? `<span class="gm-z-foot"><i></i>${ui.icon('football')}</span>${GLOSS}` : ''}</div>`;
+  return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? `<span class="gm-z-foot"><i></i>${ui.icon('football')}</span>${GLOSS}` : ''}</div>`;
 }
 // What a place on today's board pays in Keepfall's Ale (the owner's ask, Oct 25 2026: "+#" by each position), on the
 // ranked games' boards (core/realm-pay.js: Daily Puzzles, 17-0, the Two-Minute Drill). short: "+3.2K" on a case's back.
@@ -373,7 +380,7 @@ function placeText(s) {
 function backHTML(g, s) {
   const place = placeText(s), note = boardNote(s.board, s.rows || []);
   const rows = note || `<div class="gm-scr-rows" role="list" aria-label="Today’s leaderboard">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r, {ale: RANKED.includes(g.id) && 'short'}) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
-  return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : s.tag || 'FINAL'}</span>`, g.beta)}`
+  return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : s.tag || 'FINAL'}</span>`, g)}`
     + `<span class="gm-bk-in">`
     + `<span class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>`
     + `${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}${place ? `<em>${esc(place)}</em>` : ''}</span></span>`
@@ -383,7 +390,7 @@ function backHTML(g, s) {
 /** Gridiron Dynasty's printed back: the owner's full back-cover art (Oct 29 2026, his Gridiron Rivals case: "Every pack.
  *  A new rivalry." with its Open, Collect and Compete panels) under the band, where Keepfall's is composed of parts. */
 function dynastyBackHTML(g, up = false) {
-  return `<div class="gm-face gm-back gm-keep-back gm-dy-back${up ? ' gm-z-back' : ''}">${bandHTML()}
+  return `<div class="gm-face gm-back gm-keep-back gm-dy-back${up ? ' gm-z-back' : ''}">${bandHTML('', g)}
     <span class="gm-keep-print gm-dy-print"><img src="img/games/dynasty-back-v2.webp" alt="Every pack, a new rivalry: three jersey cards bursting from a pack, and the Open, Collect and Compete panels" decoding="async" draggable="false"></span>${up ? GLOSS : ''}
   </div>`;
 }
@@ -403,7 +410,7 @@ function keepBackHTML(g, up = false) {
     </span>${up ? GLOSS : ''}</div>`;
 }
 const caseLabel = (g, s) => {
-  const name = `${g.name}${g.beta ? ' (beta)' : ''}`;
+  const name = `${g.name}${g.beta ? ' (beta)' : isFresh(g) ? ' (new)' : ''}`;
   if (s.kind === 'coming-soon') return `${name}: Coming Soon`;
   if (s.kind === 'done') return `${name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard`;
   return `${name}${s.kind === 'started' && !LASTING.includes(g.id) ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
@@ -733,7 +740,7 @@ export function mountList(el, ctx, opts = {}) {
     + `${ui.icon('play-fill')}<span class="gm-z-go-word" aria-hidden="true">${goLabel(s)}</span></button>`;
   function caseUpHTML(g, s, play = false) {
     // (the game's name up in the black band, where the cover has GRIDIRON HUB: the owner's ask, Oct 2026)
-    const band = `<span class="gm-band is-z">${g.beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
+    const band = `<span class="gm-band is-z">${markHTML(g)}<span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
       + `<span class="gm-bk-tag">${s.test ? 'TEST' : s.tag || 'FINAL'}</span></span>`;
     const back = isKeepCase(g) ? keepBackHTML(g, true) : play ? '' : `<div class="gm-face gm-back gm-z-back">${band}<div class="gm-bk-in">`
       + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`

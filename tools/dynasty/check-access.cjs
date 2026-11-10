@@ -1,4 +1,4 @@
-// Jayton's approved admin/Rivals access and unlimited coins. Local server only; no live reads or writes.
+// Jayton's approved admin access and unlimited Rivals coins (Rivals itself everyone's since Nov 10 2026). Local server only; no live reads or writes.
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '../..');
 const mime = {'.html':'text/html', '.js':'text/javascript', '.json':'application/json', '.css':'text/css', '.svg':'image/svg+xml', '.webp':'image/webp', '.png':'image/png', '.woff2':'font/woff2'};
@@ -41,12 +41,12 @@ try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.e
       await D.load();
       for (const id of data.ids) {
         ok(lay.isAdmin(id) === ['evan','jayton'].includes(id), id + ': admin permission');
-        ok(F.dynastyOpen(id) === ['evan','jayton'].includes(id), id + ': Rivals permission');
+        ok(F.dynastyOpen(id), id + ': Rivals permission (everyone\'s since Nov 10 2026)');
         ok(games.gamesFor(id).some(g => g.id === 'dynasty'), id + ': game case');
         ok(F.coinsUnlimited('m_' + id) === (id === 'jayton'), id + ': unlimited coins');
       }
       for (const user of data.USERS) {
-        ok(F.dynastyOpen(null,user) === ['ryan-stewart','ryan-younggreen'].includes(user.id), user.id + ': access unchanged');
+        ok(F.dynastyOpen(null,user), user.id + ': Rivals permission (everyone\'s since Nov 10 2026)');
         ok(!F.coinsUnlimited('u_' + user.id) && !lay.isAdmin(user.id), user.id + ': no new privileges');
       }
       for (const id of [null,'','Jayton','Jayton Hull','unknown']) ok(!lay.isAdmin(id), 'No display-name admin: ' + id);
@@ -80,11 +80,11 @@ try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.e
       ok(s.tr === before.tr && JSON.stringify(s.so) === before.so, 'Existing progress retained');
       let body;
       Object.assign(daily.LB,{ready:true,synced:true,off:false,uid:'access-test',raw:[],all:[],put:async b => { body=b; }});
-      ok(await D.flush() && body.dy1.m_jayton, 'Jayton can sync under his existing profile key');
-      ok(body.dy1.m_jayton.sp === before.sp && body.dy1.m_jayton.cr === before.cr, 'Cloud ledger unchanged');
+      ok(await D.flush() && body.dy2.m_jayton, 'Jayton can sync under his existing profile key');
+      ok(body.dy2.m_jayton.sp === before.sp && body.dy2.m_jayton.cr === before.cr, 'Cloud ledger unchanged');
       const finite = v => typeof v === 'number' ? Number.isFinite(v) : v && typeof v === 'object' ? Object.values(v).every(finite) : true;
-      ok(finite(body) && finite(JSON.parse(localStorage.getItem('gg-dy1-m_jayton'))), 'No Infinity saved locally or remotely');
-      const docs = [{id:'jayton-fixture',nick:data.name('jayton'),dy1:{m_jayton:s}}];
+      ok(finite(body) && finite(JSON.parse(localStorage.getItem('gg-dy2-m_jayton'))), 'No Infinity saved locally or remotely');
+      const docs = [{id:'jayton-fixture',nick:data.name('jayton'),dy2:{m_jayton:s}}];
       data.setMe('evan');
       ok(D.others(docs).some(p => p.key === 'm_jayton'), 'Jayton appears as a Rivals opponent');
       ok(Number.isFinite(D.balance()) && D.unlimited(), 'Evan retains finite coins and unlimited packs');
@@ -93,7 +93,7 @@ try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.e
       const normal = D.mine(); normal.sp = D.STARTER_COINS + normal.cr; D.earned(normal,true);
       ok(!D.buy('prem').ok, 'Ordinary empty wallet still cannot buy an Epic pack');
       data.setMe('none'); data.setGuest('Jayton Hull');
-      ok(!lay.isAdmin() && !D.mayPlay() && !D.unlimitedCoins(), 'Typed guest name grants nothing');
+      ok(!lay.isAdmin() && D.mayPlay() && !D.unlimitedCoins() && D.mine().pk.prem !== 40, 'Typed guest name plays its own guest Rivals, with none of Jayton’s privileges or progress');
       data.setGuest(null); data.setMe(null);
       ok(!lay.isAdmin() && !D.mayPlay() && !D.unlimitedCoins(), 'Unselected profile grants nothing');
       data.setMe('jayton');

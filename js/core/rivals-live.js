@@ -1,7 +1,7 @@
 // Live Rivals battles (Nov 7 2026, Evan: "There should be a list of league members with an active status green dot means
 // they are in the app. A request sent to them should show up as a push notification on their screen. If they are actively
 // playing return man it will show up when they are done. This is meant to be a live matchup so both players need to be
-// active for the game to play out"; the Rivals group, features.js DYNASTY).
+// active for the game to play out"; first the Rivals group, every member and app user since Nov 10 2026: liveKeys).
 //
 // Presence, challenges and each side's moves ride on the phone's own board doc (players/{uid}, daily.js LB.put) as
 // FIELD = {k (profile key), on (1 while the app is on screen), at, b ('' | 'rm' a Return Man run | 'match' a live
@@ -10,10 +10,10 @@
 // | 'resign' | 'claim'), over, at})}. No new database rules: a phone writes only its own doc and reads everyone's, as
 // the scoreboards do. The battle is core/dynasty-pocket.js's v7 rules replayed from the seed (the challenge id) and both
 // sides' moves, merged by n (core/rivals-live-match.js). This module is light (no cards or engine): the app shell
-// starts it for every profile, and only the Rivals group's profiles publish anything.
+// starts it for every profile, and only members' and app users' profiles publish anything.
 import * as data from './data.js';
 import * as daily from './daily.js';
-import {DYNASTY, dynastyKey} from './features.js';
+import {dynastyKey} from './features.js';
 import {profileKey, visitWho} from './realm-active.js';
 import {busy as gameBusy} from './busy.js';
 
@@ -21,7 +21,14 @@ export const FIELD = 'rlv';
 /** Heartbeats while on screen (more often during a live battle); a side unheard for ONLINE_MS shows offline, and a
  *  battle opponent unheard for AWAY_MS (or off screen) pauses the battle. CLAIM_MS away lets the other side take the win. */
 export const BEAT_MS = 45000, MATCH_BEAT_MS = 15000, ONLINE_MS = 100000, AWAY_MS = 40000, INVITE_MS = 10 * 60000, CLAIM_MS = 120000;
-export const KEYS = Object.freeze([...DYNASTY.members.map(m => 'm_' + m), ...DYNASTY.users.map(u => 'u_' + u)]);
+// Who can play live (Nov 10 2026: Rivals is everyone's): every league member and app user. A guest plays Solo; with no
+// stable identity a guest isn't listed or challenged here.
+const LIVE = {ids: null, keys: []};
+export function liveKeys() {
+  if (LIVE.ids !== data.ids) { LIVE.ids = data.ids; LIVE.keys = Object.freeze([...data.ids.map(m => 'm_' + m), ...data.USERS.map(u => 'u_' + u.id)]); }
+  return LIVE.keys;
+}
+const KEYS = {includes: k => liveKeys().includes(k), filter: fn => liveKeys().filter(fn)};
 const MAX_MOVES = 400, ID = /^lv[a-z0-9]{4,22}$/;
 const obj = x => (x && typeof x === 'object' && !Array.isArray(x) ? x : null);
 const ids = (x, n) => (Array.isArray(x) ? x.filter(v => typeof v === 'string' && v.length <= 64).slice(0, n) : []);
@@ -59,7 +66,7 @@ const LOCAL = key => `gg-rlv-${key}`;
 const visible = () => typeof document === 'undefined' || document.visibilityState !== 'hidden';
 const nameOf = key => visitWho(key, null)?.name || 'A Rivals manager';
 export const nameFor = nameOf;
-/** Whether a profile key may play live battles (the Rivals group). */
+/** Whether a profile key may play live battles (a league member or app user: liveKeys). */
 export const enabled = (key = profileKey()) => !!key && dynastyKey(key) && KEYS.includes(key);
 export function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
 function emit(why, detail) { [...subs].forEach(fn => { try { fn(why, detail); } catch (e) { console.error(e); } }); }
@@ -148,7 +155,7 @@ export function presence(key) {
   const on = list.filter(s => s.on && ageOf(s) < ONLINE_MS).sort((a, b) => ageOf(a) - ageOf(b));
   return presenceOf(on.find(s => s.b) || on[0] || side(key));
 }
-/** The rest of the Rivals group: [{key, name, member, online, busy, age}], online first. */
+/** Everyone else who plays live: [{key, name, member, online, busy, age}], online first. */
 export function players() {
   const me = myKey();
   return KEYS.filter(k => k !== me).map(k => {
@@ -161,7 +168,7 @@ export function players() {
 const newId = () => 'lv' + Date.now().toString(36) + Math.floor(Math.random() * 1679616).toString(36);
 /** Challenge a Rivals manager now, with deck {ids, energy}. {ok, why, id}. */
 export function invite(key, deck) {
-  if (!self()) return {ok: false, why: 'Live battles are for the Rivals group.'};
+  if (!self()) return {ok: false, why: 'Live battles are for league members and app users.'};
   if (!KEYS.includes(key) || key === ME.k) return {ok: false, why: 'Choose another manager.'};
   if (activeMatch()) return {ok: false, why: 'Finish your live battle first.'};
   if (!deck || !Array.isArray(deck.ids) || !Array.isArray(deck.energy)) return {ok: false, why: 'Your deck isn’t ready.'};
@@ -196,7 +203,7 @@ export function incoming() {
 }
 /** Accept (with your deck {ids, energy}) or decline challenge id. {ok, why}. */
 export function answer(id, ok, deck = null) {
-  if (!self()) return {ok: false, why: 'Live battles are for the Rivals group.'};
+  if (!self()) return {ok: false, why: 'Live battles are for league members and app users.'};
   let from = null;
   allSides().forEach(s => { if (s.i && s.i.id === id && s.i.to === ME.k) from = s.k; });
   if (!from) return {ok: false, why: 'That challenge is no longer open.'};

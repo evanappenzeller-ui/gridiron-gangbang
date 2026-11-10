@@ -6,6 +6,8 @@ const root = path.resolve(__dirname, '../..');
 const read = p => fs.readFileSync(path.join(root, p), 'utf8');
 const snap = value => JSON.stringify(value);
 const copy = value => JSON.parse(snap(value));
+const LEAGUE = JSON.parse(read('data/league.json')).managers.map(m => m.id);
+const USERS = vm.runInNewContext(read('js/core/data.js').match(/export const USERS = ([\s\S]*?);/)[1]);
 const profiles = [
   {member:'evan', key:'m_evan'}, {member:'jayton', key:'m_jayton'},
   {user:{id:'ryan-stewart',name:'Ryan Stewart'}, key:'u_ryan-stewart'},
@@ -42,8 +44,8 @@ async function fixture(profile = profiles[0], initial = []) {
     },{context:ctx,identifier:id}));
   }
   stub('data.js',{OWNER:'evan',me:()=>profile.member||null,user:()=>profile.user||null,
-    isOwner:()=>profile.member==='evan',guest:()=>profile.user?.name||'',name:id=>id,
-    subscribe:()=>()=>{},ids:[],USERS:[]});
+    isOwner:()=>profile.member==='evan',guest:()=>profile.member?null:profile.user?.name||profile.guestName||'',name:id=>id,
+    subscribe:()=>()=>{},ids:LEAGUE,USERS});
   stub('realm-active.js',{profileKey:()=>profile.key,visitWho:()=>null});
   stub('daily.js',{LB:{raw:[],all:[],ready:false,synced:false,off:true},boardKey:()=>null,
     asGuest:()=>!profile.member,subscribe:()=>()=>{}});
@@ -74,7 +76,7 @@ async function fixture(profile = profiles[0], initial = []) {
   }
   return {D,S,B,P,C,T,F,storage,errors,profile,
     advance, pending:delay=>[...timers].filter(([,t])=>delay==null||t.delay===delay),
-    record:()=>JSON.parse(storage.get('gg-dys-'+profile.key)||'null'),
+    record:()=>JSON.parse(storage.get('gg-dys2-'+profile.key)||'null'),
     cpuStep(){
       const mid=S.current()?.mid;
       if(autoPlayback?.mid!==mid){autoPlayback?.stop();autoPlayback={mid,stop:S.watchPlayback(mid,()=>true)};}
@@ -158,10 +160,10 @@ async function checkPacing() {
   const source=startCpuTurn(f), sourceStop=S.watchPlayback(source,()=>true);
   const staleTimer=f.pending(beat)[0][1].fn, sourceRecord=snap(f.record());
   const other=copy(f.record());other.id='cpu-other-profile';
-  f.storage.set('gg-dys-m_jayton',snap(other));
+  f.storage.set('gg-dys2-m_jayton',snap(other));
   f.profile.member='jayton';f.profile.key='m_jayton';
   S.get(other.id);staleTimer();f.advance(beat*3);
-  assert.equal(f.storage.get('gg-dys-m_evan'),sourceRecord,'profile change leaves the prior match untouched');
+  assert.equal(f.storage.get('gg-dys2-m_evan'),sourceRecord,'profile change leaves the prior match untouched');
   assert.equal(snap(f.record()),snap(other),'profile change cannot advance the new profile from the old timer');
   const otherStop=S.watchPlayback(other.id,()=>true);
   sourceStop();staleTimer();f.advance(beat);
@@ -222,7 +224,14 @@ function legacyRecord(B, deck) {
     const kept=copy(D.mine()),was=JSON.parse(before);delete kept.tutorial;delete kept.at;delete was.at;
     assert.deepEqual(kept,was,'tutorial receipt preserves existing progress and real battle');
   }
-  for(const profile of [{member:'mason',key:'m_mason'}, {key:'g_guest',user:{id:'guest',name:'Evan Appenzeller'}}, {key:''}]) {
+  // Rivals is everyone's (Nov 10 2026): a member outside the preview and a named guest play; a phone with no profile can't.
+  for(const profile of [{member:'mason',key:'m_mason'}, {key:'g_pat',guestName:'Pat'}]) {
+    const f=await fixture(profile), {D,S,F}=f;
+    assert.equal(F.rivalsUpdated(),true,profile.key+' plays');assert.equal(D.tutorialDue(),true);
+    const start=S.start('g1');assert.equal(start.ok,true,start.why);assert.equal(S.get(start.mid).G.v,7);
+    assert.equal(F.packsUnlimited(profile.key),false);assert.equal(F.coinsUnlimited(profile.key),false);
+  }
+  for(const profile of [{key:''}]) {
     const {D,S,F,storage}=await fixture(profile), s=D.fresh(), before=snap(s);
     assert.equal(F.rivalsUpdated(),false);assert.equal(S.start('g1').ok,false);assert.equal(S.get(),null);
     assert.equal(D.tutorialDue(),false);assert.equal(D.finishTutorial('completed',profile.key),false);
@@ -261,10 +270,10 @@ function legacyRecord(B, deck) {
   assert.equal(D.sell(source,1,dependency).ok,false,'the last owned Base stays available for a saved development card');
   assert.equal(dependency.o[source],1);
 
-  const old=legacyRecord(B,T.deck(s).ids), oldStorage=[['gg-dy1-m_evan',snap(cleanBase)],['gg-dys-m_evan',snap(old.record)]];
+  const old=legacyRecord(B,T.deck(s).ids), oldStorage=[['gg-dy2-m_evan',snap(cleanBase)],['gg-dys2-m_evan',snap(old.record)]];
   const legacy=await fixture(profiles[0],oldStorage), unchanged=legacy.S.get(old.record.id);
   assert.equal(snap(unchanged.G),snap(old.G),'saved v6 rules and full move log replay unchanged');
-  assert.equal(legacy.storage.get('gg-dys-m_evan'),snap(old.record),'opening old game never rewrites its record');
+  assert.equal(legacy.storage.get('gg-dys2-m_evan'),snap(old.record),'opening old game never rewrites its record');
   assert.equal(snap(legacy.D.mine().table),snap(cleanBase.table),'old 40-card deck remains byte-identical');
   assert.equal(snap(legacy.D.mine().o),snap(cleanBase.o),'old owned collection preserved');
 
@@ -325,6 +334,6 @@ function legacyRecord(B, deck) {
     }
     assert.equal(won,true,'rental reaches a legal winning boss log for '+stage);
   }
-  console.log('PASS four-profile v7 rollout, denied outsiders, unchanged privileges, legal rentals and owned loadouts, save round trips, v6 replay and old deck preservation.');
+  console.log('PASS v7 for the four preview profiles, a new member and a guest, denied profile-less phone, unchanged privileges, legal rentals and owned loadouts, save round trips, v6 replay and old deck preservation.');
   console.log('PASS ten complete saved Solo matches, legal AI moves, deterministic reloads, one-time rewards, real pack/card boss wins and ladder unlocks.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -65,7 +65,7 @@ const SAVE = {v: 1, born: Date.now() - 864e5, at: Date.now(), o: {'C-timeout': 2
   await page.addInitScript(save => {
     sessionStorage.setItem('gg-skip-title', '1');
     localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-tab-hint', '2'); localStorage.setItem('gg-release-3.0:evan', '1'); localStorage.setItem('gg-dynasty-seen', '1');
-    if (!localStorage.getItem('gg-dy1-m_evan')) localStorage.setItem('gg-dy1-m_evan', JSON.stringify(save));
+    if (!localStorage.getItem('gg-dy2-m_evan')) localStorage.setItem('gg-dy2-m_evan', JSON.stringify(save));
   }, SAVE);
   await page.goto(url);
   await page.waitForFunction(() => window.__ggBooted, null, {timeout: 30000});
