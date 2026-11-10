@@ -6,6 +6,7 @@ output/rivals-ladder/
 output/rivals-music/
 output/rivals-jukebox/
 output/rivals-*.png
+output/tutorial/
 # Return Man browser verification artifacts
 output/return-customize/
 output/return-customize-integration/
