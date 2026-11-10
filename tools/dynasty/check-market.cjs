@@ -135,8 +135,48 @@ try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.e
     await page.locator('.pk-start.is-ready').waitFor();
     await page.locator('.pk-start').focus(); await page.keyboard.press('Enter');
     await page.waitForFunction(() => !document.querySelector('.pk-start'));
-    await page.locator('[data-dy-tab="market"]').first().click();
     const focused = async (selector, message) => assert.ok(await page.evaluate(sel => document.activeElement?.matches(sel),selector),message);
+    const shopTabs = page.locator('[data-dy-shop-tabs]');
+    const packTab = page.locator('[data-dy-shop-tab="packs"]'), marketTab = page.locator('[data-dy-shop-tab="market"]');
+    const shopState = async tab => {
+      assert.ok(await shopTabs.isVisible(),'Shop tabs visible in ' + tab);
+      assert.equal(await page.locator('.pk-nav [data-dy-tab="packs"]').getAttribute('aria-pressed'),'true','Packs stays active in bottom navigation');
+      assert.equal(await page.locator('[data-pk-title]').textContent(),'Packs','Both shop views retain the Packs header');
+      assert.equal(await page.locator(`[data-dy-shop-tab="${tab}"]`).getAttribute('aria-selected'),'true','Selected top tab matches content');
+      assert.equal(await page.locator(`[data-dy-shop-tab="${tab}"]`).getAttribute('tabindex'),'0','Selected shop tab is keyboard entry point');
+      assert.equal(await page.locator(`[data-dy-shop-tab="${tab === 'packs' ? 'market' : 'packs'}"]`).getAttribute('tabindex'),'-1','Inactive shop tab uses roving focus');
+      const panel = page.locator('[data-dy-pane]'), selected = page.locator(`[data-dy-shop-tab="${tab}"]`);
+      assert.equal(await panel.getAttribute('role'),'tabpanel','Shop content has tabpanel semantics');
+      assert.equal(await selected.getAttribute('aria-controls'),await panel.getAttribute('id'),'Top tab controls its content panel');
+      assert.equal(await panel.getAttribute('aria-labelledby'),await selected.getAttribute('id'),'Content panel uses selected tab label');
+    };
+    for (const tab of ['home','battle','cards','decks']) {
+      await page.locator(`.pk-nav [data-dy-tab="${tab}"]`).click();
+      assert.ok(!await shopTabs.isVisible(),'Shop tabs stay hidden outside Packs: ' + tab);
+      if (tab === 'home') assert.equal(await page.locator('.rm-home-link').count(),0,'Marketplace has no standalone Home destination');
+    }
+    await page.locator('.pk-nav [data-dy-tab="packs"]').click();
+    await page.locator('.pk-pack-shop').waitFor(); await shopState('packs');
+    assert.deepEqual(await shopTabs.locator('[role="tab"]').allTextContents(),['Packs','Marketplace'],'Two separate top shop tabs');
+    const shopSave = await page.evaluate(async () => JSON.stringify((await import('/js/core/dynasty.js')).mine()));
+    await packTab.focus(); await page.keyboard.press('ArrowRight');
+    await shopState('market'); await focused('[data-dy-shop-tab="market"]','ArrowRight opens and focuses Marketplace');
+    await page.keyboard.press('ArrowLeft');
+    await shopState('packs'); await focused('[data-dy-shop-tab="packs"]','ArrowLeft returns to Packs');
+    await page.keyboard.press('End'); await shopState('market');
+    await page.keyboard.press('Home'); await shopState('packs');
+    await marketTab.click(); await shopState('market');
+    assert.equal(await page.evaluate(async () => JSON.stringify((await import('/js/core/dynasty.js')).mine())),shopSave,'Switching shop tabs never changes cards, packs or wallet');
+    await page.locator('[data-dy-menu]').click(); await page.locator('[data-dy-m="title"]').click();
+    await page.locator('.pk-start.is-ready').waitFor();
+    assert.ok(await shopTabs.evaluate(el => el.inert),'Title overlay makes the new shop tabbar inert');
+    await marketTab.evaluate(el => el.focus());
+    assert.ok(!await page.evaluate(() => document.activeElement?.matches('[data-dy-shop-tab]')),'Inert shop tabs cannot take keyboard focus');
+    await page.locator('.pk-start').focus(); await page.keyboard.press('Enter');
+    await page.waitForFunction(() => !document.querySelector('.pk-start'));
+    assert.ok(!await shopTabs.evaluate(el => el.inert),'Starting restores the shop tabbar');
+    await shopState('market');
+    console.log('PASS: Marketplace lives under Packs with scoped top tabs, active bottom Packs and keyboard navigation');
     await page.locator('[data-market-rarity]').focus();
     await page.locator('[data-market-rarity]').selectOption('common');
     await focused('[data-market-rarity]','Rarity selection retains keyboard focus after redraw');
@@ -206,12 +246,38 @@ try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.e
     assert.equal(await page.locator('[data-market-more]').count(),0,'Final results page has no Show more button');
     await focused('.rm-card:last-child [data-market-card]','Final Show more hands focus to a remaining card');
     console.log('PASS: rarity, sort, Buy/Sell and both pagination states preserve usable keyboard focus');
+    if (shots) await page.waitForFunction(() => !document.querySelector('.toast'));
+    const shopLayout = async (view,width) => {
+      const geometry = await page.evaluate(() => {
+        const rect = sel => { const r = document.querySelector(sel).getBoundingClientRect(); return {top:r.top,bottom:r.bottom,height:r.height}; };
+        return {header:rect('.pk-hdr'),tabs:rect('[data-dy-shop-tabs]'),pane:rect('[data-dy-pane]'),nav:rect('.pk-nav')};
+      });
+      assert.ok(geometry.tabs.top >= geometry.header.bottom - 1,`${view} ${width}: tabs below header ${JSON.stringify(geometry)}`);
+      assert.ok(geometry.pane.top >= geometry.tabs.bottom - 1,`${view} ${width}: content below tabs ${JSON.stringify(geometry)}`);
+      assert.ok(geometry.pane.bottom <= geometry.nav.top + 1,`${view} ${width}: content above navigation ${JSON.stringify(geometry)}`);
+      assert.ok(geometry.pane.height > 100,`${view} ${width}: content has usable height`);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),'No horizontal overflow at ' + width);
+    };
     for (const size of [{width:320,height:740},{width:390,height:844},{width:820,height:1180}]) {
       await page.setViewportSize(size); await page.locator('[data-market-card]').first().waitFor();
-      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),'No horizontal overflow at ' + size.width);
+      await page.locator('[data-dy-pane]').evaluate(el => { el.scrollTop = 0; });
+      await shopState('market'); await shopLayout('market',size.width);
       if (shots) await page.screenshot({path:path.join(shots,`market-${size.width}.png`)});
+      await packTab.click(); await page.locator('.pk-pack-shop').waitFor();
+      await shopState('packs'); await shopLayout('packs',size.width);
+      const buy = page.locator('.pk-pack-buy[data-dy-openhere]');
+      assert.ok(await buy.isVisible(),'Pack purchase control remains available at ' + size.width);
+      const packGeometry = await page.evaluate(() => {
+        const b = document.querySelector('.pk-pack-buy[data-dy-openhere]').getBoundingClientRect();
+        const p = document.querySelector('[data-dy-pane]').getBoundingClientRect();
+        return {buy:{top:b.top,bottom:b.bottom},pane:{top:p.top,bottom:p.bottom}};
+      });
+      assert.ok(packGeometry.buy.top >= packGeometry.pane.top - 1 && packGeometry.buy.bottom <= packGeometry.pane.bottom + 1,'Pack purchase stays between top tabs and bottom navigation: ' + JSON.stringify(packGeometry));
+      if (shots) await page.screenshot({path:path.join(shots,`packs-${size.width}.png`)});
+      await marketTab.click(); await page.locator('[data-market-card]').first().waitFor();
+      assert.equal(await page.locator('[data-market-rarity]').inputValue(),'mythic','Returning from Packs preserves marketplace filters');
     }
-    console.log('PASS: marketplace fits 320px and 390px phones and an 820px tablet');
+    console.log('PASS: Packs and Marketplace fit 320px/390px phones and an 820px tablet without top-tab or bottom-nav overlap');
 
     await page.locator('[data-market-rarity]').selectOption('common');
     await page.locator('[data-market-search]').fill(result.card.name); await tile.click();

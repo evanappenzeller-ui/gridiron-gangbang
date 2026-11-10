@@ -60,6 +60,11 @@
   .v-dynasty .pk-pack-preview p { margin-top: 2px; font-size: 8px; line-height: 10px; }
   .v-dynasty .pk-pack-choice { width: var(--pw); flex: none; }
 }
+/* The top shop tabs can put a small portrait phone into the compact shelf. Allow full player names there. */
+@container (max-height: 300px) and (max-width: 400px) {
+  .v-dynasty .pk-pack-shelf { --preview-h: calc(var(--card-w) * 1.397 + 88px); }
+  .v-dynasty .pk-pack-preview-card > span { height: 44px; }
+}
 @media (max-height: 480px) and (orientation: landscape) {
   .v-dynasty .pk-pack-checkout { padding: 6px 24px 8px; }
   .v-dynasty .pk-pack-buy { min-height: 44px; padding: 8px 24px; font-size: 15px; }

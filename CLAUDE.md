@@ -2,7 +2,10 @@
 
 ## Rivals marketplace (November 10, 2026)
 
-Rivals Home, Menu and card details open the Marketplace (`views/dynasty-market.js`). Everyone who can play Rivals
+The Packs destination has top tabs for Packs and Marketplace (`views/dynasty-market.js`), as Evan requested later
+on November 10. The bottom Packs item stays selected in both views. The top tabs remain visible above either pane,
+support keyboard arrows/Home/End, and hide in other destinations. Menu/card-details shortcuts open this same
+Marketplace subtab; the standalone Home marketplace button is removed. Everyone who can play Rivals
 can buy specific collectible cards or sell owned copies to fixed game-market offers; these are not peer listings.
 Search, rarity, overall/price sorting and pagination use canonical players and collectible legacy supports only.
 `core/dynasty.js` `marketQuote` prices Epic players at 12,000–16,000, Legendary at 60,000–90,000 and Mythic at

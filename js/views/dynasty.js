@@ -296,7 +296,11 @@ export function shellHTML() {
   return `<div class="pk${homeOpen() ? ' rh-home-enabled' : ''}" data-dy><header class="pk-hdr">${ui.exitButton('data-dy-exit', 'Exit Gridiron Rivals')}`
     + `<div class="rh-brand"><span>GRIDIRON RIVALS</span><h1 class="pk-title" data-pk-title tabindex="-1">${homeOpen() ? 'Home' : 'Play'}</h1></div><span class="pk-hud" data-dy-hud></span>`
     + `<button type="button" class="rh-menu" data-dy-menu aria-label="Menu">${ui.icon('list', {size: 22})}</button></header>`
-    + `<div class="pk-pane" data-dy-pane></div>`
+    + `<div class="rm-shop-tabs" data-dy-shop-tabs role="tablist" aria-label="Packs sections" hidden>
+      <button type="button" id="dy-shop-packs" role="tab" data-dy-shop-tab="packs" data-dy-tab="packs" aria-selected="true" aria-controls="dy-shop-panel">Packs</button>
+      <button type="button" id="dy-shop-market" role="tab" data-dy-shop-tab="market" data-dy-tab="market" aria-selected="false" aria-controls="dy-shop-panel" tabindex="-1">Marketplace</button>
+    </div>`
+    + `<div class="pk-pane" id="dy-shop-panel" data-dy-pane></div>`
     + `<nav class="pk-nav" aria-label="Gridiron Rivals">${navHTML()}</nav>`
     + startHTML() + '</div>';
 }
@@ -768,7 +772,6 @@ function homeHTML(st) {
     + `<span class="rh-home-tile-copy"><b>Collection</b><small>${nf(own.have)} cards collected</small></span><span class="rh-home-tile-arrow" aria-hidden="true">${arrow}</span></button></div>`
     + (ready ? `<button type="button" class="rh-home-notice" data-dy-goto="cols">${ui.icon('trophy', {size: 18})}<span>${ready === 1 ? '1 collection reward' : `${nf(ready)} collection rewards`} ready to claim</span>${arrow}</button>` : '')
     + (wait ? `<button type="button" class="rh-home-notice" data-dy-home-versus>${ui.icon('versus', {size: 18})}<span>${wait === 1 ? '1 battle needs' : `${nf(wait)} battles need`} your attention</span>${arrow}</button>` : '')
-    + `<button type="button" class="rm-home-link" data-dy-tab="market"><span><b>Marketplace</b><small>Buy stars · Sell cards · Build your balance</small></span>${arrow}</button>`
     + `<div class="rh-home-tools"><button type="button" data-dy-tab="decks"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">${TABS[2].ic}</svg><span>My decks</span>${arrow}</button><button type="button" data-dy-guide>${ui.icon('info', {size: 24})}<span>How to play</span>${arrow}</button></div>`
     + `<p class="rh-home-signoff">YOUR TEAM. YOUR CARDS. YOUR LEGACY.</p></section>`;
 }
@@ -992,7 +995,7 @@ export function startHTML() {
 function drawStart(st) {
   const sc = st.el.querySelector('[data-dy-start]');
   st.el.querySelector('.pk').classList.toggle('is-start', !!sc);
-  ['.pk-hdr', '[data-dy-pane]', '.pk-nav'].forEach(q => { const el = st.el.querySelector(q); if (el) { if (sc) el.setAttribute('inert', ''); else el.removeAttribute('inert'); } });
+  ['.pk-hdr', '[data-dy-shop-tabs]', '[data-dy-pane]', '.pk-nav'].forEach(q => { const el = st.el.querySelector(q); if (el) { if (sc) el.setAttribute('inert', ''); else el.removeAttribute('inert'); } });
   if (!sc) return;
   const say = sc.querySelector('[data-dy-start-say]');
   if (say && say.textContent !== startSay()) say.textContent = startSay();
@@ -1105,12 +1108,20 @@ function updateChrome(st) {
   }
   if (st.tab === 'home' && !owner) st.tab = 'battle';
   shell.classList.toggle('is-home', owner && st.tab === 'home');
-  shell.classList.toggle('is-market', st.tab === 'market');
   shell.classList.toggle('is-pack-shop', rivalsUpdated() && st.tab === 'packs');
   shell.classList.toggle('is-ladder', D.bossLadderOpen() && st.tab === 'battle' && !(st.bv === 'rank' || (st.bv === 'versus' && rivalsVersus())));
   if (hud !== st.hud) { el.querySelector('[data-dy-hud]').innerHTML = hud; st.hud = hud; }
-  el.querySelector('[data-pk-title]').textContent = (st.tab === 'market' ? 'Marketplace' : (tabsOf().find(t => t.id === st.tab) || TABS[0]).title);
-  el.querySelectorAll('.pk-tab[data-dy-tab]').forEach(b => { const on = b.dataset.dyTab === st.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
+  el.querySelector('[data-pk-title]').textContent = (st.tab === 'market' ? 'Packs' : (tabsOf().find(t => t.id === st.tab) || TABS[0]).title);
+  el.querySelectorAll('.pk-tab[data-dy-tab]').forEach(b => { const on = b.dataset.dyTab === (st.tab === 'market' ? 'packs' : st.tab); b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
+  const shop = st.tab === 'packs' || st.tab === 'market', shopTabs = el.querySelector('[data-dy-shop-tabs]');
+  shopTabs.hidden = !shop;
+  shopTabs.querySelectorAll('[data-dy-shop-tab]').forEach(b => {
+    const selected = b.dataset.dyShopTab === st.tab;
+    b.setAttribute('aria-selected', String(selected)); b.tabIndex = selected ? 0 : -1;
+  });
+  const pane = el.querySelector('[data-dy-pane]');
+  if (shop) { pane.setAttribute('role', 'tabpanel'); pane.setAttribute('aria-labelledby', 'dy-shop-' + st.tab); }
+  else { pane.removeAttribute('role'); pane.removeAttribute('aria-labelledby'); }
   const dot = el.querySelector('.pk-tab[data-dy-tab="battle"] .pk-dot');
   if (dot) dot.hidden = !waitingOf(st);
 }
@@ -1229,6 +1240,12 @@ export default {
     });
     // (the title screen: Enter or Space on it starts, as a tap does)
     el.addEventListener('keydown', e => {
+      const shopTab = e.target.closest('[data-dy-shop-tab]');
+      if (shopTab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+        e.preventDefault();
+        const tab = e.key === 'Home' ? 'packs' : e.key === 'End' ? 'market' : shopTab.dataset.dyShopTab === 'packs' ? 'market' : 'packs';
+        go(st, tab); el.querySelector(`[data-dy-shop-tab="${tab}"]`).focus(); return;
+      }
       const sc = e.target && e.target.closest ? e.target.closest('[data-dy-start]') : null;
       if (sc && e.target === sc && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); startGame(st); }
     });
