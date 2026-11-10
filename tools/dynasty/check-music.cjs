@@ -248,7 +248,7 @@ async function main() {
     await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).selectTrack('sundress')); await playing();
     console.log('PASS: shuffled jukebox: every pass a new order, never opening with the last song, with or without real randomness');
     await settings();
-    assert.equal(await page.getByRole('dialog', {name:'Settings',exact:true}).count(),1);
+    assert.equal(await page.getByRole('dialog', {name:'Jukebox',exact:true}).count(),1);
     assert.equal(await page.locator('[data-dy-music-title]').innerText(),'Sundress');
     assert.equal(await page.locator('[data-dy-music-artist]').innerText(),'A$AP Rocky');
     assert.equal(await page.locator('[data-dy-music-track="sundress"][aria-pressed="true"]').count(),1);
@@ -433,7 +433,7 @@ async function main() {
     await battleHold.send('touchEnd'); await silent();
     await battleSound.click(); await playing();
     if(await page.locator('[data-rp-menu]').count()) { await page.locator('[data-rp-menu]').click(); await page.locator('[data-rp-settings]').click(); }
-    else {await page.locator('[data-db-more]').click(); await page.getByRole('button', {name: 'Settings', exact: true}).click();}
+    else {await page.locator('[data-db-more]').click(); await page.getByRole('button', {name: 'Jukebox', exact: true}).click();}
     await page.waitForSelector('[data-dy-music-toggle]');
     assert.equal(await page.locator('[data-dy-music-track]').count(), 40, 'the battle jukebox (the playlist, then the 39 songs) heads with the battle playlist');
     assert.equal(await page.locator('[data-dy-music-track="battle"][aria-pressed="true"]').count(), 1);

@@ -799,6 +799,10 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-shuffle svg { width: 22px; height: 22px; pointer-events: none; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-shuffle:disabled { opacity: .5; cursor: default; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-status[hidden] { display: none; }
+/* Sound (views/dynasty-music.js soundSheet): the music and sound effects levels */
+.pk-sheet.pk-sound-sheet .pk-sound-set { display: grid; gap: 18px; padding: 14px 2px 18px; }
+.pk-sheet.pk-sound-sheet .pk-music-volume { font-size: 14px; }
+.pk-sheet.pk-sound-sheet .pk-music-volume input { min-height: 40px; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-status { margin: -2px 0 0; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-controls > button { padding: 8px 4px; border: 1px solid #506184; border-radius: 6px; background: #172646; color: #e4ecfb; font-size: 12px; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-controls > button[data-dy-music-toggle] { border-color: #ffdb66; background: linear-gradient(#ffe690, #e7b63c); color: #121a38; }

@@ -1,7 +1,7 @@
 import {rivalsUpdated, rivalsVersus} from '../core/features.js';
 import {energySVG, energyBannerUrl, ENERGY_COLOR} from './dynasty-energy.js';
 import {tableOptions, tableDeckSheet} from './dynasty-table-options.js';
-import {musicSheet, attachMusic} from './dynasty-music.js';
+import {musicSheet, soundSheet, attachMusic} from './dynasty-music.js';
 import * as sfx from '../core/dynasty-sfx.js';
 import {deckShelfHTML, handleDeckShelf} from './dynasty-decks.js';
 import {deckShelfHTML as pocketShelfHTML, handleDeckShelf as handlePocketShelf, guideHTML as pocketGuideHTML} from './dynasty-pocket-decks.js';
@@ -1028,7 +1028,9 @@ function showStart(st) {
 function menuSheet(st) {
   const s = D.status === 'ready' ? D.mine() : null, P = D.PACKS[st.pack] || D.PACKS[D.DAILY_PACK];
   const items = [
-    ...(rivalsUpdated() ? [{id: 'music', ic: 'gear', label: 'Settings', sub: 'Music, sound effects & jukebox'}] : []),
+    // (Nov 9 2026: Jukebox for the songs, Sound for the music and effects levels)
+    ...(rivalsUpdated() ? [{id: 'music', svg: '<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V10a7 7 0 0 1 14 0v11z"/><path d="M8.5 13.5V10.5a3.5 3.5 0 0 1 7 0v3z"/><path d="M8.5 17h7"/></svg>', label: 'Jukebox', sub: 'Songs, play/pause & shuffle'},
+      {id: 'sound', svg: '<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4 6 8H3v8h3l5 4z"/><path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></svg>', label: 'Sound', sub: 'Music and sound effects levels'}] : []),
     {id: 'guide', ic: 'info', label: 'Guide', sub: 'How to play'},
     {id: 'coins', ic: 'sparkle', label: 'Coins', sub: s ? `${nf(D.balance(s))} · how you earn them` : 'How you earn them'},
     {id: 'rank', ic: 'trophy', label: 'Rankings', sub: s ? `${nf(s.tr)} trophies · ${s.rec.w}–${s.rec.l}` : 'The Rivals board'},
@@ -1036,7 +1038,7 @@ function menuSheet(st) {
     {id: 'title', ic: 'play-fill', label: 'Title screen', sub: 'Back to the start'},
     {id: 'exit', ic: 'close', label: 'Exit Gridiron Rivals', sub: 'Back to Daily Games', cls: 'is-exit'}
   ];
-  const body = `<ul class="pk-list pk-menu">${items.map(x => `<li><button type="button" class="pk-menu-b${x.cls ? ' ' + x.cls : ''}" data-dy-m="${x.id}"><i class="pk-menu-i">${ui.icon(x.ic, {size: 20})}</i>`
+  const body = `<ul class="pk-list pk-menu">${items.map(x => `<li><button type="button" class="pk-menu-b${x.cls ? ' ' + x.cls : ''}" data-dy-m="${x.id}"><i class="pk-menu-i">${x.svg || ui.icon(x.ic, {size: 20})}</i>`
     + `<span class="pk-row-t"><b>${esc(x.label)}</b><small>${esc(x.sub)}</small></span>${ui.icon('chevron-right', {size: 16})}</button></li>`).join('')}</ul>`
     + `<p class="pk-note pk-menu-foot">Gridiron Rivals · Ver. ${APP_VER}.${D.VERSION} · Support ID ${supportId()}<br><a href="${new URL('../../img/rivals/team-graphics-v2/credits.html', import.meta.url).href}" target="_blank" rel="noopener">Artwork credits</a></p>`;
   const sh = ui.openSheet({title: 'Menu', body, cls: 'pk-sheet', detents: ['fit']});
@@ -1049,6 +1051,7 @@ function menuSheet(st) {
       if (st.dead) return;
       if (id === 'guide') guideSheet(st);
       else if (id === 'music') musicSheet();
+      else if (id === 'sound') soundSheet();
       else if (id === 'coins') { if (s) earnSheet(); }
       else if (id === 'rank') { if (s) { st.bv = 'rank'; go(st, 'battle', {keep: true}); } }
       else if (id === 'odds') oddsSheet(st.pack);

@@ -2,7 +2,7 @@ import {athleteHTML} from './dynasty-battle-athlete.js';
 import {rivalsUpdated, rivalsVersus} from '../core/features.js';
 import pocketView from './dynasty-pocket-battle.js';
 import {bindTableTouch} from './dynasty-table-touch.js';
-import {musicSheet, attachMusic} from './dynasty-music.js';
+import {musicSheet, soundSheet, attachMusic} from './dynasty-music.js';
 import * as sfx from '../core/dynasty-sfx.js';
 import {tableOptions} from './dynasty-table-options.js';
 // Gridiron Rivals match (/puzzles/dynasty/battle/<match id>). Rules and saved turns live in the core modules.
@@ -582,8 +582,9 @@ function endTurn(st) {
   ui.actionSheet({title: 'End your turn without attacking?', cls: 'pk-sheet', actions: [{label: 'End turn', role: 'primary', value: 'y'}]}).then(v => { if (v === 'y') send(st, {a: 'end'}); });
 }
 function more(st) {
-  ui.actionSheet({title: 'Battle', cls: 'pk-sheet', actions: [...(rivalsUpdated() ? [{label: 'Settings', value: 'music'}] : []), ...(D.tableOpen() ? [{label: 'Table finishes & challenges', value: 'table'}] : []), {label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
+  ui.actionSheet({title: 'Battle', cls: 'pk-sheet', actions: [...(rivalsUpdated() ? [{label: 'Jukebox', value: 'music'}, {label: 'Sound', value: 'sound'}] : []), ...(D.tableOpen() ? [{label: 'Table finishes & challenges', value: 'table'}] : []), {label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
     if (v === 'music' && !st.dead && !st.hidden) musicSheet();
+    if (v === 'sound' && !st.dead && !st.hidden) soundSheet();
     if (v === 'table') tableOptions(() => draw(st));
     if (v === 'log') logSheet(st);
     if (v === 'resign') resign(st);

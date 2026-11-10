@@ -440,7 +440,12 @@ then the song list taking the rest of the screen; no song-position slider, Resta
 Later the same day (Evan): the Sound effects section, the "Your rotation" heading (count, SHUFFLE label), its hint and the
 songs' All/None are gone, and the status line shows only problems (no songs, no audio, a failed song). A shuffle button
 beside Play/Pause (`music.reshuffle()`) deals a fresh pass that doesn't open with the song playing (in a battle, the battle
-playlist from a new random spot). Effects settings stay saved and keep working; the app no longer has a control for them.
+playlist from a new random spot).
+Sound (Nov 9 2026, Evan: "Create a section in the settings with music and sound effect sliders. Call this the section
+sound"; he picked Rivals' Menu): Menu has Jukebox (was Settings: the songs, play/pause, shuffle) and Sound
+(`views/dynasty-music.js` `soundSheet`): a Music slider (level only, never starts or stops a song) and a Sound effects
+slider (0 turns effects off, above 0 back on, the saved level kept). Battle options (v7) and the legacy battle menu offer
+both. `check-sfx.cjs` covers the Sound sheet.
 Every song is listed for album covers in `docs/rivals/jukebox-songs.md`.
 Album covers (Nov 9 2026, Evan sent them): `img/rivals/covers/<id>-v1.webp`, 320 px square WebP cropped from his images;
 `COVERS` in `core/dynasty-music.js` lists the songs that have one (38 of 39: Timeless and the battle themes have none). They

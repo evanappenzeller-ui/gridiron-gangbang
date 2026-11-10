@@ -2,6 +2,7 @@ import {rivalsUpdated} from '../core/features.js';
 import * as data from '../core/data.js';
 import * as ui from '../core/ui.js';
 import * as music from '../core/dynasty-music.js';
+import * as sfx from '../core/dynasty-sfx.js';
 let volumeId = 0;
 
 // Keep the corner control outside panes that are replaced during navigation/battle updates.
@@ -172,7 +173,7 @@ export function musicSheet() {
   if (!rivalsUpdated()) return;
   let offMusic, offProfile;
   const battle = music.state().battle, mix = music.BATTLE;
-  const sh = ui.openSheet({title: 'Settings', cls: 'pk-sheet pk-jukebox-sheet', detents: ['fit'],
+  const sh = ui.openSheet({title: 'Jukebox', cls: 'pk-sheet pk-jukebox-sheet', detents: ['fit'],
     body: `<div class="pk-music">
       <div class="pk-juke-brand"><span class="pk-juke-speaker" aria-hidden="true"></span><div><small>GRIDIRON RIVALS</small><h3>JUKEBOX</h3></div><span class="pk-juke-speaker" aria-hidden="true"></span></div>
       <div class="pk-juke-now"><img class="pk-juke-art" data-dy-music-art alt="" width="64" height="64" decoding="async" hidden><div><small data-dy-music-now>NOW PLAYING</small><h3 data-dy-music-title></h3><p data-dy-music-artist></p></div><span class="pk-juke-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
@@ -246,4 +247,44 @@ export function musicSheet() {
   // Open the jukebox's scrolling list at the song that is playing.
   const list = sh.body.querySelector('.pk-juke ul'), on = list.querySelector('[aria-pressed="true"]');
   if (on) list.scrollTop = Math.max(0, on.getBoundingClientRect().top - list.getBoundingClientRect().top - 6);
+}
+
+// Sound (Evan, Nov 9 2026: "Create a section in the settings with music and sound effect sliders. Call this the section
+// sound"; Rivals' Menu and Battle options): the music level and the sound effects level, each saved for the profile as
+// before. Moving the effects slider above zero turns effects back on; the music slider never starts or stops a song.
+export function soundSheet() {
+  if (!rivalsUpdated()) return;
+  let offMusic, offSfx, offProfile;
+  const sh = ui.openSheet({title: 'Sound', cls: 'pk-sheet pk-jukebox-sheet pk-sound-sheet', detents: ['fit'],
+    body: `<section class="pk-sound-set" aria-label="Sound">
+      <label class="pk-music-volume"><span>Music</span><output data-dy-sound-music-value></output>
+        <input data-dy-sound-music type="range" min="0" max="100" step="1" aria-label="Music volume"></label>
+      <label class="pk-music-volume"><span>Sound effects</span><output data-dy-sound-fx-value></output>
+        <input data-dy-sound-fx type="range" min="0" max="100" step="1" aria-label="Sound effects volume"></label>
+      <p class="pk-note">Your phone’s volume buttons set the overall volume.</p></section>`,
+    onClose: () => { offMusic?.(); offSfx?.(); offProfile?.(); }});
+  const draw = () => {
+    const m = music.state(), fx = sfx.state();
+    const mr = sh.body.querySelector('[data-dy-sound-music]'), fr = sh.body.querySelector('[data-dy-sound-fx]');
+    if (document.activeElement !== mr) mr.value = m.volume;
+    mr.disabled = !m.supported;
+    sh.body.querySelector('[data-dy-sound-music-value]').textContent = m.volume + '%';
+    const level = fx.enabled ? fx.volume : 0;
+    if (document.activeElement !== fr) fr.value = level;
+    fr.disabled = !fx.supported;
+    sh.body.querySelector('[data-dy-sound-fx-value]').textContent = (fx.supported ? level : 0) + '%';
+  };
+  sh.body.addEventListener('input', e => {
+    if (e.target.matches('[data-dy-sound-music]')) music.setVolume(e.target.value);
+    if (e.target.matches('[data-dy-sound-fx]')) {
+      const v = Number(e.target.value);
+      if (v > 0) { sfx.setVolume(v); if (!sfx.state().enabled) sfx.setEnabled(true); }
+      else sfx.setEnabled(false);
+    }
+    draw();
+  });
+  offMusic = music.subscribe(draw);
+  offSfx = sfx.subscribe(draw);
+  offProfile = data.subscribe(type => { if (type === 'me') sh.close(); });
+  draw();
 }

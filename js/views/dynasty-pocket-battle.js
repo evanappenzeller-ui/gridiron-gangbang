@@ -14,7 +14,7 @@ import {energySVG, ENERGY_COLOR} from './dynasty-energy.js';
 import {printedCard} from './dynasty-pocket-card.js';
 import {attachHand} from './dynasty-pocket-hand.js';
 import {attachPreview, conditionBadges} from './dynasty-pocket-preview.js';
-import {attachMusic, musicSheet} from './dynasty-music.js';
+import {attachMusic, musicSheet, soundSheet} from './dynasty-music.js';
 import {tableOptions} from './dynasty-table-options.js';
 import {createTutorial, LESSONS} from '../core/dynasty-tutorial.js';
 
@@ -317,7 +317,7 @@ function energySheet(st) {
 }
 function battleMenu(st) {
   const {G,you,state} = st.x, p = G.p[you], op=G.p[1-you];
-  showSheet(st, 'Battle options', `<p>${esc(prompt(st))}</p><p>Turn ${G.turn} · First to 3 knockout points</p><p>Supporter: ${p.used.supporter ? 'used' : 'available'} · Retreat: ${p.used.retreat ? 'used' : 'available'}</p><p>Your deck: ${p.deck.length} · Hand: ${p.hand.length}<br>Opponent deck: ${op.deck.length} · Hand: ${op.hand.length}</p><div class="rp-actions">${button('View your hand','data-rp-expand-hand')}${button('Battle log','data-rp-log')}${button('How to play','data-rp-help')}${button('Table finish','data-rp-table')}${button('Music & sound settings','data-rp-settings')}${st.tutorial ? button('Skip tutorial','data-rt-skip') : state === 'over' ? '' : button('Concede','data-rp-concede')}</div>`, e=>onClick(st,e));
+  showSheet(st, 'Battle options', `<p>${esc(prompt(st))}</p><p>Turn ${G.turn} · First to 3 knockout points</p><p>Supporter: ${p.used.supporter ? 'used' : 'available'} · Retreat: ${p.used.retreat ? 'used' : 'available'}</p><p>Your deck: ${p.deck.length} · Hand: ${p.hand.length}<br>Opponent deck: ${op.deck.length} · Hand: ${op.hand.length}</p><div class="rp-actions">${button('View your hand','data-rp-expand-hand')}${button('Battle log','data-rp-log')}${button('How to play','data-rp-help')}${button('Table finish','data-rp-table')}${button('Jukebox','data-rp-settings')}${button('Sound','data-rp-sound')}${st.tutorial ? button('Skip tutorial','data-rt-skip') : state === 'over' ? '' : button('Concede','data-rp-concede')}</div>`, e=>onClick(st,e));
 }
 function tutorialHTML(st) {
   const step = st.tutorial.step, [title, body] = LESSONS[step], waiting = st.x.state === 'theirs' && step < 11;
@@ -428,6 +428,7 @@ function onClick(st,e) {
   if (q('[data-rp-energy]')) return e.detail === 0 ? energySheet(st) : energyHint(st);
   if (q('[data-rp-table]')) { closeSheet(st); return tableOptions(()=>draw(st)); }
   if (q('[data-rp-settings]')) { closeSheet(st); return musicSheet(); }
+  if (q('[data-rp-sound]')) { closeSheet(st); return soundSheet(); }
   if ((b=q('[data-rp-hand]'))) return inspect(st,{hand:Number(b.dataset.rpHand)});
   if ((b=q('[data-rp-slot]'))) return inspect(st,{u:b.dataset.rpSlot,side:Number(b.dataset.rpSide)});
   if (q('[data-rp-ready]')) { const hand=st.x.G.p[st.x.you].hand; return send(st,{a:'setup',act:hand[st.setup.active],bench:st.setup.bench.map(i=>hand[i])}); }

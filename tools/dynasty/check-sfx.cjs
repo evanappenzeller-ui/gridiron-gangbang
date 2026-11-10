@@ -114,10 +114,20 @@ async function main() {
     // (Evan, Nov 9 2026: no sound effects section in the jukebox; the saved effects settings still work)
     await page.locator('[data-dy-menu]').click();await page.locator('[data-dy-m="music"]').click();await page.waitForSelector('[data-dy-music-toggle]');
     assert.equal(await page.locator('[data-dy-sfx-volume], [data-dy-sfx-toggle], .pk-sfx').count(),0,'no sound effects section in the jukebox');
+    await page.locator('.sheet-close').last().click();await page.waitForFunction(()=>!document.querySelector('.sheet'));
+    // Menu → Sound (Nov 9 2026): the music and sound effects sliders; effects at zero are off, above zero on again.
+    await page.locator('[data-dy-menu]').click();await page.locator('[data-dy-m="sound"]').click();await page.waitForSelector('.pk-sound-sheet [data-dy-sound-fx]');
+    assert.equal(await page.getByRole('dialog',{name:'Sound',exact:true}).count(),1);
+    assert.equal(await page.locator('.pk-sound-sheet input[type="range"]').count(),2,'a music slider and an effects slider');
+    await page.locator('[data-dy-sound-fx]').fill('23');
+    assert.deepEqual(await page.evaluate(()=>[fx.state().volume,fx.state().enabled]),[23,true]);
+    const musicBefore=await page.evaluate(async()=>(await import('/js/core/dynasty-music.js')).state().enabled);
+    await page.locator('[data-dy-sound-music]').fill('37');
+    assert.deepEqual(await page.evaluate(async()=>{const s=(await import('/js/core/dynasty-music.js')).state();return [s.volume,s.enabled];}),[37,musicBefore],'the music slider sets the level and never starts or stops a song');
+    await page.locator('[data-dy-sound-fx]').fill('0');
+    assert.equal(await page.evaluate(()=>fx.state().enabled),false,'effects at zero are off');
+    assert.equal(await page.locator('[data-dy-sound-fx-value]').innerText(),'0%');
     await page.locator('.sheet-close').last().click();
-    await page.evaluate(()=>fx.setVolume(23));
-    assert.equal(await page.evaluate(()=>fx.state().volume),23);
-    await page.evaluate(()=>fx.setEnabled(false));
     assert.equal(await page.evaluate(()=>fx.state().enabled),false);
     assert.equal(await page.evaluate(async()=>(await import('/js/core/dynasty-music.js')).state().enabled),false);
     await page.reload();await page.waitForFunction(()=>window.__ggBooted);
