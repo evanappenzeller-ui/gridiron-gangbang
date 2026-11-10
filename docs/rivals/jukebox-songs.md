@@ -1,6 +1,7 @@
 # Gridiron Rivals songs: album covers
 
-Every song in the game (November 9, 2026). Send a cover for any song and it will replace that song's placeholder
+Every song in the game (November 9, 2026). Covers in the game: 38 of 39 jukebox songs; still needed: 07 Timeless and the
+battle themes. Send a cover for any song and it will replace that song's placeholder
 cover in the jukebox. Any image name works: just say which song it is (the number or the title). Square images look
 best, 600 x 600 or larger.
 

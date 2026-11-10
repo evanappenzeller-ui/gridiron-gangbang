@@ -17,8 +17,12 @@ const KEY = () => `gg-rivals-music:${profileKey()}:v1`;
 const REFERENCE_LUFS = -16, MUSIC_LEVEL = .7;
 const SCENE_FADE_SECONDS = 2;
 const levelFor = lufs => Math.min(1, 10 ** ((REFERENCE_LUFS - lufs) / 20));
+// Album covers (Evan sent them Nov 9 2026, after the song list in docs/rivals/jukebox-songs.md): img/rivals/covers/<id>-v1.webp,
+// 320 px square. A song without one keeps the jukebox's drawn Rivals cover.
+const COVERS = new Set(['back-to-the-moon', 'ballin', 'banking-on-me', 'butterfly-effect', 'cities', 'dead-and-gone', 'dead-presidents-ii', 'ease-my-mind', 'fashion-killa', 'feel-so-good', 'forget-it', 'gorgeous', 'hate-it-or-love-it', 'hunger-on-hillside', 'jimmy-cooks', 'let-it-happen', 'lifestyle', 'lost', 'lpfj2', 'niagara-falls', 'no-option', 'overdue', 'overnight-celebrity', 'played-like-a-piano', 'praise-the-lord', 'railroad-shelter', 'rapp-snitch-knishes', 'save-your-tears', 'something-about-us', 'still-tippin', 'straighten-it-out', 'sundress', 'survival-of-the-fittest', 'talking-to-my-diary', 'the-basement', 'troy', 'voyager', 'wicked-game']);
 const song = (id, title, artist, lufs) => Object.freeze({id, title, artist, level: levelFor(lufs),
-  url: new URL(`../../audio/rivals/${id}-v1.mp3`, import.meta.url).href});
+  url: new URL(`../../audio/rivals/${id}-v1.mp3`, import.meta.url).href,
+  cover: COVERS.has(id) ? new URL(`../../img/rivals/covers/${id}-v1.webp`, import.meta.url).href : ''});
 export const TRACKS = Object.freeze([
   song('sundress', 'Sundress', 'A$AP Rocky', -8.4),
   song('praise-the-lord', 'Praise the Lord (Da Shine)', 'A$AP Rocky ft. Skepta', -8.7),
@@ -240,7 +244,8 @@ function ownSystem() {
 function updateMetadata() {
   if (!systemOwned) return;
   const now = playingMix() ? battleNow() : track();
-  try { if (navigator.mediaSession && globalThis.MediaMetadata) navigator.mediaSession.metadata = new MediaMetadata({title: now.title, artist: now.artist, album: 'Gridiron Rivals'}); } catch (_) {}
+  try { if (navigator.mediaSession && globalThis.MediaMetadata) navigator.mediaSession.metadata = new MediaMetadata({title: now.title, artist: now.artist, album: 'Gridiron Rivals',
+    ...(now.cover ? {artwork: [{src: now.cover, sizes: '320x320', type: 'image/webp'}]} : {})}); } catch (_) {}
 }
 function releaseSystem() {
   if (!systemOwned) return;

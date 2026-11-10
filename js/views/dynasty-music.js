@@ -165,7 +165,8 @@ const row = (t, i, battle = false) => `<li class="pk-juke-row" data-dy-song-row=
   <label class="pk-juke-check"><input type="checkbox" data-dy-song-enabled="${data.esc(t.id)}" aria-label="Include ${data.esc(t.title)} in shuffle"><span aria-hidden="true"></span></label>
   <button type="button" ${battle ? 'data-dy-battle-track' : 'data-dy-music-track'}="${data.esc(t.id)}" aria-label="Play ${data.esc(t.title)} by ${data.esc(t.artist)}" aria-pressed="false">
     <span class="pk-juke-info"><small>${data.esc(t.artist)}</small><b>${data.esc(t.title)}</b><span class="pk-juke-selected" data-dy-track-state>Tap to play</span></span>
-    <span class="pk-juke-cover" style="--cover-hue:${(i * 43 + 215) % 360}" aria-hidden="true"><span>RIVALS</span><i>♪</i><span>${String(i + 1).padStart(2, '0')}</span></span>
+    ${t.cover ? `<span class="pk-juke-cover has-art" aria-hidden="true"><img src="${data.esc(t.cover)}" alt="" width="56" height="56" loading="lazy" decoding="async"></span>`
+      : `<span class="pk-juke-cover" style="--cover-hue:${(i * 43 + 215) % 360}" aria-hidden="true"><span>RIVALS</span><i>♪</i><span>${String(i + 1).padStart(2, '0')}</span></span>`}
   </button></li>`;
 
 export function musicSheet() {
@@ -175,7 +176,7 @@ export function musicSheet() {
   const sh = ui.openSheet({title: 'Settings', cls: 'pk-sheet pk-jukebox-sheet', detents: ['fit'],
     body: `<div class="pk-music">
       <div class="pk-juke-brand"><span class="pk-juke-speaker" aria-hidden="true"></span><div><small>GRIDIRON RIVALS</small><h3>JUKEBOX</h3></div><span class="pk-juke-speaker" aria-hidden="true"></span></div>
-      <div class="pk-juke-now"><div><small data-dy-music-now>NOW PLAYING</small><h3 data-dy-music-title></h3><p data-dy-music-artist></p></div><span class="pk-juke-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
+      <div class="pk-juke-now"><img class="pk-juke-art" data-dy-music-art alt="" width="64" height="64" decoding="async" hidden><div><small data-dy-music-now>NOW PLAYING</small><h3 data-dy-music-title></h3><p data-dy-music-artist></p></div><span class="pk-juke-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
       <!-- (Evan, Nov 9 2026: under the song playing, a play/pause button and the volume slider; the list gets the room) -->
       <div class="pk-juke-play"><button type="button" class="pk-juke-pp" data-dy-music-toggle aria-pressed="false" aria-label="Play music"></button>
         <label class="pk-music-volume pk-juke-level"><span>Music level</span><output data-dy-music-value></output>
@@ -209,6 +210,10 @@ export function musicSheet() {
     sh.body.querySelector('[data-dy-music-artist]').textContent = s.empty ? 'Enable a song below to get started.' : s.track.artist;
     sh.body.querySelector('[data-dy-music-now]').textContent = s.empty ? 'NO SONGS ENABLED' : s.playing ? 'NOW PLAYING' : s.loading ? 'LOADING' : 'SELECTED SONG';
     sh.body.querySelector('.pk-juke-now').classList.toggle('is-playing', s.playing);
+    // (the song's album cover beside it, when it has one)
+    const art = sh.body.querySelector('[data-dy-music-art]'), cover = s.empty ? '' : s.track.cover || '';
+    if (art.getAttribute('src') !== cover) { if (cover) art.src = cover; else art.removeAttribute('src'); }
+    art.hidden = !cover;
     sh.body.querySelector('[data-dy-song-count]').textContent = `${music.TRACKS.filter(t => !s.excluded.includes(t.id)).length} / ${music.TRACKS.length} songs enabled`;
     const battleCount = sh.body.querySelector('[data-dy-battle-count]');
     if (battleCount) battleCount.textContent = `${music.BATTLE_SONGS.filter(t => !s.excluded.includes(t.id)).length} / ${music.BATTLE_SONGS.length}`;

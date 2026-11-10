@@ -270,6 +270,13 @@ async function main() {
     await page.locator('[data-dy-music-toggle]').click(); await silent();
     await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
     assert.equal(await page.locator('[data-dy-music-track]').count(), 39, 'the menu jukebox lists the 39 songs, not the battle playlist');
+    // Album covers (Nov 9 2026): every cover a song names is on disk and shows in its row and beside the song playing.
+    const covers = await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).TRACKS.filter(t => t.cover).map(t => [t.id, new URL(t.cover).pathname]));
+    assert(covers.length >= 38, 'the jukebox has its album covers: ' + covers.length);
+    for (const [, file] of covers) assert(fs.existsSync(path.join(root, file)), 'cover file exists: ' + file);
+    assert.equal(await page.locator('[data-dy-song-row="sundress"] .pk-juke-cover.has-art img').count(), 1, 'a song row shows its cover');
+    assert.match(await page.locator('[data-dy-music-art]').getAttribute('src'), /\/img\/rivals\/covers\/sundress-v1\.webp$/, 'the song playing shows its cover');
+    await page.waitForFunction(() => [...document.querySelectorAll('.pk-juke-cover.has-art img')].filter(i => i.complete && i.naturalWidth === 320).length >= 3);
     await page.locator('[data-dy-music-track="lpfj2"]').click(); await playing();
     assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /\/audio\/rivals\/lpfj2-v1\.mp3$/);
     assert.equal(await page.locator('[data-dy-music-title]').innerText(), 'Lord Pretty Flacko Jodye 2');

@@ -428,7 +428,10 @@ Evan: no song list there, "Instead their should be a logo to enter the jukebox")
 Settings' jukebox, where songs are picked and the rotation is set.
 The jukebox sheet (Nov 9 2026, Evan): the song playing on top, then a Play/Pause button beside the music volume slider,
 then the song list taking the rest of the screen; no song-position slider, Restart or Skip there (Skip stays in the pop-up).
-Every song is listed for album covers in `docs/rivals/jukebox-songs.md`. Skip advances
+Every song is listed for album covers in `docs/rivals/jukebox-songs.md`.
+Album covers (Nov 9 2026, Evan sent them): `img/rivals/covers/<id>-v1.webp`, 320 px square WebP cropped from his images;
+`COVERS` in `core/dynasty-music.js` lists the songs that have one (38 of 39: Timeless and the battle themes have none). They
+show in the jukebox rows, beside the song playing and as the lock-screen artwork; a song without one keeps the drawn cover. Skip advances
 through `TRACKS` (restarts the current song when there is only one) and preserves mute/volume. Opening the
 panel alone does not start audio. Outside tap, Escape, volume hold and route/profile changes close it.
 Phone buttons remain device media volume; the music slider controls only the in-game gain. Request the optional

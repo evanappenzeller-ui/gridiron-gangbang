@@ -828,6 +828,11 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 .pk-sheet .is-excluded .pk-juke-info b { color: #b6c6e6; }
 .pk-sheet .is-excluded .pk-juke-cover { opacity: .45; }
 .pk-sheet .pk-juke-cover { display: flex; flex-direction: column; justify-content: space-between; align-items: center; flex: none; width: 56px; height: 58px; padding: 5px; border: 1px solid #c4d0e659; background: radial-gradient(circle at 25% 20%, hsl(var(--cover-hue) 70% 58% / .6), transparent 65%), repeating-linear-gradient(135deg, transparent 0 7px, #fff1 8px 9px), #0b1632; }
+.pk-sheet .pk-juke-cover.has-art { padding: 0; height: 56px; overflow: hidden; border-radius: 4px; background: #0b1329; }
+.pk-sheet .pk-juke-cover.has-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-art { flex: none; width: 64px; height: 64px; border-radius: 6px; object-fit: cover; box-shadow: 0 4px 12px #0007; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-art[hidden] { display: none; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-now > div { flex: 1; }
 .pk-sheet .pk-juke-cover span { color: #e5edff; font-size: 6px; font-weight: 800; letter-spacing: .13em; }
 .pk-sheet .pk-juke-cover i { color: #f5d887; font: normal 23px/1 var(--font-text); }
 .pk-sheet .pk-juke-battle { margin-top: 10px; border-top: 1px solid #506184; }
