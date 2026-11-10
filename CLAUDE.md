@@ -20,6 +20,9 @@ checkboxes and individual play buttons under Battle themes in battle settings; m
 The optional `excluded` ID list lives in the existing `gg-rivals-music:<profileKey>:v1` settings. Old settings
 enable all songs and retain mute/volume. Cross-tab changes reconcile inclusion; profile changes stop playback
 and close the sheet. Game saves, audio gain, effects and on-demand music caching remain unchanged.
+Scrolling the song list (Nov 10 2026, Evan: "When I try to scroll on the jukebox, it moves the whole screen"): `ui.js`
+`openSheet` lets a scrolled list inside a sheet body keep its swipes; only at that list's top does a downward swipe drag
+the sheet. Every sheet with an inner scroller gets this.
 Verify `check-jukebox.cjs`, `check-music.cjs`, `check-music-cache.cjs --browser`, `check-sfx.cjs`, title-screen,
 rollout, preview/access and stylesheet-scope checks in `tools/dynasty`.
 
