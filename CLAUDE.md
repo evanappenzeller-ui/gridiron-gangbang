@@ -6,10 +6,10 @@ Rivals Home, Menu and card details open the Marketplace (`views/dynasty-market.j
 can buy specific collectible cards or sell owned copies to fixed game-market offers; these are not peer listings.
 Search, rarity, overall/price sorting and pagination use canonical players and collectible legacy supports only.
 `core/dynasty.js` `marketQuote` prices Epic players at 12,000–16,000, Legendary at 60,000–90,000 and Mythic at
-750,000–1,200,000 coins by OVR (Common 600; supports use their rarity's base). Market sell offers are Common 30,
-Epic 250–350, Legendary 750–1,125 and Mythic 2,500–4,000; all quick-sell paths pay 70%, rounded down. Specific-card
+750,000–1,200,000 coins by OVR (Common 600; supports use their rarity's base). Market sell offers are Common 40,
+Epic 300–400, Legendary 900–1,275 and Mythic 3,000–4,500 (raised at Evan’s request later the same day); all quick-sell paths pay 70%, rounded down. Specific-card
 purchase prices carry a large premium over sell offers to keep random-pack resale from becoming a coin farm.
-Seeded samples of market resale: Standard ~768/1,000, Epic ~4,110/5,000 and the highest Team ~805/1,200.
+Seeded pack-resale samples remain below pack purchase prices after the increase; market offers follow rarity and OVR.
 `buyCard`/`sellCard` use existing profile wallet and dy2 inventory/save sync, reject stale saves, and preserve the
 99-copy cap and Jayton's unlimited coins. `sellableCount` protects the maximum copies required by every saved
 legacy/table/Pocket deck, including development bases. No progress reset or live battle/schema/rules changes.

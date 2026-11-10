@@ -301,10 +301,10 @@ export const anyCard = id => card(id) || trainer(id);
 // Fixed game quotes: choosing a specific player costs much more than a random pack. Only canonical collectibles
 // trade; retired aliases, development forms and the reusable match playbook never become a source of coins.
 const MARKET_PRICES = {
-  common: {buy: 600, sell: 30, buyStep: 0, sellStep: 0, min: 0, steps: 0},
-  epic: {buy: 12000, sell: 250, buyStep: 1000, sellStep: 25, min: 85, steps: 4},
-  legendary: {buy: 60000, sell: 750, buyStep: 6000, sellStep: 75, min: 90, steps: 5},
-  mythic: {buy: 750000, sell: 2500, buyStep: 150000, sellStep: 500, min: 96, steps: 3}
+  common: {buy: 600, sell: 40, buyStep: 0, sellStep: 0, min: 0, steps: 0},
+  epic: {buy: 12000, sell: 300, buyStep: 1000, sellStep: 25, min: 85, steps: 4},
+  legendary: {buy: 60000, sell: 900, buyStep: 6000, sellStep: 75, min: 90, steps: 5},
+  mythic: {buy: 750000, sell: 3000, buyStep: 150000, sellStep: 500, min: 96, steps: 3}
 };
 function marketCard(id) {
   if (typeof id !== 'string' || ALIAS.has(id)) return null;
