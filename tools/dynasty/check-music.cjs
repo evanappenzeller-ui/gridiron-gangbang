@@ -252,18 +252,20 @@ async function main() {
     assert.equal(await page.locator('[data-dy-music-title]').innerText(),'Sundress');
     assert.equal(await page.locator('[data-dy-music-artist]').innerText(),'A$AP Rocky');
     assert.equal(await page.locator('[data-dy-music-track="sundress"][aria-pressed="true"]').count(),1);
-    assert.equal(await page.locator('.pk-music input[type="range"]').count(),2);
-    await page.locator('[data-dy-music-seek]').fill('60');
-    const sought = await state();
-    assert(sought.position >= 59.9 && sought.position < 62, 'song-position slider seeks: ' + JSON.stringify(sought));
-    await page.locator('[data-dy-music-seek]').focus(); await page.keyboard.press('ArrowRight');
-    assert((await state()).position >= 60.9,'keyboard can scrub');
-    await page.locator('[data-dy-music-restart]').click(); assert((await state()).position < 2,'restart returns to beginning');
+    // (Evan, Nov 9 2026: under the song, a play/pause button and the volume slider; no song position, Restart or Skip)
+    assert.equal(await page.locator('.pk-music input[type="range"]').count(), 1, 'the volume slider is the only one');
+    assert.equal(await page.locator('[data-dy-music-seek], [data-dy-music-restart], [data-dy-juke-skip]').count(), 0, 'no song position, Restart or Skip in the jukebox');
+    const order = await page.evaluate(() => ['.pk-juke-now', '.pk-juke-play', '.pk-juke ul'].map(s => document.querySelector(s).getBoundingClientRect().top));
+    assert(order[0] < order[1] && order[1] < order[2], 'now playing, then play/pause and volume, then the songs');
+    assert.equal(await page.locator('.pk-juke-play [data-dy-music-toggle]').count() + await page.locator('.pk-juke-play [data-dy-music-volume]').count(), 2);
+    await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).seek(60));
+    assert((await state()).position >= 59.9, 'seeking still works (lock screen, media keys)');
     await page.evaluate(() => mediaHandlers.seekto({seekTime:75})); assert((await state()).position >= 75,'native seek works');
     await page.evaluate(() => mediaHandlers.pause()); await silent();
     assert.equal(await page.evaluate(() => navigator.mediaSession.playbackState),'paused');
-    await page.locator('[data-dy-music-seek]').fill('30'); await silent();
+    await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).seek(30)); await silent();
     assert.equal((await state()).enabled,false,'seeking while paused stays paused');
+    assert.equal(await page.locator('[data-dy-music-toggle]').getAttribute('aria-label'), 'Play music', 'the button offers Play while paused');
     await page.evaluate(() => mediaHandlers.play()); await playing();
     await page.locator('[data-dy-music-toggle]').click(); await silent();
     await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
@@ -274,7 +276,8 @@ async function main() {
     assert.equal(await page.evaluate(() => navigator.mediaSession.metadata.title), 'Lord Pretty Flacko Jodye 2');
     await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
     assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /\/audio\/rivals\/sundress-v1\.mp3$/);
-    console.log('PASS: named jukebox, track selection, seek/restart, native play/pause/seek and playback audio-session type');
+    assert.equal(await page.locator('[data-dy-music-toggle]').getAttribute('aria-label'), 'Pause music', 'and Pause while playing');
+    console.log('PASS: named jukebox, play/pause and volume under the song, track selection, native play/pause/seek and playback audio-session type');
     await page.locator('[data-dy-music-volume]').fill('62');
     assert.equal((await state()).volume, 62);
     for (const width of [320, 390, 768]) {
@@ -284,7 +287,7 @@ async function main() {
     }
     fs.mkdirSync(path.join(root, 'output/rivals-music'), {recursive: true});
     await page.setViewportSize({width:320,height:568});
-    for (const selector of ['[data-dy-music-toggle]','[data-dy-music-seek]','[data-dy-music-volume]','[data-dy-music-track]','[data-dy-music-track]:last-of-type >> nth=-1']) {
+    for (const selector of ['[data-dy-music-toggle]','[data-dy-music-volume]','[data-dy-music-track]','[data-dy-music-track]:last-of-type >> nth=-1']) {
       await page.locator(selector).first().scrollIntoViewIfNeeded();
       const r=await page.locator(selector).first().boundingBox(); assert(r.x>=0 && r.x+r.width<=321 && r.y>=0 && r.y+r.height<=569, 'compact phone can reach '+selector);
     }

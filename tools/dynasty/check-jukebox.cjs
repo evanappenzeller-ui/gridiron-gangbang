@@ -33,6 +33,8 @@ async function main() {
       const page = await ctx.newPage(), errors = []; page.on('pageerror', e => errors.push(String(e)));
       const state = () => page.evaluate(async () => (await import('/js/core/dynasty-music.js')).state());
       const play = () => page.waitForFunction(async () => { const s = (await import('/js/core/dynasty-music.js')).state(); return s.playing && s.duration > 0; });
+      // (the media element itself loaded: a tap reloads it, and the module's state can still be the song before for a moment)
+      const loaded = () => page.waitForFunction(() => mediaProbes[0] && mediaProbes[0].readyState >= 1 && Number.isFinite(mediaProbes[0].duration) && !mediaProbes[0].paused);
       const settings = async () => {
         await page.locator('.pk-hdr [data-dy-menu]').click(); await page.locator('[data-dy-m="music"]').click();
         await page.waitForSelector('.pk-jukebox-sheet');
@@ -81,7 +83,7 @@ async function main() {
       assert.equal((await state()).track.id,'lost','keyboard toggle does not play the row');
       assert.equal(await page.evaluate(() => mediaProbes[0].loop),false,'adding a second song stops single-song looping');
       // End-to-end: an actual media end and then repeated skips must never pick a disabled song.
-      await page.evaluate(() => { mediaProbes[0].currentTime = mediaProbes[0].duration - .2; });
+      await loaded(); await page.evaluate(() => { mediaProbes[0].currentTime = mediaProbes[0].duration - .2; });
       await page.waitForFunction(async () => (await import('/js/core/dynasty-music.js')).state().track.id === 'sundress'); await play();
       const sequence = await page.evaluate(async () => {
         const m = await import('/js/core/dynasty-music.js'); m.setEnabled(false);
@@ -94,7 +96,7 @@ async function main() {
         // Sundress has a damaged final MP3 frame on some decoders. A one-song rotation must recover and repeat.
         await page.locator('[data-dy-juke-none="songs"]').click();
         await page.locator('[data-dy-music-track="sundress"]').click(); await play();
-        await page.evaluate(() => { mediaProbes[0].currentTime = mediaProbes[0].duration - .15; });
+        await loaded(); await page.evaluate(() => { mediaProbes[0].currentTime = mediaProbes[0].duration - .15; });
         await page.waitForFunction(async () => { const s = (await import('/js/core/dynasty-music.js')).state(); return s.playing && s.position < 3 && !s.failure; });
         // Cross-tab preferences remove the active song without forcing the tab's selected track.
         await page.evaluate(async key => {
@@ -134,7 +136,7 @@ async function main() {
         assert.equal((await state()).empty,true);
         await page.locator('[data-dy-battle-track="green-hill"]').click(); await play();
         assert.equal((await state()).track.song,'green-hill');
-        await page.locator('[data-dy-juke-skip]').click(); await play();
+        await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).skipTrack()); await play();
         assert.equal((await state()).track.song,'green-hill','one battle theme survives Skip');
         await close(); await page.goBack(); await page.waitForSelector('.pk-hdr'); await settings();
       }

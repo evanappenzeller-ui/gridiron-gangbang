@@ -3,7 +3,6 @@ import * as data from '../core/data.js';
 import * as ui from '../core/ui.js';
 import * as music from '../core/dynasty-music.js';
 import * as sfx from '../core/dynasty-sfx.js';
-const time = seconds => { const n = Math.max(0, Math.floor(seconds || 0)); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
 let volumeId = 0;
 
 // Keep the corner control outside panes that are replaced during navigation/battle updates.
@@ -171,24 +170,22 @@ const row = (t, i, battle = false) => `<li class="pk-juke-row" data-dy-song-row=
 
 export function musicSheet() {
   if (!rivalsUpdated()) return;
-  let offMusic, offSfx, offProfile, scrubbing = false;
+  let offMusic, offSfx, offProfile;
   const battle = music.state().battle, mix = music.BATTLE;
   const sh = ui.openSheet({title: 'Settings', cls: 'pk-sheet pk-jukebox-sheet', detents: ['fit'],
     body: `<div class="pk-music">
       <div class="pk-juke-brand"><span class="pk-juke-speaker" aria-hidden="true"></span><div><small>GRIDIRON RIVALS</small><h3>JUKEBOX</h3></div><span class="pk-juke-speaker" aria-hidden="true"></span></div>
       <div class="pk-juke-now"><div><small data-dy-music-now>NOW PLAYING</small><h3 data-dy-music-title></h3><p data-dy-music-artist></p></div><span class="pk-juke-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
-      <div class="pk-juke-controls"><button type="button" class="pk-btn" data-dy-music-restart aria-label="Restart song">↺ Restart</button><button type="button" class="pk-btn" data-dy-music-toggle aria-pressed="false">Play music</button><button type="button" class="pk-btn" data-dy-juke-skip aria-label="Skip song">Skip ›</button></div>
+      <!-- (Evan, Nov 9 2026: under the song playing, a play/pause button and the volume slider; the list gets the room) -->
+      <div class="pk-juke-play"><button type="button" class="pk-juke-pp" data-dy-music-toggle aria-pressed="false" aria-label="Play music"></button>
+        <label class="pk-music-volume pk-juke-level"><span>Music level</span><output data-dy-music-value></output>
+          <input data-dy-music-volume type="range" min="0" max="100" step="1" aria-label="Music volume"></label></div>
+      <p class="pk-note pk-juke-status" data-dy-music-status role="status"></p>
       <section class="pk-juke" aria-label="Jukebox"><div class="pk-juke-heading"><div><h3>Your rotation</h3><span data-dy-song-count></span></div><span class="pk-juke-mode">SHUFFLE</span></div>
         <div class="pk-juke-tools"><p>Check to include · tap a song to play</p><button type="button" data-dy-juke-all="songs">All</button><button type="button" data-dy-juke-none="songs">None</button></div>
         <ul aria-label="Menu songs">${music.TRACKS.map((t, i) => row(t, i)).join('')}</ul>
         ${battle ? `<details class="pk-juke-battle"><summary>Battle themes <span data-dy-battle-count></span></summary><div class="pk-juke-tools"><button type="button" data-dy-music-track="battle" aria-pressed="false">Use battle shuffle <span data-dy-track-state></span></button><button type="button" data-dy-juke-all="battle">All</button><button type="button" data-dy-juke-none="battle">None</button></div><ul aria-label="Battle themes">${music.BATTLE_SONGS.map((t, i) => row(t, i, true)).join('')}</ul></details>` : ''}
-      </section>
-      <label class="pk-music-volume">Song position <output data-dy-music-time></output>
-        <input data-dy-music-seek type="range" min="0" max="0" step="1" value="0" aria-label="Song position">
-      </label>
-      <label class="pk-music-volume">Music level <output data-dy-music-value></output>
-        <input data-dy-music-volume type="range" min="0" max="100" step="1" aria-label="Music volume">
-      </label><p class="pk-note" data-dy-music-status role="status"></p></div>
+      </section></div>
       <section class="pk-sfx" aria-label="Sound effects"><h3>Sound effects</h3>
         <button type="button" class="pk-btn" data-dy-sfx-toggle aria-pressed="true">Mute effects</button>
         <label class="pk-music-volume">Effects level <output data-dy-sfx-value></output>
@@ -204,20 +201,14 @@ export function musicSheet() {
     sh.body.querySelector('[data-dy-sfx-value]').textContent = fx.volume + '%';
     sh.body.querySelector('[data-dy-sfx-status]').textContent = !fx.supported ? 'Sound effects are unavailable in this browser.' : fx.failure || (!fx.enabled || !fx.volume ? 'Sound effects are muted.' : 'Card actions, attacks, pack reveals and match results.');
     const s = music.state(), button = sh.body.querySelector('[data-dy-music-toggle]');
-    button.textContent = s.enabled ? 'Pause music' : 'Play music';
+    const pp = s.enabled ? 'pause' : 'play';
+    if (button.dataset.pp !== pp) { button.dataset.pp = pp; button.innerHTML = (s.enabled ? '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4.5h4.2v15H6zM13.8 4.5H18v15h-4.2z"/></svg>' : '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg>') + `<span>${s.enabled ? 'Pause' : 'Play'}</span>`; }
+    button.setAttribute('aria-label', s.enabled ? 'Pause music' : 'Play music');
     button.setAttribute('aria-pressed', String(s.enabled)); button.disabled = !s.supported || s.empty;
     sh.body.querySelector('[data-dy-music-title]').textContent = s.empty ? 'Make it your mix' : s.track.title;
     sh.body.querySelector('[data-dy-music-artist]').textContent = s.empty ? 'Enable a song below to get started.' : s.track.artist;
     sh.body.querySelector('[data-dy-music-now]').textContent = s.empty ? 'NO SONGS ENABLED' : s.playing ? 'NOW PLAYING' : s.loading ? 'LOADING' : 'SELECTED SONG';
     sh.body.querySelector('.pk-juke-now').classList.toggle('is-playing', s.playing);
-    const seek = sh.body.querySelector('[data-dy-music-seek]');
-    seek.disabled = !s.duration || s.empty; seek.max = s.duration;
-    if (!scrubbing) seek.value = s.position;
-    const position = scrubbing ? Number(seek.value) : s.position;
-    seek.setAttribute('aria-valuetext', `${time(position)} of ${time(s.duration)}`);
-    sh.body.querySelector('[data-dy-music-time]').textContent = time(position) + ' / ' + time(s.duration);
-    sh.body.querySelector('[data-dy-music-restart]').disabled = !s.duration || s.empty;
-    sh.body.querySelector('[data-dy-juke-skip]').disabled = !s.supported || s.empty;
     sh.body.querySelector('[data-dy-song-count]').textContent = `${music.TRACKS.filter(t => !s.excluded.includes(t.id)).length} / ${music.TRACKS.length} songs enabled`;
     const battleCount = sh.body.querySelector('[data-dy-battle-count]');
     if (battleCount) battleCount.textContent = `${music.BATTLE_SONGS.filter(t => !s.excluded.includes(t.id)).length} / ${music.BATTLE_SONGS.length}`;
@@ -243,20 +234,15 @@ export function musicSheet() {
   sh.body.addEventListener('click', e => {
     if (e.target.closest('[data-dy-sfx-toggle]')) sfx.setEnabled(!sfx.state().enabled);
     if (e.target.closest('[data-dy-music-toggle]')) music.setEnabled(!music.state().enabled);
-    if (e.target.closest('[data-dy-music-restart]')) music.seek(0);
-    if (e.target.closest('[data-dy-juke-skip]')) music.skipTrack();
     const song = e.target.closest('[data-dy-music-track]'); if (song) music.selectTrack(song.dataset.dyMusicTrack);
     const theme = e.target.closest('[data-dy-battle-track]'); if (theme) music.selectBattleTrack(theme.dataset.dyBattleTrack);
     const all = e.target.closest('[data-dy-juke-all]'); if (all) music.setPlaylistEnabled(all.dataset.dyJukeAll, true);
     const none = e.target.closest('[data-dy-juke-none]'); if (none) music.setPlaylistEnabled(none.dataset.dyJukeNone, false);
   });
   sh.body.addEventListener('change', e => { if (e.target.matches('[data-dy-song-enabled]')) music.setTrackEnabled(e.target.dataset.dySongEnabled, e.target.checked); });
-  sh.body.addEventListener('pointerdown', e => { if (e.target.matches('[data-dy-music-seek]')) scrubbing = true; });
-  for (const name of ['change', 'pointerup', 'pointercancel', 'focusout']) sh.body.addEventListener(name, () => { scrubbing = false; draw(); });
   sh.body.addEventListener('input', e => {
     if (e.target.matches('[data-dy-sfx-volume]')) sfx.setVolume(e.target.value);
     if (e.target.matches('[data-dy-music-volume]')) music.setVolume(e.target.value);
-    if (e.target.matches('[data-dy-music-seek]')) music.seek(e.target.value);
   });
   offMusic = music.subscribe(draw);
   offSfx = sfx.subscribe(draw);

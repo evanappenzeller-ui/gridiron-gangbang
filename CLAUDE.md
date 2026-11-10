@@ -425,7 +425,10 @@ to lower it; release/cancel hides the bar and keeps the speaker. A hold never al
 adjust by five percent while focused. Route/profile changes and backgrounding cancel the gesture.
 The chevron beside the speaker opens a bottom-right song panel with title, artist, a jukebox logo and Skip (Nov 9 2026,
 Evan: no song list there, "Instead their should be a logo to enter the jukebox"): the logo closes the panel and opens
-Settings' jukebox, where songs are picked and the rotation is set. Skip advances
+Settings' jukebox, where songs are picked and the rotation is set.
+The jukebox sheet (Nov 9 2026, Evan): the song playing on top, then a Play/Pause button beside the music volume slider,
+then the song list taking the rest of the screen; no song-position slider, Restart or Skip there (Skip stays in the pop-up).
+Every song is listed for album covers in `docs/rivals/jukebox-songs.md`. Skip advances
 through `TRACKS` (restarts the current song when there is only one) and preserves mute/volume. Opening the
 panel alone does not start audio. Outside tap, Escape, volume hold and route/profile changes close it.
 Phone buttons remain device media volume; the music slider controls only the in-game gain. Request the optional
