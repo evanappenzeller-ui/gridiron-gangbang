@@ -5,6 +5,8 @@ import * as music from '../core/dynasty-music.js';
 import * as sfx from '../core/dynasty-sfx.js';
 let volumeId = 0;
 
+// Sound is on while the music or the effects are (the corner speaker mutes and unmutes both).
+const soundOn = () => { const m = music.state(), fx = sfx.state(); return (m.enabled && m.volume > 0) || (fx.enabled && fx.volume > 0); };
 // Keep the corner control outside panes that are replaced during navigation/battle updates.
 // kind 'battle' (the battle view) plays the battle playlist; see core/dynasty-music.js.
 export function attachMusic(el, isVisible = true, kind = 'hub') {
@@ -110,13 +112,17 @@ export function attachMusic(el, isVisible = true, kind = 'hub') {
         e.stopPropagation();
         if (e.detail && suppressClick) { suppressClick = false; return; }
         if (!visible || !rivalsUpdated()) return;
-        const s = music.state(), on = s.enabled && s.volume > 0;
-        if (!on && !s.volume) music.setVolume(music.DEFAULT_MUSIC_VOLUME);
-        music.setEnabled(!on);
+        // (the speaker mutes everything, Evan, Nov 9 2026: "The mute button in the bottom right should turn off the music
+        // and sound effects"; unmuting turns both back on, at their saved levels or the defaults if those were zero)
+        const s = music.state(), fx = sfx.state(), on = soundOn();
+        if (on) { music.setEnabled(false); sfx.setEnabled(false); return; }
+        if (!s.volume) music.setVolume(music.DEFAULT_MUSIC_VOLUME);
+        if (!fx.volume) sfx.setVolume(55);
+        sfx.setEnabled(true); music.setEnabled(true);
       });
       el.append(button, bar, chevron, player); el.classList.add('has-rivals-sound');
     }
-    const s = music.state(), on = s.enabled && s.volume > 0;
+    const s = music.state(), on = soundOn();
     const label = !s.supported ? 'Sound unavailable' : on ? 'Mute sound' : 'Unmute sound';
     button.hidden = !visible;
     chevron.hidden = !visible;
@@ -146,13 +152,13 @@ export function attachMusic(el, isVisible = true, kind = 'hub') {
   document.addEventListener('keydown', onEscape, true);
   addEventListener('blur', cancelVolume);
   document.addEventListener('visibilitychange', onVisibility);
-  const offMusic = music.subscribe(draw);
+  const offMusic = music.subscribe(draw), offFx = sfx.subscribe(draw);
   const offProfile = data.subscribe(type => { if (type === 'me') { cancelVolume(); closePlayer(); draw(); } });
   draw();
   return {
     visible(value) { visible = !!value; if (!visible) { cancelVolume(); closePlayer(); } transport.visible(value); draw(); },
     stop() {
-      cancelVolume(); closePlayer(); offMusic(); offProfile(); button?.remove(); bar?.remove(); chevron?.remove(); player?.remove();
+      cancelVolume(); closePlayer(); offMusic(); offFx(); offProfile(); button?.remove(); bar?.remove(); chevron?.remove(); player?.remove();
       document.removeEventListener('pointerdown', onOutside, true); document.removeEventListener('keydown', onEscape, true);
       removeEventListener('blur', cancelVolume); document.removeEventListener('visibilitychange', onVisibility);
       el.classList.remove('has-rivals-sound'); transport.stop();

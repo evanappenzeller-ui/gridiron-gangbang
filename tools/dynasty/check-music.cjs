@@ -48,6 +48,9 @@ async function main() {
       window.AudioContext = class extends AC {
         constructor(...args) {
           super(...args);
+          // (the sound effects' own context, made with latencyHint 'interactive': the corner speaker turns effects back on
+          // since Nov 9 2026, so leave it out of these music-only probes)
+          if (args[0] && args[0].latencyHint === 'interactive') return;
           const analyser = this.createAnalyser(); analyser.fftSize = 2048;
           const create = this.createGain.bind(this);
           this.createGain = () => {
@@ -127,10 +130,14 @@ async function main() {
     assert.equal(await page.locator('.pk-mini-player:visible').count(), 0);
     await page.locator('[data-dy-sound]').click();
     assert.equal((await state()).enabled, false, 'corner mute saves the same preference as Settings');
+    // (the speaker mutes the sound effects too, and unmuting brings both back, Evan, Nov 9 2026)
+    const fxOn = () => page.evaluate(async () => (await import('/js/core/dynasty-sfx.js')).state().enabled);
+    assert.equal(await fxOn(), false, 'the speaker mutes the sound effects too');
     assert.equal(trackRequests.length, 0, 'muting on the title never briefly starts the track');
     assert.equal(await page.locator('.pk-start').count(), 1, 'speaker does not start the game');
     await page.locator('[data-dy-sound]').focus(); await page.keyboard.press('Enter'); await playing();
     assert.equal(await page.locator('[data-dy-sound]').getAttribute('aria-label'), 'Mute sound');
+    assert.equal(await fxOn(), true, 'unmuting turns the sound effects back on');
     await page.locator('.pk-start').focus(); await page.keyboard.press('Enter'); await playing();
     for (const [width, height] of [[320,568], [390,844], [768,1024], [1280,800]]) {
       await page.setViewportSize({width,height});
@@ -148,6 +155,7 @@ async function main() {
     if (process.env.SOUND_SHOTS) { fs.mkdirSync(process.env.SOUND_SHOTS,{recursive:true}); await page.screenshot({path:path.join(process.env.SOUND_SHOTS,'hub.png')}); }
     await page.locator('[data-dy-sound]').click(); await silent();
     assert.equal(await page.locator('[data-dy-sound]').getAttribute('aria-label'), 'Unmute sound');
+    assert.equal(await fxOn(), false, 'muted again: effects off too');
     await page.locator('[data-dy-sound]').focus(); await page.keyboard.press('Space'); await playing();
     await page.locator('[data-dy-music-menu]').focus(); await page.keyboard.press('Enter');
     await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).seek(30));
@@ -431,7 +439,12 @@ async function main() {
     await level(0);
     assert.equal((await state()).volume, 0, 'volume clamps at zero');
     await battleHold.send('touchEnd'); await silent();
+    // (music at zero, effects still on: the speaker still reads as on, so a tap mutes everything and the next brings both back)
+    assert.equal(await fxOn(), true, 'effects stay on with the music at zero');
+    assert.equal(await battleSound.getAttribute('aria-label'), 'Mute sound');
+    await battleSound.click(); assert.equal(await fxOn(), false, 'the speaker mutes the effects too');
     await battleSound.click(); await playing();
+    assert.equal(await fxOn(), true);
     if(await page.locator('[data-rp-menu]').count()) { await page.locator('[data-rp-menu]').click(); await page.locator('[data-rp-settings]').click(); }
     else {await page.locator('[data-db-more]').click(); await page.getByRole('button', {name: 'Jukebox', exact: true}).click();}
     await page.waitForSelector('[data-dy-music-toggle]');

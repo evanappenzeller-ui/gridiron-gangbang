@@ -446,6 +446,8 @@ sound"; he picked Rivals' Menu): Menu has Jukebox (was Settings: the songs, play
 (`views/dynasty-music.js` `soundSheet`): a Music slider (level only, never starts or stops a song) and a Sound effects
 slider (0 turns effects off, above 0 back on, the saved level kept). Battle options (v7) and the legacy battle menu offer
 both. `check-sfx.cjs` covers the Sound sheet.
+The corner speaker mutes both (Nov 9 2026, Evan: "The mute button in the bottom right should turn off the music and sound
+effects"): it shows on while either is on; muting turns both off, unmuting both back on (a zero level returns to its default).
 Every song is listed for album covers in `docs/rivals/jukebox-songs.md`.
 Album covers (Nov 9 2026, Evan sent them): `img/rivals/covers/<id>-v1.webp`, 320 px square WebP cropped from his images;
 `COVERS` in `core/dynasty-music.js` lists the songs that have one (38 of 39: Timeless and the battle themes have none). They
