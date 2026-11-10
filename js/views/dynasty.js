@@ -1105,6 +1105,7 @@ function updateChrome(st) {
   }
   if (st.tab === 'home' && !owner) st.tab = 'battle';
   shell.classList.toggle('is-home', owner && st.tab === 'home');
+  shell.classList.toggle('is-market', st.tab === 'market');
   shell.classList.toggle('is-pack-shop', rivalsUpdated() && st.tab === 'packs');
   shell.classList.toggle('is-ladder', D.bossLadderOpen() && st.tab === 'battle' && !(st.bv === 'rank' || (st.bv === 'versus' && rivalsVersus())));
   if (hud !== st.hud) { el.querySelector('[data-dy-hud]').innerHTML = hud; st.hud = hud; }

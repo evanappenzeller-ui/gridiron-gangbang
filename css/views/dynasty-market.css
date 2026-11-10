@@ -53,3 +53,10 @@
   .v-dynasty .rm-search { grid-column: auto; }
   .v-dynasty .rm-intro h2 { font-size: 42px; max-width: 450px; }
 }
+
+/* Keep the full title and wallet readable on narrow phones; Packs stays in the bottom navigation. */
+.v-dynasty .pk.is-market .pk-meter { display: none; }
+.v-dynasty .pk.is-market .pk-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 400px) {
+  .v-dynasty .pk.is-market .pk-title { font-size: 16px; }
+}
