@@ -25,14 +25,27 @@ The dated notice clears after any presser posted since the report or a season/we
 it stays hidden during loading/errors and updates on profile changes. No saves or database rules change.
 Verified phone/tablet layouts, profile switches, posting retirement and `tools/press/check-questions.cjs`.
 
+## Rivals battles play the jukebox (November 10, 2026)
+
+Evan: "Drop the in-game music and continue playing jukebox songs during the battles" (the Rivals group). The battle
+playlist (`BATTLE_SONGS`, `BATTLE`, `selectBattleTrack`, the Battle themes section and its 24 `audio/rivals` files) is
+gone. Menus and battles share one jukebox shuffle in `core/dynasty-music.js`: entering or leaving a battle carries on
+with the song playing, same file and place, with no pause, fade or new download. A song's end, Skip, Shuffle and the
+rotation work the same in a battle as in the menus; a song picked in a battle stays on afterwards. The router hides
+one view a moment before the next shows, so for `HANDOFF_MS` (1.5 s) after the last visible view hides the song counts
+as still shown (`handOff()`); leaving Rivals, hiding the app or a profile change still stop it. Coming back to Rivals
+still fades the song up. `attachMusic()`/`attach()` no longer take a 'battle' kind. Old settings' battle-theme IDs in
+`excluded` are ignored. Saves, levels, effects and the never-twice shuffle are unchanged. `check-music.cjs` and
+`check-jukebox.cjs` cover it (all four profiles). This supersedes the battle-playlist notes below.
+
 ## Rivals jukebox (November 9, 2026)
 
 The four Rivals profiles get the sports-game jukebox in Menu / Battle options → Settings: blue-and-gold
 song rows, independent inclusion checkboxes, tap-to-play, now playing, All/None and Skip. A tapped excluded
 song joins the rotation and starts playing; toggling another song never plays that row. Disabling the current
 song advances to an enabled one. Empty playlists stay silent, one menu song loops, and small playlists avoid
-immediate repeats even when their possible shuffle orders have been exhausted. Battle themes have their own
-checkboxes and individual play buttons under Battle themes in battle settings; menu/battle separation remains.
+immediate repeats even when their possible shuffle orders have been exhausted. (Nov 10 2026: battles
+play this same jukebox; the Battle themes section is gone.)
 The optional `excluded` ID list lives in the existing `gg-rivals-music:<profileKey>:v1` settings. Old settings
 enable all songs and retain mute/volume. Cross-tab changes reconcile inclusion; profile changes stop playback
 and close the sheet. Game saves, audio gain, effects and on-demand music caching remain unchanged.
@@ -488,48 +501,34 @@ song", then a second list: "import these songs as well"). `TRACKS` holds 39 song
 Lifestyle, The Basement, Forget It, Gorgeous, Banking On Me, Survival of the Fittest, No Option; his Ballin' link was already in)
 (`audio/rivals/<id>-v1.mp3`, 160 kbps MP3 made with yt-dlp);
 the menus loop the picked song, the song panel's Skip moves to the next one, and the Settings list scrolls (opening at the
-playing song). Battles (`attachMusic(el, visible, 'battle')` → `attach(..., 'battle')`) play the battle playlist (below);
-there Skip moves to the next battle song. Each new battle view starts it at a random spot (a random song, part and moment);
-returning to the same battle carries on. In a battle the Settings jukebox heads with "Battle playlist"; a song picked there plays for
-the rest of that battle (and becomes the menu song), and a song the playlist interrupted resumes where it was. A new source's
+playing song). Battles play the same jukebox song (Nov 10 2026, above; the battle playlist is retired). A new source's
 start is set before its metadata loads (`jump()`), so it never plays from 0 first. To add a song: put
 `<id>-v1.mp3` in audio/rivals and a `song()` line in `TRACKS`; changed audio gets a new version number.
-`check-music.cjs` covers the 39-song jukebox, the random start, part chaining and the battle jukebox.
+`check-music.cjs` covers the 39-song jukebox and the battle carrying the song on.
 
-Battle playlist (November 7, 2026, Evan sent six YouTube links: "Use the attached for in game music when playing rivals";
-the Rivals group). Battles play `BATTLE_SONGS` in `core/dynasty-music.js` instead of the retired Cyber Funkwave mix (its
-files are removed): GTA V's pause menu, Sonic's Green Hill Zone, Call of Duty: Black Ops' multiplayer menu, Call of Duty 4's
-main menu theme, Fortnite's OG main menu and ESPN's NFL Primetime music. The menus keep the jukebox. The looped
-uploads were cut to whole passes (Green Hill and Fortnite three 77 s loops, Black Ops two 109 s loops, CoD4 one 134 s pass);
-GTA V's 21-minute suite is cut at quiet moments into four parts (`gta-menu-v1-01…04.mp3`) and ESPN's video into its 16 tracks
-(`espn-primetime-v1-01…16.mp3`), so a phone fetches only the part that plays. Every file was loudness-normalised to -16 LUFS
-when encoded (ffmpeg loudnorm, 128 kbps; the originals ran -13 to -33 LUFS), so battle songs play at level 1. The six songs
-shuffle with the never-twice rule (`playThrough('parts', 6)`); a song with parts plays one part a turn (the battle's first
-turn of each starts at a random part, then they follow on), and the player names it ("ESPN · 3 of 16"). Seeking stays inside
-the playing file. To add a battle song: its file(s) in audio/rivals and a `battleSong()` line with each part's length.
-`check-music.cjs` covers the files, the random start, the battle shuffle, part naming and the battle jukebox.
+Battle playlist (November 7, 2026; retired November 10, 2026): battles played six game/broadcast menu themes
+(`BATTLE_SONGS`) instead of the jukebox. Evan dropped it ("Drop the in-game music and continue playing jukebox songs during
+the battles"): its code and files are removed and battles play the jukebox (top of this file).
 
 Levels (November 5, 2026, Evan: "Reduce the volume of the background music. The sound effects should be more noticeable.
 Do not deafen the music when a sound effect is used"). Effects never lower the music (no ducking). Each track's `song()`
 line carries its measured loudness (integrated LUFS, `ffmpeg -af ebur128`); `level` brings it down to -16 LUFS and
-`MUSIC_LEVEL` (.7) lowers all music, so the music gain is slider × .7 × level (loud hip-hop masters about -11 dB, the mix,
--14.2 LUFS over its pass, about -5 dB). Effects' gain is slider × `EFFECTS_LEVEL` (2, was .65: about +10 dB) into their
+`MUSIC_LEVEL` (.7) lowers all music, so the music gain is slider × .7 × level (loud hip-hop masters about -11 dB). Effects' gain is slider × `EFFECTS_LEVEL` (2, was .65: about +10 dB) into their
 limiter; the quiet tap (`select`) tone is louder too. Saved sliders and defaults (music 8, effects 55) are unchanged. A new
 song needs its LUFS in its `song()` line. `check-sfx.cjs` asserts the music holds steady under overlapping effects and the
-effects gain; `check-music.cjs` the battle mix's gain.
+effects gain; `check-music.cjs` the battle's gain (the song's own level).
 
 Shuffle (November 6, 2026, Evan: "Shuffle the music in rivals. The music should never follow the same play through twice";
 the Rivals group). The menus no longer loop one song: they play the jukebox in a shuffled pass, each song's end (or Skip)
-moving to the next, then a fresh pass. The battle mix starts at its random spot, then plays its other six parts in a
-shuffled order (Skip and part ends follow it); seeking into another part starts a new pass from it. `playThrough()` in
+moving to the next, then a fresh pass. Battles carry on with the same pass (Nov 10 2026). `playThrough()` in
 `core/dynasty-music.js` deals each pass: never an order in the profile's recent history (`gg-rivals-shuffle:<profileKey>:v1`,
-the last 64 orders of each list, written only for Rivals profiles; separate from music settings and saves), never opening
+the last 64 orders, written only for Rivals profiles; separate from music settings and saves), never opening
 with what just played, with a fallback that turns the order round if `Math.random` repeats itself. Entering Rivals or
 switching profile deals a new jukebox pass that does not open with the saved (last played) song; picking a song starts a
 new pass from it; another tab's storage event syncs only on/off and level. The saved `track` is the song playing.
 A decode error in a track's last two seconds counts as its end (`sundress-v1.mp3` has a damaged last frame that Chromium's
 Symphonia MP3 decoder rejects), so the shuffle carries on. `check-music.cjs` asserts whole passes, new orders (also with a
-stubbed `Math.random`), song-end and part-end advance, battle Skip and that other profiles save no shuffle.
+stubbed `Math.random`), song-end advance, battle Skip and that other profiles save no shuffle.
 
 ## Rivals deck shelf (November 5, 2026)
 

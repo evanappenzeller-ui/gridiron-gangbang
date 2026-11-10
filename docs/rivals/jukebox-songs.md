@@ -1,11 +1,11 @@
 # Gridiron Rivals songs: album covers
 
-Every song in the game (November 9, 2026). Covers in the game: 38 of 39 jukebox songs; still needed: 07 Timeless and the
-battle themes. Send a cover for any song and it will replace that song's placeholder
+Every song in the game (November 9, 2026). Covers in the game: 38 of 39 jukebox songs; still needed: 07 Timeless. Battles play
+the jukebox too (the battle themes were dropped on November 10, 2026). Send a cover for any song and it will replace that song's placeholder
 cover in the jukebox. Any image name works: just say which song it is (the number or the title). Square images look
 best, 600 x 600 or larger.
 
-## Jukebox (39 songs: the menus' shuffle)
+## Jukebox (39 songs: the menus' and battles' shuffle)
 
 | # | Song | Artist | id | Cover search |
 |---|---|---|---|---|
@@ -48,16 +48,5 @@ best, 600 x 600 or larger.
 | 37 | Banking On Me | Gunna | `banking-on-me` | [Google Images](https://www.google.com/search?tbm=isch&q=Banking+On+Me+Gunna+album+cover) |
 | 38 | Survival of the Fittest | Mobb Deep | `survival-of-the-fittest` | [Google Images](https://www.google.com/search?tbm=isch&q=Survival+of+the+Fittest+Mobb+Deep+album+cover) |
 | 39 | No Option | Post Malone | `no-option` | [Google Images](https://www.google.com/search?tbm=isch&q=No+Option+Post+Malone+album+cover) |
-
-## Battle themes (6: played in battles)
-
-| # | Theme | Game / show | id | Cover search |
-|---|---|---|---|---|
-| B1 | Pause Menu | Grand Theft Auto V | `gta-menu` | [Google Images](https://www.google.com/search?tbm=isch&q=Grand+Theft+Auto+V+Pause+Menu+cover+art) |
-| B2 | Green Hill Zone | Sonic the Hedgehog | `green-hill` | [Google Images](https://www.google.com/search?tbm=isch&q=Sonic+the+Hedgehog+Green+Hill+Zone+cover+art) |
-| B3 | Multiplayer Menu | Call of Duty: Black Ops | `black-ops-menu` | [Google Images](https://www.google.com/search?tbm=isch&q=Call+of+Duty%3A+Black+Ops+Multiplayer+Menu+cover+art) |
-| B4 | Main Menu Theme | Call of Duty 4: Modern Warfare | `cod4-menu` | [Google Images](https://www.google.com/search?tbm=isch&q=Call+of+Duty+4%3A+Modern+Warfare+Main+Menu+Theme+cover+art) |
-| B5 | OG Main Menu | Fortnite | `fortnite-menu` | [Google Images](https://www.google.com/search?tbm=isch&q=Fortnite+OG+Main+Menu+cover+art) |
-| B6 | NFL Primetime | ESPN | `espn-primetime` | [Google Images](https://www.google.com/search?tbm=isch&q=ESPN+NFL+Primetime+logo) |
 
 The id is the song's name in the code (`js/core/dynasty-music.js`); covers will go in `img/rivals/covers/<id>-v1.webp`.

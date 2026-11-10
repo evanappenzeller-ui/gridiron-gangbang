@@ -732,7 +732,7 @@ const legacyView = {
   mount(el, ctx) {
     const st = {el, ctx, mid: String((ctx.params && ctx.params.id) || ''), mode: null, focus: null, scenes: [], scene: null, hidden: false, setup: {act: null, actI: -1, bench: [], benchI: []}, dead: false, stops: [], evAt: null};
     ST.set(ctx, st);
-    st.music = attachMusic(el, ctx.visible, 'battle');
+    st.music = attachMusic(el, ctx.visible);
     st.sfx = sfx.attach(el, ctx.visible);
     st.stops.push(() => st.sfx.stop());
     st.stops.push(() => st.music.stop());

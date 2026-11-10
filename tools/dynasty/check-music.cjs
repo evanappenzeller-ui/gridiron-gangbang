@@ -73,9 +73,7 @@ async function main() {
     const nav = route => page.evaluate(async route => (await import('/js/app.js')).nav(route), route);
     const state = () => page.evaluate(async () => (await import('/js/core/dynasty-music.js')).state());
     const upNext = () => page.evaluate(async () => (await import('/js/core/dynasty-music.js')).upNext());
-    // The battle playlist's songs, in BATTLE_SONGS order; a song with parts matches any of them.
-    const BATTLE_IDS = ['gta-menu', 'green-hill', 'black-ops-menu', 'cod4-menu', 'fortnite-menu', 'espn-primetime'];
-    const part = n => new RegExp(`/audio/rivals/${BATTLE_IDS[n]}-v1(-\\d\\d)?\\.mp3$`);
+    const songFile = id => new RegExp(`/audio/rivals/${id}-v1\\.mp3$`);
     const playing = () => page.waitForFunction(async () => (await import('/js/core/dynasty-music.js')).state().playing);
     const silent = () => page.waitForFunction(() => audioProbes.every(p => p.ctx.state !== 'running') && mediaProbes.every(m => m.paused));
     const watchFade = () => page.evaluate(() => {
@@ -286,7 +284,7 @@ async function main() {
     await page.evaluate(() => mediaHandlers.play()); await playing();
     await page.locator('[data-dy-music-toggle]').click(); await silent();
     await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
-    assert.equal(await page.locator('[data-dy-music-track]').count(), 39, 'the menu jukebox lists the 39 songs, not the battle playlist');
+    assert.equal(await page.locator('[data-dy-music-track]').count(), 39, 'the menu jukebox lists the 39 songs');
     // Album covers (Nov 9 2026): every cover a song names is on disk and shows in its row and beside the song playing.
     const covers = await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).TRACKS.filter(t => t.cover).map(t => [t.id, new URL(t.cover).pathname]));
     assert(covers.length >= 38, 'the jukebox has its album covers: ' + covers.length);
@@ -354,56 +352,37 @@ async function main() {
       const s = D.mine(); D.CARDS.forEach(c => s.o[c.id] = 2); Object.keys(B.TRAINERS).forEach(id => s.o[id] = 2);
       s.dk = D.autoDeck(s.o); D.touch(); const r = S.start('g1'); if (!r.ok) throw Error(r.why); return r.mid;
     });
-    // Every battle song's files are served (one file, or its numbered parts).
-    const battleFiles = await page.evaluate(async () => {
-      const {BATTLE_SONGS} = await import('/js/core/dynasty-music.js');
-      return {ids: BATTLE_SONGS.map(s => s.id), urls: BATTLE_SONGS.flatMap(s => s.parts.map(p => p.url))};
-    });
-    assert.deepEqual(battleFiles.ids, BATTLE_IDS);
-    assert.equal(battleFiles.urls.length, 24, 'GTA V in four parts, ESPN in sixteen, four single songs');
-    for (const u of battleFiles.urls) assert(fs.existsSync(path.join(root, new URL(u).pathname)), 'battle file exists: ' + u);
-    // A battle starts the battle playlist at a random spot: with Math.random at .5, the fourth song (CoD4's menu theme,
-    // one 132.1 s part) half way through its first 127.1 s, 63.55 s in.
-    // (the menus shuffle, so the song the battle interrupts is whichever one is playing: since Nov 6 a pass never opens
-    // with the saved song, so this is not necessarily Sundress)
+    // The battle playlist is gone (Evan, Nov 10 2026: "Drop the in-game music and continue playing jukebox songs during
+    // the battles"): no battle themes in the module or on disk.
+    const retired = ['gta-menu', 'green-hill', 'black-ops-menu', 'cod4-menu', 'fortnite-menu', 'espn-primetime'];
+    assert.deepEqual(await page.evaluate(async () => { const m = await import('/js/core/dynasty-music.js'); return ['BATTLE_SONGS', 'BATTLE', 'selectBattleTrack'].filter(k => k in m); }), []);
+    for (const f of fs.readdirSync(path.join(root, 'audio/rivals'))) assert(!retired.some(id => f.startsWith(id + '-')), 'battle theme file removed: ' + f);
+    // Entering a battle carries on with the jukebox song that is playing: same file, same place, no pause and no fade.
+    await playing(); await page.waitForFunction(() => sceneGain.gain.value > .999 && mediaProbes[0].currentTime > 1);
     const hubAt = await page.evaluate(() => mediaProbes[0].currentTime), hubSong = (await state()).track.id;
-    assert.notEqual(hubSong, 'battle');
-    await page.evaluate(() => { window.realRandom = Math.random; Math.random = () => .5; });
-    // Delay the incoming song longer than its fade: the audible ramp must wait for playback.
-    await page.route('**/cod4-menu-v1.mp3', async route => {
-      await new Promise(resolve => setTimeout(resolve, 2300));
-      await route.continue();
-    }, {times: 1});
-    await watchFade();
-    await nav('/puzzles/dynasty/battle/' + mid); await playing();
-    await checkFade();
-    await page.evaluate(() => { Math.random = window.realRandom; });
-    const mixAt = await page.evaluate(async () => { const s = (await import('/js/core/dynasty-music.js')).state(); return {src: mediaProbes[0].currentSrc, at: mediaProbes[0].currentTime, id: s.track.id, artist: s.track.artist, position: s.position, duration: s.duration, title: navigator.mediaSession.metadata.title}; });
-    assert.match(mixAt.src, /\/audio\/rivals\/cod4-menu-v1\.mp3$/, 'battle plays the battle playlist: ' + JSON.stringify(mixAt));
-    assert(mixAt.at > 63 && mixAt.at < 77, 'the playlist starts at the random spot: ' + JSON.stringify(mixAt));
-    assert(Math.abs(mixAt.duration - 132.1) < 1 && mixAt.position > 63 && mixAt.id === 'battle' && mixAt.title === 'Main Menu Theme'
-      && mixAt.artist === 'Call of Duty 4: Modern Warfare', JSON.stringify(mixAt));
-    // The battle songs were loudness-normalised when encoded, so they play at slider × .7.
-    await page.waitForFunction(async () => { const v = (await import('/js/core/dynasty-music.js')).state().volume;
-      return Math.abs(musicGain.gain.value - v / 100 * .7) < .002; });
-    // The battle songs are shuffled too: a pass from the song the battle started in, then the other five in a random order.
-    const parts = (await upNext()).parts;
-    assert.deepEqual([3, ...parts].slice().sort(), [0, 1, 2, 3, 4, 5], 'a pass of the battle playlist holds every song once: ' + parts);
-    await page.evaluate(() => { mediaProbes[0].currentTime = mediaProbes[0].duration - .3; });
-    await page.waitForFunction(re => new RegExp(re).test(mediaProbes[0].currentSrc) && mediaProbes[0].readyState >= 3 && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5, part(parts[0]).source);
-    // Seeking stays inside the song that plays; its end moves on in the shuffle.
-    const afterNext = (await upNext()).parts[0];
-    await page.evaluate(async () => { const m = await import('/js/core/dynasty-music.js'); m.seek(m.state().duration - .3); });
-    assert(Number.isInteger(afterNext) && afterNext !== parts[0], 'the song after this one comes from the shuffle');
-    await page.waitForFunction(re => new RegExp(re).test(mediaProbes[0].currentSrc) && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5, part(afterNext).source);
-    await playing();
-    // A song in parts names which part plays.
-    const named = await page.evaluate(async () => {
-      const {state, BATTLE_SONGS} = await import('/js/core/dynasty-music.js'), t = state().track, s = BATTLE_SONGS.find(x => x.title === t.title);
-      return {t, parts: s?.parts.length};
+    const requestsBefore = trackRequests.length;
+    await page.evaluate(() => {
+      window.musicPauses = 0; mediaProbes[0].addEventListener('pause', () => musicPauses++);
+      window.gainDips = []; window.gainTimer = setInterval(() => { if (sceneGain.gain.value < .99) gainDips.push(sceneGain.gain.value); }, 20);
     });
-    assert(named.parts === 1 ? !/ of /.test(named.t.artist) : new RegExp(` · \\d+ of ${named.parts}$`).test(named.t.artist), JSON.stringify(named));
-    console.log('PASS: battle playlist from a random spot, through its songs in a shuffled order');
+    await nav('/puzzles/dynasty/battle/' + mid); await page.waitForSelector('.v-dynasty-battle [data-dy-sound]'); await playing();
+    await page.waitForTimeout(600);
+    const inBattle = await page.evaluate(async () => { const s = (await import('/js/core/dynasty-music.js')).state(); return {src: mediaProbes[0].currentSrc, at: mediaProbes[0].currentTime, id: s.track.id, title: navigator.mediaSession.metadata.title, pauses: musicPauses, dips: gainDips.length}; });
+    assert.match(inBattle.src, songFile(hubSong), 'the battle plays the jukebox song: ' + JSON.stringify(inBattle));
+    assert(inBattle.id === hubSong && inBattle.at >= hubAt, 'and carries on from where it was: ' + JSON.stringify({hubAt, inBattle}));
+    assert.equal(inBattle.pauses, 0, 'entering a battle never pauses the song');
+    assert.equal(inBattle.dips, 0, 'or fades it: ' + JSON.stringify(inBattle));
+    assert.equal(trackRequests.length, requestsBefore, 'no new music download on entering a battle');
+    // The battle plays the song at its own loudness level, as the menus do.
+    await page.waitForFunction(async () => { const m = await import('/js/core/dynasty-music.js'), v = m.state().volume, t = m.TRACKS.find(x => x.id === m.state().track.id);
+      return Math.abs(musicGain.gain.value - v / 100 * .7 * t.level) < .002; });
+    // A song's end in a battle moves on to the next song in the jukebox shuffle.
+    const nextUp = (await upNext()).songs[0];
+    await page.evaluate(async () => { const m = await import('/js/core/dynasty-music.js'); m.seek(m.state().duration - .3); });
+    await page.waitForFunction(re => new RegExp(re).test(mediaProbes[0].currentSrc) && !mediaProbes[0].paused && mediaProbes[0].currentTime < 5, songFile(nextUp).source);
+    await playing();
+    assert.equal((await state()).track.id, nextUp);
+    console.log('PASS: battles carry on with the jukebox song (no battle playlist), then follow its shuffle');
     await page.waitForFunction(() => !document.querySelector('[data-db-skip]'), null, {timeout: 15000});
     const battleSound = page.locator('.v-dynasty-battle [data-dy-sound]');
     for (const [width,height] of [[320,568],[390,844],[768,1024]]) {
@@ -421,11 +400,11 @@ async function main() {
     if (process.env.SOUND_SHOTS) await page.screenshot({path:path.join(process.env.SOUND_SHOTS,'battle.png')});
     await battleSound.click(); await silent();
     await page.locator('.v-dynasty-battle [data-dy-music-menu]').click();
-    const skipPart = (await upNext()).parts[0];
+    const skipSong = (await upNext()).songs[0];
     await page.locator('.v-dynasty-battle [data-dy-music-skip]').click();
     assert.equal((await state()).enabled, false, 'skip preserves mute');
-    assert.match(await page.evaluate(() => mediaProbes[0].src), part(skipPart), 'skip in a battle moves on to the next battle song in the shuffle');
-    assert.equal((await state()).track.id, 'battle');
+    assert.match(await page.evaluate(() => mediaProbes[0].src), songFile(skipSong), 'skip in a battle moves on to the next jukebox song');
+    assert.equal((await state()).track.id, skipSong);
     assert.equal(await page.locator('.v-dynasty-battle .pk-mini-player:visible [data-mini-jukebox]').count(), 1, 'the battle pop-up has the jukebox logo');
     assert.equal(await page.locator('.v-dynasty-battle .pk-mini-player li').count(), 0, 'and no song list');
     await page.locator('.db-match-title, .rp-top b').click();
@@ -448,42 +427,31 @@ async function main() {
     if(await page.locator('[data-rp-menu]').count()) { await page.locator('[data-rp-menu]').click(); await page.locator('[data-rp-settings]').click(); }
     else {await page.locator('[data-db-more]').click(); await page.getByRole('button', {name: 'Jukebox', exact: true}).click();}
     await page.waitForSelector('[data-dy-music-toggle]');
-    assert.equal(await page.locator('[data-dy-music-track]').count(), 40, 'the battle jukebox (the playlist, then the 39 songs) heads with the battle playlist');
-    assert.equal(await page.locator('[data-dy-music-track="battle"][aria-pressed="true"]').count(), 1);
-    assert(['Pause Menu', 'Green Hill Zone', 'Multiplayer Menu', 'Main Menu Theme', 'OG Main Menu', 'NFL Primetime'].includes(await page.locator('[data-dy-music-title]').innerText()), 'Settings names the battle song that plays');
-    await page.locator('.pk-juke-battle summary').click();
-    assert.equal(await page.locator('[data-dy-battle-track]').count(), 6, 'each battle theme has its own play button and checkbox');
-    assert.match(await page.locator('[data-dy-music-track="battle"]').innerText(), /Use battle shuffle/);
+    assert.equal(await page.locator('[data-dy-music-track]').count(), 39, 'the battle jukebox lists the 39 songs');
+    assert.equal(await page.locator('.pk-juke-battle, [data-dy-battle-track], [data-dy-music-track="battle"]').count(), 0, 'and no battle themes');
+    assert.equal(await page.locator('[data-dy-music-title]').innerText(), (await state()).track.title, 'Settings names the song that plays');
     await page.waitForTimeout(800); await page.screenshot({path: path.join(root, 'output/rivals-music/battle-settings-390.png')});
-    const mixWas = await page.evaluate(() => ({src: mediaProbes[0].src, at: mediaProbes[0].currentTime}));
     await page.locator('[data-dy-music-track="troy"]').click(); await playing();
-    assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /\/audio\/rivals\/troy-v1\.mp3$/, 'a song picked in battle plays');
-    await page.locator('[data-dy-music-track="battle"]').click(); await playing();
-    const mixNow = await page.evaluate(() => ({src: mediaProbes[0].src, at: mediaProbes[0].currentTime}));
-    assert(mixNow.src === mixWas.src && mixNow.at >= mixWas.at - .5, 'and the mix comes back where it was: ' + JSON.stringify({mixWas, mixNow}));
-    await page.locator(`[data-dy-music-track="${hubSong}"]`).click(); await playing();
-    const menuAt = await page.evaluate(() => ({at: mediaProbes[0].currentTime, src: mediaProbes[0].currentSrc}));
-    assert(menuAt.src.endsWith(`/audio/rivals/${hubSong}-v1.mp3`) && menuAt.at >= hubAt - .5, 'the menu song carries on from where the battle interrupted it: ' + JSON.stringify({hubSong, hubAt, menuAt}));
+    assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), songFile('troy'), 'a song picked in battle plays');
     await close();
-    await watchFade();
+    // Leaving the battle carries the same song on into the menus.
+    const leaveAt = await page.evaluate(() => { musicPauses = 0; gainDips = []; return mediaProbes[0].currentTime; });
     await page.goBack(); await page.waitForSelector('.pk-hdr'); await playing();
-    await checkFade();
-    assert(String(await page.evaluate(() => mediaProbes[0].currentSrc)).endsWith(`/audio/rivals/${hubSong}-v1.mp3`), 'the menus play the picked song');
-    // Leave a fresh battle while its mix is still fading. Home gets its own full fade.
-    await nav('/puzzles/dynasty/battle/' + mid); await playing();
-    assert.equal((await state()).track.id, 'battle');
-    await watchFade();
-    await page.goBack(); await page.waitForSelector('.pk-hdr'); await playing();
-    await checkFade();
-    assert.equal((await state()).track.id, hubSong);
-    console.log('PASS: delayed battle music and both same-song and mix-to-Home returns fade up during playback');
-    console.log('PASS: battle jukebox: pick a song, back to the mix, menu song resumes');
+    await page.waitForTimeout(600);
+    const backHome = await page.evaluate(() => ({src: mediaProbes[0].currentSrc, at: mediaProbes[0].currentTime, pauses: musicPauses, dips: gainDips.length}));
+    await page.evaluate(() => clearInterval(gainTimer));
+    assert(songFile('troy').test(backHome.src) && backHome.at >= leaveAt && !backHome.pauses && !backHome.dips, 'the menus carry on with the battle\'s song: ' + JSON.stringify({leaveAt, backHome}));
+    assert.equal((await state()).track.id, 'troy');
+    console.log('PASS: battle jukebox picks a song, and leaving the battle carries it on');
     assert.equal(await page.evaluate(() => audioProbes.length), 1, 'hub/battle/back share transport');
     await nav('/puzzles'); await silent();
     assert.equal((await state()).playing, false);
     await nav('/puzzles/dynasty');
+    await watchFade();
     await page.waitForSelector('.pk-start.is-ready'); await page.locator('.pk-start').click({position: {x: 170, y: 420}});
     await settings(); await playing();
+    await checkFade();
+    console.log('PASS: coming back to Rivals fades the song up during playback');
     await page.evaluate(async () => (await import('/js/core/data.js')).setGuest('Ryan Stewart'));
     await silent(); await page.waitForFunction(() => !document.querySelector('[data-dy-music-toggle]'));
     assert.equal(await page.evaluate(() => navigator.audioSession.type),'ambient');

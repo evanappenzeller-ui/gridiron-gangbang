@@ -8,9 +8,9 @@ let volumeId = 0;
 // Sound is on while the music or the effects are (the corner speaker mutes and unmutes both).
 const soundOn = () => { const m = music.state(), fx = sfx.state(); return (m.enabled && m.volume > 0) || (fx.enabled && fx.volume > 0); };
 // Keep the corner control outside panes that are replaced during navigation/battle updates.
-// kind 'battle' (the battle view) plays the battle playlist; see core/dynasty-music.js.
-export function attachMusic(el, isVisible = true, kind = 'hub') {
-  const transport = music.attach(el, isVisible, kind);
+// The menus and battles share the jukebox song (see core/dynasty-music.js).
+export function attachMusic(el, isVisible = true) {
+  const transport = music.attach(el, isVisible);
   let button = null, bar = null, visible = isVisible, press = null, holdTimer = 0, suppressClick = false;
   let chevron = null, player = null;
   const closePlayer = () => {
@@ -167,9 +167,9 @@ export function attachMusic(el, isVisible = true, kind = 'hub') {
 }
 
 // The checkbox and play button are siblings: changing the rotation never also plays the row.
-const row = (t, i, battle = false) => `<li class="pk-juke-row" data-dy-song-row="${data.esc(t.id)}">
+const row = (t, i) => `<li class="pk-juke-row" data-dy-song-row="${data.esc(t.id)}">
   <label class="pk-juke-check"><input type="checkbox" data-dy-song-enabled="${data.esc(t.id)}" aria-label="Include ${data.esc(t.title)} in shuffle"><span aria-hidden="true"></span></label>
-  <button type="button" ${battle ? 'data-dy-battle-track' : 'data-dy-music-track'}="${data.esc(t.id)}" aria-label="Play ${data.esc(t.title)} by ${data.esc(t.artist)}" aria-pressed="false">
+  <button type="button" data-dy-music-track="${data.esc(t.id)}" aria-label="Play ${data.esc(t.title)} by ${data.esc(t.artist)}" aria-pressed="false">
     <span class="pk-juke-info"><small>${data.esc(t.artist)}</small><b>${data.esc(t.title)}</b><span class="pk-juke-selected" data-dy-track-state hidden></span></span>
     ${t.cover ? `<span class="pk-juke-cover has-art" aria-hidden="true"><img src="${data.esc(t.cover)}" alt="" width="56" height="56" loading="lazy" decoding="async"></span>`
       : `<span class="pk-juke-cover" style="--cover-hue:${(i * 43 + 215) % 360}" aria-hidden="true"><span>RIVALS</span><i>♪</i><span>${String(i + 1).padStart(2, '0')}</span></span>`}
@@ -178,7 +178,6 @@ const row = (t, i, battle = false) => `<li class="pk-juke-row" data-dy-song-row=
 export function musicSheet() {
   if (!rivalsUpdated()) return;
   let offMusic, offProfile;
-  const battle = music.state().battle, mix = music.BATTLE;
   const sh = ui.openSheet({title: 'Jukebox', cls: 'pk-sheet pk-jukebox-sheet', detents: ['fit'],
     body: `<div class="pk-music">
       <div class="pk-juke-brand"><span class="pk-juke-speaker" aria-hidden="true"></span><div><small>GRIDIRON RIVALS</small><h3>JUKEBOX</h3></div><span class="pk-juke-speaker" aria-hidden="true"></span></div>
@@ -192,7 +191,6 @@ export function musicSheet() {
       <p class="pk-note pk-juke-status" data-dy-music-status role="status" hidden></p>
       <section class="pk-juke" aria-label="Jukebox">
         <ul aria-label="Menu songs">${music.TRACKS.map((t, i) => row(t, i)).join('')}</ul>
-        ${battle ? `<details class="pk-juke-battle"><summary>Battle themes <span data-dy-battle-count></span></summary><div class="pk-juke-tools"><button type="button" data-dy-music-track="battle" aria-pressed="false">Use battle shuffle <span data-dy-track-state></span></button><button type="button" data-dy-juke-all="battle">All</button><button type="button" data-dy-juke-none="battle">None</button></div><ul aria-label="Battle themes">${music.BATTLE_SONGS.map((t, i) => row(t, i, true)).join('')}</ul></details>` : ''}
       </section></div>`,
     onClose: () => { offMusic?.(); offProfile?.(); }});
   const draw = () => {
@@ -210,17 +208,15 @@ export function musicSheet() {
     const art = sh.body.querySelector('[data-dy-music-art]'), cover = s.empty ? '' : s.track.cover || '';
     if (art.getAttribute('src') !== cover) { if (cover) art.src = cover; else art.removeAttribute('src'); }
     art.hidden = !cover;
-    const battleCount = sh.body.querySelector('[data-dy-battle-count]');
-    if (battleCount) battleCount.textContent = `${music.BATTLE_SONGS.filter(t => !s.excluded.includes(t.id)).length} / ${music.BATTLE_SONGS.length}`;
     sh.body.querySelectorAll('[data-dy-song-enabled]').forEach(input => {
       input.checked = !s.excluded.includes(input.dataset.dySongEnabled);
       input.closest('li').classList.toggle('is-excluded', !input.checked);
     });
-    sh.body.querySelectorAll('[data-dy-music-track], [data-dy-battle-track]').forEach(b => {
-      const selected = !s.empty && (b.dataset.dyMusicTrack === s.track.id || (s.track.id === mix.id && b.dataset.dyBattleTrack === s.track.song));
+    sh.body.querySelectorAll('[data-dy-music-track]').forEach(b => {
+      const selected = !s.empty && b.dataset.dyMusicTrack === s.track.id;
       b.setAttribute('aria-pressed', String(selected)); b.disabled = !s.supported;
       b.closest('li')?.classList.toggle('is-current', selected);
-      const off = s.excluded.includes(b.dataset.dyMusicTrack || b.dataset.dyBattleTrack);
+      const off = s.excluded.includes(b.dataset.dyMusicTrack);
       // (no "Tap to play" on every row, Evan, Nov 9 2026: only the song playing and songs left out say anything)
       const note = b.querySelector('[data-dy-track-state]'), text = selected ? s.playing ? 'Now playing' : 'Selected' : off ? 'Off' : '';
       note.textContent = text; note.hidden = !text;
@@ -239,9 +235,6 @@ export function musicSheet() {
     if (e.target.closest('[data-dy-music-toggle]')) music.setEnabled(!music.state().enabled);
     if (e.target.closest('[data-dy-music-shuffle]')) music.reshuffle();
     const song = e.target.closest('[data-dy-music-track]'); if (song) music.selectTrack(song.dataset.dyMusicTrack);
-    const theme = e.target.closest('[data-dy-battle-track]'); if (theme) music.selectBattleTrack(theme.dataset.dyBattleTrack);
-    const all = e.target.closest('[data-dy-juke-all]'); if (all) music.setPlaylistEnabled(all.dataset.dyJukeAll, true);
-    const none = e.target.closest('[data-dy-juke-none]'); if (none) music.setPlaylistEnabled(none.dataset.dyJukeNone, false);
   });
   sh.body.addEventListener('change', e => { if (e.target.matches('[data-dy-song-enabled]')) music.setTrackEnabled(e.target.dataset.dySongEnabled, e.target.checked); });
   sh.body.addEventListener('input', e => {

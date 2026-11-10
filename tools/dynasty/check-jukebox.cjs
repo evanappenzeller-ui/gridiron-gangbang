@@ -125,19 +125,20 @@ async function main() {
         const mid = await page.evaluate(async () => {
           const S = await import('/js/core/dynasty-solo.js'); const r = S.start('g1'); if (!r.ok) throw Error(r.why); return r.mid;
         });
+        // Battles keep the jukebox song (no battle themes, Nov 10 2026): the song carries on, and the rotation applies there.
+        const before = (await state()).track.id;
         await page.evaluate(async mid => (await import('/js/app.js')).nav('/puzzles/dynasty/battle/'+mid),mid); await play();
+        assert.equal((await state()).track.id,before,'the battle carries on with the jukebox song');
         await page.locator('[data-rp-menu]').click(); await page.locator('[data-rp-settings]').click();
-        await page.locator('.pk-juke-battle summary').click();
-        await page.locator('[data-dy-battle-track="green-hill"]').click(); await play();
-        assert.equal((await state()).track.song,'green-hill'); assert((await state()).position<3,'direct battle selection begins at the start');
-        await page.locator('[data-dy-song-enabled="green-hill"]').uncheck(); await play();
-        assert.notEqual((await state()).track.song,'green-hill');
-        await page.locator('[data-dy-juke-none="battle"]').click();
-        assert.equal((await state()).empty,true);
-        await page.locator('[data-dy-battle-track="green-hill"]').click(); await play();
-        assert.equal((await state()).track.song,'green-hill');
-        await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).skipTrack()); await play();
-        assert.equal((await state()).track.song,'green-hill','one battle theme survives Skip');
+        assert.equal(await page.locator('.pk-juke-battle, [data-dy-battle-track]').count(),0,'no battle themes');
+        assert.equal(await page.locator('[data-dy-music-track]').count(),tracks.length);
+        await page.locator('[data-dy-song-enabled="lost"]').uncheck();
+        await page.locator('[data-dy-music-track="lost"]').click(); await play();
+        assert.equal((await state()).track.id,'lost','an excluded song tapped in a battle rejoins and plays');
+        assert.equal(await page.locator('[data-dy-song-enabled="lost"]').isChecked(),true);
+        await page.locator('[data-dy-song-enabled="lost"]').uncheck(); await play();
+        assert.notEqual((await state()).track.id,'lost','disabling the battle\'s song moves on to an enabled one');
+        await page.locator('[data-dy-song-enabled="lost"]').check();
         await close(); await page.goBack(); await page.waitForSelector('.pk-hdr'); await settings();
       }
       await page.evaluate(async on => (await import('/js/core/dynasty-music.js')).setPlaylistEnabled('songs', on), false);

@@ -2,9 +2,9 @@ import {rivalsUpdated} from './features.js';
 // Rivals' owner-uploaded MP3s. One streaming media element, with Web Audio volume control
 // (including on iOS), shared by the hub and battle views. Never touches game saves.
 // Everything shuffles (Evan, Nov 6 2026: "Shuffle the music in rivals. The music should never follow the same play
-// through twice"). The menus play the jukebox in a shuffled order; battles play the battle playlist from a random point
-// each time a battle opens, its songs in a shuffled order; a song picked from the jukebox during a battle starts a new
-// shuffle from that song for the rest of it. See playThrough() for the never-twice rule.
+// through twice"). The menus and battles play the jukebox in one shuffled order: entering or leaving a battle carries on
+// with the song that is playing (Evan, Nov 10 2026: "Drop the in-game music and continue playing jukebox songs during the
+// battles"). See playThrough() for the never-twice rule.
 import * as data from './data.js';
 import {profileKey} from './realm-active.js';
 
@@ -65,57 +65,18 @@ export const TRACKS = Object.freeze([
   song('survival-of-the-fittest', 'Survival of the Fittest', 'Mobb Deep', -10.4),
   song('no-option', 'No Option', 'Post Malone', -9.3),
 ]);
-// Battle music (Evan, Nov 7 2026: "Use the attached for in game music when playing rivals", six YouTube links): the
-// game and broadcast menu themes below replace the Cyber Funkwave mix in battles; the menus keep the jukebox. The looped
-// uploads were cut to whole passes (Green Hill and Fortnite three 77 s loops, Black Ops two 109 s loops, CoD4 one 134 s
-// pass); GTA V's 21-minute pause-menu suite is cut at its quietest moments and ESPN's video at its 16 tracks, so a
-// phone only fetches (and the service worker only caches) the part that plays. Every file was loudness-normalised to
-// REFERENCE_LUFS when encoded (ffmpeg loudnorm, 128 kbps; the originals sat between -13 and -33 LUFS), so each plays at
-// level 1. Lengths in seconds. A song with parts plays one part a turn, another part the next time its turn comes.
-const battleSong = (id, title, artist, lengths) => Object.freeze({id, title, artist, parts: Object.freeze(lengths.map((seconds, i) =>
-  Object.freeze({seconds, url: new URL(`../../audio/rivals/${id}-v1${lengths.length > 1 ? '-' + String(i + 1).padStart(2, '0') : ''}.mp3`, import.meta.url).href})))});
-export const BATTLE_SONGS = Object.freeze([
-  battleSong('gta-menu', 'Pause Menu', 'Grand Theft Auto V', [352.75, 230, 348, 353.55]),
-  battleSong('green-hill', 'Green Hill Zone', 'Sonic the Hedgehog', [234.7]),
-  battleSong('black-ops-menu', 'Multiplayer Menu', 'Call of Duty: Black Ops', [221.6]),
-  battleSong('cod4-menu', 'Main Menu Theme', 'Call of Duty 4: Modern Warfare', [132.1]),
-  battleSong('fortnite-menu', 'OG Main Menu', 'Fortnite', [234.4]),
-  battleSong('espn-primetime', 'NFL Primetime', 'ESPN', [160.6, 134.2, 220.9, 126.55, 88.75, 109.75, 85.25, 104.8, 130, 130.1,
-    134.4, 182.6, 124, 223.9, 127.3, 76.9])
-]);
-export const BATTLE = Object.freeze({id: 'battle', title: 'Battle playlist', artist: 'Game menu themes', level: 1, songs: BATTLE_SONGS});
-// Every part of every battle song in one list: 'battle:<index>' is what the media element holds.
-const PIECES = BATTLE_SONGS.flatMap((s, song) => s.parts.map((p, n) => Object.freeze({...p, song, n})));
-const pieceOf = (song, n) => PIECES.findIndex(p => p.song === song && p.n === n);
-const partOf = key => key.startsWith('battle:') ? Number(key.slice(7)) : -1;
 const indexOf = id => TRACKS.findIndex(t => t.id === id);
 let excluded = new Set();
 const songPool = () => TRACKS.flatMap((t, i) => excluded.has(t.id) ? [] : [i]);
-const battlePool = () => BATTLE_SONGS.flatMap((t, i) => excluded.has(t.id) ? [] : [i]);
-// A battle's start: a song, one of its parts, and a moment in it (not its last few seconds).
-function randomSpot() {
-  const pool = battlePool();
-  if (!pool.length) return {part: 0, at: 0};
-  const song = pool[Math.floor(Math.random() * pool.length)], list = BATTLE_SONGS[song].parts;
-  const n = Math.floor(Math.random() * list.length);
-  return {part: pieceOf(song, n), at: Math.random() * Math.max(0, list[n].seconds - 5)};
-}
-// What the battle playlist is playing, for the player, the Settings sheet and the system's media controls.
-function battleNow() {
-  const piece = PIECES[spot.part] || PIECES[0], s = BATTLE_SONGS[piece.song];
-  return {id: BATTLE.id, title: s.title, artist: s.parts.length > 1 ? `${s.artist} · ${piece.n + 1} of ${s.parts.length}` : s.artist, song: s.id};
-}
-
-// Shuffle. A play-through is one pass over every song (or every battle song) in a random order. A new pass never
-// opens with what just played and is never an order this profile has heard before: the recent orders are remembered in
-// HEARD_KEY (separate from the music settings and from game saves). songs/parts: the current pass and where it is
-// (parts: the battle playlist's songs). cursor: the part each battle song plays next.
+// Shuffle. A play-through is one pass over every enabled song in a random order. A new pass never opens with what just
+// played and is never an order this profile has heard before: the recent orders are remembered in HEARD_KEY (separate
+// from the music settings and from game saves). songs: the current pass and where it is.
 const HEARD_KEY = () => `gg-rivals-shuffle:${profileKey()}:v1`, HEARD = 64;
-let heard = {songs: [], parts: []}, songs = {order: [], at: 0}, parts = {order: [], at: 0}, cursor = BATTLE_SONGS.map(() => 0);
+let heard = {songs: []}, songs = {order: [], at: 0};
 function readHeard() {
   const list = v => Array.isArray(v) ? v.filter(x => typeof x === 'string').slice(-HEARD) : [];
-  try { const saved = JSON.parse(localStorage.getItem(HEARD_KEY())); heard = {songs: list(saved?.songs), parts: list(saved?.parts)}; }
-  catch (_) { heard = {songs: [], parts: []}; }
+  try { const saved = JSON.parse(localStorage.getItem(HEARD_KEY())); heard = {songs: list(saved?.songs)}; }
+  catch (_) { heard = {songs: []}; }
 }
 // A shuffled pass through the enabled indexes. `first` leads when given; otherwise it avoids `last`.
 // Avoid recent orders while alternatives exist. With a stubbed Math.random, rotate the order to find a fresh pass.
@@ -155,23 +116,8 @@ function shuffleSongs(first = -1) {
 function nextSong() {
   if (++songs.at >= songs.order.length) shuffleSongs(); else selected = TRACKS[songs.order[songs.at]].id;
 }
-// A new battle: a pass through the battle songs from the one it starts in; every other song's first part is random.
-function shuffleParts(start) {
-  const {song, n} = PIECES[start];
-  cursor = BATTLE_SONGS.map(s => Math.floor(Math.random() * s.parts.length));
-  cursor[song] = (n + 1) % BATTLE_SONGS[song].parts.length;
-  parts = {order: playThrough('parts', battlePool(), song), at: 0};
-}
-// The next battle song in the shuffle, at its next part.
-function nextPart() {
-  if (++parts.at >= parts.order.length) parts = {order: playThrough('parts', battlePool(), -1, parts.order[parts.order.length - 1]), at: 0};
-  if (!parts.order.length) return spot.part;
-  const song = parts.order[parts.at], n = cursor[song];
-  cursor[song] = (n + 1) % BATTLE_SONGS[song].parts.length;
-  return pieceOf(song, n);
-}
-// What plays after the current song and the current battle song, in this pass (for the checks).
-export const upNext = () => ({songs: songs.order.slice(songs.at + 1).map(i => TRACKS[i].id), parts: parts.order.slice(parts.at + 1)});
+// What plays after the current song, in this pass (for the checks).
+export const upNext = () => ({songs: songs.order.slice(songs.at + 1).map(i => TRACKS[i].id)});
 
 let selected = TRACKS[0].id;
 const track = () => TRACKS.find(t => t.id === selected) || TRACKS[0];
@@ -181,12 +127,9 @@ let enabled = true, volume = DEFAULT_MUSIC_VOLUME, started = false, away = false
 let audio = null, master = null, media = null, pending = 0, revision = 0, offProfile = null;
 let sceneGain = null, fadePending = false;
 let systemOwned = false, previousType = null;
-// shown: the visible scene ('hub', 'battle' or null). lastBattle: the battle view the battle playlist last started for, so a new
-// battle rolls a new start while returning to the same one carries on. ownSong: a jukebox song replaces the battle playlist in this
-// battle. loaded: what the media element holds (a track id or 'battle:<part>'). spot: the battle part and where in it.
-// resume: each song's place when the battle playlist took over from it. seekTo: a position to apply once the new source's
-// metadata loads.
-let shown = null, lastBattle = null, ownSong = false, loaded = '', spot = {part: 0, at: 0}, resume = {}, seekTo = null;
+// shown: whether a Rivals view (menus or battle, which share the song) is visible. loaded: the track id the media element
+// holds. seekTo: a position to apply once the new source's metadata loads.
+let shown = false, loaded = '', seekTo = null;
 const systemActions = ['play', 'pause', 'stop', 'seekto', 'seekbackward', 'seekforward'];
 
 let preferenceKey;
@@ -200,7 +143,8 @@ function read() {
     if (typeof saved?.enabled === 'boolean') enabled = saved.enabled;
     if (typeof saved?.volume === 'number' && Number.isFinite(saved.volume)) volume = Math.max(0, Math.min(100, Math.round(saved.volume)));
     if (TRACKS.some(t => t.id === saved?.track)) last = saved.track;
-    if (Array.isArray(saved?.excluded)) excluded = new Set(saved.excluded.filter(id => [...TRACKS, ...BATTLE_SONGS].some(t => t.id === id)));
+    // (an older save may also list retired battle themes: only jukebox songs are kept)
+    if (Array.isArray(saved?.excluded)) excluded = new Set(saved.excluded.filter(id => TRACKS.some(t => t.id === id)));
   } catch (_) {}
   return last;
 }
@@ -212,17 +156,27 @@ function begin() {
 }
 begin();
 const visible = () => [...clients].some(c => c.visible);
-const wanted = () => rivalsUpdated() && visible() && !document.hidden && !away && started && enabled && volume > 0 && !empty();
+// Moving between Rivals views (the menus and a battle) hides one a moment before the next one shows. For HANDOFF_MS
+// after that the song counts as still shown, so it carries on through the change instead of pausing and fading back up.
+const HANDOFF_MS = 1500;
+let handoff = 0;
+const shownNow = () => visible() || !!handoff;
+function endHandoff() { clearTimeout(handoff); handoff = 0; }
+function handOff() {
+  endHandoff();
+  if (!visible() && clients.size && media && !media.paused && !document.hidden && !away) handoff = setTimeout(() => { handoff = 0; sync(); }, HANDOFF_MS);
+  sync();
+}
+const wanted = () => rivalsUpdated() && shownNow() && !document.hidden && !away && started && enabled && volume > 0 && !empty();
 const notify = () => { updateSystem(); listeners.forEach(fn => fn()); };
-const playingMix = () => shown === 'battle' && !ownSong;
-const empty = () => !(playingMix() ? battlePool() : songPool()).length;
+const empty = () => !songPool().length;
 // The music's gain for the loaded source: slider × MUSIC_LEVEL × the track's loudness level.
-const outputLevel = () => volume / 100 * MUSIC_LEVEL * (partOf(loaded) >= 0 ? BATTLE.level : (TRACKS.find(t => t.id === loaded) || track()).level);
+const outputLevel = () => volume / 100 * MUSIC_LEVEL * (TRACKS.find(t => t.id === loaded) || track()).level;
 export function state() {
   if (preferenceKey !== KEY()) begin();
   const here = Number.isFinite(media?.currentTime) ? media.currentTime : 0;
   const length = Number.isFinite(media?.duration) ? media.duration : 0;
-  return {enabled, volume, excluded: [...excluded], empty: empty(), track: playingMix() ? battleNow() : track(), battle: shown === 'battle', position: here, duration: length,
+  return {enabled, volume, excluded: [...excluded], empty: empty(), track: track(), position: here, duration: length,
     playing: !!media && !media.paused && media.readyState >= 3 && audio?.state === 'running',
     loading: !!pending, supported: !!(globalThis.AudioContext || globalThis.webkitAudioContext), failure};
 }
@@ -243,7 +197,7 @@ function ownSystem() {
 }
 function updateMetadata() {
   if (!systemOwned) return;
-  const now = playingMix() ? battleNow() : track();
+  const now = track();
   try { if (navigator.mediaSession && globalThis.MediaMetadata) navigator.mediaSession.metadata = new MediaMetadata({title: now.title, artist: now.artist, album: 'Gridiron Rivals',
     ...(now.cover ? {artwork: [{src: now.cover, sizes: '320x320', type: 'image/webp'}]} : {})}); } catch (_) {}
 }
@@ -256,21 +210,20 @@ function releaseSystem() {
   previousType = null;
 }
 function updateSystem() {
-  if (!rivalsUpdated() || !visible() || document.hidden || away) { releaseSystem(); return; }
+  if (!rivalsUpdated() || !shownNow() || document.hidden || away) { releaseSystem(); return; }
   if (!systemOwned) return;
   const s = state();
   try { if (navigator.mediaSession) navigator.mediaSession.playbackState = s.playing ? 'playing' : 'paused'; } catch (_) {}
   try { if (s.duration > 0) navigator.mediaSession?.setPositionState?.({duration: s.duration, position: Math.min(s.position, s.duration), playbackRate: 1}); } catch (_) {}
 }
 
-// What the visible scene plays: a part of a battle song, or a looping jukebox song (back where it was, after a battle).
+// What plays, in the menus and in battles alike: the jukebox song (looping when it is the only one enabled).
 function desired() {
-  if (playingMix()) return {key: 'battle:' + spot.part, url: PIECES[spot.part].url, loop: false, at: spot.at};
   const t = track();
-  return {key: t.id, url: t.url, loop: songPool().length === 1, at: resume[t.id] || 0};
+  return {key: t.id, url: t.url, loop: songPool().length === 1, at: 0};
 }
 // Point the media element at it. A new source cancels any pending play without suspending the context, so the next
-// battle part can follow the last one without a fresh tap; sync() then plays it if music is wanted.
+// song can follow the last one without a fresh tap; sync() then plays it if music is wanted.
 function load(force = false) {
   if (!media || empty()) return;
   const next = desired();
@@ -279,10 +232,6 @@ function load(force = false) {
     if (force) { if (media.error) media.load(); jump(next.at); }
     updateMetadata(); return;
   }
-  const was = partOf(loaded), here = Number.isFinite(media.currentTime) ? media.currentTime : 0;
-  if (loaded && was < 0 && partOf(next.key) >= 0) resume[loaded] = here;
-  if (was >= 0 && !playingMix()) spot = {part: was, at: here};
-  if (partOf(next.key) < 0) delete resume[next.key];
   revision++; pending = 0;
   loaded = next.key; media.loop = next.loop; media.src = next.url;
   jump(next.at);
@@ -310,20 +259,18 @@ function fadeWhenPlaying() {
   sceneGain.gain.setValueAtTime(0, now);
   sceneGain.gain.linearRampToValueAtTime(1, now + SCENE_FADE_SECONDS);
 }
-// A battle view that becomes visible for the first time rolls a new start in the battle playlist.
+// Coming back to Rivals fades the song up. Moving between the menus and a battle changes nothing: the song carries on.
 function checkScene() {
-  const battle = [...clients].find(c => c.visible && c.battle), now = battle ? 'battle' : visible() ? 'hub' : null;
-  const newBattle = battle && battle !== lastBattle;
-  if (now === shown && !newBattle) return;
+  const now = shownNow();
+  if (now === shown) return;
   shown = now;
   if (!now) return;
   armSceneFade();
-  if (newBattle) { lastBattle = battle; ownSong = false; spot = randomSpot(); shuffleParts(spot.part); }
-  load(!!newBattle);
+  load();
 }
 
 function halt(reset = false) {
-  revision++; pending = 0;
+  endHandoff(); revision++; pending = 0;
   if (media) { media.pause(); if (reset) { try { media.currentTime = 0; } catch (_) {} } }
   if (audio) {
     master.gain.cancelScheduledValues(audio.currentTime); master.gain.setValueAtTime(0, audio.currentTime);
@@ -376,11 +323,10 @@ export function start() {
         const at = seekTo; seekTo = null;
         if (Math.abs(media.currentTime - at) > .5) { try { media.currentTime = Math.min(at, Math.max(0, (media.duration || at) - 1)); } catch (_) {} }
       });
-      // A song's end plays the next one in the shuffle; a battle part's end, the next battle song in its shuffle.
+      // A song's end plays the next one in the shuffle.
       const finish = () => {
         if (!wanted()) return;
-        if (partOf(loaded) >= 0) spot = {part: nextPart(), at: 0};
-        else { nextSong(); save(); }
+        nextSong(); save();
         load(true); sync();
       };
       media.addEventListener('ended', finish);
@@ -416,49 +362,30 @@ export function setVolume(value) {
   if (!rivalsUpdated() || !Number.isFinite(Number(value))) return;
   volume = Math.max(0, Math.min(100, Math.round(Number(value)))); save(); start();
 }
-// The battle playlist can be picked only in a battle, to go back to it after choosing a song there.
-export function selectTrack(id) {
-  if (!rivalsUpdated() || !visible()) return;
-  if (id === BATTLE.id) {
-    if (shown !== 'battle') return;
-    if (ownSong) { halt(); ownSong = false; load(); }
-  } else {
-    if (!TRACKS.some(t => t.id === id)) return;
-    const wasExcluded = excluded.delete(id);
-    const before = media ? loaded : '';
-    if (id !== selected || wasExcluded) shuffleSongs(indexOf(id));
-    if (shown === 'battle') ownSong = true;
-    if (media && desired().key !== before) { halt(); load(); }
-    updateMetadata();
-  }
-  enabled = true; save(); start();
-}
 // Tapping a disabled song includes it again and plays it immediately. Checkboxes only edit the rotation.
-export function selectBattleTrack(id) {
-  if (!rivalsUpdated() || !visible() || shown !== 'battle') return;
-  const index = BATTLE_SONGS.findIndex(t => t.id === id);
-  if (index < 0) return;
-  excluded.delete(id); halt(); ownSong = false;
-  spot = {part: pieceOf(index, 0), at: 0}; shuffleParts(spot.part); load(true);
+export function selectTrack(id) {
+  if (!rivalsUpdated() || !visible() || !TRACKS.some(t => t.id === id)) return;
+  const wasExcluded = excluded.delete(id);
+  const before = media ? loaded : '';
+  if (id !== selected || wasExcluded) shuffleSongs(indexOf(id));
+  if (media && desired().key !== before) { halt(); load(); }
+  updateMetadata();
   enabled = true; save(); start();
 }
 function reconcilePlaylist() {
   shuffleSongs(excluded.has(selected) ? -1 : indexOf(selected));
-  const current = PIECES[spot.part].song;
-  if (excluded.has(BATTLE_SONGS[current].id)) spot = randomSpot();
-  shuffleParts(spot.part);
   // An empty playlist stays quiet; disabling the current song advances immediately.
   if (empty() || (media && desired().key !== loaded)) halt();
   load(); sync();
 }
 export function setTrackEnabled(id, value) {
-  if (!rivalsUpdated() || ![...TRACKS, ...BATTLE_SONGS].some(t => t.id === id)) return;
+  if (!rivalsUpdated() || !TRACKS.some(t => t.id === id)) return;
   if (value) excluded.delete(id); else excluded.add(id);
   reconcilePlaylist(); save();
 }
 export function setPlaylistEnabled(list, value) {
-  if (!rivalsUpdated() || !['songs', 'battle'].includes(list)) return;
-  for (const t of list === 'battle' ? BATTLE_SONGS : TRACKS) {
+  if (!rivalsUpdated() || list !== 'songs') return;
+  for (const t of TRACKS) {
     if (value) excluded.delete(t.id); else excluded.add(t.id);
   }
   reconcilePlaylist(); save();
@@ -469,25 +396,19 @@ export function seek(seconds) {
   try { media.currentTime = Math.max(0, Math.min(duration, Number(seconds))); } catch (_) {}
   notify();
 }
-// Skip: the next song in the shuffle, or while the battle playlist plays, the next battle song in its shuffle.
+// Skip: the next song in the shuffle (a lone enabled song starts again).
 export function skipTrack() {
   if (!rivalsUpdated() || !visible() || empty()) return;
-  if (playingMix()) {
-    halt(true);
-    spot = {part: nextPart(), at: 0}; load(true);
-  } else {
-    halt(true);
-    nextSong(); load(); updateMetadata();
-  }
+  halt(true);
+  nextSong(); load(true); updateMetadata();
   save(); start();
 }
 /** A fresh shuffle, playing now (the jukebox's shuffle button, Evan, Nov 9 2026): a new pass of the enabled songs that
- *  doesn't open with the one playing; in a battle, the battle playlist from a new random spot. */
+ *  doesn't open with the one playing. */
 export function reshuffle() {
   if (!rivalsUpdated() || !visible() || empty()) return;
   halt(true);
-  if (playingMix()) { spot = randomSpot(); shuffleParts(spot.part); load(true); }
-  else { shuffleSongs(); load(); updateMetadata(); }
+  shuffleSongs(); load(); updateMetadata();
   enabled = true; save(); start();
 }
 function save() { try { localStorage.setItem(KEY(), JSON.stringify({enabled, volume, track: selected, ...(excluded.size ? {excluded: [...excluded]} : {})})); } catch (_) {} }
@@ -502,14 +423,14 @@ const storage = e => {
   if (before !== [...excluded].sort().join('|')) reconcilePlaylist(); else sync();
 };
 
-// Mounted routes can coexist in the navigation stack; only visible Rivals views own playback.
-// kind 'battle' marks the battle view, which plays the battle playlist.
-export function attach(el, isVisible = true, kind = 'hub') {
-  const client = {visible: isVisible, battle: kind === 'battle'}; clients.add(client);
+// Mounted routes can coexist in the navigation stack; only visible Rivals views own playback. The menus and battles
+// share one song: moving between them never changes or restarts it.
+export function attach(el, isVisible = true) {
+  const client = {visible: isVisible}; clients.add(client);
   if (clients.size === 1) {
     begin(); load();
     away = false;
-    offProfile = data.subscribe(type => { if (type === 'me') { started = false; halt(true); releaseSystem(); begin(); failure = ''; resume = {}; load(); notify(); } });
+    offProfile = data.subscribe(type => { if (type === 'me') { started = false; halt(true); releaseSystem(); begin(); failure = ''; load(); notify(); } });
     document.addEventListener('visibilitychange', visibility);
     addEventListener('pagehide', pageHide); addEventListener('pageshow', pageShow); addEventListener('storage', storage);
   }
@@ -521,16 +442,15 @@ export function attach(el, isVisible = true, kind = 'hub') {
   el.addEventListener('click', gesture, true); el.addEventListener('keydown', gesture, true);
   sync();
   return {
-    visible(value) { client.visible = !!value; sync(); },
+    visible(value) { client.visible = !!value; handOff(); },
     stop() {
       clients.delete(client); el.removeEventListener('click', gesture, true); el.removeEventListener('keydown', gesture, true);
-      if (client === lastBattle) lastBattle = null;
       if (!clients.size) {
         offProfile?.(); offProfile = null;
         document.removeEventListener('visibilitychange', visibility);
         removeEventListener('pagehide', pageHide); removeEventListener('pageshow', pageShow); removeEventListener('storage', storage);
-        started = false; shown = null; ownSong = false; halt(true);
-      } else sync();
+        started = false; shown = false; halt(true);
+      } else handOff();
     }
   };
 }
