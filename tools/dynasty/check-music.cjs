@@ -156,18 +156,18 @@ async function main() {
     assert((await state()).position < 2, 'skip starts the next song from its beginning');
     assert.equal((await state()).track.id, skipTo, 'skip moves to the next song in the shuffle');
     await page.waitForFunction(title => document.querySelector('.pk-mini-player [data-mini-title]')?.textContent === title, (await state()).track.title);
-    // The pop-up's jukebox (Evan, Nov 9 2026: "The jukebox should be available to choose from the pop up menu"): every menu
-    // song, tap to play, the playing one marked; no battle themes outside a battle.
-    assert.equal(await page.locator('.pk-mini-player [data-mini-track]:visible').count(), 39, 'the pop-up lists the jukebox');
-    assert.equal(await page.locator('.pk-mini-player [data-mini-theme]:visible').count(), 0, 'battle themes only in a battle');
-    assert.equal(await page.locator(`.pk-mini-player [data-mini-track="${skipTo}"][aria-pressed="true"]`).count(), 1, 'the playing song is marked');
-    await page.locator('.pk-mini-player [data-mini-track="sundress"]').scrollIntoViewIfNeeded();
-    await page.locator('.pk-mini-player [data-mini-track="sundress"]').click(); await playing();
-    assert.equal((await state()).track.id, 'sundress', 'a song tapped in the pop-up plays');
-    assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /\/audio\/rivals\/sundress-v1\.mp3$/);
-    await page.waitForSelector('.pk-mini-player [data-mini-track="sundress"][aria-pressed="true"]');
-    assert.equal(await page.locator('.pk-mini-player:visible').count(), 1, 'the pop-up stays open after a pick');
-    if (process.env.SOUND_SHOTS) await page.screenshot({path:path.join(process.env.SOUND_SHOTS,'song-panel-jukebox.png')});
+    // The pop-up has no song list, only a jukebox logo (Evan, Nov 9 2026: "Remove this section of the pop up window. Instead
+    // their should be a logo to enter the jukebox"); it opens Settings' jukebox and closes the pop-up.
+    assert.equal(await page.locator('.pk-mini-player [data-mini-track], .pk-mini-player [data-mini-theme], .pk-mini-player li').count(), 0, 'no song list in the pop-up');
+    if (process.env.SOUND_SHOTS) await page.screenshot({path:path.join(process.env.SOUND_SHOTS,'song-panel-logo.png')});
+    await page.locator('.pk-mini-player [data-mini-jukebox]').click();
+    await page.waitForSelector('.pk-jukebox-sheet [data-dy-music-track]');
+    assert.equal(await page.locator('.pk-mini-player:visible').count(), 0, 'the jukebox logo closes the pop-up');
+    assert.equal(await page.locator('.pk-jukebox-sheet [data-dy-music-track]').count(), 39, 'and opens the jukebox');
+    await page.locator('.pk-jukebox-sheet [data-dy-music-track="sundress"]').click(); await playing();
+    assert.equal((await state()).track.id, 'sundress', 'a song picked in the jukebox plays');
+    await close();
+    await page.locator('[data-dy-music-menu]').click();
     assert.equal((await state()).volume, 8, 'skip preserves the quiet default');
     assert.equal(await page.locator('.pk-mini-player:visible').count(), 1, 'skip keeps panel open');
     for (const [width,height] of [[320,568],[390,844],[768,1024]]) {
@@ -398,9 +398,8 @@ async function main() {
     assert.equal((await state()).enabled, false, 'skip preserves mute');
     assert.match(await page.evaluate(() => mediaProbes[0].src), part(skipPart), 'skip in a battle moves on to the next battle song in the shuffle');
     assert.equal((await state()).track.id, 'battle');
-    assert.equal(await page.locator('.v-dynasty-battle .pk-mini-player [data-mini-theme]:visible').count(), 6, 'in a battle the pop-up lists the battle themes');
-    assert.equal(await page.locator('.v-dynasty-battle .pk-mini-player [data-mini-track]:visible').count(), 39, 'and the jukebox under them');
-    assert.equal(await page.locator('.v-dynasty-battle .pk-mini-player [data-mini-theme][aria-pressed="true"]').count(), 1, 'the battle theme playing is marked');
+    assert.equal(await page.locator('.v-dynasty-battle .pk-mini-player:visible [data-mini-jukebox]').count(), 1, 'the battle pop-up has the jukebox logo');
+    assert.equal(await page.locator('.v-dynasty-battle .pk-mini-player li').count(), 0, 'and no song list');
     await page.locator('.db-match-title, .rp-top b').click();
     assert.equal(await page.locator('.pk-mini-player:visible').count(), 0, 'outside tap closes panel');
     await battleSound.click(); await playing();

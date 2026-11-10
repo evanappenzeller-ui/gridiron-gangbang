@@ -54,23 +54,22 @@ export function attachMusic(el, isVisible = true, kind = 'hub') {
       chevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>';
       player = document.createElement('section'); player.className = 'pk-mini-player'; player.id = `rivals-player-${volumeId}`;
       player.hidden = true; player.setAttribute('aria-label', 'Song controls');
-      player.innerHTML = '<div class="pk-mini-head"><div class="pk-mini-song"><small data-mini-status></small><b data-mini-title></b><span data-mini-artist></span></div><button type="button" data-dy-music-skip aria-label="Skip song" title="Skip song"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 4v16l11-8zM17 4h3v16h-3z"/></svg></button></div>'
-        + miniListHTML() + '<button type="button" class="pk-mini-more" data-mini-jukebox>Open full jukebox</button>';
+      // (Evan, Nov 9 2026: no song list here, "Instead their should be a logo to enter the jukebox")
+      player.innerHTML = '<div class="pk-mini-song"><small data-mini-status></small><b data-mini-title></b><span data-mini-artist></span></div>'
+        + '<button type="button" class="pk-mini-juke" data-mini-jukebox aria-label="Open the jukebox" title="Jukebox"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21.5V10a8 8 0 0 1 16 0v11.5z" fill="#f2a516"/><path d="M6.2 21.5V10.4a5.8 5.8 0 0 1 11.6 0v11.1z" fill="#e2557a"/><path d="M8.2 13.6v-3a3.8 3.8 0 0 1 7.6 0v3z" fill="#0f2a33"/><circle cx="12" cy="11" r="1.9" fill="#9fe9e6"/><circle cx="12" cy="11" r=".6" fill="#0f2a33"/><rect x="8.2" y="15" width="7.6" height="5.2" rx="1" fill="#0f2a33"/><path d="M9.6 16.8h4.8M9.6 18.5h4.8" stroke="#9fe9e6" stroke-width="1" stroke-linecap="round"/><rect x="3" y="21" width="18" height="1.8" rx=".9" fill="#f2a516"/></svg></button>'
+        + '<button type="button" data-dy-music-skip aria-label="Skip song" title="Skip song"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 4v16l11-8zM17 4h3v16h-3z"/></svg></button>';
       chevron.addEventListener('click', e => {
         e.stopPropagation();
         if (!visible || !rivalsUpdated()) return;
         if (!player.hidden) { closePlayer(); return; }
-        cancelVolume(); player.hidden = false; draw(); showCurrent(player);
+        cancelVolume(); player.hidden = false;
         chevron.setAttribute('aria-expanded', 'true'); chevron.setAttribute('aria-label', 'Hide song controls');
       });
-      // (the pop-up's jukebox: tap a song to play it, as in Settings; the full jukebox edits the rotation)
+      // (the jukebox logo opens Settings' jukebox: pick songs and the rotation there)
       player.addEventListener('click', e => {
         e.stopPropagation();
         if (!visible || !rivalsUpdated()) return;
-        let b;
         if (e.target.closest('[data-dy-music-skip]')) music.skipTrack();
-        else if ((b = e.target.closest('[data-mini-track]'))) music.selectTrack(b.dataset.miniTrack);
-        else if ((b = e.target.closest('[data-mini-theme]'))) music.selectBattleTrack(b.dataset.miniTheme);
         else if (e.target.closest('[data-mini-jukebox]')) { closePlayer(); musicSheet(); }
       });
       button.addEventListener('pointerdown', e => {
@@ -135,7 +134,6 @@ export function attachMusic(el, isVisible = true, kind = 'hub') {
     player.querySelector('[data-mini-artist]').textContent = s.track.artist;
     player.querySelector('[data-mini-status]').textContent = s.empty ? 'NO SONGS ENABLED' : s.playing ? 'NOW PLAYING' : s.loading ? 'LOADING' : 'SELECTED SONG';
     player.querySelector('[data-dy-music-skip]').disabled = !s.supported || s.empty;
-    if (!player.hidden) drawMiniList(player, s);
   };
   const onOutside = e => { if (player && !player.hidden && !player.contains(e.target) && !chevron.contains(e.target)) closePlayer(); };
   const onEscape = e => {
@@ -161,30 +159,6 @@ export function attachMusic(el, isVisible = true, kind = 'hub') {
       el.classList.remove('has-rivals-sound'); transport.stop();
     }
   };
-}
-
-// The song pop-up's jukebox (Evan, Nov 9 2026: "The jukebox should be available to choose from the pop up menu"): every
-// menu song (and, in a battle, the battle themes above them), tap to play, as in Settings' jukebox.
-const miniRow = (attr, t) => `<li><button type="button" ${attr}="${data.esc(t.id)}" aria-pressed="false" aria-label="Play ${data.esc(t.title)} by ${data.esc(t.artist)}"><span><b>${data.esc(t.title)}</b><small>${data.esc(t.artist)}</small></span><i data-mini-state aria-hidden="true"></i></button></li>`;
-function miniListHTML() {
-  return `<div class="pk-mini-list" data-mini-list><h4 data-mini-themes-head>Battle themes</h4><ul aria-label="Battle themes" data-mini-themes>${music.BATTLE_SONGS.map(t => miniRow('data-mini-theme', t)).join('')}</ul>`
-    + `<h4>Jukebox</h4><ul aria-label="Jukebox songs">${music.TRACKS.map(t => miniRow('data-mini-track', t)).join('')}</ul></div>`;
-}
-function drawMiniList(player, s) {
-  const battle = !!s.battle;
-  player.querySelector('[data-mini-themes]').hidden = !battle; player.querySelector('[data-mini-themes-head]').hidden = !battle;
-  player.querySelectorAll('[data-mini-track], [data-mini-theme]').forEach(b => {
-    const id = b.dataset.miniTrack || b.dataset.miniTheme;
-    const on = !s.empty && (b.dataset.miniTrack ? s.track.id === id : s.track.id === music.BATTLE.id && s.track.song === id);
-    b.setAttribute('aria-pressed', String(on)); b.disabled = !s.supported;
-    b.classList.toggle('is-current', on); b.classList.toggle('is-off', s.excluded.includes(id));
-    b.querySelector('[data-mini-state]').textContent = on ? (s.playing ? '♪' : '•') : s.excluded.includes(id) ? 'Off' : '';
-  });
-}
-// Open the pop-up's list at the song that is playing.
-function showCurrent(player) {
-  const list = player.querySelector('[data-mini-list]'), on = list && list.querySelector('.is-current');
-  if (on) list.scrollTop = Math.max(0, on.offsetTop - list.offsetTop - list.clientHeight / 2 + on.offsetHeight / 2);
 }
 
 // The checkbox and play button are siblings: changing the rotation never also plays the row.
