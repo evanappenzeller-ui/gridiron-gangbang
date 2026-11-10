@@ -18,7 +18,7 @@ export function marketHTML(st, face) {
   cards.sort((a, b) => (f.sort === 'low' ? price(a) - price(b) : f.sort === 'high' ? price(b) - price(a) : (b.o || 0) - (a.o || 0)) || a.name.localeCompare(b.name));
   return `<section class="rm-market" aria-label="Card marketplace">
     <div class="rm-intro"><small>THE TRANSFER MARKET</small><h2>Find your next franchise player.</h2><p>Save for a star. Sell cards to build your coin balance.</p><span class="rm-wallet">YOUR COINS <b>${D.unlimitedCoins() ? 'Unlimited' : nf(D.balance(s))}</b></span></div>
-    <div class="rm-tiers"><span>EPIC <b>12K–16K</b></span><span>LEGENDARY <b>60K–90K</b></span><span>MYTHIC <b>750K–1.2M</b></span></div>
+    <div class="rm-tiers"><span>EPIC <b>12K–16K</b></span><span>LEGENDARY <b>60K–90K</b></span><span>MYTHIC <b>450K–750K</b></span></div>
     <p class="rm-explainer">Fixed game-market prices, no waiting for another player. Buy prices and sell offers differ. Quick sell pays 70% of the market’s sell offer.</p>
     <div class="rm-modes" aria-label="Marketplace view">${['buy', 'sell'].map(mode => `<button type="button" data-market-mode="${mode}" aria-pressed="${f.mode === mode}">${mode === 'buy' ? 'Buy cards' : 'Sell my cards'}</button>`).join('')}</div>
     <div class="rm-filters"><label class="rm-search">Find a card<input type="search" data-market-search value="${esc(f.q)}" placeholder="Player, team or position" autocomplete="off"></label>

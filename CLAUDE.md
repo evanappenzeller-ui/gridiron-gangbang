@@ -9,7 +9,8 @@ Marketplace subtab; the standalone Home marketplace button is removed. Everyone 
 can buy specific collectible cards or sell owned copies to fixed game-market offers; these are not peer listings.
 Search, rarity, overall/price sorting and pagination use canonical players and collectible legacy supports only.
 `core/dynasty.js` `marketQuote` prices Epic players at 12,000–16,000, Legendary at 60,000–90,000 and Mythic at
-750,000–1,200,000 coins by OVR (Common 600; supports use their rarity's base). Market sell offers are Common 40,
+450,000–750,000 coins by OVR (Common 600; supports use their rarity's base). Evan capped the most expensive
+card at 750,000: Mythic ratings 96/97/98/99 cost 450,000/550,000/650,000/750,000. Market sell offers are Common 40,
 Epic 300–400, Legendary 900–1,275 and Mythic 3,000–4,500 (raised at Evan’s request later the same day); all quick-sell paths pay 70%, rounded down. Specific-card
 purchase prices carry a large premium over sell offers to keep random-pack resale from becoming a coin farm.
 Seeded pack-resale samples remain below pack purchase prices after the increase; market offers follow rarity and OVR.

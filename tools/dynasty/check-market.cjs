@@ -50,11 +50,12 @@ try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.e
         ok(q.buy > q.sell && q.sell > q.quick, c.id + ': buy > market sale > quick sale');
         ok(q.quick === D.sellValue(c), c.id + ': binder and market quick sell agree');
         if (c.s) {
-          const range = {common:[1,11999],epic:[12000,16000],legendary:[60000,90000],mythic:[750000,1200000]}[c.r];
+          const range = {common:[1,11999],epic:[12000,16000],legendary:[60000,90000],mythic:[450000,750000]}[c.r];
           ok(q.buy >= range[0] && q.buy <= range[1], c.id + ': rarity price band');
         }
         same(D.marketQuote({...c,o:99,r:'mythic'}),q,c.id + ': supplied metadata cannot change quote');
       }
+      ok(Math.max(...[...cards,...D.TRAINER_IDS.map(D.trainer)].map(c => D.marketQuote(c).buy)) === 750000, 'Most expensive collectible costs exactly 750,000 coins');
       ok(D.marketQuote(null) === null && D.marketQuote('missing') === null, 'Unknown cards have no quote');
       passed.push('all player and trainer prices, rarity bands, strict resale spread and authoritative quotes');
 
