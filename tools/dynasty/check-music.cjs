@@ -326,7 +326,10 @@ async function main() {
     for (const u of battleFiles.urls) assert(fs.existsSync(path.join(root, new URL(u).pathname)), 'battle file exists: ' + u);
     // A battle starts the battle playlist at a random spot: with Math.random at .5, the fourth song (CoD4's menu theme,
     // one 132.1 s part) half way through its first 127.1 s, 63.55 s in.
-    const hubAt = await page.evaluate(() => mediaProbes[0].currentTime);
+    // (the menus shuffle, so the song the battle interrupts is whichever one is playing: since Nov 6 a pass never opens
+    // with the saved song, so this is not necessarily Sundress)
+    const hubAt = await page.evaluate(() => mediaProbes[0].currentTime), hubSong = (await state()).track.id;
+    assert.notEqual(hubSong, 'battle');
     await page.evaluate(() => { window.realRandom = Math.random; Math.random = () => .5; });
     // Delay the incoming song longer than its fade: the audible ramp must wait for playback.
     await page.route('**/cod4-menu-v1.mp3', async route => {
@@ -411,20 +414,21 @@ async function main() {
     await page.locator('[data-dy-music-track="battle"]').click(); await playing();
     const mixNow = await page.evaluate(() => ({src: mediaProbes[0].src, at: mediaProbes[0].currentTime}));
     assert(mixNow.src === mixWas.src && mixNow.at >= mixWas.at - .5, 'and the mix comes back where it was: ' + JSON.stringify({mixWas, mixNow}));
-    await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
-    assert(await page.evaluate(() => mediaProbes[0].currentTime) >= hubAt - .5, 'the menu song carries on from where the battle interrupted it');
+    await page.locator(`[data-dy-music-track="${hubSong}"]`).click(); await playing();
+    const menuAt = await page.evaluate(() => ({at: mediaProbes[0].currentTime, src: mediaProbes[0].currentSrc}));
+    assert(menuAt.src.endsWith(`/audio/rivals/${hubSong}-v1.mp3`) && menuAt.at >= hubAt - .5, 'the menu song carries on from where the battle interrupted it: ' + JSON.stringify({hubSong, hubAt, menuAt}));
     await close();
     await watchFade();
     await page.goBack(); await page.waitForSelector('.pk-hdr'); await playing();
     await checkFade();
-    assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /\/audio\/rivals\/sundress-v1\.mp3$/, 'the menus play the picked song');
+    assert(String(await page.evaluate(() => mediaProbes[0].currentSrc)).endsWith(`/audio/rivals/${hubSong}-v1.mp3`), 'the menus play the picked song');
     // Leave a fresh battle while its mix is still fading. Home gets its own full fade.
     await nav('/puzzles/dynasty/battle/' + mid); await playing();
     assert.equal((await state()).track.id, 'battle');
     await watchFade();
     await page.goBack(); await page.waitForSelector('.pk-hdr'); await playing();
     await checkFade();
-    assert.equal((await state()).track.id, 'sundress');
+    assert.equal((await state()).track.id, hubSong);
     console.log('PASS: delayed battle music and both same-song and mix-to-Home returns fade up during playback');
     console.log('PASS: battle jukebox: pick a song, back to the mix, menu song resumes');
     assert.equal(await page.evaluate(() => audioProbes.length), 1, 'hub/battle/back share transport');
@@ -457,6 +461,7 @@ async function main() {
       const p = await ctx.newPage(), downloads = [];
       p.on('request', r => { if (/\.mp3$/.test(r.url())) downloads.push(r.url()); });
       await p.goto(url+'/#/puzzles'); await p.waitForFunction(() => window.__ggBooted);
+      await p.evaluate(async () => { const D = await import('/js/core/dynasty.js'); await D.load(); D.finishTutorial('skipped', (await import('/js/core/realm-active.js')).profileKey()); });
       await p.evaluate(async () => (await import('/js/app.js')).nav('/puzzles/dynasty'));
       if (await p.locator('.pk-start').count()) { await p.waitForSelector('.pk-start.is-ready'); await p.locator('.pk-start').click({position:{x:170,y:420}}); await p.locator('.pk-hdr [data-dy-menu]').click(); }
       assert.equal(await p.locator('[data-dy-m="music"], .pk-music, [data-dy-sound]').count(), 0);
@@ -503,6 +508,7 @@ async function main() {
       }, mode);
       const p = await ctx.newPage(), failures = []; p.on('pageerror', e => failures.push(String(e)));
       await p.goto(url+'/#/puzzles'); await p.waitForFunction(() => window.__ggBooted);
+      await p.evaluate(async () => { const D = await import('/js/core/dynasty.js'); await D.load(); D.finishTutorial('skipped', (await import('/js/core/realm-active.js')).profileKey()); });
       await p.evaluate(async () => (await import('/js/app.js')).nav('/puzzles/dynasty'));
       await p.waitForSelector('.pk-start.is-ready'); await p.locator('.pk-start').click({position:{x:170,y:420}});
       await p.locator('.pk-hdr [data-dy-menu]').click(); await p.locator('[data-dy-m="music"]').click();
