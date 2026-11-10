@@ -418,8 +418,10 @@ const localMap = () => (standIn() ? readStore() : {});
 //    "questions": {"2026-w2": [{by: 'mason', q: '…'}]}} the questions the league chat asked that week's loser, by
 //                                                         week, so they stay with the week whichever video it shows;
 //                                                         an optional note (<= NOTE_MAX) goes under a question
+//    "noShows": [{key: '2026-w7', who: 'corbin'}]}      a Matchup of the Week loser who never faced the media: an
+//                                                         empty slot in the archive until that week's presser arrives
 
-const SEED = {docs: [], motw: Object.create(null), qs: Object.create(null), settled: false, p: null, error: null};
+const SEED = {docs: [], motw: Object.create(null), qs: Object.create(null), noShows: [], settled: false, p: null, error: null};
 export const Q_MAX = 500, NOTE_MAX = 80;
 const oneLine = (s, max) => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim().slice(0, max).trim() : '');
 // The seed's questions -> {weekKey: [{by, q, note?}]} (a bad week, an unknown asker or an empty question is skipped;
@@ -561,6 +563,25 @@ export function seedMotw(list) {
   });
   return out;
 }
+// The seed's noShows list -> [{key, year, week, who}] (a bad key, an unknown manager or a repeated week is skipped).
+export function seedNoShows(list) {
+  const seen = new Set();
+  return (Array.isArray(list) ? list : []).map(n => {
+    const P = n && week.parseKey(n.key);
+    if (!P || P.week > MAX_WEEK || typeof n.who !== 'string' || !data.M[n.who]) return null;
+    const key = week.weekKey(P.year, P.week);
+    if (seen.has(key)) return null;
+    seen.add(key);
+    return {key, year: P.year, week: P.week, who: n.who};
+  }).filter(Boolean);
+}
+/** The weeks whose loser never faced the media (the seed's noShows), newest first; a week that has a presser now
+ *  (`have`: a Set or object of week keys) is left out. [{key, year, week, who, ctx}] */
+export function noShows(have) {
+  if (noSeed) return [];
+  const has = k => (have instanceof Set ? have.has(k) : !!(have && have[k]));
+  return SEED.noShows.filter(n => !has(n.key)).map(n => Object.assign({}, n, {ctx: context(n.year, n.week, n.who)})).sort((a, b) => b.year - a.year || b.week - a.week);
+}
 let noSeed = false;
 if (DEV_OK) { try { noSeed = sessionStorage.getItem('gg-dev-press-noseed') === '1'; } catch (_) {} }
 
@@ -575,10 +596,11 @@ export function loadSeed(force = false) {
       SEED.docs = j.pressers.filter(d => d && typeof d === 'object');
       SEED.motw = seedMotw(j.motw);
       SEED.qs = seedQuestions(j.questions);
+      SEED.noShows = seedNoShows(j.noShows);
       SEED.error = null;
     } catch (e) {
       SEED.error = e;
-      if (!SEED.settled) { SEED.docs = []; SEED.motw = Object.create(null); SEED.qs = Object.create(null); }
+      if (!SEED.settled) { SEED.docs = []; SEED.motw = Object.create(null); SEED.qs = Object.create(null); SEED.noShows = []; }
     }
     SEED.settled = true;
     if (SEED.p === p) { invalidate(); emitAll(); }

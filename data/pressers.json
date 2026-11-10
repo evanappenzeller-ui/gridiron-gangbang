@@ -6,6 +6,9 @@
   {"key": "2026-w6", "vid": "EyO4zroJF5s", "who": "dresden", "title": "", "tall": false},
   {"key": "2026-w8", "vid": "fPHPc8ZuyuI", "who": "jayton", "title": "", "tall": true}
 ],
+"noShows": [
+  {"key": "2026-w7", "who": "corbin"}
+],
 "motw": [
   {"key": "2026-w2", "a": "john", "b": "jackson"},
   {"key": "2026-w3", "a": "jaymin", "b": "ben"}

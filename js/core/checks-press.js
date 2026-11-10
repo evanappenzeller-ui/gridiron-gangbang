@@ -275,7 +275,7 @@ export async function pressChecks(check) {
     const j = await res.json();
     const list = j && j.pressers;
     if (!Array.isArray(list)) return {pass: false, detail: 'no "pressers" list'};
-    if (Object.keys(j).some(k => !['pressers', 'motw', 'questions'].includes(k))) return {pass: false, detail: 'unknown top-level key'};
+    if (Object.keys(j).some(k => !['pressers', 'motw', 'questions', 'noShows'].includes(k))) return {pass: false, detail: 'unknown top-level key'};
     const allowed = new Set(['key', 'vid', 'who', 'title', 'tall']);
     const bad = [], seen = new Set();
     // Matchups of the Week picked in the chat: two different managers who played each other that week (once the
@@ -292,6 +292,22 @@ export async function pressChecks(check) {
         : mseen.has(m.key) ? 'duplicate week' : '';
       if (P) mseen.add(m.key);
       if (why) bad.push(`motw #${i} ${why}`);
+    });
+    // No-shows (Nov 10 2026, Evan: "Add an empty slot for Corbin's no show"): {key, who}, a manager who lost that
+    // week (once the week is in the data), one entry per week.
+    const ns = j.noShows == null ? [] : j.noShows;
+    const nseen = new Set();
+    if (!Array.isArray(ns)) bad.push('"noShows" is not a list');
+    else ns.forEach((n, i) => {
+      const P = n && week.parseKey(n.key);
+      const one = P ? press.seedNoShows([n])[0] : null;
+      const c = one ? press.context(P.year, P.week, n.who) : null;
+      const why = !n || typeof n !== 'object' || Object.keys(n).some(k => !['key', 'who'].includes(k)) ? 'bad entry'
+        : !one || one.key !== n.key ? 'bad key or manager'
+        : P.week <= data.throughWeek(P.year) && !(c && c.lost) ? `${n.who} didn't lose in week ${P.week}`
+        : nseen.has(n.key) ? 'duplicate week' : '';
+      if (P) nseen.add(n.key);
+      if (why) bad.push(`noShows #${i} ${why}`);
     });
     // The chat's questions: {weekKey: [{by, q, note?}]}, every entry kept as written (a manager asking, one clean
     // paragraph, an optional one-line note).

@@ -66,6 +66,16 @@ Verify `check-pocket-battle-flow.cjs` (optional `--shots`), Pocket presentation/
 rules/integration, CPU pacing, tutorial/browser (also `--phone`), legacy table,
 title-screen, rollout, preview/access and stylesheet scope in `tools/dynasty`.
 
+## Press Room no-show slots (November 10, 2026)
+
+Evan, with a screenshot of the archive: "Add an empty slot for Corbin's no show." `data/pressers.json` `noShows`
+(`[{key, who}]`, parsed by `core/press.js` `seedNoShows`, read through `noShows(byKey)`) lists Matchup of the Week losers
+who never faced the media; Corbin, 2026 week 7 (lost 114.28–124.42 to Dresden, the week's MOTW vote). `views/press.js`
+`archHTML` slots each into its season by week as a non-interactive row (`noShowHTML`): a dashed vacant thumbnail with a
+struck-through mic and NO SHOW, a greyed avatar, "Lost … · Did not attend"; the season header counts it apart
+("6 press conferences · 1 no-show"). Everyone sees it. The slot disappears once that week has a presser (seeded or
+posted). The seed-file kit check validates `noShows` (fields, a real loss that week, one per week).
+
 ## Press Room vacancy (November 9, 2026)
 
 Evan reported two vacant weeks and Corbin missing his presser. On Evan's profile only (`data.isOwner()`),

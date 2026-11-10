@@ -926,19 +926,33 @@ function promptHTML(s, v) {
     + `<span class="pr-miss-tx" aria-hidden="true"><span class="ovl pr-miss-o">Week ${m.week}</span><span class="pr-miss-t">${esc(title)}</span><span class="pr-miss-s">${esc(sub)}</span></span>`
     + `<span class="pr-miss-go" aria-hidden="true">${ui.icon('plus')}<span>Post</span></span></button>`;
 }
+// An empty archive slot for a Matchup of the Week loser who never faced the media (the seed's noShows): a vacant
+// thumbnail, no video, nothing to play. It goes once that week has a presser.
+function noShowHTML(n, me) {
+  const sub = [cap1(contextText(n, {week: false})) || '', 'Did not attend'].filter(Boolean).join(' · ');
+  const th = `<span class="c-press-th pr-row-th pr-noshow-th" aria-hidden="true"><span class="pr-noshow-ic">${ui.icon('mic')}</span><span class="pr-noshow-tag">No show</span></span>`;
+  return ui.row({lead: th, title: `Week ${n.week} · ${nm(n.who)}`, sub,
+    trail: `<span class="pr-noshow-av">${ui.avatar(n.who, {size: 28, you: n.who === me})}</span>`, key: 'noshow-' + n.key, cls: 'pr-row pr-noshow'});
+}
 function archHTML(v) {
   const years = [];
   const at = new Map();
-  v.list.forEach(p => {
-    let g = at.get(p.year);
-    if (!g) { g = {year: p.year, items: []}; at.set(p.year, g); years.push(g); }
-    g.items.push(p);
-  });
+  const add = (year, item) => {
+    let g = at.get(year);
+    if (!g) { g = {year, items: [], n: 0, miss: 0}; at.set(year, g); years.push(g); }
+    g.items.push(item);
+  };
+  v.list.forEach(p => add(p.year, {p}));
+  press.noShows(v.byKey).forEach(n => add(n.year, {n}));
   years.sort((a, b) => b.year - a.year);
   const fk = v.feat ? v.feat.key : null;
   const me = data.me();
+  const wk = it => (it.p || it.n).week;
   const groups = years.map((g, i) => {
-    const rows = g.items.map(p => {
+    g.items.sort((a, b) => wk(b) - wk(a));
+    const rows = g.items.map(({p, n}) => {
+      if (n) { g.miss++; return noShowHTML(n, me); }
+      g.n++;
       const nq = press.questionsFor(p.key).length;
       const sub = [capOf(p) || cap1(contextText(p, {week: false})) || '', nq ? `${nq}\u00a0question${nq === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
       const on = p.key === fk;
@@ -946,8 +960,8 @@ function archHTML(v) {
         trail: ui.avatar(p.who, {size: 28, you: p.who === me}), selected: on, key: p.key, cls: 'pr-row',
         attrs: {'data-pr-key': p.key, 'aria-label': `${presserName(p)}${capOf(p) ? ': ' + capOf(p) : ''}. ${on ? 'Showing above. Play' : 'Play'}`}});
     }).join('');
-    const n = g.items.length;
-    return `<div class="group-wrap"${i < 2 ? ' data-enter' : ''}><h3 class="group-h">${esc(`${g.year} season · ${n} ${n === 1 ? 'press conference' : 'press conferences'}`)}</h3>${ui.group(rows, {cls: 'pr-arch-g'})}</div>`;
+    const n = g.n, head = `${g.year} season · ${n} ${n === 1 ? 'press conference' : 'press conferences'}` + (g.miss ? ` · ${g.miss}\u00a0no\u2011show${g.miss === 1 ? '' : 's'}` : '');
+    return `<div class="group-wrap"${i < 2 ? ' data-enter' : ''}><h3 class="group-h">${esc(head)}</h3>${ui.group(rows, {cls: 'pr-arch-g'})}</div>`;
   }).join('');
   return `<h2 class="t-2 pr-h">Archive</h2>${groups}`;
 }

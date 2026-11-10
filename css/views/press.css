@@ -295,6 +295,15 @@ html.rm .c-press-ifr, html.rm .c-press-btn { transition: none; }
 .v-press .pr-row .row-trail { margin-left: 10px; }
 .v-press .pr-row-th { width: 88px; border-radius: 7px; }
 .v-press .pr-row.is-selected .pr-row-th { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3.5px var(--tint); }
+/* An empty slot for a no-show (seed noShows): a vacant, dashed thumbnail with a struck-through mic; nothing plays. */
+.v-press .pr-noshow { cursor: default; }
+.v-press .pr-noshow .row-title { color: var(--ink-2); }
+.v-press .pr-noshow-th { display: grid; place-items: center; align-content: center; gap: 2px; background: repeating-linear-gradient(135deg, #15161a 0 6px, #111215 6px 12px); box-shadow: inset 0 0 0 1.5px rgba(214,188,137,.45); outline: 1px dashed rgba(214,188,137,.55); outline-offset: -5px; }
+.v-press .pr-noshow-ic { position: relative; display: grid; place-items: center; color: #8d7a58; }
+.v-press .pr-noshow-ic > .ic { width: 16px; height: 16px; }
+.v-press .pr-noshow-ic::after { content: ''; position: absolute; left: -3px; right: -3px; top: 50%; height: 1.5px; background: #c9604f; transform: rotate(-40deg); border-radius: 1px; }
+.v-press .pr-noshow-tag { color: #d6bc89; font: 800 8.5px/1 var(--font-text); letter-spacing: 1.1px; text-transform: uppercase; }
+.v-press .pr-noshow-av { display: inline-flex; opacity: .45; filter: grayscale(1); }
 .v-press .pr-arch-g > .row + .row > .row-main::before { left: 0; }
 
 /* How to post, and the test-mode note */
