@@ -765,6 +765,76 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 
 .pk-sheet .pk-sfx { display: grid; gap: 12px; padding: 16px 4px 4px; border-top: 1px solid var(--separator, #d6dce2); }
 .pk-sheet .pk-sfx h3, .pk-sheet .pk-sfx .pk-note { margin: 0; }
+/* Stereo chrome, blue song panels and gold selection, scoped to the Rivals jukebox. */
+.sheet.pk-sheet.pk-jukebox-sheet { --ink: #f2f5ff; --ink-2: #b6c6e6; --tint: #ffdb66; --on-tint: #121a38; --surface-2: #172646; --separator: #506184; background: #0b1329; color: var(--ink); }
+.pk-sheet.pk-jukebox-sheet .sheet-body { padding: 0 14px max(16px, var(--sa-b)); }
+.pk-sheet.pk-jukebox-sheet .sheet-head { border-bottom: 1px solid #7c8ba34d; }
+.pk-sheet.pk-jukebox-sheet .sheet-close { background: #223252; color: #fff; }
+.pk-sheet.pk-jukebox-sheet .pk-note { color: #b6c6e6; font-size: 11px; line-height: 1.4; }
+.pk-sheet.pk-jukebox-sheet button:focus-visible, .pk-sheet.pk-jukebox-sheet summary:focus-visible { outline: 2px solid #ffdb66; outline-offset: 3px; }
+.pk-sheet.pk-jukebox-sheet .pk-music { gap: 9px; padding: 10px 0 14px; }
+.pk-sheet .pk-juke-brand { display: flex; align-items: center; justify-content: center; gap: 22px; padding: 0 0 6px; text-align: center; }
+.pk-sheet .pk-juke-brand small { display: block; color: #b6c6e6; font-size: 9px; font-weight: 800; letter-spacing: .2em; }
+.pk-sheet .pk-juke-brand h3 { margin: 1px 0 0; color: #ffdb66; font: 950 26px/1.1 var(--font-text); letter-spacing: .07em; text-shadow: 0 2px #77581a; }
+.pk-sheet .pk-juke-speaker { width: 43px; height: 43px; flex: none; border-radius: 50%; border: 2px solid #a3adbb; background: radial-gradient(circle, #344052 0 22%, #131b2b 24% 29%, #586476 31% 48%, #242c3c 50% 57%, #8794a6 59% 64%, #232a3a 66%); box-shadow: 0 2px 5px #000a; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-now { justify-content: space-between; min-height: 78px; padding: 12px 16px; border-block: 1px solid #7898ce; border-radius: 0; background: radial-gradient(ellipse at 20% 110%, #245bb8, transparent 75%), linear-gradient(110deg, #182253, #11102a); }
+.pk-sheet .pk-juke-now > div { min-width: 0; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-now h3 { color: #ffdf70; font-size: 21px; line-height: 1.15; overflow-wrap: anywhere; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-now p { color: #d3def2; font-size: 12px; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-now small { color: #d3def2; font-size: 9px; letter-spacing: .14em; }
+.pk-sheet .pk-juke-eq { display: flex; align-items: end; justify-content: center; gap: 3px; flex: none; height: 28px; width: 34px; }
+.pk-sheet .pk-juke-eq i { width: 4px; height: 100%; background: #ffdb66; transform-origin: bottom; transform: scaleY(.22); }
+.pk-sheet .is-playing .pk-juke-eq i { animation: pk-juke-meter .9s ease-in-out infinite alternate; }
+.pk-sheet .pk-juke-eq i:nth-child(2) { animation-delay: -.4s; height: 65%; }
+.pk-sheet .pk-juke-eq i:nth-child(3) { animation-delay: -.7s; height: 85%; }
+.pk-sheet .pk-juke-eq i:nth-child(4) { animation-delay: -.2s; height: 55%; }
+.pk-sheet .pk-juke-eq i:nth-child(5) { animation-delay: -.6s; height: 75%; }
+@keyframes pk-juke-meter { to { transform: scaleY(1); } }
+.pk-sheet.pk-jukebox-sheet .pk-juke-controls { grid-template-columns: 1fr 1.4fr 1fr; gap: 8px; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-controls > button { padding: 8px 4px; border: 1px solid #506184; border-radius: 6px; background: #172646; color: #e4ecfb; font-size: 12px; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-controls > button[data-dy-music-toggle] { border-color: #ffdb66; background: linear-gradient(#ffe690, #e7b63c); color: #121a38; }
+.pk-sheet.pk-jukebox-sheet .pk-music-volume { row-gap: 0; font-size: 11px; }
+.pk-sheet.pk-jukebox-sheet .pk-music-volume input { min-height: 32px; margin: 0; }
+.pk-sheet.pk-jukebox-sheet .pk-music-volume output { color: #ffdf70; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-heading { margin-bottom: 0; padding-top: 4px; }
+.pk-sheet .pk-juke-heading div h3 { margin: 0 0 2px; font-size: 16px; }
+.pk-sheet .pk-juke-heading div span { color: #b6c6e6; font-size: 11px; }
+.pk-sheet .pk-juke-heading .pk-juke-mode { color: #ffdf70; font-weight: 800; font-size: 9px; letter-spacing: .12em; border: 1px solid #786b44; border-radius: 4px; padding: 6px 8px; }
+.pk-sheet .pk-juke-tools { display: flex; align-items: center; gap: 4px; margin: 2px 0 4px; }
+.pk-sheet .pk-juke-tools p { flex: 1; margin: 0; color: #b6c6e6; font-size: 10px; }
+.pk-sheet .pk-juke .pk-juke-tools button { display: block; width: auto; min-width: 44px; min-height: 44px; padding: 6px; color: #ffdf70; background: transparent; border: 0; font-size: 11px; text-decoration: underline; text-underline-offset: 3px; }
+.pk-sheet.pk-jukebox-sheet .pk-juke ul { padding: 3px; gap: 8px; max-height: clamp(166px, 28vh, 260px); scrollbar-width: thin; scrollbar-color: #b8a16a #131d36; }
+.pk-sheet .pk-juke-row { display: flex; align-items: stretch; min-width: 0; border: 1px solid #6b7b9c; border-radius: 5px; background: linear-gradient(165deg, #222354 0%, #091120 40%, #142654 100%); box-shadow: inset 0 1px #ffffff24; }
+.pk-sheet .pk-juke-row.is-current { border-color: #ffda62; box-shadow: 0 0 0 1px #ffda6266, inset 0 0 20px #daa94b16; }
+.pk-sheet .pk-juke-check { position: relative; display: grid; place-items: center; width: 44px; min-height: 78px; flex: none; cursor: pointer; }
+.pk-sheet .pk-juke-check input { position: absolute; opacity: 0; width: 24px; height: 24px; margin: 0; }
+.pk-sheet .pk-juke-check > span { display: grid; place-items: center; width: 20px; height: 20px; border: 2px solid #8291ac; border-radius: 3px; background: #101a30; }
+.pk-sheet .pk-juke-check input:checked + span { border-color: #ffe697; background: #ffda62; box-shadow: 0 0 9px #ffce4566; }
+.pk-sheet .pk-juke-check input:checked + span::after { content: '✓'; color: #19213b; font: 900 15px/1 var(--font-text); }
+.pk-sheet .pk-juke-check input:focus-visible + span { outline: 2px solid #fff; outline-offset: 4px; }
+.pk-sheet .pk-juke-row > button { gap: 10px; flex: 1; min-width: 0; min-height: 78px; width: auto; padding: 8px 8px 8px 2px; border: 0; border-radius: 3px; color: #ffdf70; background: transparent; }
+.pk-sheet .pk-juke-info { flex: 1; min-width: 0; }
+.pk-sheet .pk-juke-info b, .pk-sheet .pk-juke-info small { overflow-wrap: anywhere; }
+.pk-sheet .pk-juke-info b { font-size: 14px; line-height: 1.2; }
+.pk-sheet .pk-juke button .pk-juke-info small { margin: 0 0 4px; color: #d3def2; font-size: 10px; line-height: 1.3; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-selected { display: block; margin: 5px 0 0; font-size: 9px; font-weight: 600; color: #aebdd8; }
+.pk-sheet.pk-jukebox-sheet .is-current .pk-juke-selected { color: #ffdf70; }
+.pk-sheet .is-excluded .pk-juke-info b { color: #b6c6e6; }
+.pk-sheet .is-excluded .pk-juke-cover { opacity: .45; }
+.pk-sheet .pk-juke-cover { display: flex; flex-direction: column; justify-content: space-between; align-items: center; flex: none; width: 56px; height: 58px; padding: 5px; border: 1px solid #c4d0e659; background: radial-gradient(circle at 25% 20%, hsl(var(--cover-hue) 70% 58% / .6), transparent 65%), repeating-linear-gradient(135deg, transparent 0 7px, #fff1 8px 9px), #0b1632; }
+.pk-sheet .pk-juke-cover span { color: #e5edff; font-size: 6px; font-weight: 800; letter-spacing: .13em; }
+.pk-sheet .pk-juke-cover i { color: #f5d887; font: normal 23px/1 var(--font-text); }
+.pk-sheet .pk-juke-battle { margin-top: 10px; border-top: 1px solid #506184; }
+.pk-sheet .pk-juke-battle summary { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.pk-sheet .pk-juke-battle summary::before { content: '›'; color: #ffdf70; }
+.pk-sheet .pk-juke-battle[open] summary::before { transform: rotate(90deg); }
+.pk-sheet .pk-juke-battle summary span { margin-left: auto; color: #b6c6e6; font-size: 11px; }
+.pk-sheet .pk-juke-battle [data-dy-music-track] { flex: 1; text-align: left; }
+.pk-sheet .pk-juke-battle [data-dy-track-state] { display: none; }
+.pk-sheet.pk-jukebox-sheet .pk-sfx { padding-inline: 0; }
+.pk-sheet.pk-jukebox-sheet .pk-sfx h3 { font-size: 15px; }
+.pk-sheet.pk-jukebox-sheet button:disabled { opacity: .5; }
+@media (prefers-reduced-motion: reduce) { .pk-sheet .is-playing .pk-juke-eq i { animation: none; transform: scaleY(.65); } }
 /* Corner sound control shares the jukebox preference and stays clear of navigation. */
 :where(.v-dynasty, .v-dynasty-battle) .pk-sound {
   position: absolute; z-index: 35; right: max(12px, var(--sa-r, 0px));

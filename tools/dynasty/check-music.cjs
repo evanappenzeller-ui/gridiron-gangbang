@@ -406,7 +406,9 @@ async function main() {
     assert.equal(await page.locator('[data-dy-music-track]').count(), 40, 'the battle jukebox (the playlist, then the 39 songs) heads with the battle playlist');
     assert.equal(await page.locator('[data-dy-music-track="battle"][aria-pressed="true"]').count(), 1);
     assert(['Pause Menu', 'Green Hill Zone', 'Multiplayer Menu', 'Main Menu Theme', 'OG Main Menu', 'NFL Primetime'].includes(await page.locator('[data-dy-music-title]').innerText()), 'Settings names the battle song that plays');
-    assert.match(await page.locator('[data-dy-music-track="battle"]').innerText(), /Battle playlist[\s\S]*Game menu themes · 6 songs/);
+    await page.locator('.pk-juke-battle summary').click();
+    assert.equal(await page.locator('[data-dy-battle-track]').count(), 6, 'each battle theme has its own play button and checkbox');
+    assert.match(await page.locator('[data-dy-music-track="battle"]').innerText(), /Use battle shuffle/);
     await page.waitForTimeout(800); await page.screenshot({path: path.join(root, 'output/rivals-music/battle-settings-390.png')});
     const mixWas = await page.evaluate(() => ({src: mediaProbes[0].src, at: mediaProbes[0].currentTime}));
     await page.locator('[data-dy-music-track="troy"]').click(); await playing();
@@ -435,7 +437,7 @@ async function main() {
     await nav('/puzzles'); await silent();
     assert.equal((await state()).playing, false);
     await nav('/puzzles/dynasty');
-    if (await page.locator('.pk-start').count()) await page.locator('.pk-start').click({position: {x: 170, y: 420}});
+    await page.waitForSelector('.pk-start.is-ready'); await page.locator('.pk-start').click({position: {x: 170, y: 420}});
     await settings(); await playing();
     await page.evaluate(async () => (await import('/js/core/data.js')).setGuest('Ryan Stewart'));
     await silent(); await page.waitForFunction(() => !document.querySelector('[data-dy-music-toggle]'));

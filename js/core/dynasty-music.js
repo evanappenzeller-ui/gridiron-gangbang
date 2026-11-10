@@ -85,9 +85,14 @@ const PIECES = BATTLE_SONGS.flatMap((s, song) => s.parts.map((p, n) => Object.fr
 const pieceOf = (song, n) => PIECES.findIndex(p => p.song === song && p.n === n);
 const partOf = key => key.startsWith('battle:') ? Number(key.slice(7)) : -1;
 const indexOf = id => TRACKS.findIndex(t => t.id === id);
+let excluded = new Set();
+const songPool = () => TRACKS.flatMap((t, i) => excluded.has(t.id) ? [] : [i]);
+const battlePool = () => BATTLE_SONGS.flatMap((t, i) => excluded.has(t.id) ? [] : [i]);
 // A battle's start: a song, one of its parts, and a moment in it (not its last few seconds).
 function randomSpot() {
-  const song = Math.floor(Math.random() * BATTLE_SONGS.length), list = BATTLE_SONGS[song].parts;
+  const pool = battlePool();
+  if (!pool.length) return {part: 0, at: 0};
+  const song = pool[Math.floor(Math.random() * pool.length)], list = BATTLE_SONGS[song].parts;
   const n = Math.floor(Math.random() * list.length);
   return {part: pieceOf(song, n), at: Math.random() * Math.max(0, list[n].seconds - 5)};
 }
@@ -108,26 +113,31 @@ function readHeard() {
   try { const saved = JSON.parse(localStorage.getItem(HEARD_KEY())); heard = {songs: list(saved?.songs), parts: list(saved?.parts)}; }
   catch (_) { heard = {songs: [], parts: []}; }
 }
-// A new order of 0…n-1. `first` leads it when given (a picked song, or the part a battle starts in); otherwise it never
-// opens with `last`. Never an order in this profile's recent history. With a stubbed Math.random it falls back to turning
-// the order round until it is new.
-function playThrough(list, n, first = -1, last = -1) {
+// A shuffled pass through the enabled indexes. `first` leads when given; otherwise it avoids `last`.
+// Avoid recent orders while alternatives exist. With a stubbed Math.random, rotate the order to find a fresh pass.
+function playThrough(list, pool, first = -1, last = -1) {
+  const n = pool.length;
+  if (!n) return [];
+  if (!pool.includes(first)) first = -1;
   const seen = new Set(heard[list]);
-  const fits = order => !seen.has(order.join('.')) && (first >= 0 || n < 3 || order[0] !== last);
+  const leads = order => first >= 0 || n < 2 || order[0] !== last;
+  const fits = order => !seen.has(order.join('.')) && leads(order);
   const lead = first >= 0 ? [first] : [];
   let order = null;
   for (let tries = 0; tries < 32 && !order; tries++) {
-    const rest = [...Array(n).keys()].filter(i => i !== first);
+    const rest = pool.filter(i => i !== first);
     for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
     if (fits([...lead, ...rest])) order = [...lead, ...rest];
   }
   if (!order) {
-    const rest = [...Array(n).keys()].filter(i => i !== first);
+    const rest = pool.filter(i => i !== first);
     for (let turn = 1; turn <= rest.length && !order; turn++) {
       const next = [...lead, ...rest.slice(turn), ...rest.slice(0, turn)];
       if (fits(next)) order = next;
     }
+    // Small playlists eventually exhaust their possible orders. Still avoid an immediate repeat.
     order ||= [...lead, ...rest];
+    if (!leads(order)) [order[0], order[1]] = [order[1], order[0]];
   }
   heard[list] = [...heard[list], order.join('.')].slice(-HEARD);
   if (rivalsUpdated()) { try { localStorage.setItem(HEARD_KEY(), JSON.stringify(heard)); } catch (_) {} }
@@ -135,8 +145,8 @@ function playThrough(list, n, first = -1, last = -1) {
 }
 // A new pass through the jukebox, from `first` or else not from the song that just played.
 function shuffleSongs(first = -1) {
-  songs = {order: playThrough('songs', TRACKS.length, first, indexOf(selected)), at: 0};
-  selected = TRACKS[songs.order[0]].id;
+  songs = {order: playThrough('songs', songPool(), first, indexOf(selected)), at: 0};
+  if (songs.order.length) selected = TRACKS[songs.order[0]].id;
 }
 function nextSong() {
   if (++songs.at >= songs.order.length) shuffleSongs(); else selected = TRACKS[songs.order[songs.at]].id;
@@ -146,11 +156,12 @@ function shuffleParts(start) {
   const {song, n} = PIECES[start];
   cursor = BATTLE_SONGS.map(s => Math.floor(Math.random() * s.parts.length));
   cursor[song] = (n + 1) % BATTLE_SONGS[song].parts.length;
-  parts = {order: playThrough('parts', BATTLE_SONGS.length, song), at: 0};
+  parts = {order: playThrough('parts', battlePool(), song), at: 0};
 }
 // The next battle song in the shuffle, at its next part.
 function nextPart() {
-  if (++parts.at >= parts.order.length) parts = {order: playThrough('parts', BATTLE_SONGS.length, -1, parts.order[parts.order.length - 1]), at: 0};
+  if (++parts.at >= parts.order.length) parts = {order: playThrough('parts', battlePool(), -1, parts.order[parts.order.length - 1]), at: 0};
+  if (!parts.order.length) return spot.part;
   const song = parts.order[parts.at], n = cursor[song];
   cursor[song] = (n + 1) % BATTLE_SONGS[song].parts.length;
   return pieceOf(song, n);
@@ -178,13 +189,14 @@ let preferenceKey;
 // The saved on/off and level. The saved track is the song last played, which a new shuffle never opens with.
 function read() {
   preferenceKey = KEY();
-  enabled = true; volume = DEFAULT_MUSIC_VOLUME;
+  enabled = true; volume = DEFAULT_MUSIC_VOLUME; excluded = new Set();
   let last = '';
   try {
     const saved = JSON.parse(localStorage.getItem(KEY()));
     if (typeof saved?.enabled === 'boolean') enabled = saved.enabled;
     if (typeof saved?.volume === 'number' && Number.isFinite(saved.volume)) volume = Math.max(0, Math.min(100, Math.round(saved.volume)));
     if (TRACKS.some(t => t.id === saved?.track)) last = saved.track;
+    if (Array.isArray(saved?.excluded)) excluded = new Set(saved.excluded.filter(id => [...TRACKS, ...BATTLE_SONGS].some(t => t.id === id)));
   } catch (_) {}
   return last;
 }
@@ -196,16 +208,17 @@ function begin() {
 }
 begin();
 const visible = () => [...clients].some(c => c.visible);
-const wanted = () => rivalsUpdated() && visible() && !document.hidden && !away && started && enabled && volume > 0;
+const wanted = () => rivalsUpdated() && visible() && !document.hidden && !away && started && enabled && volume > 0 && !empty();
 const notify = () => { updateSystem(); listeners.forEach(fn => fn()); };
 const playingMix = () => shown === 'battle' && !ownSong;
+const empty = () => !(playingMix() ? battlePool() : songPool()).length;
 // The music's gain for the loaded source: slider × MUSIC_LEVEL × the track's loudness level.
 const outputLevel = () => volume / 100 * MUSIC_LEVEL * (partOf(loaded) >= 0 ? BATTLE.level : (TRACKS.find(t => t.id === loaded) || track()).level);
 export function state() {
   if (preferenceKey !== KEY()) begin();
   const here = Number.isFinite(media?.currentTime) ? media.currentTime : 0;
   const length = Number.isFinite(media?.duration) ? media.duration : 0;
-  return {enabled, volume, track: playingMix() ? battleNow() : track(), battle: shown === 'battle', position: here, duration: length,
+  return {enabled, volume, excluded: [...excluded], empty: empty(), track: playingMix() ? battleNow() : track(), battle: shown === 'battle', position: here, duration: length,
     playing: !!media && !media.paused && media.readyState >= 3 && audio?.state === 'running',
     loading: !!pending, supported: !!(globalThis.AudioContext || globalThis.webkitAudioContext), failure};
 }
@@ -249,14 +262,18 @@ function updateSystem() {
 function desired() {
   if (playingMix()) return {key: 'battle:' + spot.part, url: PIECES[spot.part].url, loop: false, at: spot.at};
   const t = track();
-  return {key: t.id, url: t.url, loop: TRACKS.length < 2, at: resume[t.id] || 0};
+  return {key: t.id, url: t.url, loop: songPool().length === 1, at: resume[t.id] || 0};
 }
 // Point the media element at it. A new source cancels any pending play without suspending the context, so the next
 // battle part can follow the last one without a fresh tap; sync() then plays it if music is wanted.
 function load(force = false) {
-  if (!media) return;
+  if (!media || empty()) return;
   const next = desired();
-  if (next.key === loaded) { if (force) jump(next.at); updateMetadata(); return; }
+  if (next.key === loaded) {
+    media.loop = next.loop;
+    if (force) { if (media.error) media.load(); jump(next.at); }
+    updateMetadata(); return;
+  }
   const was = partOf(loaded), here = Number.isFinite(media.currentTime) ? media.currentTime : 0;
   if (loaded && was < 0 && partOf(next.key) >= 0) resume[loaded] = here;
   if (was >= 0 && !playingMix()) spot = {part: was, at: here};
@@ -336,7 +353,7 @@ function sync() {
 export function start() {
   if (!rivalsUpdated() || !visible()) return;
   started = true;
-  if (!enabled || !volume) { sync(); return; }
+  if (!enabled || !volume || empty()) { sync(); return; }
   if (!audio) {
     const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
     if (!AC) { notify(); return; }
@@ -356,9 +373,10 @@ export function start() {
       });
       // A song's end plays the next one in the shuffle; a battle part's end, the next battle song in its shuffle.
       const finish = () => {
+        if (!wanted()) return;
         if (partOf(loaded) >= 0) spot = {part: nextPart(), at: 0};
         else { nextSong(); save(); }
-        load(); sync();
+        load(true); sync();
       };
       media.addEventListener('ended', finish);
       media.addEventListener('playing', () => { if (!wanted()) halt(); else { fadeWhenPlaying(); notify(); } });
@@ -368,7 +386,7 @@ export function start() {
         // A damaged last frame (Sundress's, under Chromium's newer MP3 decoder) fails a moment before the end: that
         // counts as the end, so the shuffle carries on.
         const left = media.duration - media.currentTime;
-        if (loaded && !media.loop && Number.isFinite(left) && left < 2) { finish(); return; }
+        if (loaded && Number.isFinite(left) && left >= 0 && left < 2) { finish(); return; }
         failure = 'The track couldn’t load. Pause, then play to retry.'; halt();
       });
       audio.onstatechange = () => {
@@ -401,13 +419,44 @@ export function selectTrack(id) {
     if (ownSong) { halt(); ownSong = false; load(); }
   } else {
     if (!TRACKS.some(t => t.id === id)) return;
+    const wasExcluded = excluded.delete(id);
     const before = media ? loaded : '';
-    if (id !== selected) shuffleSongs(indexOf(id));
+    if (id !== selected || wasExcluded) shuffleSongs(indexOf(id));
     if (shown === 'battle') ownSong = true;
     if (media && desired().key !== before) { halt(); load(); }
     updateMetadata();
   }
   enabled = true; save(); start();
+}
+// Tapping a disabled song includes it again and plays it immediately. Checkboxes only edit the rotation.
+export function selectBattleTrack(id) {
+  if (!rivalsUpdated() || !visible() || shown !== 'battle') return;
+  const index = BATTLE_SONGS.findIndex(t => t.id === id);
+  if (index < 0) return;
+  excluded.delete(id); halt(); ownSong = false;
+  spot = {part: pieceOf(index, 0), at: 0}; shuffleParts(spot.part); load(true);
+  enabled = true; save(); start();
+}
+function reconcilePlaylist() {
+  shuffleSongs(excluded.has(selected) ? -1 : indexOf(selected));
+  const current = PIECES[spot.part].song;
+  if (excluded.has(BATTLE_SONGS[current].id)) spot = randomSpot();
+  shuffleParts(spot.part);
+  // An empty playlist stays quiet; disabling the current song advances immediately.
+  if (empty() || (media && desired().key !== loaded)) halt();
+  load(); sync();
+}
+export function setTrackEnabled(id, value) {
+  if (!rivalsUpdated() || ![...TRACKS, ...BATTLE_SONGS].some(t => t.id === id)) return;
+  if (value) excluded.delete(id); else excluded.add(id);
+  reconcilePlaylist(); save();
+}
+export function setPlaylistEnabled(list, value) {
+  if (!rivalsUpdated() || !['songs', 'battle'].includes(list)) return;
+  for (const t of list === 'battle' ? BATTLE_SONGS : TRACKS) {
+    if (value) excluded.delete(t.id); else excluded.add(t.id);
+  }
+  reconcilePlaylist(); save();
 }
 export function seek(seconds) {
   const duration = state().duration;
@@ -417,7 +466,7 @@ export function seek(seconds) {
 }
 // Skip: the next song in the shuffle, or while the battle playlist plays, the next battle song in its shuffle.
 export function skipTrack() {
-  if (!rivalsUpdated() || !visible()) return;
+  if (!rivalsUpdated() || !visible() || empty()) return;
   if (playingMix()) {
     halt(true);
     spot = {part: nextPart(), at: 0}; load(true);
@@ -427,14 +476,16 @@ export function skipTrack() {
   }
   save(); start();
 }
-function save() { try { localStorage.setItem(KEY(), JSON.stringify({enabled, volume, track: selected})); } catch (_) {} }
+function save() { try { localStorage.setItem(KEY(), JSON.stringify({enabled, volume, track: selected, ...(excluded.size ? {excluded: [...excluded]} : {})})); } catch (_) {} }
 const visibility = () => sync();
 const pageHide = () => { away = true; halt(); };
 const pageShow = () => { away = false; sync(); };
 // Another tab's settings change follows here; each tab keeps its own shuffle.
 const storage = e => {
   if (e.key !== KEY() && e.key !== null) return;
-  read(); sync();
+  const before = [...excluded].sort().join('|');
+  read();
+  if (before !== [...excluded].sort().join('|')) reconcilePlaylist(); else sync();
 };
 
 // Mounted routes can coexist in the navigation stack; only visible Rivals views own playback.

@@ -1,5 +1,19 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals jukebox (November 9, 2026)
+
+The four Rivals profiles get the sports-game jukebox in Menu / Battle options → Settings: blue-and-gold
+song rows, independent inclusion checkboxes, tap-to-play, now playing, All/None and Skip. A tapped excluded
+song joins the rotation and starts playing; toggling another song never plays that row. Disabling the current
+song advances to an enabled one. Empty playlists stay silent, one menu song loops, and small playlists avoid
+immediate repeats even when their possible shuffle orders have been exhausted. Battle themes have their own
+checkboxes and individual play buttons under Battle themes in battle settings; menu/battle separation remains.
+The optional `excluded` ID list lives in the existing `gg-rivals-music:<profileKey>:v1` settings. Old settings
+enable all songs and retain mute/volume. Cross-tab changes reconcile inclusion; profile changes stop playback
+and close the sheet. Game saves, audio gain, effects and on-demand music caching remain unchanged.
+Verify `check-jukebox.cjs`, `check-music.cjs`, `check-music-cache.cjs --browser`, `check-sfx.cjs`, title-screen,
+rollout, preview/access and stylesheet-scope checks in `tools/dynasty`.
+
 ## Case scoreboard controls (November 9, 2026)
 
 Keep the shelf cases large. A sibling button sits underneath each case for Evan, using the shelf's

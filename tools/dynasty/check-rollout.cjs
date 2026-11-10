@@ -63,7 +63,10 @@ async function main(){
       },profile.key);
       assert.equal(legacy.save,seed.before,'collections, balances, progress and claims preserved: '+profile.key);
       assert.equal(legacy.game,seed.game,'legacy v5 match unchanged: '+profile.key);assert.equal(legacy.record,seed.record);
-      await page.evaluate(async()=>(await import('/js/app.js')).nav('/puzzles/dynasty'));
+      await page.evaluate(async()=>{
+        const D = await import('/js/core/dynasty.js'); D.finishTutorial('skipped', (await import('/js/core/realm-active.js')).profileKey());
+        (await import('/js/app.js')).nav('/puzzles/dynasty');
+      });
       await page.waitForSelector('.pk-start.is-ready');await page.locator('.pk-start').click();
       await page.waitForFunction(()=>effectStarts>0);
       assert.deepEqual(await page.locator('.pk-tab').allTextContents(),['Home','Battle','Packs','Collection','Decks']);
