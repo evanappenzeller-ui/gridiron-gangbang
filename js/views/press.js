@@ -37,12 +37,12 @@ const POST_FAIL = "Couldn't post. Try again.";
 const CAP_MAX = 80;
 const SPEAK = '\u{1F399}️'; // the studio microphone, in the share text
 
-// Evan's November 9 vacancy notice. Retire it when another presser is posted (including a late upload),
-// or a later week's seed arrives. This is a reported no-show, not a guessed MOTW result.
+// Evan's November 9 vacancy notice. Retire it when another presser is posted, or a presser for week 7 or later
+// arrives (a late upload for a vacant week, seeded or posted). This is a reported no-show, not a guessed MOTW result.
 const VACANCY_REPORTED = Date.parse('2026-11-10T02:47:00Z');
 export function vacancyHTML(snap, {compact = false} = {}) {
   if (!data.isOwner() || !snap || !snap.ready || snap.error) return '';
-  if ((snap.list || []).some(p => p.at >= VACANCY_REPORTED || p.year > 2026 || (p.year === 2026 && p.week > 9))) return '';
+  if ((snap.list || []).some(p => p.at >= VACANCY_REPORTED || p.year > 2026 || (p.year === 2026 && p.week >= 7))) return '';
   return `<section class="pr-vacancy${compact ? ' is-compact' : ''}" aria-label="Press Room vacancy notice">`
     + `<div class="pr-vacancy-top"><span>Room status: neglected</span><span>2 weeks vacant</span></div>`
     + `<svg class="pr-vacancy-scene" viewBox="0 0 360 144" fill="none" aria-hidden="true" focusable="false">`
