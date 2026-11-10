@@ -164,7 +164,7 @@ export function attachMusic(el, isVisible = true, kind = 'hub') {
 const row = (t, i, battle = false) => `<li class="pk-juke-row" data-dy-song-row="${data.esc(t.id)}">
   <label class="pk-juke-check"><input type="checkbox" data-dy-song-enabled="${data.esc(t.id)}" aria-label="Include ${data.esc(t.title)} in shuffle"><span aria-hidden="true"></span></label>
   <button type="button" ${battle ? 'data-dy-battle-track' : 'data-dy-music-track'}="${data.esc(t.id)}" aria-label="Play ${data.esc(t.title)} by ${data.esc(t.artist)}" aria-pressed="false">
-    <span class="pk-juke-info"><small>${data.esc(t.artist)}</small><b>${data.esc(t.title)}</b><span class="pk-juke-selected" data-dy-track-state>Tap to play</span></span>
+    <span class="pk-juke-info"><small>${data.esc(t.artist)}</small><b>${data.esc(t.title)}</b><span class="pk-juke-selected" data-dy-track-state hidden></span></span>
     ${t.cover ? `<span class="pk-juke-cover has-art" aria-hidden="true"><img src="${data.esc(t.cover)}" alt="" width="56" height="56" loading="lazy" decoding="async"></span>`
       : `<span class="pk-juke-cover" style="--cover-hue:${(i * 43 + 215) % 360}" aria-hidden="true"><span>RIVALS</span><i>♪</i><span>${String(i + 1).padStart(2, '0')}</span></span>`}
   </button></li>`;
@@ -226,7 +226,9 @@ export function musicSheet() {
       b.setAttribute('aria-pressed', String(selected)); b.disabled = !s.supported;
       b.closest('li')?.classList.toggle('is-current', selected);
       const off = s.excluded.includes(b.dataset.dyMusicTrack || b.dataset.dyBattleTrack);
-      b.querySelector('[data-dy-track-state]').textContent = selected ? s.playing ? 'Now playing' : 'Selected' : off ? 'Off · tap to play & include' : 'Tap to play';
+      // (no "Tap to play" on every row, Evan, Nov 9 2026: only the song playing and songs left out say anything)
+      const note = b.querySelector('[data-dy-track-state]'), text = selected ? s.playing ? 'Now playing' : 'Selected' : off ? 'Off' : '';
+      note.textContent = text; note.hidden = !text;
     });
     const range = sh.body.querySelector('[data-dy-music-volume]');
     range.value = s.volume; range.disabled = !s.supported;

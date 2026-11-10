@@ -823,6 +823,7 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 .pk-sheet .pk-juke-info b, .pk-sheet .pk-juke-info small { overflow-wrap: anywhere; }
 .pk-sheet .pk-juke-info b { font-size: 14px; line-height: 1.2; }
 .pk-sheet .pk-juke button .pk-juke-info small { margin: 0 0 4px; color: #d3def2; font-size: 10px; line-height: 1.3; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-selected[hidden] { display: none; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-selected { display: block; margin: 5px 0 0; font-size: 9px; font-weight: 600; color: #aebdd8; }
 .pk-sheet.pk-jukebox-sheet .is-current .pk-juke-selected { color: #ffdf70; }
 .pk-sheet .is-excluded .pk-juke-info b { color: #b6c6e6; }

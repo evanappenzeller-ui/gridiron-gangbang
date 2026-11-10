@@ -275,6 +275,7 @@ async function main() {
     assert(covers.length >= 38, 'the jukebox has its album covers: ' + covers.length);
     for (const [, file] of covers) assert(fs.existsSync(path.join(root, file)), 'cover file exists: ' + file);
     assert.equal(await page.locator('[data-dy-song-row="sundress"] .pk-juke-cover.has-art img').count(), 1, 'a song row shows its cover');
+    assert.equal(await page.locator('.pk-juke-row', {hasText: /tap to play/i}).count(), 0, 'no Tap to play on the song rows');
     assert.match(await page.locator('[data-dy-music-art]').getAttribute('src'), /\/img\/rivals\/covers\/sundress-v1\.webp$/, 'the song playing shows its cover');
     await page.waitForFunction(() => [...document.querySelectorAll('.pk-juke-cover.has-art img')].filter(i => i.complete && i.naturalWidth === 320).length >= 3);
     await page.locator('[data-dy-music-track="lpfj2"]').click(); await playing();
