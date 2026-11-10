@@ -294,13 +294,34 @@ export const packOdds = kind => (PACKS[kind] ? PACKS[kind].slots.map(sl => {
   return {n: sl.n, pool: sl.pool, odds: RARITY.filter(r => sl.odds[r]).map(r => ({r, pct: Math.round(sl.odds[r] / tot * 1000) / 10}))};
 }) : []);
 
-// ---------------------------------------------------------------------------------------------------- quick sell
-const SELL = {common: 10, rare: 40, epic: 150, legendary: 500, mythic: 1500}; // (rare: a Trainer card has none, kept for old words)
-const SELL_SPECIAL = {R: 1.5, G: 2, A: 2.5, P: 2.5, X: 4};
-/** What a card quick-sells for, in coins (c: a player card or a Coach or Stadium card). */
-export const sellValue = c => (c ? Math.round((SELL[c.r] || 0) * (c.s === 'L' || !c.s ? 1 : SELL_SPECIAL[c.s] || 1)) : 0);
 /** A card of either kind by id. */
 export const anyCard = id => card(id) || trainer(id);
+
+// ---------------------------------------------------------------------------------------------------- marketplace
+// Fixed game quotes: choosing a specific player costs much more than a random pack. Only canonical collectibles
+// trade; retired aliases, development forms and the reusable match playbook never become a source of coins.
+const MARKET_PRICES = {
+  common: {buy: 600, sell: 30, buyStep: 0, sellStep: 0, min: 0, steps: 0},
+  epic: {buy: 12000, sell: 250, buyStep: 1000, sellStep: 25, min: 85, steps: 4},
+  legendary: {buy: 60000, sell: 750, buyStep: 6000, sellStep: 75, min: 90, steps: 5},
+  mythic: {buy: 750000, sell: 2500, buyStep: 150000, sellStep: 500, min: 96, steps: 3}
+};
+function marketCard(id) {
+  if (typeof id !== 'string' || ALIAS.has(id)) return null;
+  return card(id) || (TRAINER_IDS.includes(id) ? trainer(id) : null);
+}
+/** A collectible's current coin quote, or null if it cannot trade. Catalog data controls the price. */
+export function marketQuote(c) {
+  const item = marketCard(typeof c === 'string' ? c : c?.id);
+  if (!item) return null;
+  const prices = MARKET_PRICES[item.r];
+  if (!prices) return null;
+  const steps = item.s ? Math.max(0, Math.min(prices.steps, Math.floor(item.o) - prices.min)) : 0;
+  const buy = prices.buy + prices.buyStep * steps, sell = prices.sell + prices.sellStep * steps;
+  return {buy, sell, quick: Math.floor(sell * 70 / 100)};
+}
+/** All quick-sell entry points pay 70% of the current market offer. */
+export const sellValue = c => marketQuote(c)?.quick || 0;
 
 // ---------------------------------------------------------------------------------------------------- Pocket's marks
 // Rarity marked as Pokémon TCG Pocket marks it (the owner, Oct 28 2026: "match the Pokémon app"): ◆ to ◆◆◆◆ for Common
@@ -831,19 +852,53 @@ export function buyOpen(kind, {team = null} = {}, s = mine()) {
   const r = buy(kind, s);
   return r.ok ? open(kind, {team}, s) : r;
 }
+// touch() persists MINE. Reject an obsolete or detached save before a marketplace transaction, including a
+// confirmation left open while another profile was selected or a newer cloud copy replaced this save.
+const marketSaveCurrent = s => !!profileKey() && mayPlay() && s === mine();
+/** Buy one canonical collectible with coins. Balances, inventory and persistence update together. */
+export function buyCard(id, s = mine()) {
+  if (!marketSaveCurrent(s)) return {ok: false, coins: 0, why: 'Your profile changed. Open the marketplace again.'};
+  const quote = marketQuote(id);
+  if (!quote) return {ok: false, coins: 0, why: 'That card is not available in the marketplace.'};
+  if ((s.o[id] || 0) >= 99) return {ok: false, coins: 0, why: 'You already hold the maximum 99 copies of this card.'};
+  // The wallet normally caches income briefly; a trade must use this profile's current earnings.
+  earned(s, true);
+  if (!spend(s, quote.buy)) return {ok: false, coins: 0, why: `You need ${data.nf(quote.buy - balance(s))} more coins.`};
+  if (!(s.o[id] > 0) && !s.nw.includes(id)) s.nw = [id, ...s.nw].slice(0, 60);
+  addCard(s, id); s.lp = [id, ...s.lp].slice(0, 24);
+  touch('market'); return {ok: true, coins: quote.buy};
+}
+/** Owned copies not needed by any saved legacy, table or Pocket deck (including development dependencies). */
+export function sellableCount(id, s = mine()) {
+  if (!marketCard(id) || !s?.o) return 0;
+  return Math.max(0, Math.floor(Number(s.o[id]) || 0) - deckCopies(id, s));
+}
+function removeCopies(id, n, s) {
+  s.o[id] -= n;
+  if (!s.o[id]) { delete s.o[id]; s.nw = s.nw.filter(x => x !== id); }
+}
+/** Sell one eligible collectible for the displayed market offer. */
+export function sellCard(id, s = mine()) {
+  if (!marketSaveCurrent(s)) return {ok: false, coins: 0, why: 'Your profile changed. Open the marketplace again.'};
+  const quote = marketQuote(id);
+  if (!quote) return {ok: false, coins: 0, why: 'That card is not available in the marketplace.'};
+  if (!sellableCount(id, s)) return {ok: false, coins: 0, why: s.o[id] > 0
+    ? 'These copies are protected by your saved decks. Remove one from those decks to sell it.' : 'You do not own this card.'};
+  removeCopies(id, 1, s); credit(s, quote.sell); touch('market'); return {ok: true, coins: quote.sell};
+}
 /** Quick-sells copies of a card (the copies in your deck are kept). {ok, coins}. */
 export function sell(id, n = 1, s = mine()) {
-  const c = anyCard(id), have = s.o[id] || 0;
-  const keep = deckCopies(id, s);
-  n = Math.min(n, have - keep);
-  if (!c || n <= 0) return {ok: false, coins: 0};
-  s.o[id] = have - n; if (!s.o[id]) { delete s.o[id]; s.nw = s.nw.filter(x => x !== id); }
-  const coins = sellValue(c) * n; credit(s, coins); touch(); return {ok: true, coins};
+  const quote = marketQuote(id);
+  if (!quote || !Number.isSafeInteger(n) || n <= 0) return {ok: false, coins: 0};
+  n = Math.min(n, sellableCount(id, s));
+  if (n <= 0) return {ok: false, coins: 0};
+  removeCopies(id, n, s);
+  const coins = quote.quick * n; credit(s, coins); touch(); return {ok: true, coins};
 }
 /** Every spare copy (beyond the first) of every card: [{id, n, coins}] and the total. */
 export function spares(s = mine()) {
   // (spares: beyond the first, or beyond as many as your deck uses)
-  const list = Object.entries(s.o).map(([id, n]) => ({id, n: n - Math.max(1, deckCopies(id, s))})).filter(x => x.n > 0 && anyCard(x.id))
+  const list = Object.entries(s.o).map(([id, n]) => ({id, n: Math.min(n - 1, sellableCount(id, s))})).filter(x => x.n > 0)
     .map(x => ({...x, coins: sellValue(anyCard(x.id)) * x.n}));
   return {list, coins: list.reduce((t, x) => t + x.coins, 0)};
 }

@@ -1,5 +1,22 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals marketplace (November 10, 2026)
+
+Rivals Home, Menu and card details open the Marketplace (`views/dynasty-market.js`). Everyone who can play Rivals
+can buy specific collectible cards or sell owned copies to fixed game-market offers; these are not peer listings.
+Search, rarity, overall/price sorting and pagination use canonical players and collectible legacy supports only.
+`core/dynasty.js` `marketQuote` prices Epic players at 12,000–16,000, Legendary at 60,000–90,000 and Mythic at
+750,000–1,200,000 coins by OVR (Common 600; supports use their rarity's base). Market sell offers are Common 30,
+Epic 250–350, Legendary 750–1,125 and Mythic 2,500–4,000; all quick-sell paths pay 70%, rounded down. Specific-card
+purchase prices carry a large premium over sell offers to keep random-pack resale from becoming a coin farm.
+Seeded samples of market resale: Standard ~768/1,000, Epic ~4,110/5,000 and the highest Team ~805/1,200.
+`buyCard`/`sellCard` use existing profile wallet and dy2 inventory/save sync, reject stale saves, and preserve the
+99-copy cap and Jayton's unlimited coins. `sellableCount` protects the maximum copies required by every saved
+legacy/table/Pocket deck, including development bases. No progress reset or live battle/schema/rules changes.
+Sheets show buy/market/quick quotes, confirm a single transaction and close on profile changes. Card details and
+bulk quick sell retain their shortcuts, with selected-profile guards. Verify `check-market.cjs` (optional
+`--shots=<directory>`), start-browser, scope, access, preview, deck-shelf and Pocket integration in tools/dynasty.
+
 ## Rivals unlimited packs removed (November 10, 2026)
 
 Evan: "Remove the unlimited packs for everyone." `features.packsUnlimited()` is false for every profile (`PACKS_UNLIMITED`

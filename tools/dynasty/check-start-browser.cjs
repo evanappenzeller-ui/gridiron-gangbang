@@ -417,7 +417,7 @@ async function playerFlow(page, p, {reduced}) {
   // the Menu
   await page.locator('.pk-hdr [data-dy-menu]').click();
   await page.waitForSelector('.pk-menu');
-  assert.deepEqual(await page.locator('.pk-menu b').allTextContents(), [...(p.plays ? ['Jukebox', 'Sound'] : []), 'Guide', 'Coins', 'Rankings', 'Offering Rates', 'Title screen', 'Exit Gridiron Rivals'], T + ': the Menu’s items');
+  assert.deepEqual(await page.locator('.pk-menu b').allTextContents(), [...(p.plays ? ['Jukebox', 'Sound'] : []), 'Marketplace', 'Guide', 'Coins', 'Rankings', 'Offering Rates', 'Title screen', 'Exit Gridiron Rivals'], T + ': the Menu’s items');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-menu`);
   await page.locator('[data-dy-m="title"]').click();
   await page.waitForSelector('.pk-start.is-ready', {timeout: 5000});

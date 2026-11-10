@@ -6,6 +6,7 @@ import * as sfx from '../core/dynasty-sfx.js';
 import {deckShelfHTML, handleDeckShelf} from './dynasty-decks.js';
 import {deckShelfHTML as pocketShelfHTML, handleDeckShelf as handlePocketShelf, guideHTML as pocketGuideHTML} from './dynasty-pocket-decks.js';
 import * as PC from '../core/dynasty-pocket-cards.js';
+import {marketHTML, marketEvent} from './dynasty-market.js';
 // Gridiron Rivals (legacy route/save identifiers remain dynasty). The four labeled tabs are
 // Play, Cards, Decks and Packs. Play opens first with a resume/solo action and the active deck.
 // The header menu holds settings/rules; the title screen and pack-opening flow remain available.
@@ -220,23 +221,27 @@ export function creditHTML(c) {
 function cardSheet(st, id) {
   const c = D.anyCard(id);
   if (!c) return;
+  const key = profileKey();
   const s = D.mine(), n = s.o[id] || 0, inDeck = (rivalsUpdated() ? D.pocketDeck(s).ids : s.dk).filter(x => x === id).length;
   if (D.isNew(id, s)) invalidatePanes(st);
   D.markSeen([id]);
   const acts = [];
   if (!rivalsUpdated() && n > inDeck && s.dk.length < B.DECK_SIZE) acts.push(ui.button({label: 'Add to my deck', kind: 'primary', block: true, attrs: {'data-dy-add': id}}));
   if (!rivalsUpdated() && inDeck) acts.push(ui.button({label: 'Take out of my deck', kind: 'secondary', block: true, attrs: {'data-dy-rm': id}}));
-  if (n > inDeck) acts.push(ui.button({label: `Quick sell for ${nf(D.sellValue(c))} coins`, kind: 'secondary', block: true, attrs: {'data-dy-sell': id}}));
+  if (D.sellableCount(id, s) > 0) acts.push(ui.button({label: `Quick sell for ${nf(D.sellValue(c))} coins`, kind: 'secondary', block: true, attrs: {'data-dy-sell': id}}));
   if (!n && D.ppCost(c)) acts.push(ui.button({label: `Get it for ${nf(D.ppCost(c))} pack points`, kind: s.pp >= D.ppCost(c) ? 'primary' : 'secondary', block: true, attrs: {'data-dy-pp': id}, disabled: s.pp < D.ppCost(c)}));
   const body = `<div class="pk-zoom">${anyHTML(id, {size: 'l', tag: false, ghost: !n, noCount: true})}</div>`
     + `<p class="pk-own">${n ? `${n} in your collection${inDeck ? ` · ${inDeck} in your deck` : ''}` : 'Not in your collection yet'}</p>`
     + (rivalsUpdated() ? '<p class="pk-note">Build your 20-card battle deck in My decks. Card balance values are fictional; athlete stats and rarity do not add battle bonuses.</p>' : '')
+    + (D.marketQuote(c) ? `<p class="pk-note">Market sell offer: ${nf(D.marketQuote(c).sell)} coins. Quick sell: ${nf(D.sellValue(c))} coins (70% of the market offer).</p><button type="button" class="pk-pill" data-dy-open-market>Open marketplace</button>` : '')
     + (acts.length ? `<div class="pk-acts">${acts.join('')}</div>` : '') + battleHTML(id) + (D.card(id) ? pageHTML(c) : '') + (D.card(id) ? creditHTML(c) : '');
   let stopFoil = () => {};
   const sh = ui.openSheet({title: 'Card details', body, cls: 'pk-sheet', detents: ['large'], onClose: () => stopFoil()});
   stopFoil = bindCardFoil(sh.body);
   if (D.card(id)) bindPage(sh.body, c);
   sh.body.addEventListener('click', e => {
+    if (key !== profileKey() || st.dead || st.hidden) { sh.close(); return; }
+    if (e.target.closest('[data-dy-open-market]')) { sh.close(); go(st, 'market'); return; }
     if (e.target.closest('[data-dy-sell]')) {
       const r = D.sell(id, 1);
       if (r.ok) { ui.haptic('success'); ui.toast(`Sold for ${nf(r.coins)} coins`, {icon: 'check-circle'}); sh.close(); refresh(st); }
@@ -763,6 +768,7 @@ function homeHTML(st) {
     + `<span class="rh-home-tile-copy"><b>Collection</b><small>${nf(own.have)} cards collected</small></span><span class="rh-home-tile-arrow" aria-hidden="true">${arrow}</span></button></div>`
     + (ready ? `<button type="button" class="rh-home-notice" data-dy-goto="cols">${ui.icon('trophy', {size: 18})}<span>${ready === 1 ? '1 collection reward' : `${nf(ready)} collection rewards`} ready to claim</span>${arrow}</button>` : '')
     + (wait ? `<button type="button" class="rh-home-notice" data-dy-home-versus>${ui.icon('versus', {size: 18})}<span>${wait === 1 ? '1 battle needs' : `${nf(wait)} battles need`} your attention</span>${arrow}</button>` : '')
+    + `<button type="button" class="rm-home-link" data-dy-tab="market"><span><b>Marketplace</b><small>Buy stars · Sell cards · Build your balance</small></span>${arrow}</button>`
     + `<div class="rh-home-tools"><button type="button" data-dy-tab="decks"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">${TABS[2].ic}</svg><span>My decks</span>${arrow}</button><button type="button" data-dy-guide>${ui.icon('info', {size: 24})}<span>How to play</span>${arrow}</button></div>`
     + `<p class="rh-home-signoff">YOUR TEAM. YOUR CARDS. YOUR LEGACY.</p></section>`;
 }
@@ -1031,6 +1037,7 @@ function menuSheet(st) {
     // (Nov 9 2026: Jukebox for the songs, Sound for the music and effects levels)
     ...(rivalsUpdated() ? [{id: 'music', svg: '<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V10a7 7 0 0 1 14 0v11z"/><path d="M8.5 13.5V10.5a3.5 3.5 0 0 1 7 0v3z"/><path d="M8.5 17h7"/></svg>', label: 'Jukebox', sub: 'Songs, play/pause & shuffle'},
       {id: 'sound', svg: '<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4 6 8H3v8h3l5 4z"/><path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></svg>', label: 'Sound', sub: 'Music and sound effects levels'}] : []),
+    {id: 'market', ic: 'sparkle', label: 'Marketplace', sub: 'Buy and sell cards for coins'},
     {id: 'guide', ic: 'info', label: 'Guide', sub: 'How to play'},
     {id: 'coins', ic: 'sparkle', label: 'Coins', sub: s ? `${nf(D.balance(s))} · how you earn them` : 'How you earn them'},
     {id: 'rank', ic: 'trophy', label: 'Rankings', sub: s ? `${nf(s.tr)} trophies · ${s.rec.w}–${s.rec.l}` : 'The Rivals board'},
@@ -1049,7 +1056,8 @@ function menuSheet(st) {
     ui.haptic('selection'); sh.close();
     setTimeout(() => {
       if (st.dead) return;
-      if (id === 'guide') guideSheet(st);
+      if (id === 'market') { if (s) go(st, 'market'); }
+      else if (id === 'guide') guideSheet(st);
       else if (id === 'music') musicSheet();
       else if (id === 'sound') soundSheet();
       else if (id === 'coins') { if (s) earnSheet(); }
@@ -1062,7 +1070,7 @@ function menuSheet(st) {
 }
 
 // ---------------------------------------------------------------------------------------------------- the screen
-const PANES = {home: homeHTML, packs: packsHTML, cards: cardsHTML, decks: decksHTML, battle: battleHTML2};
+const PANES = {market: st => marketHTML(st, anyHTML), home: homeHTML, packs: packsHTML, cards: cardsHTML, decks: decksHTML, battle: battleHTML2};
 // Replaying multiplayer logs is expensive. Share one short-lived snapshot across the badge and screens;
 // match/board/profile events and returning from a battle invalidate it before it can be used again.
 function matchesOf(st) {
@@ -1074,9 +1082,9 @@ function matchesOf(st) {
   return st.matches;
 }
 const waitingOf = st => matchesOf(st).filter(x => ['invite', 'setup', 'yours'].includes(x.state)).length;
-const paneKey = st => JSON.stringify([st.tab, st.tab === 'cards' ? st.f : st.tab === 'battle' ? st.bv : st.tab === 'packs' ? [st.pack, st.art] : st.tab === 'decks' ? !!st.friendDeck : null]);
+const paneKey = st => JSON.stringify([st.tab, st.tab === 'market' ? st.market : st.tab === 'cards' ? st.f : st.tab === 'battle' ? st.bv : st.tab === 'packs' ? [st.pack, st.art] : st.tab === 'decks' ? !!st.friendDeck : null]);
 // Pack countdowns and battle idle times age even without a save event. Reusing nodes must not reset their age.
-const paneFresh = (tab, at) => !(tab === 'packs' || tab === 'battle' || tab === 'home') || Date.now() - at < 15000;
+const paneFresh = (tab, at) => !(tab === 'packs' || tab === 'battle' || tab === 'home' || tab === 'market') || Date.now() - at < 15000;
 function invalidatePanes(st, matches = false) {
   st.revision++; st.panes.clear();
   if (matches) st.matches = null;
@@ -1087,7 +1095,9 @@ function scheduleRefresh(st) {
   st.refreshFrame = requestAnimationFrame(() => { st.refreshFrame = 0; refresh(st); });
 }
 function updateChrome(st) {
-  const el = st.el, hud = hudHTML(D.mine());
+  const save = D.mine();
+  if (st.tab === 'market') D.earned(save, true);
+  const el = st.el, hud = hudHTML(save);
   const shell = el.querySelector('.pk'), owner = homeOpen();
   if (shell.classList.contains('rh-home-enabled') !== owner) {
     shell.classList.toggle('rh-home-enabled', owner);
@@ -1098,7 +1108,7 @@ function updateChrome(st) {
   shell.classList.toggle('is-pack-shop', rivalsUpdated() && st.tab === 'packs');
   shell.classList.toggle('is-ladder', D.bossLadderOpen() && st.tab === 'battle' && !(st.bv === 'rank' || (st.bv === 'versus' && rivalsVersus())));
   if (hud !== st.hud) { el.querySelector('[data-dy-hud]').innerHTML = hud; st.hud = hud; }
-  el.querySelector('[data-pk-title]').textContent = (tabsOf().find(t => t.id === st.tab) || TABS[0]).title;
+  el.querySelector('[data-pk-title]').textContent = (st.tab === 'market' ? 'Marketplace' : (tabsOf().find(t => t.id === st.tab) || TABS[0]).title);
   el.querySelectorAll('.pk-tab[data-dy-tab]').forEach(b => { const on = b.dataset.dyTab === st.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
   const dot = el.querySelector('.pk-tab[data-dy-tab="battle"] .pk-dot');
   if (dot) dot.hidden = !waitingOf(st);
@@ -1140,20 +1150,22 @@ function refresh(st) {
   }
   updateChrome(st);
   const pane = el.querySelector('[data-dy-pane]');
-  const input = pane.querySelector('input[name="dy-q"]');
+  const input = pane.querySelector('input[name="dy-q"], [data-market-search]');
   const selection = input && input === document.activeElement ? [input.selectionStart, input.selectionEnd] : null;
   // (a finger on the big pack mid-swipe: the redraw waits till it's let go, swEnd)
   if (st.tab === 'packs' && ((st.sw && st.sw.on) || st.packShelf?.busy)) { st.dirty = true; return; }
   // (the pack, an arrow or a dot focused: the same one after the redraw)
   const had = document.activeElement, fk = had && pane.contains(had) ? (had.matches('[data-dy-art]') ? `[data-dy-art="${had.dataset.dyArt}"]` : had.matches('[data-dy-artat]') ? `[data-dy-artat="${had.dataset.dyArtat}"]` : had.matches('.pk-bigpack') ? '.pk-bigpack' : had.matches('[data-dy-to]') ? '.pk-car-bk' : had.matches('.pk-pack-buy') ? '.pk-pack-buy' : had.closest('.pk-pack-shelf') ? '.pk-pack-shelf' : '') : '';
+  const marketFocus = had && pane.contains(had) && st.tab === 'market' ? (had.matches('[data-market-rarity]') ? '[data-market-rarity]' : had.matches('[data-market-sort]') ? '[data-market-sort]' : had.matches('[data-market-mode]') ? `[data-market-mode="${had.dataset.marketMode}"]` : had.matches('[data-market-more]') ? '[data-market-more]' : '') : '';
   stopPackShelf(st);
   pane.innerHTML = PANES[st.tab](st);
   ui.hydrate(pane);
   startPackShelf(st);
+  if (marketFocus) { const again = pane.querySelector(marketFocus) || (marketFocus === '[data-market-more]' ? pane.querySelector('.rm-card:last-child [data-market-card]') : null); if (again) again.focus({preventScroll: true}); }
   if (fk) { const again = pane.querySelector(fk); if (again) try { again.focus({preventScroll: true}); } catch (_) {} }
   if (st.tab === 'cards' && st.f.view !== 'cols') drawGrid(st);
-  if (selection && st.tab === 'cards') {
-    const next = pane.querySelector('input[name="dy-q"]');
+  if (selection && (st.tab === 'cards' || st.tab === 'market')) {
+    const next = pane.querySelector('input[name="dy-q"], [data-market-search]');
     if (next) { next.focus({preventScroll: true}); next.setSelectionRange(...selection); }
   }
   st.renderedTab = st.tab; st.renderedKey = paneKey(st); st.renderedRevision = st.revision; st.renderedAt = Date.now();
@@ -1209,7 +1221,9 @@ export default {
     st.stops.push(() => st.music.stop());
     fullScreen(st, ctx.visible);
     ctx.setBackTitle('Rivals');
+    el.addEventListener('change', e => marketEvent(e, st, anyHTML, () => refresh(st)));
     el.addEventListener('input', e => {
+      if (marketEvent(e, st, anyHTML, () => refresh(st))) return;
       if (e.target.name === 'dy-q') { st.f.q = e.target.value; clearTimeout(st.qT); st.qT = setTimeout(() => drawGrid(st), 160); }
     });
     // (the title screen: Enter or Space on it starts, as a tap does)
@@ -1221,6 +1235,7 @@ export default {
       const t = e.target;
       const q = sel => t.closest(sel);
       let b;
+      if (marketEvent(e, st, anyHTML, () => refresh(st))) return;
       if (rivalsUpdated() && handlePocketShelf(e, () => scheduleRefresh(st), portraitOf)) return;
       if (!rivalsUpdated() && handleDeckShelf(e, () => scheduleRefresh(st), cardHTML)) return;
       if (D.tableOpen() && rivalsVersus() && q('[data-rd-friends]')) { st.friendDeck = true; refresh(st); return; }
@@ -1260,9 +1275,10 @@ export default {
       if (q('[data-dy-more]')) { drawGrid(st, true); return; }
       if (q('[data-dy-spares]')) {
         const sp = D.spares();
+        const saleKey = profileKey();
         ui.actionSheet({title: 'Quick sell your spares?', cls: 'pk-sheet', message: `Every copy beyond the ones you keep of ${sp.list.length} card${sp.list.length === 1 ? '' : 's'}, for ${nf(sp.coins)} coins.`,
           actions: [{label: `Sell for ${nf(sp.coins)}`, role: 'destructive', value: 'sell'}]})
-          .then(v => { if (v !== 'sell') return; const c = D.sellSpares(); ui.toast(`Sold for ${nf(c)} coins`, {icon: 'check-circle'}); refresh(st); });
+          .then(v => { if (v !== 'sell' || saleKey !== profileKey() || st.dead || st.hidden) return; const c = D.sellSpares(); ui.toast(`Sold for ${nf(c)} coins`, {icon: 'check-circle'}); refresh(st); });
         return;
       }
       if ((b = q('[data-dy-claim]'))) { claimIt(st, b.dataset.dyClaim); return; }
@@ -1343,7 +1359,7 @@ export default {
     st.stops.push(MT.subscribe(() => { invalidatePanes(st, true); scheduleRefresh(st); }));
     st.stops.push(SOLO.subscribe(() => { invalidatePanes(st); if (st.tab === 'battle' || st.tab === 'home') scheduleRefresh(st); }));
     st.stops.push(LIVE.subscribe(why => { if (['start', 'accepted', 'outcome', 'profile'].includes(why) && (st.tab === 'battle' || st.tab === 'home')) { invalidatePanes(st); scheduleRefresh(st); } }));
-    st.stops.push(ctx.on('daily', type => { if (type === 'lb') { invalidatePanes(st, true); if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'battle' || st.tab === 'packs' || st.tab === 'home') scheduleRefresh(st); } }));
+    st.stops.push(ctx.on('daily', type => { if (type === 'lb') { invalidatePanes(st, true); if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'battle' || st.tab === 'packs' || st.tab === 'home' || st.tab === 'market') scheduleRefresh(st); } }));
     st.stops.push(data.subscribe(type => { if (type === 'me') { invalidatePanes(st, true); refresh(st); } }));
     st.stops.push(ctx.timer(() => { if (!st.hidden && D.status === 'ready' && D.mayPlay()) updateChrome(st); }, 15000));
     try { ui.lsSet('gg-dynasty-seen', '1'); } catch (_) {}

@@ -1,0 +1,55 @@
+/* Rivals marketplace only; the main app's Pick'em shares the pk prefix. */
+.v-dynasty .rm-market { max-width: 1000px; margin: 0 auto; padding-bottom: 24px; color: #173044; }
+.v-dynasty .rm-intro { position: relative; padding: 24px; border-radius: 18px; color: #fff; background: linear-gradient(120deg, #102f39, #164e5c); overflow: hidden; }
+.v-dynasty .rm-intro small { color: #dfc478; font-size: 11px; letter-spacing: .16em; font-weight: 800; }
+.v-dynasty .rm-intro h2 { font: 800 32px/1.04 'Barlow Condensed', sans-serif; max-width: 330px; margin: 12px 0; }
+.v-dynasty .rm-intro p { font-size: 13px; color: #d6e7e9; margin: 0 0 18px; }
+.v-dynasty .rm-wallet { display: inline-flex; align-items: center; gap: 18px; padding: 10px 14px; background: #ffffff12; border: 1px solid #ffffff26; border-radius: 10px; font-size: 10px; letter-spacing: .06em; }
+.v-dynasty .rm-wallet b { color: #ffdf83; font-size: 19px; }
+.v-dynasty .rm-tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+.v-dynasty .rm-tiers span { padding: 12px 5px; border: 1px solid #d4c8eb; border-radius: 10px; background: #f3edfc; color: #7243a0; font-size: 9px; font-weight: 800; text-align: center; }
+.v-dynasty .rm-tiers span:nth-child(2) { color: #875c12; background: #fff5d8; border-color: #ead9a7; }
+.v-dynasty .rm-tiers span:nth-child(3) { color: #a13460; background: #fceaf3; border-color: #eac3d6; }
+.v-dynasty .rm-tiers b { display: block; margin-top: 5px; font-size: 15px; }
+.v-dynasty .rm-explainer { font-size: 12px; line-height: 1.6; color: #536779; margin: 14px 0; }
+.v-dynasty .rm-modes { display: flex; background: #dce6eb; padding: 4px; border-radius: 12px; gap: 4px; }
+.v-dynasty .rm-modes button { flex: 1; min-height: 44px; border: 0; border-radius: 9px; color: #455d6c; background: transparent; font-weight: 800; }
+.v-dynasty .rm-modes button[aria-pressed=true] { background: #fff; color: #164e5c; box-shadow: 0 2px 5px #17304413; }
+.v-dynasty .rm-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 18px 0; }
+.v-dynasty .rm-filters label { display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-weight: 800; min-width: 0; }
+.v-dynasty .rm-search { grid-column: 1 / -1; }
+.v-dynasty .rm-filters input, .v-dynasty .rm-filters select { width: 100%; min-width: 0; min-height: 44px; border: 1px solid #cbd8df; border-radius: 9px; background: #fff; color: #173044; padding: 10px; font: inherit; font-size: 16px; }
+.v-dynasty .rm-results { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 16px 0 12px; }
+.v-dynasty .rm-results span { text-align: right; color: #536779; }
+.v-dynasty .rm-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.v-dynasty .rm-card { min-width: 0; background: #fff; border: 1px solid #d7e1e6; border-radius: 12px; overflow: hidden; }
+.v-dynasty .rm-face { display: block; width: 100%; padding: 12px; border: 0; background: linear-gradient(145deg, #dce9ec, #f3f7f9); }
+.v-dynasty .rm-face .pk-card { width: 100%; max-width: 210px; margin: 0 auto; }
+.v-dynasty .rm-card-copy { padding: 0 10px 12px; }
+.v-dynasty .rm-card-copy > b { display: block; padding-top: 10px; font-size: 14px; line-height: 1.2; }
+.v-dynasty .rm-card-copy > small { display: block; margin: 5px 0 10px; font-size: 10px; color: #647583; }
+.v-dynasty .rm-card dl { margin: 0 0 10px; }
+.v-dynasty .rm-card dl div { display: flex; justify-content: space-between; gap: 4px; font-size: 10px; line-height: 1.8; }
+.v-dynasty .rm-card dd { margin: 0; font-weight: 800; }
+.v-dynasty .rm-card dl div:first-child dd { color: #175f54; }
+.v-dynasty .rm-trade, .v-dynasty .rm-more { width: 100%; min-height: 44px; border: 0; border-radius: 8px; color: #fff; background: #164e5c; font-size: 12px; font-weight: 800; }
+.v-dynasty .rm-more { margin-top: 18px; }
+.v-dynasty .rm-empty { padding: 30px 12px; text-align: center; font-size: 13px; }
+.v-dynasty .rm-market button:focus-visible, .v-dynasty .rm-market input:focus-visible, .v-dynasty .rm-market select:focus-visible { outline: 3px solid #b37d17; outline-offset: 3px; }
+.v-dynasty .rm-home-link { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 16px; border: 1px solid #b5cfd3; border-radius: 14px; background: linear-gradient(115deg, #174a57, #102f39); color: #fff; text-align: left; }
+.v-dynasty .rm-home-link b { display: block; font-size: 19px; }
+.v-dynasty .rm-home-link small { display: block; color: #d6e7e9; margin-top: 3px; font-size: 11px; }
+.pk-sheet .rm-detail { text-align: center; }
+.pk-sheet .rm-detail-face { width: min(220px, 65%); margin: 0 auto 16px; }
+.pk-sheet .rm-detail-face .pk-card { width: 100%; }
+.pk-sheet .rm-detail > p { font-size: 12px; }
+.pk-sheet .rm-quotes { border: 1px solid #d7e1e6; border-radius: 12px; overflow: hidden; text-align: left; }
+.pk-sheet .rm-quotes div { display: flex; justify-content: space-between; gap: 10px; padding: 12px; background: #f3f7f9; font-size: 13px; }
+.pk-sheet .rm-quotes div:nth-child(2) { background: #e6f3ec; }
+.pk-sheet .rm-quotes dd { margin: 0; font-weight: 800; }
+@media (min-width: 650px) {
+  .v-dynasty .rm-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .v-dynasty .rm-filters { grid-template-columns: 2fr 1fr 1fr; }
+  .v-dynasty .rm-search { grid-column: auto; }
+  .v-dynasty .rm-intro h2 { font-size: 42px; max-width: 450px; }
+}
