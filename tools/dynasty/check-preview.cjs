@@ -71,7 +71,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
     assert.equal(r.parseRoute('/puzzles/dynasty').view === 'dynasty',c.play,label + ' direct hub URL');
     assert.equal(r.parseRoute('/puzzles/dynasty/battle/b1234abcd').view === 'dynasty-battle',c.play,label + ' direct battle URL');
     for (const game of ['puzzles','17-0','drill','kick','return','keep']) assert.equal(g.gameOpen(game),true,label + ' unchanged ' + game);
-    assert.equal(f.packsUnlimited(key),['m_evan','u_ryan-stewart'].includes(key),label + ' pack privilege');
+    assert.equal(f.packsUnlimited(key),false,label + ' no unlimited packs');
     assert.equal(f.coinsUnlimited(key),key === 'm_jayton',label + ' coin privilege');
   }
   assert.equal(cases.filter(c => c.play).length,data.ids.length + USERS.length + 1,'Every member, app user and named guest plays');

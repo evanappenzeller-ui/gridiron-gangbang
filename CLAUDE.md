@@ -1,5 +1,13 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals unlimited packs removed (November 10, 2026)
+
+Evan: "Remove the unlimited packs for everyone." `features.packsUnlimited()` is false for every profile (`PACKS_UNLIMITED`
+is empty), so Evan and Ryan S, who had them since Oct 29 2026, now open only packs they hold, buy, claim daily or earn,
+like everyone else; packs already held stay. Headers show the held-pack count instead of ∞ MAX. Jayton's unlimited
+coins (`coinsUnlimited`) were not part of this ask and remain. `D.open`'s `free` option stays for the kit checks only.
+Verify preview, access, launch-reset, Pocket integration, pack-preview, rollout and start-browser checks.
+
 ## Gridiron Rivals launch: everyone plays, preview progress reset (November 10, 2026)
 
 Evan: "Make the gridiron rivals game mode available to everyone and reset the progress that Jayton, Ryan, and I have
@@ -8,8 +16,8 @@ the top of the game." `features.dynastyOpen()` / `rivalsUpdated()` now open Riva
 to every league member, app user and named guest (any profile with a save key, as Keepfall's `mayPlay`); a phone that
 hasn't said who it is waits for "Who are you?". `dynastyKey()` accepts any member/app-user/guest key, so everyone's
 Dynasty shows as an opponent. `DYNASTY` remains only as the record of the four-profile preview. Live battles
-(`core/rivals-live.js` `liveKeys()`) list every member and app user; guests play Solo. The owner/admin tools and the
-individual pack/coin privileges (Evan's and Ryan S's unlimited packs, Jayton's unlimited coins) are unchanged.
+(`core/rivals-live.js` `liveKeys()`) list every member and app user; guests play Solo. The owner/admin tools and Jayton's
+unlimited coins are unchanged (the unlimited packs were removed later the same day, above).
 Reset: saves moved from `dy1` to `dy2` (`D.FIELD`; `D.PREVIEW_FIELD` names the old one), locally `gg-dy2-<key>` and the
 Solo record `gg-dys2-<key>`. Every preview save (Evan, Jayton, Ryan S and Ryan Y) is left untouched as an archive in its
 board doc's `dy1` and the phone's `gg-dy1-`/`gg-dys-` keys, which nothing reads; old cached clients write only `dy1`. Everyone

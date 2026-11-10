@@ -290,7 +290,7 @@ async function playerFlow(page, p, {reduced}) {
   }));
   assert.ok(labels.length >= 4 && labels.every(Boolean), T + ': navigation labels are visually readable');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-play`);
-  assert.match((await page.locator('[data-dy-hud]').innerText()).replace(/\s+/g, ' '), p.tag === 'mason' ? /^\d+ [\d,]+ coins$/ : /∞ MAX [\d,]+ coins/, T + ': the header’s counters (packs held or unlimited packs, coins)');
+  assert.match((await page.locator('[data-dy-hud]').innerText()).replace(/\s+/g, ' '), /^\d+ [\d,]+ coins$/, T + ': the header’s counters (packs held, coins; no unlimited packs since Nov 10 2026)');
   await page.locator('.pk-tab[data-dy-tab="packs"]').click();
   if (owner) await ownerPacksFlow(page, reduced);
   else {
@@ -461,9 +461,9 @@ async function playerFlow(page, p, {reduced}) {
 
 async function packProfileFlow(browser, url) {
   const profiles = [
-    {tag: 'evan', me: 'evan', owner: true, packs: true, coins: false},
+    {tag: 'evan', me: 'evan', owner: true, packs: false, coins: false}, // (no unlimited packs since Nov 10 2026)
     {tag: 'jayton', me: 'jayton', owner: false, packs: false, coins: true},
-    {tag: 'ryan-stewart', me: 'none', guest: 'Ryan Stewart', owner: false, packs: true, coins: false},
+    {tag: 'ryan-stewart', me: 'none', guest: 'Ryan Stewart', owner: false, packs: false, coins: false},
     {tag: 'ryan-younggreen', me: 'none', guest: 'Ryan Younggreen', owner: false, packs: false, coins: false}
   ];
   for (const p of profiles) {

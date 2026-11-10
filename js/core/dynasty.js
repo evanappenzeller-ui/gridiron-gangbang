@@ -774,7 +774,8 @@ const credit = (s, n) => { s.cr += Math.max(0, Math.round(n)); };
 const addCard = (s, id) => { s.o[id] = (s.o[id] || 0) + 1; };
 const addPacks = (s, packs) => Object.entries(packs || {}).forEach(([k, n]) => { if (RETIRED[k]) { n *= RETIRED[k]; k = 'prem'; } if (PACKS[k]) s.pk[k] = (s.pk[k] || 0) + n; });
 
-/** Whether this Dynasty opens packs without end (Evan's and Ryan Stewart's: core/features.js packsUnlimited, Oct 29 2026). */
+/** Whether this Dynasty opens packs without end (Evan's and Ryan Stewart's from Oct 29 2026; no one's since Nov 10 2026:
+ *  core/features.js packsUnlimited). */
 export const unlimited = (key = PROFILE) => packsUnlimited(key);
 /** Whether today's free pack is waiting. */
 export const dailyReady = (s = mine(), t = new Date()) => s.dd !== dayKey(t);

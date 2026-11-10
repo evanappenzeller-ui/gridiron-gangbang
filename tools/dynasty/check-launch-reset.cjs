@@ -101,7 +101,7 @@ async function shelf(page, who) {
       data.setGuest(null);
       ok(!D.mayPlay(), 'A phone that hasn’t said who it is waits for a profile');
       data.setMe('evan');
-      ok(D.unlimited() && !D.unlimitedCoins(), 'Evan keeps unlimited packs (an individual privilege)');
+      ok(!D.unlimited() && !D.unlimitedCoins(), 'Evan has no unlimited packs (removed for everyone, Nov 10 2026)');
       return out;
     }, {PREVIEW, SOLO});
     reset.forEach(r => console.log('PASS: ' + r));

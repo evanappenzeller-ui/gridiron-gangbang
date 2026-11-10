@@ -35,9 +35,10 @@ export const dynastyKey = key => {
   if (k.startsWith('u_')) return data.USERS.some(u => u.id === id);
   return k.startsWith('g_');
 };
-// Unlimited packs (Evan, Oct 29 2026: "Give Ryan Stewart and I unlimited packs to open"): their Dynasties open any pack
-// without buying it or holding one, by the same ids. A saved profile key (m_<member>, u_<app user>).
-export const PACKS_UNLIMITED = Object.freeze({members: Object.freeze([data.OWNER]), users: Object.freeze(['ryan-stewart'])});
+// Unlimited packs (Evan, Oct 29 2026: "Give Ryan Stewart and I unlimited packs to open") are gone for everyone (Nov 10
+// 2026, Evan: "Remove the unlimited packs for everyone"): every Dynasty buys, earns or is given its packs. Packs already
+// held stay; the open-without-holding path (core/dynasty.js open's free) stays for the kit checks alone.
+export const PACKS_UNLIMITED = Object.freeze({members: Object.freeze([]), users: Object.freeze([])});
 export const packsUnlimited = key => PACKS_UNLIMITED.members.some(m => key === 'm_' + m) || PACKS_UNLIMITED.users.some(u => key === 'u_' + u);
 
 // Jayton's unlimited Rivals coins (owner-approved Nov 5 2026), independent of unlimited packs and owner tools.

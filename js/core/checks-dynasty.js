@@ -201,7 +201,7 @@ export async function dynastyChecks(check) {
     return {pass: legal && shaped && climbs && games.every(g => g.ok) && lock && pay && next && kept,
       detail: `decks ${legal}, types ${shaped}, OVR ${[1, 10, 16, 26].map(n => Math.round(ovr('g' + n))).join('→')}; ${games.map(g => g.t).join('; ')}; lock ${lock}, pay ${pay}, next ${next}, kept ${kept}`};
   });
-  check('Gridiron Dynasty: unlimited packs for Evan and Ryan Stewart (his ask, Oct 29 2026: "Give Ryan Stewart and I unlimited packs to open"): by their ids, any pack opens without buying or holding one, a held one used first (the Starter Pack stays one); anyone else still needs one', async () => {
+  check('Gridiron Dynasty: no one has unlimited packs (Nov 10 2026, Evan: "Remove the unlimited packs for everyone"; Evan and Ryan Stewart had them from Oct 29 2026); a pack opens only when held, a held one used first, the Starter Pack once', async () => {
     const F = await import('./features.js');
     const keys = ['m_evan', 'u_ryan-stewart', 'm_mason', 'u_ryan-dow', 'g_72_79'].map(F.packsUnlimited);
     const s = D.fresh('m_inf', 1000), o = Object.values(s.o).reduce((t, n) => t + n, 0);
@@ -210,7 +210,7 @@ export async function dynastyChecks(check) {
     const got = Object.values(s.o).reduce((t, n) => t + n, 0) - o === 5 + 5 + 5;
     const others = !D.open('prem', {free: false}, s).ok;
     const starter = D.open('start', {free: true}, s).ok && !D.open('start', {free: true}, s).ok;
-    return {pass: keys.join() === 'true,true,false,false,false' && held && none && got && others && starter, detail: `Evan, Ryan S, Mason, Ryan D, a guest: ${keys.join(', ')}`};
+    return {pass: keys.join() === 'false,false,false,false,false' && !D.unlimited('m_evan') && !D.unlimited('u_ryan-stewart') && held && none && got && others && starter, detail: `Evan, Ryan S, Mason, Ryan D, a guest: ${keys.join(', ')}`};
   });
   check('Gridiron Dynasty: a collection’s reward is claimed once, when it’s complete', () => {
     const col = D.COLLECTIONS.find(c => c.kind === 'team');

@@ -87,9 +87,9 @@ try { pw = require('playwright'); } catch (_) { pw = require(path.join(process.e
       const docs = [{id:'jayton-fixture',nick:data.name('jayton'),dy2:{m_jayton:s}}];
       data.setMe('evan');
       ok(D.others(docs).some(p => p.key === 'm_jayton'), 'Jayton appears as a Rivals opponent');
-      ok(Number.isFinite(D.balance()) && D.unlimited(), 'Evan retains finite coins and unlimited packs');
+      ok(Number.isFinite(D.balance()) && !D.unlimited(), 'Evan has finite coins and no unlimited packs (removed Nov 10 2026)');
       data.setGuest('Ryan Stewart');
-      ok(D.mayPlay() && Number.isFinite(D.balance()) && D.unlimited(), 'Ryan retains his existing wallet and packs');
+      ok(D.mayPlay() && Number.isFinite(D.balance()) && !D.unlimited(), 'Ryan keeps his wallet; no unlimited packs (removed Nov 10 2026)');
       const normal = D.mine(); normal.sp = D.STARTER_COINS + normal.cr; D.earned(normal,true);
       ok(!D.buy('prem').ok, 'Ordinary empty wallet still cannot buy an Epic pack');
       data.setMe('none'); data.setGuest('Jayton Hull');

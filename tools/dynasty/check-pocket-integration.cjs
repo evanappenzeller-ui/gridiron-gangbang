@@ -206,7 +206,7 @@ function legacyRecord(B, deck) {
     assert.equal(record.chemistry,undefined,'no automatic team bonus in new games');
     assert.equal(record.roundEnergy,undefined,'no legacy automatic attachments');
     assert.equal(snap(s),before,'starting with a rental grants or consumes no cards');
-    assert.equal(F.packsUnlimited(profile.key),['m_evan','u_ryan-stewart'].includes(profile.key));
+    assert.equal(F.packsUnlimited(profile.key),false,'no unlimited packs (Nov 10 2026)');
     assert.equal(F.coinsUnlimited(profile.key),profile.key==='m_jayton');
     const resumed=await fixture(profile,[...f.storage]);
     assert.equal(snap(resumed.S.get(start.mid).G),snap(x.G),'v7 initial log reloads identically');

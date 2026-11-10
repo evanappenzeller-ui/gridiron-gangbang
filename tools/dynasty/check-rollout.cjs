@@ -55,7 +55,7 @@ async function main(){
         localStorage.setItem('gg-dys2-'+profile.key,JSON.stringify(record));
         return {before,game:JSON.stringify(G),record:JSON.stringify(record),owner:data.isOwner(),coins:F.coinsUnlimited(profile.key),packs:F.packsUnlimited(profile.key)};
       },profile);
-      assert.equal(seed.owner,profile.me==='evan');assert.equal(seed.coins,profile.me==='jayton');assert.equal(seed.packs,['m_evan','u_ryan-stewart'].includes(profile.key));
+      assert.equal(seed.owner,profile.me==='evan');assert.equal(seed.coins,profile.me==='jayton');assert.equal(seed.packs,false,'no unlimited packs (Nov 10 2026)');
       await page.reload();await page.waitForFunction(()=>window.__ggBooted);
       const legacy=await page.evaluate(async key=>{
         const D=await import('/js/core/dynasty.js'),S=await import('/js/core/dynasty-solo.js');await D.load();const x=S.get('legacy');
