@@ -111,17 +111,19 @@ async function main() {
     const count=await page.evaluate(()=>sfxProbes.length);await page.waitForTimeout(80);
     assert.equal(await page.evaluate(()=>sfxProbes.length),count,'cancel pending resume');
     await page.evaluate(()=>testFx.stop());
-    await page.locator('[data-dy-menu]').click();await page.locator('[data-dy-m="music"]').click();
-    await page.locator('[data-dy-sfx-volume]').fill('23');
+    // (Evan, Nov 9 2026: no sound effects section in the jukebox; the saved effects settings still work)
+    await page.locator('[data-dy-menu]').click();await page.locator('[data-dy-m="music"]').click();await page.waitForSelector('[data-dy-music-toggle]');
+    assert.equal(await page.locator('[data-dy-sfx-volume], [data-dy-sfx-toggle], .pk-sfx').count(),0,'no sound effects section in the jukebox');
+    await page.locator('.sheet-close').last().click();
+    await page.evaluate(()=>fx.setVolume(23));
     assert.equal(await page.evaluate(()=>fx.state().volume),23);
-    await page.locator('[data-dy-sfx-toggle]').click();
+    await page.evaluate(()=>fx.setEnabled(false));
     assert.equal(await page.evaluate(()=>fx.state().enabled),false);
     assert.equal(await page.evaluate(async()=>(await import('/js/core/dynasty-music.js')).state().enabled),false);
     await page.reload();await page.waitForFunction(()=>window.__ggBooted);
     assert.deepEqual(await page.evaluate(async()=>{const s=(await import('/js/core/dynasty-sfx.js')).state();return [s.enabled,s.volume];}),[false,23]);
     await page.waitForSelector('.pk-start.is-ready');await page.locator('.pk-start').click();
-    await page.locator('[data-dy-menu]').click();await page.locator('[data-dy-m="music"]').click();
-    await page.locator('[data-dy-sfx-toggle]').click();await page.locator('.sheet-close').last().click();
+    await page.evaluate(async()=>(await import('/js/core/dynasty-sfx.js')).setEnabled(true));
     await page.evaluate(async()=>{window.fx=await import('/js/core/dynasty-sfx.js');window.testFx=fx.attach(document.body);});
     await page.locator('[data-dy-menu]').click();await page.locator('.sheet-close').last().click();
     await page.evaluate(()=>{testFx.play('mythic');});
@@ -188,8 +190,7 @@ async function main() {
     await page.keyboard.press('Escape');await page.waitForTimeout(80);
     assert(await page.evaluate(()=>sfxProbes.every(p=>p.stopped)),'closing pack cancels its sounds');
     await page.locator('[data-dy-menu]').click();await page.locator('[data-dy-m="music"]').click();
-    await page.waitForSelector('[data-dy-sfx-volume]');
-    await page.locator('[data-dy-sfx-volume]').scrollIntoViewIfNeeded();
+    await page.waitForSelector('[data-dy-music-toggle]');
     await page.waitForTimeout(350);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'settings fit phone width');
     await page.screenshot({path:path.join(root,'output/rivals-sfx-settings.png')});

@@ -68,7 +68,7 @@ async function main() {
       await page.locator('[data-dy-music-track="sundress"]').click(); await play();
       assert.equal(await page.locator('[data-dy-song-enabled="sundress"]').isChecked(), true, 'tap enables and plays the excluded song');
       assert.equal((await state()).track.id,'sundress');
-      await page.locator('[data-dy-juke-none="songs"]').click();
+      await page.evaluate(async on => (await import('/js/core/dynasty-music.js')).setPlaylistEnabled('songs', on), false);
       await page.waitForFunction(async () => { const s = (await import('/js/core/dynasty-music.js')).state(); return s.empty && !s.playing && mediaProbes.every(m => m.paused); });
       assert.equal(await page.locator('[data-dy-song-enabled]:checked').count(),0);
       assert.match(await page.locator('[data-dy-music-status]').innerText(),/No songs enabled/);
@@ -94,7 +94,7 @@ async function main() {
       sequence.forEach((id, i) => { assert(['sundress','lost'].includes(id)); if(i) assert.notEqual(id,sequence[i-1],'two songs alternate even after shuffle history is exhausted'); });
       if (index === 0) {
         // Sundress has a damaged final MP3 frame on some decoders. A one-song rotation must recover and repeat.
-        await page.locator('[data-dy-juke-none="songs"]').click();
+        await page.evaluate(async on => (await import('/js/core/dynasty-music.js')).setPlaylistEnabled('songs', on), false);
         await page.locator('[data-dy-music-track="sundress"]').click(); await play();
         await loaded(); await page.evaluate(() => { mediaProbes[0].currentTime = mediaProbes[0].duration - .15; });
         await page.waitForFunction(async () => { const s = (await import('/js/core/dynasty-music.js')).state(); return s.playing && s.position < 3 && !s.failure; });
@@ -105,7 +105,7 @@ async function main() {
           localStorage.setItem(key,JSON.stringify(s)); dispatchEvent(new StorageEvent('storage',{key}));
         }, savedKey);
         await play(); assert.equal((await state()).track.id,'lost');
-        await page.locator('[data-dy-juke-all="songs"]').click();
+        await page.evaluate(async on => (await import('/js/core/dynasty-music.js')).setPlaylistEnabled('songs', on), true);
         await page.locator('[data-dy-music-track="sundress"]').click(); await play();
         for (const [width,height] of [[320,568],[390,844],[768,1024],[844,390]]) {
           await page.setViewportSize({width,height});
@@ -140,7 +140,7 @@ async function main() {
         assert.equal((await state()).track.song,'green-hill','one battle theme survives Skip');
         await close(); await page.goBack(); await page.waitForSelector('.pk-hdr'); await settings();
       }
-      await page.locator('[data-dy-juke-none="songs"]').click();
+      await page.evaluate(async on => (await import('/js/core/dynasty-music.js')).setPlaylistEnabled('songs', on), false);
       const ownerPrefs = await page.evaluate(key => localStorage.getItem(key),savedKey);
       const gameAfter = await page.evaluate(async () => JSON.stringify((await import('/js/core/dynasty.js')).mine()));
       if (index > 0) assert.equal(gameAfter,gameBefore,'jukebox leaves collection, balances and saved matches unchanged');

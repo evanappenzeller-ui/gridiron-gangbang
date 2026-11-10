@@ -77,12 +77,12 @@ async function main(){
       await page.locator('.pk-tab[data-dy-tab="battle"]').click();await page.waitForSelector('.rl-ladder');
       const fresh=await page.evaluate(async()=>{const S=await import('/js/core/dynasty-solo.js'),D=await import('/js/core/dynasty.js');const r=S.start('g5');if(!r.ok)throw Error(r.why);const x=S.get(r.mid);return {v:x.G.v,roundEnergy:x.G.roundEnergy,boss:x.boss,cards:x.G.p[0].hand.length+x.G.p[0].deck.length,owned:JSON.stringify(D.mine().o)};});
       assert.equal(fresh.v,7);assert.equal(fresh.roundEnergy,undefined,'manual Energy uses no legacy automatic grant');assert.equal(fresh.cards,20);assert.equal(fresh.boss,'L0036322');assert.equal(fresh.owned,JSON.stringify(JSON.parse(seed.before).o));
-      await page.locator('[data-dy-menu]').click();await page.locator('[data-dy-m="music"]').click();await page.waitForSelector('[data-dy-sfx-volume]');
+      await page.locator('[data-dy-menu]').click();await page.locator('[data-dy-m="music"]').click();await page.waitForSelector('[data-dy-music-volume]');
       assert.equal(await page.locator('[data-dy-music-volume]').inputValue(),'8','default background music');
-      assert.equal(await page.locator('[data-dy-sfx-volume]').inputValue(),'55','default foreground effects');
+      assert.equal(await page.evaluate(async()=>(await import('/js/core/dynasty-sfx.js')).state().volume),55,'default foreground effects');
       await page.locator('[data-dy-music-volume]').fill(String(20+index));await page.locator('[data-dy-music-toggle]').click();
       await page.waitForFunction(async()=>(await import('/js/core/dynasty-music.js')).state().playing);
-      await page.locator('[data-dy-sfx-volume]').fill(String(40+index));await page.locator('[data-dy-sfx-toggle]').click();
+      await page.evaluate(async v=>{const fx=await import('/js/core/dynasty-sfx.js');fx.setVolume(v);fx.setEnabled(false);},40+index);
       const prefs=await page.evaluate(key=>({music:JSON.parse(localStorage.getItem('gg-rivals-music:'+key+':v1')),fx:JSON.parse(localStorage.getItem('gg-rivals-sfx:'+key+':v1'))}),profile.key);
       assert.equal(prefs.music.volume,20+index);assert.equal(prefs.fx.volume,40+index);assert.equal(prefs.fx.enabled,false);
       const switched=await page.evaluate(async()=>{

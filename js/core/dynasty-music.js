@@ -481,6 +481,15 @@ export function skipTrack() {
   }
   save(); start();
 }
+/** A fresh shuffle, playing now (the jukebox's shuffle button, Evan, Nov 9 2026): a new pass of the enabled songs that
+ *  doesn't open with the one playing; in a battle, the battle playlist from a new random spot. */
+export function reshuffle() {
+  if (!rivalsUpdated() || !visible() || empty()) return;
+  halt(true);
+  if (playingMix()) { spot = randomSpot(); shuffleParts(spot.part); load(true); }
+  else { shuffleSongs(); load(); updateMetadata(); }
+  enabled = true; save(); start();
+}
 function save() { try { localStorage.setItem(KEY(), JSON.stringify({enabled, volume, track: selected, ...(excluded.size ? {excluded: [...excluded]} : {})})); } catch (_) {} }
 const visibility = () => sync();
 const pageHide = () => { away = true; halt(); };

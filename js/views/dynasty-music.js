@@ -2,7 +2,6 @@ import {rivalsUpdated} from '../core/features.js';
 import * as data from '../core/data.js';
 import * as ui from '../core/ui.js';
 import * as music from '../core/dynasty-music.js';
-import * as sfx from '../core/dynasty-sfx.js';
 let volumeId = 0;
 
 // Keep the corner control outside panes that are replaced during navigation/battle updates.
@@ -171,7 +170,7 @@ const row = (t, i, battle = false) => `<li class="pk-juke-row" data-dy-song-row=
 
 export function musicSheet() {
   if (!rivalsUpdated()) return;
-  let offMusic, offSfx, offProfile;
+  let offMusic, offProfile;
   const battle = music.state().battle, mix = music.BATTLE;
   const sh = ui.openSheet({title: 'Settings', cls: 'pk-sheet pk-jukebox-sheet', detents: ['fit'],
     body: `<div class="pk-music">
@@ -179,42 +178,31 @@ export function musicSheet() {
       <div class="pk-juke-now"><img class="pk-juke-art" data-dy-music-art alt="" width="64" height="64" decoding="async" hidden><div><small data-dy-music-now>NOW PLAYING</small><h3 data-dy-music-title></h3><p data-dy-music-artist></p></div><span class="pk-juke-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
       <!-- (Evan, Nov 9 2026: under the song playing, a play/pause button and the volume slider; the list gets the room) -->
       <div class="pk-juke-play"><button type="button" class="pk-juke-pp" data-dy-music-toggle aria-pressed="false" aria-label="Play music"></button>
+        <button type="button" class="pk-juke-shuffle" data-dy-music-shuffle aria-label="Shuffle songs" title="Shuffle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg></button>
         <label class="pk-music-volume pk-juke-level"><span>Music level</span><output data-dy-music-value></output>
           <input data-dy-music-volume type="range" min="0" max="100" step="1" aria-label="Music volume"></label></div>
-      <p class="pk-note pk-juke-status" data-dy-music-status role="status"></p>
-      <section class="pk-juke" aria-label="Jukebox"><div class="pk-juke-heading"><div><h3>Your rotation</h3><span data-dy-song-count></span></div><span class="pk-juke-mode">SHUFFLE</span></div>
-        <div class="pk-juke-tools"><p>Check to include · tap a song to play</p><button type="button" data-dy-juke-all="songs">All</button><button type="button" data-dy-juke-none="songs">None</button></div>
+      <!-- (Evan, Nov 9 2026: no rotation heading, hint or All/None, and no sound effects section; the status shows only problems) -->
+      <p class="pk-note pk-juke-status" data-dy-music-status role="status" hidden></p>
+      <section class="pk-juke" aria-label="Jukebox">
         <ul aria-label="Menu songs">${music.TRACKS.map((t, i) => row(t, i)).join('')}</ul>
         ${battle ? `<details class="pk-juke-battle"><summary>Battle themes <span data-dy-battle-count></span></summary><div class="pk-juke-tools"><button type="button" data-dy-music-track="battle" aria-pressed="false">Use battle shuffle <span data-dy-track-state></span></button><button type="button" data-dy-juke-all="battle">All</button><button type="button" data-dy-juke-none="battle">None</button></div><ul aria-label="Battle themes">${music.BATTLE_SONGS.map((t, i) => row(t, i, true)).join('')}</ul></details>` : ''}
-      </section></div>
-      <section class="pk-sfx" aria-label="Sound effects"><h3>Sound effects</h3>
-        <button type="button" class="pk-btn" data-dy-sfx-toggle aria-pressed="true">Mute effects</button>
-        <label class="pk-music-volume">Effects level <output data-dy-sfx-value></output>
-          <input data-dy-sfx-volume type="range" min="0" max="100" step="1" aria-label="Sound effects volume">
-        </label><p class="pk-note" data-dy-sfx-status role="status"></p><p class="pk-note pk-music-phone">Use your phone’s volume buttons for overall volume.</p></section>`,
-    onClose: () => { offMusic?.(); offSfx?.(); offProfile?.(); }});
+      </section></div>`,
+    onClose: () => { offMusic?.(); offProfile?.(); }});
   const draw = () => {
-    const fx = sfx.state(), toggle = sh.body.querySelector('[data-dy-sfx-toggle]');
-    toggle.textContent = fx.enabled ? 'Mute effects' : 'Enable effects';
-    toggle.setAttribute('aria-pressed', String(fx.enabled)); toggle.disabled = !fx.supported;
-    const fxRange = sh.body.querySelector('[data-dy-sfx-volume]');
-    fxRange.value = fx.volume; fxRange.disabled = !fx.supported;
-    sh.body.querySelector('[data-dy-sfx-value]').textContent = fx.volume + '%';
-    sh.body.querySelector('[data-dy-sfx-status]').textContent = !fx.supported ? 'Sound effects are unavailable in this browser.' : fx.failure || (!fx.enabled || !fx.volume ? 'Sound effects are muted.' : 'Card actions, attacks, pack reveals and match results.');
     const s = music.state(), button = sh.body.querySelector('[data-dy-music-toggle]');
     const pp = s.enabled ? 'pause' : 'play';
     if (button.dataset.pp !== pp) { button.dataset.pp = pp; button.innerHTML = (s.enabled ? '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4.5h4.2v15H6zM13.8 4.5H18v15h-4.2z"/></svg>' : '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg>') + `<span>${s.enabled ? 'Pause' : 'Play'}</span>`; }
     button.setAttribute('aria-label', s.enabled ? 'Pause music' : 'Play music');
     button.setAttribute('aria-pressed', String(s.enabled)); button.disabled = !s.supported || s.empty;
+    sh.body.querySelector('[data-dy-music-shuffle]').disabled = !s.supported || s.empty;
     sh.body.querySelector('[data-dy-music-title]').textContent = s.empty ? 'Make it your mix' : s.track.title;
-    sh.body.querySelector('[data-dy-music-artist]').textContent = s.empty ? 'Enable a song below to get started.' : s.track.artist;
+    sh.body.querySelector('[data-dy-music-artist]').textContent = s.empty ? 'Tap a song below to get started.' : s.track.artist;
     sh.body.querySelector('[data-dy-music-now]').textContent = s.empty ? 'NO SONGS ENABLED' : s.playing ? 'NOW PLAYING' : s.loading ? 'LOADING' : 'SELECTED SONG';
     sh.body.querySelector('.pk-juke-now').classList.toggle('is-playing', s.playing);
     // (the song's album cover beside it, when it has one)
     const art = sh.body.querySelector('[data-dy-music-art]'), cover = s.empty ? '' : s.track.cover || '';
     if (art.getAttribute('src') !== cover) { if (cover) art.src = cover; else art.removeAttribute('src'); }
     art.hidden = !cover;
-    sh.body.querySelector('[data-dy-song-count]').textContent = `${music.TRACKS.filter(t => !s.excluded.includes(t.id)).length} / ${music.TRACKS.length} songs enabled`;
     const battleCount = sh.body.querySelector('[data-dy-battle-count]');
     if (battleCount) battleCount.textContent = `${music.BATTLE_SONGS.filter(t => !s.excluded.includes(t.id)).length} / ${music.BATTLE_SONGS.length}`;
     sh.body.querySelectorAll('[data-dy-song-enabled]').forEach(input => {
@@ -233,14 +221,16 @@ export function musicSheet() {
     const range = sh.body.querySelector('[data-dy-music-volume]');
     range.value = s.volume; range.disabled = !s.supported;
     sh.body.querySelector('[data-dy-music-value]').textContent = s.volume + '%';
+    // (only a problem gets a line: no songs, no audio, a song that failed)
     const status = !s.supported ? 'Music is unavailable in this browser.'
-      : s.empty ? 'No songs enabled in this playlist. Check a song or tap one to play.' : !s.enabled ? 'Music is paused.' : s.failure || (!s.volume ? 'Music level is muted.' : s.playing ? 'Shuffling your enabled songs · saved for your profile.' : s.loading ? 'Loading track…' : 'Ready · starts with your next tap in Rivals.');
+      : s.empty ? 'No songs enabled. Tap a song to play it.' : s.enabled ? s.failure || '' : '';
     const statusEl = sh.body.querySelector('[data-dy-music-status]');
     if (statusEl.textContent !== status) statusEl.textContent = status;
+    statusEl.hidden = !status;
   };
   sh.body.addEventListener('click', e => {
-    if (e.target.closest('[data-dy-sfx-toggle]')) sfx.setEnabled(!sfx.state().enabled);
     if (e.target.closest('[data-dy-music-toggle]')) music.setEnabled(!music.state().enabled);
+    if (e.target.closest('[data-dy-music-shuffle]')) music.reshuffle();
     const song = e.target.closest('[data-dy-music-track]'); if (song) music.selectTrack(song.dataset.dyMusicTrack);
     const theme = e.target.closest('[data-dy-battle-track]'); if (theme) music.selectBattleTrack(theme.dataset.dyBattleTrack);
     const all = e.target.closest('[data-dy-juke-all]'); if (all) music.setPlaylistEnabled(all.dataset.dyJukeAll, true);
@@ -248,11 +238,9 @@ export function musicSheet() {
   });
   sh.body.addEventListener('change', e => { if (e.target.matches('[data-dy-song-enabled]')) music.setTrackEnabled(e.target.dataset.dySongEnabled, e.target.checked); });
   sh.body.addEventListener('input', e => {
-    if (e.target.matches('[data-dy-sfx-volume]')) sfx.setVolume(e.target.value);
     if (e.target.matches('[data-dy-music-volume]')) music.setVolume(e.target.value);
   });
   offMusic = music.subscribe(draw);
-  offSfx = sfx.subscribe(draw);
   offProfile = data.subscribe(type => { if (type === 'me') sh.close(); });
   draw();
   // Open the jukebox's scrolling list at the song that is playing.

@@ -795,6 +795,10 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-pp svg { width: 20px; height: 20px; pointer-events: none; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-pp:disabled { opacity: .5; cursor: default; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-level { flex: 1; min-width: 0; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-shuffle { flex: none; display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 1px solid #ffdb66; border-radius: 50%; background: #172646; color: #ffdb66; cursor: pointer; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-shuffle svg { width: 22px; height: 22px; pointer-events: none; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-shuffle:disabled { opacity: .5; cursor: default; }
+.pk-sheet.pk-jukebox-sheet .pk-juke-status[hidden] { display: none; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-status { margin: -2px 0 0; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-controls > button { padding: 8px 4px; border: 1px solid #506184; border-radius: 6px; background: #172646; color: #e4ecfb; font-size: 12px; }
 .pk-sheet.pk-jukebox-sheet .pk-juke-controls > button[data-dy-music-toggle] { border-color: #ffdb66; background: linear-gradient(#ffe690, #e7b63c); color: #121a38; }
@@ -809,7 +813,7 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 .pk-sheet .pk-juke-tools p { flex: 1; margin: 0; color: #b6c6e6; font-size: 10px; }
 .pk-sheet .pk-juke .pk-juke-tools button { display: block; width: auto; min-width: 44px; min-height: 44px; padding: 6px; color: #ffdf70; background: transparent; border: 0; font-size: 11px; text-decoration: underline; text-underline-offset: 3px; }
 /* the song list takes the sheet's room (Evan, Nov 9 2026: "Make the list of songs take up more of the screen") */
-.pk-sheet.pk-jukebox-sheet .pk-juke ul { padding: 3px; gap: 8px; max-height: max(240px, calc(100svh - 470px - var(--sa-t, 0px) - var(--sa-b, 0px))); scrollbar-width: thin; scrollbar-color: #b8a16a #131d36; }
+.pk-sheet.pk-jukebox-sheet .pk-juke ul { padding: 3px; gap: 8px; max-height: max(240px, calc(100svh - 360px - var(--sa-t, 0px) - var(--sa-b, 0px))); scrollbar-width: thin; scrollbar-color: #b8a16a #131d36; }
 .pk-sheet .pk-juke-row { display: flex; align-items: stretch; min-width: 0; border: 1px solid #6b7b9c; border-radius: 5px; background: linear-gradient(165deg, #222354 0%, #091120 40%, #142654 100%); box-shadow: inset 0 1px #ffffff24; }
 .pk-sheet .pk-juke-row.is-current { border-color: #ffda62; box-shadow: 0 0 0 1px #ffda6266, inset 0 0 20px #daa94b16; }
 .pk-sheet .pk-juke-check { position: relative; display: grid; place-items: center; width: 44px; min-height: 78px; flex: none; cursor: pointer; }

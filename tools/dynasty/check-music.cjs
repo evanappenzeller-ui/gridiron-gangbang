@@ -258,8 +258,17 @@ async function main() {
     const order = await page.evaluate(() => ['.pk-juke-now', '.pk-juke-play', '.pk-juke ul'].map(s => document.querySelector(s).getBoundingClientRect().top));
     assert(order[0] < order[1] && order[1] < order[2], 'now playing, then play/pause and volume, then the songs');
     assert.equal(await page.locator('.pk-juke-play [data-dy-music-toggle]').count() + await page.locator('.pk-juke-play [data-dy-music-volume]').count(), 2);
+    // (Evan, Nov 9 2026: no rotation heading, hint, All/None or sound effects; a shuffle button deals a fresh shuffle)
+    assert.equal(await page.locator('.pk-juke-heading, .pk-juke > .pk-juke-tools, [data-dy-juke-all="songs"], [data-dy-song-count], [data-dy-sfx-toggle], .pk-sfx').count(), 0, 'the rotation heading, hint, All/None and sound effects are gone');
+    assert.equal(await page.locator('[data-dy-music-status]:visible').count(), 0, 'no everyday status line');
+    const beforeShuffle = (await state()).track.id;
+    await page.locator('.pk-juke-play [data-dy-music-shuffle]').click(); await playing();
+    assert.notEqual((await state()).track.id, beforeShuffle, 'shuffle deals a new pass that opens with another song');
+    await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
+    await page.waitForFunction(() => mediaProbes[0].readyState >= 1 && Number.isFinite(mediaProbes[0].duration) && /sundress-v1/.test(mediaProbes[0].currentSrc));
     await page.evaluate(async () => (await import('/js/core/dynasty-music.js')).seek(60));
-    assert((await state()).position >= 59.9, 'seeking still works (lock screen, media keys)');
+    await page.waitForFunction(async () => (await import('/js/core/dynasty-music.js')).state().position >= 59.9, null, {timeout: 5000}).catch(() => {});
+    assert((await state()).position >= 59.9, 'seeking still works (lock screen, media keys): ' + (await state()).position);
     await page.evaluate(() => mediaHandlers.seekto({seekTime:75})); assert((await state()).position >= 75,'native seek works');
     await page.evaluate(() => mediaHandlers.pause()); await silent();
     assert.equal(await page.evaluate(() => navigator.mediaSession.playbackState),'paused');
