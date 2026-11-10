@@ -110,14 +110,16 @@ async function main() {
       await page.waitForSelector('[data-dy-music-toggle]');
     };
     await page.goto(url + '/#/puzzles'); await page.waitForFunction(() => window.__ggBooted);
+    // (a returning player: first-time onboarding has its own check, check-tutorial-browser.cjs)
+    await page.evaluate(async () => { const D = await import('/js/core/dynasty.js'); await D.load(); D.finishTutorial('skipped', (await import('/js/core/realm-active.js')).profileKey()); });
     assert.equal(await page.evaluate(async () => (await import('/js/core/fire.js')).canWrite()), false);
     await nav('/puzzles/dynasty'); await page.waitForSelector('.pk-start.is-ready');
     assert.equal(await page.evaluate(() => audioProbes.length), 0, 'no audio context or autoplay before interaction');
     assert.equal(trackRequests.length, 0, 'no MP3 download before interaction');
     await page.locator('[data-dy-music-menu]').click();
-    // The jukebox is shuffled: the opening song is the first of a fresh pass over all 31 songs.
+    // The jukebox is shuffled: the opening song is the first of a fresh pass over all 39 songs.
     const opening = (await state()).track, pass = [opening.id, ...(await upNext()).songs];
-    assert.equal(new Set(pass).size, 31, 'a play-through holds every song once: ' + pass);
+    assert.equal(new Set(pass).size, 39, 'a play-through holds every song once: ' + pass);
     assert.equal(await page.locator('.pk-mini-player:visible [data-mini-title]').innerText(), opening.title);
     assert.equal(await page.locator('.pk-mini-player:visible [data-mini-artist]').innerText(), opening.artist);
     assert.equal(trackRequests.length, 0, 'opening song controls does not start playback');
@@ -229,7 +231,7 @@ async function main() {
     });
     for (const list of [passes.real, passes.stubbed]) {
       assert.equal(new Set(list.map(p => p.join())).size, list.length, 'every play-through is a new order');
-      list.forEach((p, i) => { assert.equal(new Set(p).size, 31); if (i) assert.notEqual(p[0], list[i - 1][30], 'a pass never opens with the song that just played'); });
+      list.forEach((p, i) => { assert.equal(new Set(p).size, 39); if (i) assert.notEqual(p[0], list[i - 1][38], 'a pass never opens with the song that just played'); });
     }
     const heard = await page.evaluate(() => JSON.parse(localStorage.getItem('gg-rivals-shuffle:m_evan:v1')));
     assert(heard.songs.length >= 9 && new Set(heard.songs).size === heard.songs.length, 'the profile remembers its recent play-throughs, all different');
@@ -255,7 +257,7 @@ async function main() {
     await page.evaluate(() => mediaHandlers.play()); await playing();
     await page.locator('[data-dy-music-toggle]').click(); await silent();
     await page.locator('[data-dy-music-track="sundress"]').click(); await playing();
-    assert.equal(await page.locator('[data-dy-music-track]').count(), 31, 'the menu jukebox lists the 31 songs, not the battle playlist');
+    assert.equal(await page.locator('[data-dy-music-track]').count(), 39, 'the menu jukebox lists the 39 songs, not the battle playlist');
     await page.locator('[data-dy-music-track="lpfj2"]').click(); await playing();
     assert.match(await page.evaluate(() => mediaProbes[0].currentSrc), /\/audio\/rivals\/lpfj2-v1\.mp3$/);
     assert.equal(await page.locator('[data-dy-music-title]').innerText(), 'Lord Pretty Flacko Jodye 2');
@@ -398,7 +400,7 @@ async function main() {
     if(await page.locator('[data-rp-menu]').count()) { await page.locator('[data-rp-menu]').click(); await page.locator('[data-rp-settings]').click(); }
     else {await page.locator('[data-db-more]').click(); await page.getByRole('button', {name: 'Settings', exact: true}).click();}
     await page.waitForSelector('[data-dy-music-toggle]');
-    assert.equal(await page.locator('[data-dy-music-track]').count(), 32, 'the battle jukebox heads with the battle playlist');
+    assert.equal(await page.locator('[data-dy-music-track]').count(), 40, 'the battle jukebox (the playlist, then the 39 songs) heads with the battle playlist');
     assert.equal(await page.locator('[data-dy-music-track="battle"][aria-pressed="true"]').count(), 1);
     assert(['Pause Menu', 'Green Hill Zone', 'Multiplayer Menu', 'Main Menu Theme', 'OG Main Menu', 'NFL Primetime'].includes(await page.locator('[data-dy-music-title]').innerText()), 'Settings names the battle song that plays');
     assert.match(await page.locator('[data-dy-music-track="battle"]').innerText(), /Battle playlist[\s\S]*Game menu themes · 6 songs/);

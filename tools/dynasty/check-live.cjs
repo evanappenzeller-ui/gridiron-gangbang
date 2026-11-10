@@ -71,7 +71,7 @@ async function until(fn, what, ms = 15000) {
       // (held: the app's own board start may still turn it off a moment later)
       for (const [k, v] of Object.entries({off: false, ready: true, synced: true, uid, put: (body, fields) => window.__rlvPut(body, fields)})) Object.defineProperty(daily.LB, k, {configurable: true, get: () => v, set: () => {}});
       daily.LB.all = [];
-      await D.load();
+      await D.load(); D.finishTutorial('skipped', (await import('/js/core/realm-active.js')).profileKey());
     }, uid);
     pages[uid] = page;
     return page;

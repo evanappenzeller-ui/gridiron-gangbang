@@ -59,6 +59,8 @@ async function main() {
     });
     const page=await context.newPage(),errors=[]; page.on('pageerror',e=>errors.push(String(e)));
     await page.goto(url+'/#/puzzles');await page.waitForFunction(()=>window.__ggBooted);
+    // (a returning player: first-time onboarding has its own check, check-tutorial-browser.cjs)
+    await page.evaluate(async () => { const D = await import('/js/core/dynasty.js'); await D.load(); D.finishTutorial('skipped', (await import('/js/core/realm-active.js')).profileKey()); });
     await page.evaluate(async()=>{window.fx=await import('/js/core/dynasty-sfx.js');});
     await page.evaluate(async()=> (await import('/js/app.js')).nav('/puzzles/dynasty'));
     await page.waitForSelector('.pk-start.is-ready');

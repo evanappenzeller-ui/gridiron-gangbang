@@ -420,7 +420,8 @@ check and the stylesheet scope check.
 
 Jukebox and battle music (November 5, 2026, Evan sent YouTube links: "insert songs into rivals game", "add these songs
 after", and for the first of his list "use this one for music while in battles, music should start at random times in the
-song", then a second list: "import these songs as well"). `TRACKS` holds 31 songs in his lists' order after Sundress
+song", then a second list: "import these songs as well"). `TRACKS` holds 39 songs in his lists' order after Sundress (Nov 9 2026: eight more, "insert songs into rivals": Hunger on Hillside,
+Lifestyle, The Basement, Forget It, Gorgeous, Banking On Me, Survival of the Fittest, No Option; his Ballin' link was already in)
 (`audio/rivals/<id>-v1.mp3`, 160 kbps MP3 made with yt-dlp);
 the menus loop the picked song, the song panel's Skip moves to the next one, and the Settings list scrolls (opening at the
 playing song). Battles (`attachMusic(el, visible, 'battle')` → `attach(..., 'battle')`) play the battle playlist (below);
@@ -429,12 +430,12 @@ returning to the same battle carries on. In a battle the Settings jukebox heads 
 the rest of that battle (and becomes the menu song), and a song the playlist interrupted resumes where it was. A new source's
 start is set before its metadata loads (`jump()`), so it never plays from 0 first. To add a song: put
 `<id>-v1.mp3` in audio/rivals and a `song()` line in `TRACKS`; changed audio gets a new version number.
-`check-music.cjs` covers the 31-song jukebox, the random start, part chaining and the battle jukebox.
+`check-music.cjs` covers the 39-song jukebox, the random start, part chaining and the battle jukebox.
 
 Battle playlist (November 7, 2026, Evan sent six YouTube links: "Use the attached for in game music when playing rivals";
 the Rivals group). Battles play `BATTLE_SONGS` in `core/dynasty-music.js` instead of the retired Cyber Funkwave mix (its
 files are removed): GTA V's pause menu, Sonic's Green Hill Zone, Call of Duty: Black Ops' multiplayer menu, Call of Duty 4's
-main menu theme, Fortnite's OG main menu and ESPN's NFL Primetime music. The menus keep the 31-song jukebox. The looped
+main menu theme, Fortnite's OG main menu and ESPN's NFL Primetime music. The menus keep the jukebox. The looped
 uploads were cut to whole passes (Green Hill and Fortnite three 77 s loops, Black Ops two 109 s loops, CoD4 one 134 s pass);
 GTA V's 21-minute suite is cut at quiet moments into four parts (`gta-menu-v1-01…04.mp3`) and ESPN's video into its 16 tracks
 (`espn-primetime-v1-01…16.mp3`), so a phone fetches only the part that plays. Every file was loudness-normalised to -16 LUFS
@@ -454,7 +455,7 @@ song needs its LUFS in its `song()` line. `check-sfx.cjs` asserts the music hold
 effects gain; `check-music.cjs` the battle mix's gain.
 
 Shuffle (November 6, 2026, Evan: "Shuffle the music in rivals. The music should never follow the same play through twice";
-the Rivals group). The menus no longer loop one song: they play the 31 songs in a shuffled pass, each song's end (or Skip)
+the Rivals group). The menus no longer loop one song: they play the jukebox in a shuffled pass, each song's end (or Skip)
 moving to the next, then a fresh pass. The battle mix starts at its random spot, then plays its other six parts in a
 shuffled order (Skip and part ends follow it); seeking into another part starts a new pass from it. `playThrough()` in
 `core/dynasty-music.js` deals each pass: never an order in the profile's recent history (`gg-rivals-shuffle:<profileKey>:v1`,

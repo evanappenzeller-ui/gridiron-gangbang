@@ -51,6 +51,15 @@ export const TRACKS = Object.freeze([
   song('ballin', 'Ballin’', 'Mustard ft. Roddy Ricch', -10.3),
   song('feel-so-good', 'Feel So Good', 'Mase', -11.5),
   song('dead-presidents-ii', 'Dead Presidents II', 'JAY-Z', -12.8),
+  // (Evan, Nov 9 2026: "insert songs into rivals", nine links; Ballin' was already in)
+  song('hunger-on-hillside', 'h u n g e r . o n . h i l l s i d e', 'J. Cole ft. Bas', -9.8),
+  song('lifestyle', 'Lifestyle', 'Dreamville, Bas ft. A$AP Ferg', -10.8),
+  song('the-basement', 'The Basement', 'Pete Rock & C.L. Smooth', -14.2),
+  song('forget-it', 'Forget It', 'Matroda', -8.3),
+  song('gorgeous', 'Gorgeous', 'Kanye West', -7.8),
+  song('banking-on-me', 'Banking On Me', 'Gunna', -11.2),
+  song('survival-of-the-fittest', 'Survival of the Fittest', 'Mobb Deep', -10.4),
+  song('no-option', 'No Option', 'Post Malone', -9.3),
 ]);
 // Battle music (Evan, Nov 7 2026: "Use the attached for in game music when playing rivals", six YouTube links): the
 // game and broadcast menu themes below replace the Cyber Funkwave mix in battles; the menus keep the jukebox. The looped
