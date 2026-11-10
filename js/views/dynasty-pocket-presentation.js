@@ -6,7 +6,7 @@ import {rivalsUpdated} from '../core/features.js';
 import {printedCard} from './dynasty-pocket-card.js';
 import {conditionBadges} from './dynasty-pocket-preview.js';
 
-const kinds = new Set(['attack', 'attack-failed', 'coin', 'evolve', 'support', 'condition']);
+const kinds = new Set(['attack', 'attack-failed', 'coin', 'evolve', 'support', 'condition', 'battle-start', 'setup', 'place', 'bench', 'switch', 'promote', 'ko', 'points', 'game-over']);
 const TYPE = {Grass:'#4c963e',Fire:'#ce513c',Water:'#337cb8',Lightning:'#b18d10',Psychic:'#9451aa',Fighting:'#ab6b42',Darkness:'#43556b',Metal:'#697c85',Colorless:'#7b7a90'};
 const short = id => C.card(id)?.athlete || C.card(id)?.name || 'Athlete';
 const cap = w => w ? w[0].toUpperCase() + w.slice(1) : '';
@@ -20,6 +20,63 @@ function spot(root, mine) {
   return {left:(innerWidth - w) / 2, top:innerHeight * (mine ? .55 : .25), width:w, height:w * 88 / 63};
 }
 const center = r => ({x:r.left + r.width / 2, y:r.top + r.height / 2});
+
+// Capture the old table before the view commits a resolved move. A knockout may already
+// have removed its card, and a switch may already have exchanged both positions by the
+// time its scene reaches the front of the queue.
+const bounds = el => { const r = el?.getBoundingClientRect(); return r?.width ? {left:r.left,top:r.top,width:r.width,height:r.height} : null; };
+function tableCards(root, side, id) {
+  const label = `Inspect ${C.card(id)?.name || 'Card'}`;
+  return [...root.querySelectorAll(`.rp-side.${side} .rp-card`)].filter(el => el.getAttribute('aria-label')?.startsWith(label + ',') || el.getAttribute('aria-label') === label);
+}
+const tableCard = (root,side,id) => tableCards(root,side,id)[0];
+function tableLayout(root, ev, x) {
+  const side = ev.who === x.you ? 'is-mine' : 'is-opponent', active = spot(root, ev.who === x.you);
+  const bench = [...root.querySelectorAll(`.rp-side.${side} .rp-bench > *`)].map(bounds);
+  const source = bounds(ev.u != null ? root.querySelector(`.rp-side.${side} [data-rp-slot="${Number(ev.u)}"]`) : tableCard(root, side, ev.id));
+  const hand = bounds(root.querySelector(ev.who === x.you ? '.rp-hand' : '.rp-opponent-hand'));
+  const index = ev.index ?? (x.G?.p?.[ev.who]?.bench.findIndex(s => s.id === ev.id) ?? -1);
+  return {active, bench, source, hand, side, target:ev.zone === 'active' ? active : bench[Math.max(0,index)] || active};
+}
+function travelCard(id, from, to, rev, cls = '', i = 0, hidden = false) {
+  const a = center(from), b = center(to);
+  return `<div class="rp-table-flight ${cls}" style="${box(to)};--dx:${(a.x-b.x).toFixed(1)}px;--dy:${(a.y-b.y).toFixed(1)}px;--s0:${(from.width/to.width).toFixed(3)};--i:${i}" aria-hidden="true"><span class="rp-card-print">${hidden ? BACK : printedCard(id,rev)}</span><i class="rp-table-ring"></i></div>`;
+}
+const sceneTop = label => `<div class="rp-flash-top"><span>${esc(label)}</span><button type="button" data-rp-skip>Skip</button></div>`;
+function placementHTML(ev, you, opponent, rev, layout) {
+  const mine = ev.who === you, hidden = ev.hidden, from = layout.hand || layout.active;
+  const origin = {...from,width:Math.min(from.width,70),height:Math.min(from.width,70)*88/63};
+  const cards = ev.k === 'setup' ? [travelCard(ev.id,origin,layout.active,rev,'',0,hidden),...(ev.bench || []).map((id,i)=>travelCard(id,origin,layout.bench[i] || layout.active,rev,'',i+1,hidden))].join('')
+    : travelCard(ev.id,origin,layout.target,rev);
+  return sceneTop(mine ? 'Your lineup' : `${opponent}’s lineup`) + cards
+    + `<p class="rp-table-caption" role="status">${ev.k === 'setup' ? 'Lineup ready' : `${esc(short(ev.id))} ${ev.zone === 'active' ? 'takes the Active Spot' : 'joins the Bench'}`}</p>`;
+}
+function switchHTML(ev, you, opponent, rev, layout) {
+  const from = layout.source || layout.bench[0] || layout.active;
+  const incoming = travelCard(ev.id,from,layout.active,rev,'is-switch');
+  const outgoing = ev.from ? travelCard(ev.from,layout.active,from,rev,'is-switch is-outgoing') : '';
+  return sceneTop(ev.who === you ? 'Your substitution' : `${opponent}’s substitution`) + outgoing + incoming
+    + `<p class="rp-table-caption" role="status">${esc(short(ev.id))} takes the Active Spot</p>`;
+}
+function knockoutHTML(ev, rev, layout) {
+  const r = layout.source || layout.active;
+  return sceneTop('Knockout') + `<div class="rp-knockout-card" style="${box(r)}" aria-hidden="true"><span class="rp-card-print">${printedCard(ev.id,rev)}</span><i class="rp-knockout-crack"></i></div>`
+    + `<div class="rp-moment-title is-knockout" role="status"><b>KNOCKOUT</b><span>${esc(short(ev.id))} is out</span></div>`;
+}
+function momentHTML(root, ev, you, opponent) {
+  if (ev.k === 'battle-start') return sceneTop('Gridiron Rivals')
+    + `<div class="rp-match-intro" role="status"><span class="rp-intro-manager is-you">YOU</span><strong>VS</strong><span class="rp-intro-manager is-opponent">${esc(opponent)}</span><b>BATTLE START</b></div><i class="rp-moment-ring" aria-hidden="true"></i>`;
+  if (ev.k === 'points') {
+    const mine = ev.who === you, badge = bounds(root.querySelector(`.rp-manager.${mine ? 'is-mine' : 'is-opponent'} .rp-points`));
+    const to = badge ? center(badge) : {x:innerWidth*.2,y:innerHeight*.6};
+    const n = Math.max(1,Math.min(3,Number(ev.points)||1));
+    return sceneTop('Knockout points') + `<div class="rp-moment-title is-points" role="status"><b>+${n} ${n === 1 ? 'POINT' : 'POINTS'}</b><span>${mine ? 'You score' : esc(opponent) + ' scores'}</span></div>`
+      + Array.from({length:n},(_,i)=>`<i class="rp-score-orb" style="--i:${i};--dx:${(to.x-innerWidth/2).toFixed(1)}px;--dy:${(to.y-innerHeight*.45).toFixed(1)}px" aria-hidden="true">★</i>`).join('');
+  }
+  const win = ev.result === 'w', draw = ev.result === 'd';
+  return sceneTop('Match complete') + `<i class="rp-moment-ring" aria-hidden="true"></i><div class="rp-moment-title is-finale" role="status"><small>GRIDIRON RIVALS</small><b>${win ? 'VICTORY' : draw ? 'MATCH DRAWN' : 'DEFEAT'}</b><span>${win ? 'The table is yours.' : draw ? 'An even match.' : 'The next battle awaits.'}</span></div>`
+    + (win ? Array.from({length:20},(_,i)=>`<i class="rp-win-confetti" style="--i:${i};--x:${(i*47%100)}vw;--turn:${i%2 ? 440 : -380}deg" aria-hidden="true"></i>`).join('') : '');
+}
 
 // Attacks (November 7, 2026, Evan's video): the attacker lifts toward the center while a
 // diagonal banner sweeps across with the attack's name, then it returns and strikes.
@@ -68,11 +125,11 @@ const SPARKS = Array.from({length:16}, (_, i) => {
   const a = i / 16 * Math.PI * 2 + (i % 2 ? .2 : 0), r = .56 + (i * 37 % 23) / 100;
   return `<i class="rp-flash-spark" style="--x:${(Math.cos(a) * r).toFixed(2)};--y:${(Math.sin(a) * r * 1.4).toFixed(2)};--d:${(i * 53 % 9) * 24}ms;--s:${(.6 + (i * 29 % 7) / 10).toFixed(1)}"></i>`;
 }).join('');
-function flashHTML(ev, you, opponent) {
+function flashHTML(ev, you, opponent, rev) {
   const c = C.card(ev.id), mine = ev.who === you;
   const label = (c?.kind || 'support')[0].toUpperCase() + (c?.kind || 'support').slice(1);
   return `<div class="rp-flash-top"><span>${mine ? 'You played' : esc(opponent) + ' played'} · ${esc(label)}</span><button type="button" data-rp-skip>Skip</button></div>`
-    + `<span class="rp-flash-burst" aria-hidden="true"></span><div class="rp-flash-stage" aria-hidden="true"><div class="rp-flash-card"><span class="rp-card-print">${printedCard(ev.id)}</span><i class="rp-flash-white"></i></div><span class="rp-flash-ring"></span>${SPARKS}</div>`
+    + `<span class="rp-flash-burst" aria-hidden="true"></span><div class="rp-flash-stage" aria-hidden="true"><div class="rp-flash-card"><span class="rp-card-print">${printedCard(ev.id, rev)}</span><i class="rp-flash-white"></i></div><span class="rp-flash-ring"></span>${SPARKS}</div>`
     + `<p class="rp-sr-only" role="status">${esc(c?.name || 'Card')} played. ${esc(ev.text || '')}</p>`;
 }
 
@@ -106,8 +163,8 @@ function drawHTML(root, ev, you, opponent, rev) {
   return `<p class="rp-draw-pill" role="status">You ${verb} ${n === 1 ? `<b>${esc(names[0])}</b>` : `${n} cards`}</p>${cards}<button type="button" class="rp-draw-skip" data-rp-skip>Skip</button>`;
 }
 
-export function attachPresentation(root, {enabled, cancelHand, sound, blocked = () => false}) {
-  let queue = [], scene = null, timer, cue, retry, focus, raf = 0, stopped = false;
+export function attachPresentation(root, {enabled, cancelHand, sound, blocked = () => false, sceneEnd = () => {}, settled = () => {}}) {
+  let queue = [], scene = null, current = null, currentLayout = null, timer, cue, retry, focus, raf = 0, stopped = false, masks = [];
   // Your drawn cards already sit at the end of the redrawn hand. They stay hidden there (keeping their places in the
   // fan) until their scene lands them; `incoming` counts the queued and playing ones.
   let incoming = 0, onEnd = null, later = [];
@@ -116,9 +173,25 @@ export function attachPresentation(root, {enabled, cancelHand, sound, blocked = 
   const host = () => root.querySelector('[data-rp]');
   const handCards = () => [...(host()?.querySelectorAll('.rp-hand>[data-rp-hand]') || [])];
   const allowed = () => !stopped && rivalsUpdated() && enabled() && !document.hidden;
+  function maskTableCards() {
+    if (!current || !currentLayout || current.hidden || !['setup','place','bench','switch','promote','ko'].includes(current.k)) return;
+    const ids = [current.id, ...(current.bench || []), ...(current.from ? [current.from] : [])];
+    const seen = new Map();
+    ids.forEach(id => {
+      const candidates = tableCards(root,currentLayout.side,id), at = seen.get(id) || 0; seen.set(id,at+1);
+      if (['place','bench'].includes(current.k)) {
+        const to = center(currentLayout.target);
+        candidates.sort((a,b) => { const ac=center(bounds(a)),bc=center(bounds(b)); return Math.hypot(ac.x-to.x,ac.y-to.y)-Math.hypot(bc.x-to.x,bc.y-to.y); });
+      }
+      const el = current.k === 'ko' && current.u != null ? root.querySelector(`.rp-side.${currentLayout.side} [data-rp-slot="${Number(current.u)}"]`) : candidates[at];
+      if (el && !masks.includes(el)) { el.style.visibility = 'hidden'; masks.push(el); }
+    });
+  }
   function sync() {
     const cards = handCards();
     cards.forEach((el, i) => el.classList.toggle('is-incoming', i >= cards.length - incoming));
+    // The battle may redraw after enqueue; hide the newly mounted originals too.
+    maskTableCards();
   }
   function land(n) {
     const cards = handCards(), from = cards.length - incoming;
@@ -126,19 +199,26 @@ export function attachPresentation(root, {enabled, cancelHand, sound, blocked = 
     cards.slice(Math.max(0, from), Math.max(0, from + n)).forEach(el => { el.classList.remove('is-drawn'); void el.offsetWidth; el.classList.add('is-drawn'); });
   }
   function clear() {
+    const hadWork = !!scene || queue.length > 0;
     clearTimeout(timer); clearTimeout(retry); clearTimeout(cue); cancelAnimationFrame(raf);
     later.forEach(clearTimeout); later = []; onEnd = null; incoming = 0;
-    queue = []; scene?.remove(); scene = null;
+    queue = []; scene?.remove(); scene = null; current = null; currentLayout = null;
+    masks.forEach(el => el.style.removeProperty('visibility')); masks = [];
     if (host()) { host().inert = false; sync(); }
+    if (hadWork) settled({cancelled:true});
   }
   function finish() {
     clearTimeout(timer); clearTimeout(cue); cancelAnimationFrame(raf); later.forEach(clearTimeout); later = [];
     const end = onEnd; onEnd = null; end?.();
+    const ended = current; current = null; currentLayout = null;
     scene?.remove(); scene = null;
+    masks.forEach(el => el.style.removeProperty('visibility')); masks = [];
     if (host()) host().inert = false;
+    if (ended) sceneEnd(ended);
     next();
     if (!scene && !queue.length && allowed()) {
       (focus?.isConnected ? focus : host()?.querySelector('[data-rp-menu]'))?.focus({preventScroll:true});
+      settled({cancelled:false});
     }
   }
   function next() {
@@ -149,18 +229,33 @@ export function attachPresentation(root, {enabled, cancelHand, sound, blocked = 
     // A closing sheet stays mounted through its exit transition and restores focus
     // afterward. Wait for removal too, so it cannot cover the scene or steal Skip.
     if (ui.sheetCount() || document.querySelector('.sheet') || blocked()) { retry = setTimeout(next, 100); return; }
-    const {ev, you, opponent, rev} = queue.shift(), attack = ev.k === 'attack', coin = ev.k === 'coin', flash = ev.k === 'support', status = ev.k === 'condition', drawn = ev.k === 'draw';
+    const {ev, you, opponent, rev, layout} = queue.shift(), attack = ev.k === 'attack', coin = ev.k === 'coin', flash = ev.k === 'support', status = ev.k === 'condition', drawn = ev.k === 'draw';
+    const placement = ['setup','place','bench'].includes(ev.k), switched = ev.k === 'switch' || ev.k === 'promote', knockout = ev.k === 'ko', moment = ['battle-start','points','game-over'].includes(ev.k);
+    // Earlier KOs in this batch may have compacted the Bench. Follow this exact
+    // held athlete when it is still present; otherwise use its captured position.
+    if (knockout && ev.u != null) layout.source = bounds(root.querySelector(`.rp-side.${layout.side} [data-rp-slot="${Number(ev.u)}"]`)) || layout.source;
+    current = ev; currentLayout = layout;
     cancelHand(); focus = document.activeElement;
     scene = document.createElement('section');
     const side = ev.who === you ? 'is-mine' : 'is-theirs';
-    scene.className = drawn ? `rp-cinema rp-draw-scene ${side}` : flash ? `rp-cinema rp-play-flash ${side}` : attack ? `rp-cinema rp-attack-scene ${side}${ev.damage > 0 ? ' is-hit' : ''}`
+    scene.className = placement || switched ? `rp-cinema rp-table-scene ${side}` : knockout ? `rp-cinema rp-knockout-scene ${side}` : moment ? `rp-cinema rp-moment-scene is-${ev.k}${ev.k === 'game-over' ? ' is-' + ev.result : ''}` : drawn ? `rp-cinema rp-draw-scene ${side}` : flash ? `rp-cinema rp-play-flash ${side}` : attack ? `rp-cinema rp-attack-scene ${side}${ev.damage > 0 ? ' is-hit' : ''}`
       : coin ? `rp-cinema rp-coin-scene ${ev.heads ? 'is-heads' : 'is-tails'} is-up-heads` : status ? `rp-cinema rp-status-scene is-${String(ev.condition || '').toLowerCase()}` : 'db-cinema rp-cinema is-card';
     scene.dataset.rpScene = ev.k;
     scene.setAttribute('role', 'dialog'); scene.setAttribute('aria-modal', 'true');
-    scene.setAttribute('aria-label', drawn ? (ev.who === you ? 'You drew' : `${opponent} drew`) : coin ? 'Coin result' : status ? `${short(ev.id)} is now ${cap(String(ev.condition || '').toLowerCase())}` : ev.name || C.card(ev.id)?.name || 'Play result');
+    scene.setAttribute('aria-label', moment ? ev.k === 'battle-start' ? 'Battle start' : ev.k === 'points' ? 'Point earned' : 'Game over' : knockout ? 'Knockout' : switched ? 'Switch athletes' : drawn ? (ev.who === you ? 'You drew' : `${opponent} drew`) : coin ? 'Coin result' : status ? `${short(ev.id)} is now ${cap(String(ev.condition || '').toLowerCase())}` : ev.name || C.card(ev.id)?.name || 'Play result');
     const heading = ev.k === 'attack-failed' ? 'Attack stopped' : ev.k === 'evolve' ? 'Player developed' : 'Card played';
     let duration = 1600;
-    if (drawn) {
+    if (placement || switched || knockout) {
+      scene.innerHTML = placement ? placementHTML(ev,you,opponent,rev,layout) : switched ? switchHTML(ev,you,opponent,rev,layout) : knockoutHTML(ev,rev,layout);
+      duration = knockout ? 1500 : placement && ev.k === 'setup' ? 1300 : 1100;
+      maskTableCards();
+      sound(knockout ? 'knockout' : 'deal');
+      if (!knockout) cue = setTimeout(() => sound('card'), 650);
+    } else if (moment) {
+      scene.innerHTML = momentHTML(root,ev,you,opponent);
+      duration = ev.k === 'game-over' ? 2200 : ev.k === 'battle-start' ? 1600 : 1450;
+      sound(ev.k === 'game-over' ? ev.result === 'w' ? 'victory' : ev.result === 'd' ? 'draw' : 'defeat' : ev.k === 'points' ? 'epic' : 'turn');
+    } else if (drawn) {
       scene.innerHTML = drawHTML(root, ev, you, opponent, rev);
       scene.addEventListener('click', e => { if (!e.target.closest('[data-rp-skip]')) finish(); });
       const n = ev.ids.length, mine = ev.who === you;
@@ -175,10 +270,11 @@ export function attachPresentation(root, {enabled, cancelHand, sound, blocked = 
         duration = landed + 400;
       }
     } else if (flash) {
-      scene.innerHTML = flashHTML(ev, you, opponent); duration = 1750;
+      scene.innerHTML = flashHTML(ev, you, opponent, rev); duration = 1750;
       cue = setTimeout(() => sound('power'), 760);
     } else if (attack) {
       scene.innerHTML = attackHTML(root, ev, you, opponent, rev); duration = ev.damage > 0 ? ATTACK_MS.hit : ATTACK_MS.status;
+      cue = setTimeout(() => sound(ev.damage > 0 ? 'impact' : 'miss'), ev.damage > 0 ? 1780 : 1400);
     } else if (status) {
       scene.innerHTML = conditionHTML(root, ev, you, rev); duration = STATUS_MS;
       scene.addEventListener('click', e => { if (!e.target.closest('[data-rp-skip]')) finish(); });
@@ -243,7 +339,8 @@ export function attachPresentation(root, {enabled, cancelHand, sound, blocked = 
   return {
     busy: () => !!scene || queue.length > 0,
     enqueue(events, x) {
-      if (!allowed() || motion.matches) return;
+      if (!allowed() || motion.matches) return false;
+      const before = queue.length;
       const rev = x.G?.rev === 2 ? 2 : 1, opponent = x.opp.name;
       for (const e of events) {
         if (e.k === 'draw' || e.k === 'search') {
@@ -254,9 +351,15 @@ export function attachPresentation(root, {enabled, cancelHand, sound, blocked = 
           if (last?.k === 'draw' && last.who === e.who && last.search === search && last.ids.length < 3) last.ids.push(mine ? e.id : null);
           else queue.push({ev:{k:'draw', who:e.who, search, ids:[mine ? e.id : null]}, you:x.you, opponent, rev});
           if (mine) incoming++;
-        } else if (kinds.has(e.k)) queue.push({ev:{...e}, you:x.you, opponent, rev});
+        } else if (kinds.has(e.k)) {
+          const hidden = e.k === 'setup' && e.who !== x.you && x.G?.phase === 'setup';
+          const ev = hidden ? {k:e.k,who:e.who,id:null,bench:(e.bench || []).map(()=>null),hidden:true} : {...e};
+          queue.push({ev, you:x.you, opponent, rev, layout:tableLayout(root,e,x)});
+        }
       }
+      const added = queue.length > before;
       sync(); next();
+      return added;
     },
     /** Hides your drawn cards in the redrawn hand until their scene lands them. */
     sync,

@@ -43,9 +43,9 @@ function piece(id, slot, G, attrs = '', selected = false) {
   return `<button type="button" class="rp-card ${c?.kind === 'player' ? 'is-player' : 'is-support'}${selected ? ' is-selected' : ''}${slot?.conditions?.asleep ? ' is-asleep' : ''}" ${attrs} aria-label="Inspect ${esc(name(id))}${slot ? `, ${Math.max(0, B.hpOf(G, slot) - slot.dmg)} HP, ${slot.en.length} Energy` : ''}">${face(id, slot, G)}</button>`;
 }
 function closeSheet(st) { st.sheet?.close(); st.sheet = null; }
-function showSheet(st, title, body, click, cardFocus = false) {
+function showSheet(st, title, body, click, cardFocus = false, compact = false) {
   closeSheet(st);
-  const sh = ui.openSheet({title, body:`<div class="rp-sheet-content">${body}</div>`, cls:'pk-sheet rp-sheet' + (cardFocus ? ' rp-card-focus' : ''), detents:['large'], onClose:() => { if (st.sheet === sh) st.sheet = null; }});
+  const sh = ui.openSheet({title, body:`<div class="rp-sheet-content">${body}</div>`, cls:'pk-sheet rp-sheet' + (cardFocus ? ' rp-card-focus' : ''), detents:[compact ? 'fit' : 'large'], onClose:() => { if (st.sheet === sh) st.sheet = null; }});
   st.sheet = sh;
   if (click) sh.body.addEventListener('click', click);
   return sh;
@@ -107,6 +107,7 @@ function placeOpening(st, index, zone) {
     st.setup.bench = st.setup.bench.filter(i => i !== index);
   } else return;
   closeSheet(st); ui.haptic('selection'); draw(st);
+  if (zone !== 'remove') st.presentation.enqueue([{k:'place', who:x.you, id:c.id, zone, index:st.setup.bench.indexOf(index)}], x);
 }
 function dropMoves(x, index, target) {
   const G=x.G, id=G.p[x.you].hand[index], c=C.card(id);
@@ -349,26 +350,115 @@ function boardPrompt(st) {
   if (G.pending?.kind === 'switch' && G.pending.who === you) return 'Choose a Benched replacement';
   return p.en && !p.used.energy ? `Your turn · Drag ${p.en} Energy onto an athlete` : 'Your turn · Tap an athlete to attack';
 }
+// The engine resolves synchronously. Keep a separate visual copy so attacks can
+// land before HP changes, then remove KOs and award points in their own scenes.
+const copy = value => JSON.parse(JSON.stringify(value));
+function presentedMatch(st, latest) {
+  const h = st.battleHold;
+  if (!h) return latest;
+  const x = copy(latest);
+  x.state = h.before.state; x.result = h.before.result;
+  x.G.phase = h.before.G.phase;
+  x.G.p.forEach((p, side) => {
+    const before = h.before.G.p[side];
+    p.points = before.points;
+    if (!h.hit) { p.active = copy(before.active); p.bench = copy(before.bench); }
+    else for (const ev of h.kos.filter(e => e.who === side)) {
+      const old = all(before).find(slot => ev.u != null ? slot.u === ev.u : slot.id === ev.id);
+      if (!old) continue;
+      const knocked = copy(old); knocked.dmg = B.hpOf(h.before.G, old);
+      if (before.active?.u === old.u) p.active = knocked;
+      else if (!p.bench.some(slot => slot.u === old.u)) p.bench.push(knocked);
+    }
+    if (h.hit) p.bench.sort((a,b) => {
+      const order = slot => { const i = before.bench.findIndex(old => old.u === slot.u); return i < 0 ? before.bench.length : i; };
+      return order(a) - order(b);
+    });
+  });
+  return x;
+}
+function sceneEnded(st, ev) {
+  const h = st.battleHold;
+  if (!h || st.dead || st.hidden || st.stale || profileKey() !== st.profile) return;
+  if (ev.k === 'attack' || ev.k === 'attack-failed') h.hit = true;
+  if (ev.k === 'ko') { const i = h.kos.findIndex(k => k.who === ev.who && (ev.u != null ? k.u === ev.u : k.id === ev.id)); if (i >= 0) h.kos.splice(i, 1); }
+  if (ev.k === 'points') h.before.G.p[ev.who].points += ev.points;
+  draw(st);
+}
+function soloVictory(st) {
+  clearTimeout(st.victoryTimer);
+  if (!st.winPending || st.winShown || st.dead || st.hidden || st.stale || document.hidden || profileKey() !== st.profile) return;
+  if (st.presentation.busy() || st.preview?.isOpen() || ui.sheetCount() || document.querySelector('.sheet')) {
+    st.victoryTimer = setTimeout(() => soloVictory(st), 100); return;
+  }
+  const x = st.src.get(st.mid);
+  if (!x?.solo || st.tutorial || x.state !== 'over' || x.result !== 'w') return;
+  st.winShown = true;
+  const n = x.opp.cpu?.n, next = Number.isInteger(n) && n < SOLO.LADDER ? SOLO.stage(n + 1) : null;
+  showSheet(st, next ? 'Victory!' : n === SOLO.LADDER ? 'Ladder complete!' : 'Victory!',
+    `<div class="rp-solo-victory"><p>${next ? `Level ${n} won. Play Level ${next.n} — ${esc(next.name)} next?` : n === SOLO.LADDER ? 'You won the final level. You have conquered the Rivals ladder.' : 'You won this solo battle.'}</p><div class="rp-actions">${next ? button('Next level', 'data-rp-next-level', false, 'is-primary') : ''}${button('Leave battles', 'data-rp-leave-battles', false, next ? '' : 'is-primary')}</div></div>`, e => {
+      if (!usable(st)) return;
+      if (e.target.closest('[data-rp-leave-battles]')) { closeSheet(st); st.ctx.nav('/puzzles/dynasty'); }
+      if (next && e.target.closest('[data-rp-next-level]')) {
+        const r = SOLO.start(next.id);
+        if (r.ok) { closeSheet(st); st.ctx.nav(`/puzzles/dynasty/battle/${r.mid}`); }
+        else ui.toast(r.why, {icon:'info'});
+      }
+    }, false, true);
+}
+function presentationSettled(st) {
+  // A reduced-motion change may clear a scene during a render. Reconcile once
+  // the current event batch has been recorded, without submitting another move.
+  queueMicrotask(() => {
+    if (st.dead || st.hidden || st.stale || profileKey() !== st.profile) return;
+    st.battleHold = null; draw(st); soloVictory(st);
+  });
+}
 function draw(st) {
   if (st.dead || st.hidden) return;
   st.hand?.cancel();
   const host = st.el.querySelector('[data-rp]');
   if (!D.mayPlay()) { closeSheet(st); document.documentElement.classList.remove('is-dynasty-battle'); if (!st.left) { st.left = true; st.ctx.back(); } return; }
   if (D.status !== 'ready') { host.innerHTML = '<p class="rp-message">Loading your battle…</p>'; return; }
-  const x = st.src.get(st.mid); st.x = x;
+  let x = st.src.get(st.mid); st.x = x;
   if (x?.live && !x.G) { st.rendered = renderKey(x); host.innerHTML = `<header class="rp-top">${button('‹ <span>Rivals</span>','data-back')}<div><small>GRIDIRON RIVALS · LIVE</small><b>Live battle</b></div></header>${liveWaitHTML(x)}`; return; }
   if (!x || x.G?.v !== 7) { host.innerHTML = `<p class="rp-message">This battle is not available.</p>${button('Back to Rivals','data-back')}`; return; }
   st.rendered = renderKey(x);
-  const {G,you,state} = x, p = G.p[you], op = G.p[1-you], over = state === 'over' || state === 'bad';
-  host.classList.toggle('is-setup',G.phase === 'setup');
-  const events = G.events || G.ev || [], len = events.length;
-  if (st.eventAt != null && len > st.eventAt) {
-    st.presentation.enqueue(events.slice(st.eventAt), x);
-    const ev = events.slice(st.eventAt).reverse().find(e => ['ko','attack','energy','evolve'].includes(e.k));
-    if (ev) st.sfx?.play(ev.k === 'ko' ? 'knockout' : ev.k === 'attack' ? 'impact' : 'card');
-    if (over) st.sfx?.play(x.result === 'w' ? 'victory' : x.result === 'd' ? 'draw' : 'defeat');
+  const events = x.G.events || x.G.ev || [], len = events.length;
+  if (st.eventAt != null) {
+    const fresh = events.slice(st.eventAt), scenes = [], removedSlots = new Set();
+    if (st.snapshot?.G.phase === 'setup' && x.G.phase !== 'setup') scenes.push({k:'battle-start', who:x.you});
+    for (const ev of fresh) {
+      if (ev.k !== 'setup' || ev.who !== x.you) {
+        const removed = ev.k === 'ko' ? all(st.snapshot?.G.p[ev.who] || {bench:[]}).find(s => s.id === ev.id && !removedSlots.has(s.u) && !all(x.G.p[ev.who]).some(t => t.u === s.u)) : null;
+        if (removed) removedSlots.add(removed.u);
+        scenes.push(removed ? {...ev, u:removed.u} : ev);
+      }
+      if (ev.k === 'ko') scenes.push({k:'points', who:ev.scorer, points:ev.points});
+    }
+    const ended = x.state === 'over' && st.snapshot?.state !== 'over' && !st.ending;
+    if (ended) {
+      st.ending = true; scenes.push({k:'game-over', who:x.you, result:x.result});
+      if (x.solo && !st.tutorial && x.result === 'w') st.winPending = true;
+    }
+    if (!st.battleHold && st.snapshot && fresh.some(e => ['attack','attack-failed','ko'].includes(e.k))) {
+      st.battleHold = {before:copy(st.snapshot), hit:!fresh.some(e => ['attack','attack-failed'].includes(e.k)), kos:scenes.filter(e => e.k === 'ko')};
+    }
+    st.eventAt = len;
+    st.presentation.enqueue(scenes, x);
+    if (!st.presentation.busy()) {
+      st.battleHold = null;
+      const hit = fresh.find(e => e.k === 'attack' || e.k === 'ko');
+      if (hit) st.sfx?.play(hit.k === 'ko' ? 'knockout' : 'impact');
+      if (ended) st.sfx?.play(x.result === 'w' ? 'victory' : x.result === 'd' ? 'draw' : 'defeat');
+    }
+    const ev = fresh.reverse().find(e => ['energy','evolve'].includes(e.k));
+    if (ev) st.sfx?.play('card');
   }
   st.eventAt = len;
+  x = presentedMatch(st, x); st.x = x;
+  const {G,you,state} = x, p = G.p[you], op = G.p[1-you], over = state === 'over' || state === 'bad';
+  host.classList.toggle('is-setup',G.phase === 'setup');
   const scroll = host.querySelector('.rp-hand')?.scrollLeft || 0, focusKey = document.activeElement?.getAttribute('data-rp-hand');
   const finish = D.tableFinish();
   host.dataset.turn = state === 'theirs' ? 'opponent' : 'you';
@@ -408,7 +498,9 @@ function draw(st) {
     if (st.lesson !== lesson) { host.scrollTop = 0; st.lesson = lesson; }
     host.querySelector('[data-rp-end]')?.setAttribute('disabled','');
   }
+  st.snapshot = copy(x);
   st.presentation?.sync();
+  if (st.winPending && !st.presentation.busy()) queueMicrotask(() => soloVictory(st));
   if (st.preview?.isOpen()) st.preview.refresh(previewModel(st, st.preview.current()));
   if (focusKey != null) host.querySelector(`.rp-hand [data-rp-hand="${Number(focusKey)}"]`)?.focus({preventScroll:true});
 }
@@ -453,20 +545,22 @@ export default {
     ST.set(ctx,st);
     if (!el.querySelector('[data-rp]')) el.innerHTML=this.render();
     st.music=attachMusic(el,ctx.visible,'battle'); st.sfx=sfx.attach(el,ctx.visible);
-    st.presentation=attachPresentation(el, {enabled:()=>!st.dead && !st.hidden && !st.stale && profileKey()===st.profile && D.mayPlay(), cancelHand:()=>st.hand?.cancel(), sound:(cue,o)=>st.sfx?.play(cue,o), blocked:()=>!!st.preview?.isOpen()});
+    st.presentation=attachPresentation(el, {enabled:()=>!st.dead && !st.hidden && !st.stale && profileKey()===st.profile && D.mayPlay(), cancelHand:()=>st.hand?.cancel(), sound:(cue,o)=>st.sfx?.play(cue,o), blocked:()=>!!st.preview?.isOpen(), sceneEnd:ev=>sceneEnded(st,ev), settled:()=>presentationSettled(st)});
     st.preview=attachPreview(el, {enabled:()=>!st.dead && !st.hidden && !st.stale && profileKey()===st.profile && D.mayPlay() && !st.presentation?.busy(), sound:cue=>st.sfx?.play(cue)});
     st.hand=attachHand(el,{enabled:()=>usable(st) && !st.sheet && !st.preview?.isOpen() && !document.hidden, targets:i=>dropTargets(st,i), drop:(i,t)=>dropHand(st,i,t), inspect:i=>inspect(st,{hand:i}), preview:()=>st.sfx?.play('card'), energyTargets:()=>energyTargets(st), energyDrop:t=>dropEnergy(st,t), energyTap:()=>energyHint(st)});
     st.stops.push(st.src.watchPlayback(st.mid, () => usable(st) && !document.hidden
       && !st.preview.isOpen() && !ui.sheetCount() && !document.querySelector('.sheet')
       && !st.el.querySelector('.rp-hold-preview, .rp-drag-ghost')));
     const click=e=>onClick(st,e);el.addEventListener('click',click);
-    st.stops.push(()=>st.presentation.stop(),()=>st.preview.stop(),()=>st.hand.stop(),()=>el.removeEventListener('click',click),()=>st.music.stop(),()=>st.sfx.stop(),st.src.subscribe(()=>{
+    const visibility=()=>{ if (!document.hidden && !st.hidden && !st.stale && !st.dead && profileKey()===st.profile) { draw(st); soloVictory(st); } };
+    document.addEventListener('visibilitychange',visibility);
+    st.stops.push(()=>document.removeEventListener('visibilitychange',visibility),()=>st.presentation.stop(),()=>st.preview.stop(),()=>st.hand.stop(),()=>el.removeEventListener('click',click),()=>st.music.stop(),()=>st.sfx.stop(),st.src.subscribe(()=>{
       // Deferred CPU checks can emit without a move. Keep a live hand gesture intact.
       const x=st.src.get(st.mid);
       if (!x || renderKey(x) !== st.rendered) draw(st);
     }),data.subscribe(t=>{
       if(t!=='me')return;
-      st.presentation.clear();st.preview.close();st.hand.cancel();closeSheet(st);st.eventAt=null;
+      st.presentation.clear();st.battleHold=null;clearTimeout(st.victoryTimer);st.preview.close();st.hand.cancel();closeSheet(st);st.eventAt=null;
       if(profileKey()!==st.profile){st.stale=true;st.music.visible(false);st.sfx.visible(false);document.documentElement.classList.remove('is-dynasty-battle');if(!st.hidden&&!st.left){st.left=true;st.ctx.back();}return;}
       draw(st);
     }));
@@ -474,6 +568,6 @@ export default {
     D.load().then(()=>draw(st),()=>draw(st));draw(st);
   },
   onShow(ctx) { const st=ST.get(ctx);if(st){if(st.stale){st.ctx.back();return;}st.hidden=false;st.music.visible(true);st.sfx.visible(true);document.documentElement.classList.toggle('is-dynasty-battle',D.mayPlay());draw(st);} },
-  onHide(ctx) { const st=ST.get(ctx);if(st){st.hidden=true;st.presentation.clear();st.preview.close();st.eventAt=null;st.hand.cancel();closeSheet(st);st.music.visible(false);st.sfx.visible(false);document.documentElement.classList.remove('is-dynasty-battle');} },
-  unmount(el,ctx) {const st=ST.get(ctx);if(!st)return;st.dead=true;closeSheet(st);st.stops.forEach(fn=>fn());document.documentElement.classList.remove('is-dynasty-battle');D.flush();ST.delete(ctx);}
+  onHide(ctx) { const st=ST.get(ctx);if(st){st.hidden=true;st.presentation.clear();st.battleHold=null;clearTimeout(st.victoryTimer);st.preview.close();st.eventAt=null;st.hand.cancel();closeSheet(st);st.music.visible(false);st.sfx.visible(false);document.documentElement.classList.remove('is-dynasty-battle');} },
+  unmount(el,ctx) {const st=ST.get(ctx);if(!st)return;st.dead=true;clearTimeout(st.victoryTimer);closeSheet(st);st.stops.forEach(fn=>fn());document.documentElement.classList.remove('is-dynasty-battle');D.flush();ST.delete(ctx);}
 };

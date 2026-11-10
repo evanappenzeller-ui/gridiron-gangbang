@@ -1,5 +1,21 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Rivals battle flow (November 10, 2026)
+
+The four `features.rivalsUpdated()` profiles get v7 battle-start, opening placement,
+Bench placement, substitution/promotion, knockout, point and match-result scenes.
+`dynasty-pocket-battle.js` retains a separate visual snapshot: attack HP changes after
+its scene, defeated slots remain through their knockout, and score dots update after
+points fly to the rail. The rules engine, recorded moves, rewards and legacy matches
+remain unchanged. Slot UIDs distinguish duplicate athletes; opponent hidden cards stay
+private. Skip, reduced motion, visibility/profile changes and existing CPU pacing apply.
+After a new Solo victory, a compact prompt offers Next level or Leave battles; game 30
+shows Ladder complete without an invalid next level. Tutorial and live wins do not get
+this Solo prompt. Backgrounded result scenes reconcile on return.
+Verify `check-pocket-battle-flow.cjs` (optional `--shots`), Pocket presentation/browser,
+rules/integration, CPU pacing, tutorial/browser (also `--phone`), legacy table,
+title-screen, rollout, preview/access and stylesheet scope in `tools/dynasty`.
+
 ## Press Room vacancy (November 9, 2026)
 
 Evan reported two vacant weeks and Corbin missing his presser. On Evan's profile only (`data.isOwner()`),

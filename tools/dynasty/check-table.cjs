@@ -67,6 +67,9 @@ async function browserTest(url) {
     const fixture=await page.evaluate(async()=>{
       const D=await import('/js/core/dynasty.js'),B=await import('/js/core/dynasty-battle.js'),S=await import('/js/core/dynasty-solo.js'),T=await import('/js/core/dynasty-table.js');
       await D.load(); const s=D.mine(), players=D.CARDS.filter(c=>c.pos==='QB').slice(0,20).map(c=>c.id);
+      // This retained-match fixture has already played Rivals. First-play practice
+      // is covered separately and must not redirect its legacy deck editor.
+      D.finishTutorial('skipped',(await import('/js/core/realm-active.js')).profileKey());
       players.forEach(id=>s.o[id]=2);D.setDeck([...players.slice(0,9).flatMap(id=>[id,id]),'C-twomin','C-twomin']);
       const old=JSON.stringify(s.dk),newgame=S.start('g1');if(!newgame.ok)throw Error(newgame.why);
       const check=S.get(newgame.mid);if(check.G.v!==7||check.G.p[0].deck.length+check.G.p[0].hand.length!==20)throw Error('new matches need v7/20; legacy fixture below stays v6/40');
