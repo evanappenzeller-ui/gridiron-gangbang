@@ -20,6 +20,9 @@ Keep the shelf cases large. A sibling button sits underneath each case for Evan,
 existing bottom space: Scoreboard flips to the board and Front cover flips back. Remove the
 new-puzzles/game countdown beneath his cases; the flip control is the only normal footer content. Hide the scoreboard
 and its control until someone has played (a board entry or this profile's completed game).
+The button hangs 36px under the case, so `games.js` `room()` reserves `CASE_CONTROL_ROOM` (22px) under the shelf
+whenever his cases have it (Nov 9 2026, Evan: "The button to flip the case is behind the lay logo", on a 430 x 932
+iPhone home-screen app); `check-case-flip.cjs` also covers 430 x 932 and 393 x 852 with the notch and home-bar insets.
 The button is a small translucent pill with a larger touch target, leaving the cover visible.
 Keepfall retains its printed back with a Back cover button. November 9 follow-up: remove
 the Scoreboard control from Gridiron Rivals. Rivals retains its original printed case back,

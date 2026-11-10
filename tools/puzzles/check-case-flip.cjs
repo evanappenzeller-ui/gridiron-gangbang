@@ -52,7 +52,7 @@ async function footerLayout(page) {
     return {caseBottom:c.bottom, top:b.top, bottom:b.bottom, left:b.left, right:b.right, appsTop, width:innerWidth, height:innerHeight};
   });
   assert(layout.top >= layout.caseBottom, 'flip control sits underneath the case');
-  assert(layout.bottom <= layout.appsTop && layout.bottom <= layout.height, 'control stays above app icons and within the screen');
+  assert(layout.bottom <= layout.appsTop && layout.bottom <= layout.height, 'control stays above app icons and within the screen: ' + JSON.stringify(layout));
   assert(layout.left >= 0 && layout.right <= layout.width, 'control fits the phone width');
   assert.equal(await page.locator('.gm-case-control:visible').count(), 1, 'only one visible flip control');
   assert.equal(await page.locator('.gm-list .gm-cd, .gm-list .gm-cdw, .gm-list [data-gm-cd]').count(), 0, 'no countdown below the cases');
@@ -86,8 +86,13 @@ async function seedDaily(page, populated) {
 async function run(url) {
   const browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH || '/usr/bin/chromium', args:['--no-sandbox']});
   try {
-    for (const viewport of [{width:390,height:844}, {width:320,height:568}]) {
-      const context = await browser.newContext({viewport, serviceWorkers:'block', reducedMotion:'reduce'});
+    // (the home-screen app on a notched iPhone: its safe areas shrink the room under the case; Evan, Nov 9 2026, on a
+    // 430 x 932 iPhone: "The button to flip the case is behind the lay logo")
+    for (const viewport of [{width:390,height:844}, {width:320,height:568}, {width:430,height:932,sa:[59,34]}, {width:393,height:852,sa:[59,34]}]) {
+      const context = await browser.newContext({viewport:{width:viewport.width,height:viewport.height}, serviceWorkers:'block', reducedMotion:'reduce'});
+      if (viewport.sa) await context.addInitScript(([t, b]) => document.addEventListener('DOMContentLoaded', () => {
+        const style = document.createElement('style'); style.textContent = `:root{--sa-t:${t}px!important;--sa-b:${b}px!important}`; document.head.append(style);
+      }), viewport.sa);
       await context.route('**/*', r => new URL(r.request().url()).origin === url ? r.continue() : r.abort());
       await context.addInitScript(() => {
         localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1');

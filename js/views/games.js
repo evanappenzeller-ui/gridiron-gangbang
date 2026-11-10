@@ -47,6 +47,8 @@ export const GAMES = [
 const LASTING = ['keep', 'dynasty'];
 // Bottom controls stay inside the existing case footprint. Preserve other profiles' shelf.
 const caseControls = g => g.id !== 'dynasty' && data.isOwner();
+// The room under the shelf a case flip button needs (it sits 8px under the case and is 28px tall).
+const CASE_CONTROL_ROOM = 22;
 const byId = id => GAMES.find(g => g.id === id);
 // Game access and shelf visibility are separate: Rivals is playable by the four approved
 // profiles in features.js; every other league member sees its case with Coming Soon.
@@ -666,6 +668,9 @@ export function mountList(el, ctx, opts = {}) {
     let h = 0;
     for (const html of htmls) { m.innerHTML = html; h = Math.max(h, m.offsetHeight); }
     m.remove();
+    // (the case flip button hangs 36px under the case, past the shelf's own bottom room: keep it clear of the app icons
+    // below, Evan, Nov 9 2026, on an iPhone's home-screen app: "The button to flip the case is behind the lay logo")
+    if (list().some(caseControls)) h = Math.max(h, CASE_CONTROL_ROOM);
     const v = Math.ceil(h) + 'px'; // (just what's there: the case takes the rest, the owner's ask, Oct 31 2026)
     if (el.style.getPropertyValue('--gm-sel') === v) return;
     el.style.setProperty('--gm-sel', v);
