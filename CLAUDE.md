@@ -1,5 +1,14 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Press Room vacancy (November 9, 2026)
+
+Evan reported two vacant weeks and Corbin missing his presser. On Evan's profile only (`data.isOwner()`),
+`views/press.js` `vacancyHTML()` adds a dusty empty podium, cobwebs and a Corbin no-show notice above the
+archive and in Matchup's Press Room preview. Existing videos, posting and questions remain available.
+The dated notice clears after any presser posted since the report or a season/week newer than 2026 week 9;
+it stays hidden during loading/errors and updates on profile changes. No saves or database rules change.
+Verified phone/tablet layouts, profile switches, posting retirement and `tools/press/check-questions.cjs`.
+
 ## Rivals jukebox (November 9, 2026)
 
 The four Rivals profiles get the sports-game jukebox in Menu / Battle options → Settings: blue-and-gold

@@ -37,6 +37,30 @@ const POST_FAIL = "Couldn't post. Try again.";
 const CAP_MAX = 80;
 const SPEAK = '\u{1F399}️'; // the studio microphone, in the share text
 
+// Evan's November 9 vacancy notice. Retire it when another presser is posted (including a late upload),
+// or a later week's seed arrives. This is a reported no-show, not a guessed MOTW result.
+const VACANCY_REPORTED = Date.parse('2026-11-10T02:47:00Z');
+export function vacancyHTML(snap, {compact = false} = {}) {
+  if (!data.isOwner() || !snap || !snap.ready || snap.error) return '';
+  if ((snap.list || []).some(p => p.at >= VACANCY_REPORTED || p.year > 2026 || (p.year === 2026 && p.week > 9))) return '';
+  return `<section class="pr-vacancy${compact ? ' is-compact' : ''}" aria-label="Press Room vacancy notice">`
+    + `<div class="pr-vacancy-top"><span>Room status: neglected</span><span>2 weeks vacant</span></div>`
+    + `<svg class="pr-vacancy-scene" viewBox="0 0 360 144" fill="none" aria-hidden="true" focusable="false">`
+    + `<path d="M105 0h150l48 130H57z" fill="#d5b67b" opacity=".06"/><path d="M22 130h316" stroke="#82745c" opacity=".35"/>`
+    + `<g stroke="#b8ac94" stroke-width="1" opacity=".4"><path d="M0 0l95 2M0 0l80 42M0 0l47 72M0 0l4 94M24 0q-2 10-5 10q-2 8-7 9q-2 7-11 5M47 1q-3 17-11 18q-3 14-14 15q-5 14-20 13M71 1q-3 25-17 28q-7 22-21 22q-10 20-30 20M95 2q-7 30-23 36q-9 29-29 28q-13 26-39 28"/>`
+    + `<path d="M360 0l-73 1M360 0l-63 38M360 0l-35 58M360 0l-2 72M336 0q2 9 5 12q3 7 7 8q4 5 11 4M311 1q4 17 8 23q8 14 17 15q9 9 23 9M287 1q5 26 10 37q14 18 28 20q14 12 33 14"/></g>`
+    + `<path d="M261 93V71q0-7 7-7h25q7 0 7 7v22M260 96h42v9h-42zM265 105l-4 25m36-25l5 25" stroke="#746c5d" stroke-width="4"/>`
+    + `<path d="M126 64h108l-9 66h-90z" fill="#3d3931" stroke="#85785f"/><path d="M120 58h120v9H120z" fill="#766952"/>`
+    + `<path d="M181 58V39l16-9" stroke="#aa9b80" stroke-width="3"/><rect x="189" y="23" width="22" height="8" rx="4" transform="rotate(-28 189 23)" fill="#b2a58e"/>`
+    + `<path d="M204 30v27m-4-4 4 5 4-5" stroke="#b8ac94" opacity=".5"/><path d="M138 66l34 0m-34 0 23 23m-23-23 0 34m11-34q0 11-11 11m23-11q0 23-23 23" stroke="#c6b99e" opacity=".45"/>`
+    + `<rect x="145" y="83" width="70" height="27" rx="2" fill="#bba579" transform="rotate(-5 180 96)"/><text x="180" y="100" text-anchor="middle" fill="#27251f" font-family="sans-serif" font-size="11" font-weight="800" letter-spacing="2" transform="rotate(-5 180 96)">NO SHOW</text>`
+    + `<path d="M72 120l13-4 8 10-18 1zM242 125l9-8 8 9-14 3z" fill="#94866d" opacity=".6"/><g fill="#d9c8a5" opacity=".35"><circle cx="103" cy="47" r="1"/><circle cx="249" cy="38" r="1.3"/><circle cx="111" cy="105" r="1"/><circle cx="226" cy="19" r="1"/><circle cx="74" cy="86" r="1.2"/></g></svg>`
+    + `<div class="pr-vacancy-copy"><span class="pr-vacancy-stamp">Corbin • Did not attend</span>`
+    + `<h2>Collecting dust.</h2><p>Two weeks. Zero pressers. Corbin didn't show up, and the cobwebs have taken the podium.</p>`
+    + (compact ? `<a class="pr-vacancy-link" href="#/press">Enter the Press Room ${ui.icon('chevron-right', {size: 16})}</a>` : `<p class="pr-vacancy-foot">The mic is on. The chair is empty.</p>`)
+    + `</div></section>`;
+}
+
 const keyOf = (y, w) => `${y}-w${w}`;
 function parseKey(k) {
   const m = /^(\d{4})-w([1-9]\d?)$/.exec(String(k == null ? '' : k));
@@ -947,9 +971,10 @@ function errHTML(err) {
 function sections(s) {
   const v = vm(s);
   if (v.loading) return [['load', loadingHTML()]];
-  if (!v.list.length) return [[v.err ? 'err' : 'empty', v.err ? errHTML(v.err) : emptyHTML()], ['help', helpHTML()], ['dev', devHTML(v)]];
+  if (!v.list.length) return [['vacancy', vacancyHTML(v.snap)], [v.err ? 'err' : 'empty', v.err ? errHTML(v.err) : emptyHTML()], ['help', helpHTML()], ['dev', devHTML(v)]];
   return [
     ['banner', bannerHTML(v)],
+    ['vacancy', vacancyHTML(v.snap)],
     ['feat', v.feat ? featHTML(v.feat, v.err === 'denied') : featSkHTML()],
     ['qs', qsHTML(v.feat)],
     ['prompt', promptHTML(s, v)],

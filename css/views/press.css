@@ -4,6 +4,21 @@
    Motion is opacity/transform only; the loading spinner is the only loop. The blurred backdrop behind a vertical
    video is a static filter on an image (none in lite mode). */
 
+/* Reported vacancy: shared markup on Press Room and its Matchup card, owner profile only. */
+.pr-vacancy { margin: 12px 0 16px; overflow: hidden; border: 1px solid #756044; border-radius: var(--r-card); background: #24231f; color: #f3e9d4; }
+.pr-vacancy-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; padding: 12px 16px; border-bottom: 1px dashed #66573e; color: #d6bc89; font: 700 10px/1.4 var(--font-text); letter-spacing: 1.1px; text-transform: uppercase; }
+.pr-vacancy-top > :last-child { color: #f2d49b; }
+.pr-vacancy-scene { display: block; width: 100%; height: 144px; background: radial-gradient(ellipse at 50% 0, #353126, #24231f 75%); }
+.pr-vacancy-copy { padding: 4px 20px 20px; }
+.pr-vacancy-stamp { display: inline-block; padding: 5px 8px; border: 1px solid #ad795a; border-radius: 3px; color: #efb18e; font: 750 10px/1.4 var(--font-text); letter-spacing: 1px; text-transform: uppercase; }
+.pr-vacancy h2 { margin: 10px 0 7px; color: #f3e9d4; font: 800 30px/1.1 var(--font-display, var(--font-text)); letter-spacing: -.8px; }
+.pr-vacancy p { margin: 0; max-width: 48ch; color: #d0c4ae; font: 400 14px/1.55 var(--font-text); }
+.pr-vacancy .pr-vacancy-foot { margin-top: 12px; color: #aa9d86; font-size: 12px; font-style: italic; }
+.pr-vacancy-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin-top: 12px; border-top: 1px solid #524a3b; color: #f2d49b; font: 650 13px/1.4 var(--font-text); text-decoration: none; }
+.pr-vacancy-link:focus-visible { outline: 2px solid #f2d49b; outline-offset: 3px; }
+.pr-vacancy.is-compact .pr-vacancy-scene { height: 112px; }
+.pr-vacancy.is-compact .pr-vacancy-copy { padding-bottom: 8px; }
+
 /* ================================================================ Tile (.c-press) */
 .c-press {
   position: relative; display: block; min-width: 0;

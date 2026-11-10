@@ -759,9 +759,10 @@ function pressHTML() {
   if (!s || !pvMod) return '';
   const fresh = freshPresser(s.list);
   const p = fresh || s.list[0];
+  const vacancy = pvMod.vacancyHTML(s, {compact: true});
   if (!p) {
     if (!s.ready || s.error) return '';
-    return `<section class="rv-press" aria-label="Press Room"><button type="button" class="card rv-press-post" data-rv-press-post aria-label="Press Room. Post the loser's press conference">`
+    return `<section class="rv-press" aria-label="Press Room">${vacancy}<button type="button" class="card rv-press-post" data-rv-press-post aria-label="Press Room. Post the loser's press conference">`
       + `<span class="rv-press-mic" aria-hidden="true">${ui.icon('mic', {size: 20})}</span>`
       + `<span class="rv-press-pt" aria-hidden="true"><b>Press Room</b><span>Post the loser's press conference</span></span>`
       + `${ui.icon('chevron-right', {cls: 'chev'})}</button></section>`;
@@ -770,6 +771,7 @@ function pressHTML() {
   return `<section class="rv-press${fresh ? ' is-new' : ''}" aria-labelledby="rv-press-h">`
     + `<div class="rv-press-head"><h2 class="t-2" id="rv-press-h">Press Room${fresh ? '<span class="sr-only">, new press conference</span>' : ''}</h2>`
     + `${fresh ? `<span class="rv-press-new" aria-hidden="true">${ui.pill('New', {tone: 'tint'})}</span>` : ''}</div>`
+    + vacancy
     + `<div class="card rv-press-card">${pvMod.tileHTML(p, {size: 'm'})}`
     + `<a class="rv-press-all" href="#/press"><span>All press conferences</span><span class="rv-press-n">${n > 1 ? esc(String(n)) : ''}${ui.icon('chevron-right')}</span></a></div>`
     + `</section>`;
