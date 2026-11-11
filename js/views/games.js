@@ -35,10 +35,11 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // it's played; beta: an optional tag for a game still being worked on; fresh: NEW on the case's band until that day
 // (YYYY-MM-DD, the phone's local date), for a game just released.
 export const GAMES = [
-  // (Gridiron Rivals leads the shelf, NEW on its band, since its release to everyone: Nov 10 2026, Evan: "Make the
-  // gridiron rivals case the front option when loading the game with a new or just released tag on the top of the game")
-  {id: 'dynasty', name: 'Gridiron Rivals', title: 'Gridiron Rivals', art: 'img/games/dynasty-cover-v3.webp', book: 'img/games/dynasty-book-v4.webp', disc: 'img/games/dynasty-disc-v4.webp', fresh: '2026-12-01'},
+  // (Daily Puzzles leads the shelf and is the case it opens on: Nov 11 2026, Evan: "Make the daily puzzles the first
+  // option when launching the app")
   {id: 'puzzles', name: 'Daily Puzzles', title: 'Daily Puzzles', art: 'img/games/puzzles-cover-v2.webp', book: 'img/games/puzzles-book.webp', disc: 'img/games/puzzles-disc.webp', badge: 'img/puzzles.webp', cd: 'New puzzles in'},
+  // (Gridiron Rivals, NEW on its band until December, released to everyone Nov 10 2026; it led the shelf until Nov 11)
+  {id: 'dynasty', name: 'Gridiron Rivals', title: 'Gridiron Rivals', art: 'img/games/dynasty-cover-v3.webp', book: 'img/games/dynasty-book-v4.webp', disc: 'img/games/dynasty-disc-v4.webp', fresh: '2026-12-01'},
   {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-cover.webp', book: 'img/games/seventeen-book.webp', disc: 'img/games/seventeen-disc.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover-v2.webp', book: 'img/games/drill-book.webp', disc: 'img/games/drill-disc.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover-v3.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
@@ -986,14 +987,14 @@ export function mountList(el, ctx, opts = {}) {
   };
   addEventListener('popstate', onPop);
   addEventListener('hashchange', onPop);
-  // where you were on the shelf, else the first game you haven't played today
+  // where you were on the shelf this visit, else the first case (Daily Puzzles, Nov 11 2026), played or not
   const start = () => {
     let id = null;
     try { id = sessionStorage.getItem(SHELF_KEY); } catch (_) {}
     room();
     const gs = list();
     let i = gs.findIndex(g => g.id === id);
-    if (i < 0) i = Math.max(0, gs.findIndex(g => stateOf(g).kind !== 'done'));
+    if (i < 0) i = 0;
     center(n() + i, false); // in the middle row
     st.cur = -1;
     layout();

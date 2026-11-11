@@ -1,5 +1,5 @@
-// Gridiron Rivals launch (Nov 10 2026): everyone plays, the preview's progress is reset and its case leads the shelf
-// with NEW. Local server only; no live reads or writes. Optional --shots writes the shelf to output/rivals-launch-*.png.
+// Gridiron Rivals launch (Nov 10 2026): everyone plays, the preview's progress is reset and its case wears NEW
+// on the shelf behind Daily Puzzles (front since Nov 11 2026). Local server only; no live reads or writes. Optional --shots writes the shelf to output/rivals-launch-*.png.
 //   CHROMIUM_PATH=/path/to/chrome node tools/dynasty/check-launch-reset.cjs [--shots]
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '../..');
@@ -32,10 +32,11 @@ async function shelf(page, who) {
   await page.waitForTimeout(1500); // (the shelf settles on its starting case)
   return page.evaluate(() => {
     const shelf = document.querySelector('.gm-shelf'), r = shelf.getBoundingClientRect(), mid = r.left + r.width / 2;
-    const near = [...shelf.querySelectorAll('.gm-slot')].map(s => ({s, d: Math.abs(s.getBoundingClientRect().left + s.getBoundingClientRect().width / 2 - mid)})).sort((a, b) => a.d - b.d)[0].s;
+    const byD = sel => [...shelf.querySelectorAll(sel)].map(s => ({s, d: Math.abs(s.getBoundingClientRect().left + s.getBoundingClientRect().width / 2 - mid)})).sort((a, b) => a.d - b.d)[0].s;
+    const front = byD('.gm-slot').dataset.gmSlot, near = byD('.gm-slot[data-gm-slot="dynasty"]');
     const tag = near.querySelector('.gm-front .gm-band .gm-new');
     const box = tag && tag.getBoundingClientRect(), band = near.querySelector('.gm-front .gm-band').getBoundingClientRect();
-    return {front: near.dataset.gmSlot, tag: tag ? tag.textContent : '', label: near.querySelector('.gm-case').getAttribute('aria-label'),
+    return {front, tag: tag ? tag.textContent : '', label: near.querySelector('.gm-case').getAttribute('aria-label'),
       disabled: near.querySelector('.gm-case').getAttribute('aria-disabled'), sticker: !!near.querySelector('.gm-stk'),
       inBand: !!box && box.width > 0 && box.top >= band.top - 1 && box.bottom <= band.bottom + 1};
   });
@@ -108,13 +109,13 @@ async function shelf(page, who) {
 
     for (const who of [{me:'mason'}, {me:'evan'}, {guest:'Pat'}, {guest:'Ryan Stewart'}]) {
       const s = await shelf(page, who), name = who.me || who.guest;
-      assert.equal(s.front, 'dynasty', name + ': Rivals is the front case');
+      assert.equal(s.front, 'puzzles', name + ': Daily Puzzles is the front case (Nov 11 2026)');
       assert.equal(s.tag, 'NEW', name + ': NEW on its band');
       assert.ok(s.inBand, name + ': the tag sits inside the top band');
       assert.equal(s.disabled, 'false', name + ': the case opens');
       assert.ok(!s.sticker, name + ': no Coming Soon sticker');
       assert.match(s.label, /Gridiron Rivals \(new\)/, name + ': accessible label');
-      console.log(`PASS: ${name}: Rivals leads the shelf with NEW on its band`);
+      console.log(`PASS: ${name}: Daily Puzzles leads the shelf; Rivals wears NEW on its band`);
       if (shots) await page.screenshot({path: path.join(root, `output/rivals-launch-${String(name).replace(/\W+/g, '-').toLowerCase()}.png`)});
     }
     await page.locator('.gm-shelf .gm-case[data-gm="dynasty"]:not([tabindex="-1"])').click();

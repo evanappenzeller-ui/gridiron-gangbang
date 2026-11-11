@@ -56,7 +56,8 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
     assert.equal(g.gamesFor().some(x => x.id === 'dynasty'),c.visible,label + ' visible case');
     const key=member ? 'm_' + member : user ? 'u_' + user.id : guest?.trim() ? 'g_guest' : '';
     assert.equal(f.dynastyKey(key),c.play,label + ' save/opponent key');
-    if (c.visible) assert.equal(g.gamesFor()[0].id,'dynasty',label + ' Rivals leads the shelf');
+    assert.equal(g.gamesFor()[0].id,'puzzles',label + ' Daily Puzzles leads the shelf');
+    if (c.visible) assert.equal(g.gamesFor()[1].id,'dynasty',label + ' Rivals follows it');
     const html=g.listHTML();
     const cards=[...html.matchAll(/<button[^>]*data-gm="dynasty"[^>]*>/g)].map(m => m[0]);
     assert.equal(cards.length,c.visible ? 3 : 0,label + ' carousel copies');
@@ -75,8 +76,8 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
     assert.equal(f.coinsUnlimited(key),key === 'm_jayton',label + ' coin privilege');
   }
   assert.equal(cases.filter(c => c.play).length,data.ids.length + USERS.length + 1,'Every member, app user and named guest plays');
-  assert.equal(g.isFresh(g.GAMES[0],new Date(2026,10,30)),true,'NEW through November');
-  assert.equal(g.isFresh(g.GAMES[0],new Date(2026,11,1)),false,'NEW retires on December 1');
+  assert.equal(g.isFresh(g.GAMES.find(x => x.id === 'dynasty'),new Date(2026,10,30)),true,'NEW through November');
+  assert.equal(g.isFresh(g.GAMES.find(x => x.id === 'dynasty'),new Date(2026,11,1)),false,'NEW retires on December 1');
   assert.deepEqual(errors,[],'Rendering has no caught errors');
   // Review the async handoff and profile invalidation at their call sites.
   assert.match(gameSource,/if \(!g \|\| !gameOpen\(id\) \|\| st.zoom\) return/);
@@ -84,6 +85,6 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
   assert.match(gameSource,/if \(!gameOpen\(id\)\) \{ closeZoom\(true\); return; \}/);
   assert.equal((gameSource.match(/!gameOpen\(id\) \|\| !z.isConnected/g)||[]).length,2,'Async launch rechecks');
   for (const file of ['js/core/checks-dynasty.js','sw.js']) new vm.SourceTextModule(read(file),{context:ctx});
-  console.log('PASS: ' + cases.length + ' profile cases; every member, app user and named guest plays, Rivals first with NEW, direct hub/battle routes, save/opponent keys and unchanged privileges.');
+  console.log('PASS: ' + cases.length + ' profile cases; every member, app user and named guest plays, Daily Puzzles first, Rivals next with NEW, direct hub/battle routes, save/opponent keys and unchanged privileges.');
   console.log('PASS: profile-switch cancellation and both asynchronous launch guards; modified JavaScript parses.');
 })().catch(e => { console.error(e); process.exitCode=1; });

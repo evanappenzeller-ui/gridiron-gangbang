@@ -1,5 +1,13 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Daily Puzzles leads the shelf (November 11, 2026)
+
+Evan: "Make the daily puzzles the first option when launching the app." Everyone gets it. Daily Puzzles is first in
+`views/games.js` `GAMES`, with Gridiron Rivals second (still NEW on its band until December 1, 2026). On launch the shelf
+opens on the first case, Daily Puzzles, whether or not today's puzzles are done; only a position saved this visit
+(`gg-shelf` in sessionStorage) overrides it. This supersedes the Rivals launch's "first in GAMES" below. Verify
+`check-launch-reset.cjs`, `check-preview.cjs`, `check-start-browser.cjs` (kit checks), `check-case-flip.cjs` and home checks.
+
 ## Rivals marketplace (November 10, 2026)
 
 The Packs destination has top tabs for Packs and Marketplace (`views/dynasty-market.js`), as Evan requested later
@@ -44,7 +52,7 @@ Solo record `gg-dys2-<key>`. Every preview save (Evan, Jayton, Ryan S and Ryan Y
 board doc's `dy1` and the phone's `gg-dy1-`/`gg-dys-` keys, which nothing reads; old cached clients write only `dy1`. Everyone
 starts a fresh save (Starter Pack, welcome packs, first-play tutorial, Solo ladder from game 1, coins earned from today).
 Friend matches (`dyb`, still paused), music/effects settings and pack-preview rotation are not progress and are kept.
-The shelf: Gridiron Rivals is first in `views/games.js` `GAMES`, so it is the case the shelf opens on, and its
+The shelf: Gridiron Rivals was first in `views/games.js` `GAMES` (Daily Puzzles leads since Nov 11 2026, above), and its
 `fresh: '2026-12-01'` puts a red NEW tag at the left of its GRIDIRON HUB band (front, printed back and up close; "(new)" in
 its label) until December 1, 2026 (`isFresh`). Verify `tools/dynasty/check-launch-reset.cjs` (optional `--shots`),
 `check-preview.cjs`, `check-access.cjs`, `check-rollout.cjs`, Pocket integration and the start/live/tutorial/ladder,
