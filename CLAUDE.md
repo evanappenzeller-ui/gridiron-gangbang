@@ -66,6 +66,17 @@ Verify `check-pocket-battle-flow.cjs` (optional `--shots`), Pocket presentation/
 rules/integration, CPU pacing, tutorial/browser (also `--phone`), legacy table,
 title-screen, rollout, preview/access and stylesheet scope in `tools/dynasty`.
 
+## Recap newspaper covers (November 11, 2026)
+
+On Evan's existing owner profile only (`data.isOwner()`, current AGENTS.md scope), the Matchup Recap tab
+shows each week's Wrap as a newspaper front page: The Gridiron masthead, edition/week/year, oversized
+headline, short story previews and a featured final result. The whole cover is a keyboard-accessible
+link to the existing full Wrap; season selection, ordering, scores and recap text are unchanged.
+`views/rivals.js` `recapFrontPage()` and `.rv-paper` in `css/views/rivals.css` own the presentation.
+Profile changes replace covers with the existing cards immediately. Other profiles retain the existing
+recap cards. Verify `node tools/matchup/check-tabs.cjs --shots=output/recap-front-page` for phone/tablet
+layouts, profile changes, keyboard opening, complete recap text, season browsing and tab navigation.
+
 ## Matchup tab header tabs (November 11, 2026)
 
 Evan, with a screenshot of the Scores tab's NFL · League buttons: "Use the header tabs design for the matchup section.

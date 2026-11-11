@@ -46,7 +46,7 @@ async function open(browser, url, me, hash, viewport) {
   return {context, page, errors};
 }
 const sel = (page) => page.evaluate(() => [...document.querySelectorAll('.v-rivals [data-rv-mode]')].filter(b => b.getAttribute('aria-selected') === 'true').map(b => b.dataset.rvMode).join());
-const shown = (page) => page.evaluate(() => [...document.querySelectorAll('.v-rivals [data-rv-pane]')].filter(p => !p.hidden && p.getClientRects().length).map(p => p.dataset.rvPane).join());
+const shown = (page) => page.evaluate(() => [...document.querySelectorAll('.v-rivals [data-rv-pane]')].filter(p => !p.hidden && !p.closest('[inert]') && p.getClientRects().length).map(p => p.dataset.rvPane).join());
 const shot = (page, name) => shots ? page.screenshot({path: path.join(shots, `matchup-tabs-${name}.png`)}) : null;
 
 (async () => {
@@ -98,6 +98,27 @@ const shot = (page, name) => shots ? page.screenshot({path: path.join(shots, `ma
       assert.ok(weeks.length >= 2 && weeks.every((w, i) => !i || w < weeks[i - 1]), `${who}: weeks newest first (${weeks})`);
       const expect = await page.evaluate(async () => { const s = await import('/js/core/stats.js'), d = await import('/js/core/data.js'); const y = (d.SEASONS.find(x => x.live) || d.SEASONS[0]).year; return s.wrapWeeks(y).filter(w => (s.wrap(y, w) || {}).headline).length; });
       assert.equal(weeks.length, expect, who + ': a recap for each week');
+      assert.equal(await page.locator('.rv-paper').count(), me === 'evan' ? weeks.length : 0, who + ': newspaper covers belong to Evan');
+      if (me === 'evan') {
+        assert.match(await cards.first().textContent(), /The Gridiron.*Latest edition.*Read full recap/s);
+        for (const width of [320, 390, 820]) {
+          await page.setViewportSize({width, height: 1000});
+          const layout = await cards.first().evaluate(el => {
+            const r = el.getBoundingClientRect(), h = el.querySelector('.rv-paper-headline');
+            return {left: r.left, right: r.right, width: innerWidth, fits: el.scrollWidth <= el.clientWidth + 1,
+              headingFits: getComputedStyle(h).overflowY === 'visible' && getComputedStyle(h).webkitLineClamp === 'none',
+              headline: parseFloat(getComputedStyle(h).fontSize)};
+          });
+          assert.ok(layout.left >= 0 && layout.right <= layout.width + 1 && layout.fits && layout.headingFits && layout.headline >= 36,
+            `Newspaper fits at ${width}px with a complete, prominent headline: ${JSON.stringify(layout)}`);
+          if (shots) await cards.first().screenshot({path: path.join(shots, `recap-front-page-${width}.png`)});
+        }
+        await page.setViewportSize(vp);
+        await page.evaluate(async () => (await import('/js/core/data.js')).setMe('mason'));
+        await page.waitForFunction(() => !document.querySelector('.rv-paper') && !!document.querySelector('.rv-recap-lines'));
+        await page.evaluate(async () => (await import('/js/core/data.js')).setMe('evan'));
+        await page.locator('.rv-paper').first().waitFor();
+      }
       const chips = page.locator('[data-rv-pane="recap"] [data-chips="rv-recap-year"] .chip');
       if (await chips.count() > 1) {
         const y2 = await chips.nth(1).getAttribute('data-value');
@@ -108,10 +129,25 @@ const shot = (page, name) => shots ? page.screenshot({path: path.join(shots, `ma
       }
       await shot(page, `${me || 'visitor'}-${vp.width}-recap`);
       const href = await cards.first().getAttribute('href');
-      await cards.first().click();
+      const full = await page.evaluate(async href => {
+        const [y, w] = href.match(/standings\/(\d+)\/wrap\/(\d+)/).slice(1).map(Number);
+        const r = (await import('/js/core/stats.js')).wrap(y, w);
+        return {headline: r.headline, stories: r.items.map(it => it.body).filter(Boolean)};
+      }, href);
+      if (me === 'evan') { await cards.first().focus(); await page.keyboard.press('Enter'); }
+      else await cards.first().click();
       await page.waitForFunction(h => location.hash === h, href, {timeout: 10000});
+      await page.locator('.v-wrap .wr-list').waitFor();
+      const article = await page.locator('.v-wrap').innerText();
+      assert.ok(article.includes(full.headline) && full.stories.every(text => article.includes(text)), who + ': opens the entire recap');
+      if (me === 'evan') await page.evaluate(async () => (await import('/js/core/data.js')).setMe('mason'));
       await page.goBack();
       await page.locator('[data-rv-pane="recap"]:not([hidden])').waitFor({timeout: 10000});
+      if (me === 'evan') {
+        await page.waitForFunction(() => !document.querySelector('.rv-paper') && !!document.querySelector('.rv-recap-lines'));
+        await page.evaluate(async () => (await import('/js/core/data.js')).setMe('evan'));
+        await page.locator('.rv-paper').first().waitFor();
+      }
 
       // Arrow keys, then a reload remembers the tab
       await page.locator('[data-rv-mode="recap"]').focus();

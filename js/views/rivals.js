@@ -685,6 +685,31 @@ function recapYears() {
   return data.SEASONS.map(x => x.year).filter(y => { try { return (STATS.wrapWeeks(y) || []).length > 0; } catch (_) { return false; } })
     .sort((a, b) => b - a);
 }
+// Evan's newspaper covers use the existing recap and results; the link opens the complete, unchanged Wrap.
+function recapFrontPage(w, y, wk, latest, ids) {
+  const label = w.label ? String(w.label) : `Week ${wk}`;
+  const stories = (w.items || []).filter(it => it && it.title && it.body);
+  const lead = stories.find(it => it.game && (it.ids || []).includes(ids[0])) || stories[0];
+  const inside = stories.filter(it => it !== lead).slice(0, 2);
+  const excerpt = (text, max) => {
+    const s = String(text || '').trim();
+    return s.length <= max ? s : s.slice(0, max).replace(/\s+\S*$/, '') + '…';
+  };
+  const g = lead && lead.game;
+  const score = g ? `<div class="rv-paper-result"><span class="rv-paper-kicker">Featured result · Final</span>`
+    + [g.a, g.b].map((id, i) => `<div class="rv-paper-team">${ui.avatar(id, {size: 32})}`
+      + `<span><b>${esc(nm(id))}</b><strong>${esc(data.fmt(i ? g.sb : g.sa))}</strong></span></div>`).join('') + `</div>` : '';
+  return `<a class="rv-recap rv-paper" href="#/standings/${esc(y)}/wrap/${esc(wk)}" aria-label="${esc(`${label} recap: ${w.headline}. Read full recap`)}">`
+    + `<div class="rv-paper-mast"><span class="rv-paper-kicker">Fantasy football · The weekly edition</span><span class="rv-paper-name">The Gridiron</span></div>`
+    + `<div class="rv-paper-edition"><span>${esc(label)} · ${esc(y)}</span><span>${latest ? 'Latest edition' : 'From the archives'}</span></div>`
+    + `<h3 class="rv-paper-headline">${esc(w.headline)}</h3>`
+    + (w.dek ? `<p class="rv-paper-dek">${esc(w.dek)}</p>` : '')
+    + (lead ? `<div class="rv-paper-columns${g ? ' has-result' : ''}"><div class="rv-paper-lead"><span class="rv-paper-kicker">The lead story</span>`
+      + `<h4>${esc(lead.title)}</h4><p>${esc(excerpt(lead.body, 200))}</p></div>${score}</div>` : '')
+    + (inside.length ? `<div class="rv-paper-inside">${inside.map(it => `<div><span class="rv-paper-kicker">Inside this issue</span><h4>${esc(it.title)}</h4>`
+      + `<p>${esc(excerpt(it.body, 100))}</p></div>`).join('')}</div>` : '')
+    + `<span class="rv-paper-open"><span>Read full recap</span>${ui.icon('chevron-right', {size: 20})}</span></a>`;
+}
 function recapCard(y, wk, latest) {
   let w = null;
   try { w = STATS.wrap(y, wk); } catch (e) { console.error(e); w = null; }
@@ -694,6 +719,7 @@ function recapCard(y, wk, latest) {
   const hl = w.headline.toLowerCase();
   const at = id => { const i = hl.indexOf(nm(id).toLowerCase()); return i < 0 ? 1e6 : i; };
   ids.sort((a, b) => at(a) - at(b));
+  if (data.isOwner()) return recapFrontPage(w, y, wk, latest, ids);
   const label = w.label ? String(w.label) : `Week ${wk}`;
   const lines = (w.items || []).filter(it => it && it.title && it.body).slice(0, 3);
   return `<a class="card rv-wrapc rv-recap" href="#/standings/${esc(y)}/wrap/${esc(wk)}" aria-label="${esc(`${label} recap: ${w.headline}. Read the Wrap`)}">`
@@ -1706,6 +1732,8 @@ export default {
 
   update(ctx) {
     if (!st || st.ctx !== ctx) return;
+    // A hidden screen can fold a profile change into 'data'. Refresh before canonicalizing replaces ctx.reason.
+    if (ctx.reason === 'me' || ctx.reason === 'data') patchWrap(ctx.reason === 'data' && ctx.visible);
     const el = st.el;
     const own = ctx.path === st.expect; // a replace this screen made (a tap, or canonicalizing the URL)
     if (own) st.expect = null;
@@ -1759,7 +1787,6 @@ export default {
     // moves the you-rings and your avatar button.
     if (ctx.reason === 'data') wkData();
     if (ctx.reason === 'data' || ctx.reason === 'me') { patchMotw(false); patchEyebrow(); if (st.pressEmb) st.pressEmb.update(); }
-    if (ctx.reason === 'data') patchWrap(ctx.visible);
     if (ctx.reason === 'me') patchPast(false);
     if (st.goSec) revealSec();
   },
