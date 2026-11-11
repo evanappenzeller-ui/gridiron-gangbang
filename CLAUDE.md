@@ -69,8 +69,9 @@ title-screen, rollout, preview/access and stylesheet scope in `tools/dynasty`.
 ## Recap newspaper covers (November 11, 2026)
 
 On Evan's existing owner profile only (`data.isOwner()`, current AGENTS.md scope), the Matchup Recap tab
-shows each week's Wrap as a newspaper front page: The Gridiron masthead, edition/week/year, oversized
-headline, short story previews and a featured final result. The whole cover is a keyboard-accessible
+shows each week's Wrap as a compact newspaper front page: The Gridiron masthead, edition/week/year,
+bold headline and tiny decorative print columns. Evan's follow-up asked for two covers visible together;
+the cover's supporting stories and scores now live only in the full recap. The whole cover is a keyboard-accessible
 link to the existing full Wrap; season selection, ordering, scores and recap text are unchanged.
 `views/rivals.js` `recapFrontPage()` and `.rv-paper` in `css/views/rivals.css` own the presentation.
 Profile changes replace covers with the existing cards immediately. Other profiles retain the existing

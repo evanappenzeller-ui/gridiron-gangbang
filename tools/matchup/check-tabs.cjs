@@ -101,17 +101,20 @@ const shot = (page, name) => shots ? page.screenshot({path: path.join(shots, `ma
       assert.equal(await page.locator('.rv-paper').count(), me === 'evan' ? weeks.length : 0, who + ': newspaper covers belong to Evan');
       if (me === 'evan') {
         assert.match(await cards.first().textContent(), /The Gridiron.*Latest edition.*Read full recap/s);
-        for (const width of [320, 390, 820]) {
-          await page.setViewportSize({width, height: 1000});
+        for (const [width, height] of [[320, 700], [390, 844], [430, 932], [820, 1180]]) {
+          await page.setViewportSize({width, height});
           const layout = await cards.first().evaluate(el => {
             const r = el.getBoundingClientRect(), h = el.querySelector('.rv-paper-headline');
+            const second = el.nextElementSibling.getBoundingClientRect(), bar = document.getElementById('tabbar').getBoundingClientRect();
             return {left: r.left, right: r.right, width: innerWidth, fits: el.scrollWidth <= el.clientWidth + 1,
               headingFits: getComputedStyle(h).overflowY === 'visible' && getComputedStyle(h).webkitLineClamp === 'none',
-              headline: parseFloat(getComputedStyle(h).fontSize)};
+              headline: parseFloat(getComputedStyle(h).fontSize), top: r.top, secondBottom: second.bottom, visibleBottom: bar.top};
           });
-          assert.ok(layout.left >= 0 && layout.right <= layout.width + 1 && layout.fits && layout.headingFits && layout.headline >= 36,
+          assert.ok(layout.left >= 0 && layout.right <= layout.width + 1 && layout.fits && layout.headingFits && layout.headline >= 24,
             `Newspaper fits at ${width}px with a complete, prominent headline: ${JSON.stringify(layout)}`);
-          if (shots) await cards.first().screenshot({path: path.join(shots, `recap-front-page-${width}.png`)});
+          assert.ok(layout.top >= 0 && layout.secondBottom <= layout.visibleBottom,
+            `Two complete covers fit above navigation at ${width}x${height}: ${JSON.stringify(layout)}`);
+          if (shots) await page.screenshot({path: path.join(shots, `recap-compact-${width}.png`)});
         }
         await page.setViewportSize(vp);
         await page.evaluate(async () => (await import('/js/core/data.js')).setMe('mason'));
