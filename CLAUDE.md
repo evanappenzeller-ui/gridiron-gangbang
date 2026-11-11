@@ -66,6 +66,21 @@ Verify `check-pocket-battle-flow.cjs` (optional `--shots`), Pocket presentation/
 rules/integration, CPU pacing, tutorial/browser (also `--phone`), legacy table,
 title-screen, rollout, preview/access and stylesheet scope in `tools/dynasty`.
 
+## Matchup tab header tabs (November 11, 2026)
+
+Evan, with a screenshot of the Scores tab's NFL · League buttons: "Use the header tabs design for the matchup section.
+There should be a tab for matchup of the week, press conferences, and a recap section for each week." Everyone gets it.
+`views/rivals.js` puts three of Pick'em's scoreboard buttons (`.pk-lg`, shared in `css/views/pickem.css`; glyph over a
+pixel word) under the Matchup title: MOTW (the vote, past Matchups of the Week and head to head, as before), Press (the
+whole Press Room embedded through `views/press.js` `embed()`: featured presser, questions, Ask the loser, archive, How to
+post and a Post button; its live list and players run only while the tab shows; an archive row features in place and
+stays on #/matchup) and Recap (every week's Wrap of a season newest first: label, headline, dek, three recap items,
+faces, Read the Wrap; season chips when several seasons have games). The old Press Room card and Last week card are
+gone from MOTW. The tab is remembered per phone (`gg-matchup-mode`); arrow keys/Home/End move between tabs; the compact
+bar names the Press and Recap tabs and keeps the rivalry's share for MOTW. Links: `#/matchup?s=press` opens Press,
+`?s=wrap|last|recap` Recap, the rest MOTW. `#/press` still opens the standalone Press Room. Verify
+`node tools/matchup/check-tabs.cjs` (optional `--shots=<dir>`), the press checks and `check-live-browser.cjs`.
+
 ## Press Room: ask the manager (November 11, 2026)
 
 Evan: "Add a section in the press conference where league members can submit questions to the manager." Everyone sees

@@ -2,13 +2,10 @@
 // for any two managers (spec 7.12, delight 8.12; tabs-v4 contract 5). Owner: MATCHUP.
 // Large title "Matchup" (eyebrow "2026 season · Week 4") with your avatar button (views/you.js; app.js opens the You
 // sheet from [data-you]).
-// The week, top to bottom (core/week.js): 1. Matchup of the Week voting on the league's matchups (with the lock time);
-// 2. this week's six league games (the schedule; a score once the week is in the data), each opening the matchup
-// sheet (views/matchup.js; an unplayed game opens the same sheet's preview: records entering it and the series);
-// 3. the Press Room card (the MOTW loser's press conference, playable in place: core/press.js + views/press.js, loaded
-// at idle; hidden until they answer; a presser posted in the last 4 days is featured with a "New" pill);
-// 4. Last week: The Wrap card (core/stats.js, loaded at idle; opens the Wrap pushed on this tab); then the past
-// Matchups of the Week. They render at once from data.js and fill in when the Firestore snapshots arrive; nothing here
+// Header tabs (Nov 11 2026, Pick'em's scoreboard buttons): MOTW · Press · Recap. MOTW, top to bottom (core/week.js):
+// Matchup of the Week voting on the league's matchups (with the lock time), the past Matchups of the Week, then head to
+// head. Press: the whole Press Room embedded (views/press.js embed; core/press.js, loaded at idle). Recap: every week's
+// Wrap of a season (core/stats.js, loaded at idle; each opens the Wrap pushed on this tab). They render at once from data.js and fill in when the Firestore snapshots arrive; nothing here
 // waits on Firebase. (The NFL pick'em is its own tab now: views/pickem.js.)
 // The head to head mounts once, then patches: series numbers roll (odometer), the split bar re-splits, the tape and
 // the meeting log cross-fade, and "{A} against everyone" reorders with FLIP.
@@ -680,51 +677,56 @@ function loadStats() {
   if (!statsP) statsP = import('../core/stats.js').then(m => (STATS = m), e => { statsP = null; throw e; });
   return statsP;
 }
-// The latest completed week of the live season that has a Wrap.
-function latestWrap() {
-  if (!STATS) return null;
-  const s = data.SEASONS.find(x => x.live);
-  if (!s) return null;
-  try {
-    const weeks = (STATS.wrapWeeks(s.year) || []).map(x => Number(x && typeof x === 'object' ? x.week : x)).filter(Number.isFinite);
-    if (!weeks.length) return null;
-    const wk = Math.max(...weeks);
-    const w = STATS.wrap(s.year, wk);
-    return w && w.headline ? {year: s.year, week: wk, w} : null;
-  } catch (e) { console.error(e); return null; }
+// The Recap tab: every week's Wrap of a season, newest first (the live season's by default; chips switch seasons when
+// more than one has games). Each card is the week's headline and dek, its first three recap items and its faces, opening the
+// full Wrap. Drawn once core/stats.js has loaded (at idle, or at once when the tab is opened).
+function recapYears() {
+  if (!STATS) return [];
+  return data.SEASONS.map(x => x.year).filter(y => { try { return (STATS.wrapWeeks(y) || []).length > 0; } catch (_) { return false; } })
+    .sort((a, b) => b - a);
 }
-function wrapHTML(x) {
-  if (!x) return '';
-  // Faces: whoever the headline names first, then the rest of the recap's cast.
+function recapCard(y, wk, latest) {
+  let w = null;
+  try { w = STATS.wrap(y, wk); } catch (e) { console.error(e); w = null; }
+  if (!w || !w.headline) return '';
   const ids = [];
-  (x.w.items || []).forEach(it => (it && it.ids || []).forEach(id => { if (data.M[id] && !ids.includes(id)) ids.push(id); }));
-  const hl = x.w.headline.toLowerCase();
+  (w.items || []).forEach(it => (it && it.ids || []).forEach(id => { if (data.M[id] && !ids.includes(id)) ids.push(id); }));
+  const hl = w.headline.toLowerCase();
   const at = id => { const i = hl.indexOf(nm(id).toLowerCase()); return i < 0 ? 1e6 : i; };
   ids.sort((a, b) => at(a) - at(b));
-  return `<section class="rv-last" aria-labelledby="rv-last-h">`
-    + `<div class="rv-wk-head"><h2 class="t-2" id="rv-last-h">Last week</h2><span class="ovl rv-wk-ovl">Week ${esc(x.week)}</span></div>`
-    + `<a class="card rv-wrapc" href="#/standings/${esc(x.year)}/wrap/${esc(x.week)}" aria-label="${esc(`Read the Wrap for week ${x.week}: ${x.w.headline}`)}">`
-    + `<p class="card-ovl">The Wrap · Week ${esc(x.week)}</p>`
-    + `<p class="rv-wrapc-hl">${esc(x.w.headline)}</p>`
+  const label = w.label ? String(w.label) : `Week ${wk}`;
+  const lines = (w.items || []).filter(it => it && it.title && it.body).slice(0, 3);
+  return `<a class="card rv-wrapc rv-recap" href="#/standings/${esc(y)}/wrap/${esc(wk)}" aria-label="${esc(`${label} recap: ${w.headline}. Read the Wrap`)}">`
+    + `<p class="card-ovl rv-recap-ovl"><span>${esc(label)}</span>${latest ? `<span class="rv-recap-new">Latest</span>` : ''}</p>`
+    + `<p class="rv-wrapc-hl">${esc(w.headline)}</p>`
+    + (w.dek ? `<p class="rv-recap-dek">${esc(w.dek)}</p>` : '')
+    + (lines.length ? `<ul class="rv-recap-lines">${lines.map(it => `<li><b>${esc(it.title)}.</b> ${esc(it.body)}</li>`).join('')}</ul>` : '')
     + `<span class="rv-wrapc-foot">${ids.length ? ui.avatarStack(ids.slice(0, 3), {size: 28, max: 3}) : '<span></span>'}`
-    + `<span class="btn btn-secondary btn-s rv-wrapc-btn" aria-hidden="true"><span class="btn-label">Read the Wrap</span></span></span></a></section>`;
+    + `<span class="btn btn-secondary btn-s rv-wrapc-btn" aria-hidden="true"><span class="btn-label">Read the Wrap</span></span></span></a>`;
+}
+function recapHTML() {
+  if (!STATS) return `<div class="rv-recap-sk">${ui.skeleton('rows', 3, {label: 'Loading the recaps.'})}</div>`;
+  const years = recapYears();
+  if (!years.length) return ui.empty({icon: 'list', title: 'No recaps yet', body: 'Each week’s Wrap shows here once its games are played.'});
+  const y = st && years.includes(st.recapYear) ? st.recapYear : years[0];
+  let weeks = [];
+  try { weeks = (STATS.wrapWeeks(y) || []).map(Number).filter(Number.isFinite).sort((a, b) => b - a); } catch (e) { console.error(e); }
+  const cards = weeks.map((wk, i) => recapCard(y, wk, i === 0 && y === years[0])).filter(Boolean).join('');
+  return `<section class="rv-recaps" aria-labelledby="rv-recap-h">`
+    + `<div class="rv-wk-head"><h2 class="t-2" id="rv-recap-h">Weekly recaps</h2><span class="ovl rv-wk-ovl">${esc(`${y} season`)}</span></div>`
+    + (years.length > 1 ? ui.chips({name: 'rv-recap-year', items: years.map(x => ({id: String(x), label: String(x)})), value: String(y), label: 'Season', cls: 'rv-recap-yrs'}) : '')
+    + (cards ? `<div class="rv-recap-list">${cards}</div>` : ui.empty({icon: 'list', title: 'No recaps yet', body: 'Each week’s Wrap shows here once its games are played.'}))
+    + `</section>`;
 }
 function patchWrap(animate) {
   const w = st && st.el.querySelector('.rv-wrap-w');
   if (!w) return;
   let html = '';
-  try { html = wrapHTML(latestWrap()); } catch (e) { console.error(e); html = ''; }
+  try { html = recapHTML(); } catch (e) { console.error(e); html = ''; }
   if (w._html === html) return;
-  const was = !!w.firstElementChild;
-  const put = () => { w.innerHTML = html; w._html = html; };
-  if (animate && !ui.RM && st.ctx.visible && was && html) ui.crossfade(w, put, {duration: 160});
-  else {
-    put();
-    if (animate && !ui.RM && st.ctx.visible && html && !was) ui.animate(w, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {duration: 320, easing: 'cubic-bezier(.22,1,.36,1)'});
-  }
-  syncH2hTitle();
-  reland();
-  if (html && st.goSec === 'rv-wrap') revealSec();
+  const put = () => { w.innerHTML = html; w._html = html; ui.hydrate(w); };
+  if (animate && !ui.RM && st.ctx.visible && st.mode === 'recap' && w.firstElementChild) ui.crossfade(w, put, {duration: 160});
+  else put();
 }
 function wrapStart() {
   const s = st;
@@ -732,99 +734,108 @@ function wrapStart() {
   loadStats().then(() => { if (st === s) patchWrap(true); }, e => console.warn('wrap card', e));
 }
 
-// ---------------------------------------------------------------- Press Room (the Matchup of the Week loser's presser)
-// core/press.js (the pressers: Firestore plus the seeded archive) and views/press.js (the tile and its in-place
-// player) load at idle. The card shows the latest presser; one posted in the last 4 days (by its `at`, on week.js's
-// clock; the seeded archive has none) is featured instead, with an accent "New" pill (what Today's "New press
-// conference" row said). With none (once the server answered) a compact prompt opens the post sheet. Nothing shows
-// while loading or on a failure (only the Press Room screen shows errors).
+// ---------------------------------------------------------------- The Press tab: the Press Room, embedded
+// core/press.js and views/press.js load at idle (at once when the tab is opened); views/press.js embed() draws the whole
+// Press Room (the featured presser, the questions, Ask the loser, the archive, Post) into the Press tab's pane. Its live
+// list runs only while that tab is showing on a visible screen; leaving the tab or the screen stops any player.
 let pvMod = null, prLoad = null;
 function loadPress() {
   if (!prLoad) prLoad = Promise.all([import('../core/press.js'), import('./press.js')]).then(([c, v]) => { pvMod = v; return c; }, e => { prLoad = null; throw e; });
   return prLoad;
 }
-const PRESS_DAYS = 4;
-function freshPresser(list) {
-  let t = 0;
-  try { t = week.now(); } catch (_) { t = Date.now(); }
-  let best = null;
-  list.forEach(p => {
-    const at = p && Number(p.at);
-    if (at > 0 && t - at < PRESS_DAYS * 864e5 && data.M[p.who] && (!best || at > best.at)) best = p;
-  });
-  return best;
-}
-function pressHTML() {
-  const s = st && st.press;
-  if (!s || !pvMod) return '';
-  const fresh = freshPresser(s.list);
-  const p = fresh || s.list[0];
-  const vacancy = pvMod.vacancyHTML(s, {compact: true});
-  if (!p) {
-    if (!s.ready || s.error) return '';
-    return `<section class="rv-press" aria-label="Press Room">${vacancy}<button type="button" class="card rv-press-post" data-rv-press-post aria-label="Press Room. Post the loser's press conference">`
-      + `<span class="rv-press-mic" aria-hidden="true">${ui.icon('mic', {size: 20})}</span>`
-      + `<span class="rv-press-pt" aria-hidden="true"><b>Press Room</b><span>Post the loser's press conference</span></span>`
-      + `${ui.icon('chevron-right', {cls: 'chev'})}</button></section>`;
-  }
-  const n = s.list.length;
-  return `<section class="rv-press${fresh ? ' is-new' : ''}" aria-labelledby="rv-press-h">`
-    + `<div class="rv-press-head"><h2 class="t-2" id="rv-press-h">Press Room${fresh ? '<span class="sr-only">, new press conference</span>' : ''}</h2>`
-    + `${fresh ? `<span class="rv-press-new" aria-hidden="true">${ui.pill('New', {tone: 'tint'})}</span>` : ''}</div>`
-    + vacancy
-    + `<div class="card rv-press-card">${pvMod.tileHTML(p, {size: 'm'})}`
-    + `<a class="rv-press-all" href="#/press"><span>All press conferences</span><span class="rv-press-n">${n > 1 ? esc(String(n)) : ''}${ui.icon('chevron-right')}</span></a></div>`
-    + `</section>`;
-}
-// Patched only when the markup changes (a snapshot that changes nothing keeps a playing video playing).
-function patchPress() {
-  const w = st && st.el.querySelector('.rv-press-w');
-  if (!w) return;
-  let html = '';
-  try { html = pressHTML(); } catch (e) { console.error(e); html = ''; }
-  if (w._html === html) return;
-  const was = !!w.firstElementChild;
-  w.innerHTML = html;
-  w._html = html;
-  if (html && !was && st.ctx.visible && !ui.RM) ui.animate(w, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {duration: 320, easing: 'cubic-bezier(.22,1,.36,1)'});
-  syncH2hTitle();
-  reland();
-  if (html && st.goSec === 'rv-press') revealSec();
-}
 function pressStart() {
   const s = st;
   if (!s || s.pressWant) return;
   s.pressWant = true;
-  loadPress().then(pr => {
-    if (st !== s || !s.pressWant) return;
-    try { const b = pvMod.bindPlayers(s.el); s.pressStop = typeof b === 'function' ? b : b && typeof b.stop === 'function' ? () => b.stop() : null; } catch (e) { console.error(e); }
-    try {
-      s.pressUnsub = pr.subscribePressers(u => {
-        if (st !== s || !u) return;
-        s.press = {list: Array.isArray(u.list) ? u.list : [], ready: !!u.ready, error: u.error || null};
-        if (s.idleP) s.idleP();
-        s.idleP = ui.whenIdle(() => { s.idleP = null; if (st === s) patchPress(); });
-      });
-    } catch (e) { console.error(e); }
-  }, e => { console.warn('press room card', e); if (st === s) s.pressWant = false; });
+  loadPress().then(() => {
+    if (st !== s || !s.pressWant || s.pressEmb) return;
+    const host = s.el.querySelector('[data-rv-pr]');
+    if (!host) { s.pressWant = false; return; }
+    try { s.pressEmb = pvMod.embed(host, s.ctx); } catch (e) { console.error(e); s.pressWant = false; return; }
+    pressSync();
+  }, e => { console.warn('press room', e); if (st === s) s.pressWant = false; });
 }
-// Leaving the screen: no presser keeps playing behind another screen.
+// The embedded Press Room listens (and may play) only while its tab shows on the visible screen.
+function pressSync() {
+  if (!st || !st.pressEmb) return;
+  if (st.mode === 'press' && st.ctx.visible) st.pressEmb.show(); else st.pressEmb.hide();
+}
 function pressPause() {
-  if (st && st.pressStop) { try { st.pressStop(); } catch (_) {} }
+  if (st && st.pressEmb) { try { st.pressEmb.hide(); } catch (_) {} }
 }
 function pressEnd() {
   if (!st) return;
-  pressPause();
-  if (st.idleP) { st.idleP(); st.idleP = null; }
-  if (typeof st.pressUnsub === 'function') { try { st.pressUnsub(); } catch (_) {} }
-  st.pressUnsub = null;
+  if (st.pressEmb) { try { st.pressEmb.destroy(); } catch (_) {} }
+  st.pressEmb = null;
   st.pressWant = false;
 }
-function onPressClick(e) {
-  const t = e.target.closest && e.target.closest('[data-rv-press-post]');
-  if (!t || !st || !pvMod) return;
-  ui.haptic('light');
-  try { pvMod.openPost(); } catch (err) { console.error(err); }
+
+// ---------------------------------------------------------------- Header tabs: Matchup of the Week · Press · Recap
+// Pick'em's scoreboard buttons (the Scores tab's NFL · League switch), three of them. The one shown is remembered on this
+// phone ('gg-matchup-mode'); a link to a section (#/matchup?s=press | wrap | motw ...) opens its tab.
+const MODE_KEY = 'gg-matchup-mode';
+const MODES = [
+  {id: 'motw', label: 'MOTW', name: 'Matchup of the Week', icon: 'versus-fill', title: 'Matchup'},
+  {id: 'press', label: 'Press', name: 'Press conferences', icon: 'mic-fill', title: 'Press Room'},
+  {id: 'recap', label: 'Recap', name: 'Weekly recaps', icon: 'list', title: 'Recaps'}];
+const modeOk = m => MODES.some(x => x.id === m);
+const savedMode = () => { const v = ui.lsGet(MODE_KEY); return modeOk(v) ? v : 'motw'; };
+function tabsHTML(on) {
+  return `<div class="pk-lg rv-sw" role="tablist" aria-label="Matchup">${MODES.map(m => `<button type="button" role="tab" class="pk-lg-t" id="rv-tab-${m.id}" data-rv-mode="${m.id}"`
+    + ` aria-controls="rv-pane-${m.id}" aria-selected="${m.id === on}"${m.id === on ? '' : ' tabindex="-1"'} aria-label="${esc(m.name)}">`
+    + `<span class="pk-lg-ic rv-sw-ic" aria-hidden="true">${ui.icon(m.icon)}</span>`
+    + `<span class="pk-lg-tx" aria-hidden="true"><span class="pk-lg-l">${esc(m.label)}</span></span></button>`).join('')}</div>`;
+}
+function paneAttrs(id, on) {
+  return `class="rv-pane rv-pane-${id}" id="rv-pane-${id}" role="tabpanel" aria-labelledby="rv-tab-${id}" data-rv-pane="${id}"${id === on ? '' : ' hidden'}`;
+}
+// Shows a tab: the others' panes hide (a crossfade when tapped), the Press Room listens only while it shows, the Recap
+// draws once its stats are in, and the bar's compact title and actions follow.
+function setMode(mode, {animate = false, save = true} = {}) {
+  if (!st || !modeOk(mode)) return;
+  if (save) ui.lsSet(MODE_KEY, mode);
+  if (mode === st.mode) return;
+  st.mode = mode;
+  const el = st.el;
+  el.querySelectorAll('[data-rv-mode]').forEach(b => {
+    const on = b.dataset.rvMode === mode;
+    b.setAttribute('aria-selected', String(on));
+    if (on) b.removeAttribute('tabindex'); else b.setAttribute('tabindex', '-1');
+  });
+  const panes = el.querySelector('.rv-panes');
+  const put = () => el.querySelectorAll('[data-rv-pane]').forEach(p => { p.hidden = p.dataset.rvPane !== mode; });
+  if (animate && panes && st.ctx.visible && !ui.RM) ui.crossfade(panes, put, {duration: 160}); else put();
+  if (mode === 'press') pressStart();
+  if (mode === 'recap') { if (STATS) patchWrap(false); else wrapStart(); }
+  pressSync();
+  st.chromeKey = null;
+  syncChrome();
+  // Below the tabs: a tab opened from far down starts at its top.
+  const scr = st.ctx.screen, sw = el.querySelector('.rv-sw');
+  if (animate && scr && sw) {
+    const nav = scr.querySelector(':scope > .nav');
+    const line = (nav ? nav.getBoundingClientRect().bottom : scr.getBoundingClientRect().top);
+    const d = sw.getBoundingClientRect().top - line - 8;
+    if (d < 0) scr.scrollTo({top: Math.max(0, scr.scrollTop + d), behavior: 'auto'});
+  }
+  const to = el.querySelector(`[data-rv-mode="${mode}"]`);
+  if (animate && to && st.ctx.visible && !ui.RM) ui.animate(to, [{transform: 'scale(.94)'}, {transform: 'none'}], {spring: 'bouncy'});
+  if (animate) { ui.haptic('selection'); ui.announce(MODES.find(x => x.id === mode).name + '.'); }
+}
+function onTabKey(e) {
+  const t = e.target.closest && e.target.closest('[data-rv-mode]');
+  if (!t || !st) return;
+  const ids = MODES.map(m => m.id), i = ids.indexOf(t.dataset.rvMode);
+  let n = -1;
+  if (e.key === 'ArrowRight') n = (i + 1) % ids.length;
+  else if (e.key === 'ArrowLeft') n = (i + ids.length - 1) % ids.length;
+  else if (e.key === 'Home') n = 0;
+  else if (e.key === 'End') n = ids.length - 1;
+  if (n < 0) return;
+  e.preventDefault();
+  setMode(ids[n], {animate: true});
+  const b = st.el.querySelector(`[data-rv-mode="${ids[n]}"]`);
+  if (b) b.focus();
 }
 
 // ---------------------------------------------------------------- Past Matchups of the Week
@@ -1029,10 +1040,8 @@ function wkStart() {
   wkSubscribe();
   loadHistory();
 }
-// Kickoff passes while the screen is open: the vote turns read-only in place (and the tab's dot goes). A new
-// presser's "New" runs out after 4 days.
+// Kickoff passes while the screen is open: the vote turns read-only in place (and the tab's dot goes).
 function wkTick() {
-  patchPress();
   const w = st && st.wk;
   if (!w || !w.cur) return;
   const locked = lockedNow(w.cur);
@@ -1059,26 +1068,27 @@ function wkData() {
 function syncH2hTitle() {
   const t = st && st.el.querySelector('.rv-h2h-t');
   if (!t) return;
-  const has = !!st.el.querySelector('.rv-week :is(.rv-motw, .rv-press, .rv-last, .rv-past)');
+  const has = !!st.el.querySelector('.rv-week :is(.rv-motw, .rv-past)');
   t.hidden = !has;
   syncChrome();
 }
-// Deep links from other screens: #/matchup?s=motw | vote | press | wrap | past | h2h (the NFL pick'em has
-// its own tab: app.js sends the old #/rivals?s=pickem there).
+// Deep links from other screens: #/matchup?s=motw | vote | past | h2h (on the MOTW tab) | press (the Press tab) |
+// wrap | last | recap (the Recap tab) (the NFL pick'em has its own tab: app.js sends the old #/rivals?s=pickem there).
 const SEC = {motw: 'rv-motw', vote: 'rv-motw', votes: 'rv-motw', press: 'rv-press',
-  wrap: 'rv-wrap', last: 'rv-wrap', past: 'rv-past', h2h: 'rv-h2h'};
+  wrap: 'rv-wrap', last: 'rv-wrap', recap: 'rv-wrap', past: 'rv-past', h2h: 'rv-h2h'};
+const SEC_MODE = {'rv-press': 'press', 'rv-wrap': 'recap'};
+// The tab a link opens: its section's, else the one this phone last showed.
+const modeFor = q => SEC_MODE[secOf(q)] || (secOf(q) ? 'motw' : savedMode());
 function secOf(q) {
   const v = q && (q.s || q.section || q.focus);
   return v ? SEC[String(v).toLowerCase()] || null : null;
 }
-// The Press Room and the Wrap fill in at idle: a link to one of them waits until its card is there (patchPress and
-// patchWrap call revealSec again).
-const LATE_SEC = ['rv-press', 'rv-wrap'];
+// A link to a section of the MOTW tab lands on it (the Press and Recap tabs open at their top).
 function revealSec() {
   if (!st || !st.goSec || !st.ctx.visible) return;
   const id = st.goSec;
-  if (LATE_SEC.includes(id)) { const h = st.el.querySelector('#' + id); if (h && !h.firstElementChild) return; }
   st.goSec = null;
+  if (SEC_MODE[id]) return;
   const t = setTimeout(() => {
     const el = st && st.el.querySelector('#' + id);
     if (!el || !el.getClientRects().length) return;
@@ -1125,23 +1135,27 @@ function eyebrowText() {
 }
 const titleHTML = () => ui.largeTitle({eyebrow: eyebrowText(), title: 'Matchup', trailing: youHTML()});
 
-function pageHTML(m) {
+// The title, the three header tabs, then their panes: MOTW (the vote, the past picks, head to head), Press (the Press
+// Room, embedded once it loads) and Recap (every week's Wrap).
+function pageHTML(m, mode = st ? st.mode : savedMode()) {
   if (!m || !m.b) {
     return titleHTML()
       + ui.empty({icon: 'versus', title: 'No rivals yet.', body: 'Rivals needs at least two managers in the league.'});
   }
   const motwH = motwHTML(st ? st.lens : readLens());
-  const wrapH = wrapHTML(latestWrap());
   const past = st && st.wk && st.wk.hist ? pastHTML(st.wk.hist) : '';
   return titleHTML()
-    + `<div class="rv-week">${motwH}`
-    + `<div class="rv-press-w" id="rv-press">${pressHTML()}</div>`
-    + `<div class="rv-wrap-w" id="rv-wrap">${wrapH}</div>`
+    + tabsHTML(mode)
+    + `<div class="rv-panes">`
+    + `<div ${paneAttrs('motw', mode)}><div class="rv-week">${motwH}`
     + `<div class="rv-past-w" id="rv-past">${past}</div></div>`
-    + `<h2 class="t-2 rv-h2h-t" id="rv-h2h"${motwH || wrapH || past ? '' : ' hidden'}>Head to head</h2>`
+    + `<h2 class="t-2 rv-h2h-t" id="rv-h2h"${motwH || past ? '' : ' hidden'}>Head to head</h2>`
     + headerHTML(m)
     + `<div class="rv-main">${mainHTML(m)}</div>`
-    + listSecHTML(m);
+    + listSecHTML(m) + `</div>`
+    + `<div ${paneAttrs('press', mode)}><div class="rv-pr" id="rv-press" data-rv-pr></div></div>`
+    + `<div ${paneAttrs('recap', mode)}><div class="rv-wrap-w" id="rv-wrap">${recapHTML()}</div></div>`
+    + `</div>`;
 }
 
 // ============================================================================ Patching
@@ -1155,7 +1169,7 @@ function grab(el) {
   const pw = el.querySelector('.rv-past-w');
   if (pw) pw._html = pw.innerHTML ? pastHTML(st.wk && st.wk.hist) : '';
   const ww = el.querySelector('.rv-wrap-w');
-  if (ww) ww._html = ww.innerHTML ? wrapHTML(latestWrap()) : '';
+  if (ww) ww._html = recapHTML();
   markRendered(el);
   st.listA = st.m ? st.m.a : null;
   st.listMe = st.meKey;
@@ -1398,6 +1412,15 @@ function weekInView() {
 function syncChrome() {
   if (!st) return;
   const cur = st.wk && st.wk.cur;
+  if (st.mode !== 'motw') {
+    // The Press and Recap tabs: the bar names the tab; the rivalry's share is the MOTW tab's.
+    const key = `tab|${st.mode}`;
+    if (key === st.chromeKey) return;
+    st.chromeKey = key;
+    st.ctx.setTitle((MODES.find(x => x.id === st.mode) || MODES[0]).title);
+    st.ctx.setActions([]);
+    return;
+  }
   const inWeek = weekInView();
   const key = `${inWeek}|${st.title}|${st.hasShare}|${cur ? cur.week : ''}`;
   if (key === st.chromeKey) return;
@@ -1557,10 +1580,13 @@ function chooseOpp(id) {
 }
 
 function onClick(e) {
-  const t = e.target.closest && e.target.closest('[data-swap], [data-pick], [data-opp], [data-motw], [data-motw-more], [data-motw-share], '
+  const t = e.target.closest && e.target.closest('[data-rv-mode], [data-swap], [data-pick], [data-opp], [data-motw], [data-motw-more], [data-motw-share], '
     + '[data-vote], [data-vt-who], [data-past-more]');
   if (!t || !st) return;
-  if (t.hasAttribute('data-vote')) vote(t.dataset.vote);
+  // (the embedded Press Room handles its own taps)
+  if (t.closest('[data-rv-pr]')) return;
+  if (t.hasAttribute('data-rv-mode')) setMode(t.dataset.rvMode, {animate: true});
+  else if (t.hasAttribute('data-vote')) vote(t.dataset.vote);
   else if (t.hasAttribute('data-vt-who')) openWeekSheet('votes', t.dataset.vtWho);
   else if (t.hasAttribute('data-past-more')) { ui.haptic('light'); togglePast(); }
   else if (t.hasAttribute('data-motw')) chooseMotw(t.dataset.motw);
@@ -1585,7 +1611,7 @@ export default {
 
   render(ctx) {
     const p = resolvePair(ctx.params);
-    return pageHTML(p.a && p.b ? model(p.a, p.b) : null);
+    return pageHTML(p.a && p.b ? model(p.a, p.b) : null, modeFor(ctx.query));
   },
 
   mount(el, ctx) {
@@ -1593,18 +1619,24 @@ export default {
     st = {ctx, el, m: null, r: {}, isDefault: p.isDefault, expect: null, via: null, swapping: false, swapAnims: null,
       meKey: `${data.me()}|${reigning()}`, flameKey: null, secKey: null, listA: null, listMe: null, p2: null, seen: null, title: null,
       cleanups: [], entrance: false, shown: false, lens: readLens(), all: false, pastAll: false, wk: null, goSec: secOf(ctx.query),
-      press: null, pressWant: false, pressUnsub: null, pressStop: null, idleP: null};
+      pressWant: false, pressEmb: null, recapYear: null, chromeKey: null,
+      mode: (el.querySelector('[data-rv-pane]:not([hidden])') || {dataset: {rvPane: 'motw'}}).dataset.rvPane};
+    if (st.goSec) ui.lsSet(MODE_KEY, st.mode);
     st.wk = newWk();
     el.addEventListener('click', onClick);
+    el.addEventListener('keydown', onTabKey);
+    st.cleanups.push(() => el.removeEventListener('keydown', onTabKey));
+    if (st.mode === 'press') pressStart();
+    if (st.mode === 'recap') wrapStart();
     // The week: Firestore, the Press Room and the Wrap start once the first paint is done (never block the screen);
     // the vote's kickoff is checked every 20 s while the screen is visible.
     const wk = st.wk;
     ui.onIdle(() => { if (st && st.wk === wk) wkStart(); });
     ui.onIdle(() => { if (st && st.wk === wk) pressStart(); });
     ui.onIdle(() => { if (st && st.wk === wk) wrapStart(); });
-    el.addEventListener('click', onPressClick);
     ctx.timer(wkTick, 20000);
     const onLens = e => {
+      if (st && e.detail && e.detail.name === 'rv-recap-year') { st.recapYear = +e.detail.value || null; patchWrap(true); return; }
       if (!st || !e.detail || e.detail.name !== 'motw-lens') return;
       st.lens = e.detail.value;
       saveLens(st.lens);
@@ -1652,6 +1684,9 @@ export default {
 
   onShow(ctx) {
     if (!st || st.ctx !== ctx) return;
+    // Another screen of the app may have switched the tab meanwhile (or a link opened one).
+    if (!st.goSec && savedMode() !== st.mode) setMode(savedMode(), {save: false});
+    pressSync();
     syncChrome();
     if (st.goSec) revealSec();
     if (st.wk && !st.wk.started) wkStart();
@@ -1679,7 +1714,7 @@ export default {
     st.via = null;
     let p;
     const sec = own ? null : secOf(ctx.query);
-    if (sec) st.goSec = sec;
+    if (sec) { st.goSec = sec; setMode(SEC_MODE[sec] || 'motw'); }
     if (sec && !ctx.params.a && !ctx.params.b && st.m && st.m.b) {
       // A link to a week section (#/matchup?s=motw): keep the matchup on screen, scroll to the section.
       p = {a: st.m.a, b: st.m.b};
@@ -1703,11 +1738,13 @@ export default {
     if (ok !== !!(st.m && st.m.b)) {
       // The league gained or lost its second manager: render afresh.
       if (st.p2) st.p2();
+      pressEnd();
       el.innerHTML = pageHTML(ok ? model(p.a, p.b) : null);
       st.m = ok ? model(p.a, p.b) : null;
       st.meKey = `${data.me()}|${reigning()}`;
       if (ok) grab(el); else st.r = {};
       chrome(st.m);
+      if (ok && (st.mode === 'press' || pvMod)) pressStart();
     } else if (ok) {
       apply(p, {animate: true, via});
       if (via === 'ext') scrollTop();
@@ -1721,7 +1758,7 @@ export default {
     // New games or a new schedule re-rank the week (and may move it on, with its games and a new Wrap); a new "me"
     // moves the you-rings and your avatar button.
     if (ctx.reason === 'data') wkData();
-    if (ctx.reason === 'data' || ctx.reason === 'me') { patchMotw(false); patchEyebrow(); patchPress(); }
+    if (ctx.reason === 'data' || ctx.reason === 'me') { patchMotw(false); patchEyebrow(); if (st.pressEmb) st.pressEmb.update(); }
     if (ctx.reason === 'data') patchWrap(ctx.visible);
     if (ctx.reason === 'me') patchPast(false);
     if (st.goSec) revealSec();
@@ -1744,7 +1781,6 @@ export default {
   unmount(el, ctx) {
     if (!st || st.ctx !== ctx) return;
     el.removeEventListener('click', onClick);
-    el.removeEventListener('click', onPressClick);
     pressEnd();
     wkUnsub();
     if (st.wk) { clearTimeout(st.wk.vT); st.wk.sheet = null; } // an open sheet goes with the navigation that unmounts us

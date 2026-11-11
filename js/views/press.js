@@ -1289,6 +1289,17 @@ function autoplay(s) {
 }
 
 // ---- actions
+// Back to the featured card: the top of the screen, or (embedded on another screen) the top of the Press Room under its
+// tabs, when that is above the screen's top.
+function toTop(s, sc) {
+  if (!sc) return;
+  const behavior = ui.RM ? 'auto' : 'smooth';
+  if (!s.ctx.embedded) { if (sc.scrollTop > 0) sc.scrollTo({top: 0, behavior}); return; }
+  const nav = sc.querySelector(':scope > .nav');
+  const line = (nav ? nav.getBoundingClientRect().bottom : sc.getBoundingClientRect().top) + 8;
+  const d = s.el.getBoundingClientRect().top - line;
+  if (d < 0) sc.scrollTo({top: Math.max(0, sc.scrollTop + d), behavior});
+}
 function featureKey(s, key, {play = true} = {}) {
   const v = vm(s);
   const p = v.byKey[key];
@@ -1297,7 +1308,7 @@ function featureKey(s, key, {play = true} = {}) {
   s.want = key;
   patch(s, {fade: true});
   const sc = s.ctx.screen;
-  if (sc && sc.scrollTop > 0) sc.scrollTo({top: 0, behavior: ui.RM ? 'auto' : 'smooth'});
+  toTop(s, sc);
   // Inside the tap (user activation): YouTube starts with sound.
   if (play) { const tile = s.el.querySelector('[data-pr-sec="feat"] .c-press'); if (tile) playTile(tile); }
   const path = '/press/' + encodeURIComponent(key);
@@ -1311,7 +1322,7 @@ function onPosted(s) {
     s.want = key;
     stopAll();
     const sc = s.ctx.screen;
-    if (sc && sc.scrollTop > 0) sc.scrollTo({top: 0, behavior: ui.RM ? 'auto' : 'smooth'});
+    toTop(s, sc);
     patch(s, {fade: true});
     const path = '/press/' + encodeURIComponent(key);
     if (s.ctx.path !== path) s.ctx.replace(path);
@@ -1373,6 +1384,47 @@ function onClick(s, e) {
     patch(s);
     subscribe(s);
   }
+}
+
+// ============================================================================ Embedded (the Matchup tab's Press tab)
+// embed(host, hostCtx) draws the Press Room's body (featured presser, questions, Ask, the archive, How to post) into
+// `host` on another screen, with a Post button in place of the bar's +. It keeps its own state on a stand-in ctx: it is
+// visible while shown and its host screen is; featuring an archive row stays on the host's route. Returns
+// {show(), hide(), update(), destroy()}: show() starts the live list, hide() stops any player and the listener.
+export function embed(host, hostCtx) {
+  let live = false;
+  const ctx = {embedded: true, params: {}, path: '/press', first: false,
+    get visible() { return live && !!(hostCtx && hostCtx.visible); },
+    get screen() { return hostCtx && hostCtx.screen; },
+    replace(p) { ctx.path = p; }, setActions() {}, refreshChrome() {}};
+  const s = newState(ctx, host);
+  host.classList.add('v-press', 'pr-embed');
+  host.innerHTML = `<div class="pr-embed-bar"><button type="button" class="pr-embed-post" data-pr-post="">${ui.icon('plus')}<span>Post a press conference</span></button></div>`
+    + `<div class="pr-main">${sections(s).map(secHTML).join('')}</div>`;
+  screens.set(ctx, s);
+  markSections(s);
+  ui.hydrate(host);
+  scanThumbs(host);
+  s.stop = bindPlayers(host);
+  s.onClick = e => onClick(s, e);
+  host.addEventListener('click', s.onClick);
+  s.unq = press.subscribeQuestions(() => { if (!s.dead) patch(s); });
+  return {
+    show() { if (s.dead) return; live = true; subscribe(s); refresh(s); },
+    hide() { if (s.dead) return; live = false; if (s.stop) s.stop(); unsubscribe(s); },
+    update() { if (!s.dead) patch(s); },
+    destroy() {
+      if (s.dead) return;
+      live = false;
+      if (s.stop) s.stop();
+      stopIn(host);
+      unsubscribe(s);
+      host.removeEventListener('click', s.onClick);
+      if (s.unq) s.unq();
+      s.dead = true;
+      screens.delete(ctx);
+    }
+  };
 }
 
 // ============================================================================ View
