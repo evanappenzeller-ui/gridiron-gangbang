@@ -443,3 +443,14 @@ html.rm .c-press-ifr, html.rm .c-press-btn { transition: none; }
 .sh-pq .pq-field { align-items: stretch; }
 .sh-pq textarea.pq-in { height: auto; min-height: 112px; resize: vertical; line-height: 1.4; padding-top: 10px; padding-bottom: 10px; }
 .sh-pq .pq-del { margin-top: 10px; color: var(--wrong); }
+
+/* Ask {loser} (Nov 11 2026): the questions league members send the week's loser before the podium; theirs open the
+   ask sheet (.sh-ask), which leads with who the question is for. */
+.v-press .pr-ask-empty { display: flex; align-items: center; gap: 10px; margin: 0; padding: 14px 16px; font: 400 var(--fs-callout)/var(--lh-callout) var(--font-text); color: var(--ink-3); }
+.v-press .pr-ask-empty > .ic { flex: none; }
+.v-press .pr-ask-note { margin: 10px 0 0; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.sh-ask .ask-to { display: flex; align-items: center; gap: 12px; }
+.sh-ask .shp-note { color: var(--ink-3); }
+.sh-ask .ask-to-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sh-ask .ask-to-t { font: 600 var(--fs-callout)/var(--lh-callout) var(--font-text); color: var(--ink); }
+.sh-ask .ask-to-s { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }

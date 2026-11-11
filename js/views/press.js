@@ -4,8 +4,9 @@
 //   a big player card (the latest, or the route's week: the share link) with Share / Replace / Remove · the league
 //   chat's questions for that week's loser (press.questionsFor, from data/pressers.json, then the ones Evan added in the
 //   app: on his phone the section is always there with Add a question, and his own open openQuestion's sheet to change
-//   or delete; Nov 5 2026), when it has some · a prompt when
-//   the latest Matchup of the Week loser hasn't posted yet · the archive by season (a row features that presser and
+//   or delete; Nov 5 2026; then the ones members sent), when it has some · a prompt when
+//   the latest Matchup of the Week loser hasn't posted yet · "Ask {loser}": league members send that loser questions
+//   (openAsk; Nov 11 2026) · the archive by season (a row features that presser and
 //   plays it) · "How to post". The + in the bar opens the post sheet. Until the rules are pasted ('denied') the +,
 //   Replace and Remove are gone and the sheet's Post stays off with that reason.
 //   Post sheet (openPost): paste a YouTube link (checked live: the thumbnail and YouTube title, or what's wrong in
@@ -820,6 +821,100 @@ function wireQuestion(Q) {
   });
 }
 
+// ============================================================================ Ask sheet
+// A league member's question for the week's loser (Nov 11 2026): openAsk({key, who}) sends a new one, with id changes
+// or takes back one of yours. press.sendQuestion / unsendQuestion (on your board doc; this device only on a dev host).
+// The sheet belongs to the member who opened it: a profile change closes it without saving.
+let askOpen = null;
+export function openAsk({key, who, id = null} = {}) {
+  const me = press.canSend();
+  if (!me || askOpen || !parseKey(key) || !data.M[who] || who === me) return askOpen;
+  const item = id ? press.sentFor(key).find(x => x.id === id && x.by === me) : null;
+  if (id && !item) { ui.toast('That question isn’t there anymore.', {icon: 'info'}); return null; }
+  const K = parseKey(key);
+  const A = {key, who, me, id, busy: false, dead: false, el: null, sheet: null, unme: null};
+  let resolve;
+  askOpen = new Promise(r => { resolve = r; });
+  const done = askOpen;
+  A.sheet = ui.openSheet({
+    title: item ? 'Change your question' : `Ask ${nm(who)}`, body: askBody(A, item, K), cls: 'sh-press sh-pq sh-ask', detents: ['large'],
+    onClose: () => { A.dead = true; if (A.unme) A.unme(); if (askOpen === done) askOpen = null; resolve(A.result || null); }
+  });
+  A.el = A.sheet.el;
+  A.unme = data.subscribe(type => { if (type === 'me' && !A.dead && data.me() !== A.me) A.sheet.close(); });
+  wireAsk(A);
+  paintAsk(A);
+  if (!item) requestAnimationFrame(() => { const t = !A.dead && A.el.querySelector('#pq-q'); if (t && matchMedia('(pointer: fine)').matches) t.focus(); });
+  return done;
+}
+function askBody(A, item, K) {
+  const c = safeContext(K.year, K.week, A.who);
+  const line = c && data.M[c.opp] ? cap1(contextText({year: K.year, week: K.week, ctx: c}, {week: false})) : 'Lost the Matchup of the Week';
+  const left = press.SQ_PER_WEEK - press.sentFor(A.key).filter(x => x.by === A.me && x.id !== A.id).length;
+  return `<div class="shp pq">`
+    + `<div class="ask-to">${ui.avatar(A.who, {size: 40})}<span class="ask-to-tx"><span class="ask-to-t">${esc(`${nm(A.who)} · Week ${K.week}`)}</span><span class="ask-to-s">${esc(line)}</span></span></div>`
+    + `<section class="shp-sec"><div class="shp-hrow"><label class="shp-h" for="pq-q">Your question</label><span class="shp-count pq-qn" aria-hidden="true">0/${press.Q_MAX}</span></div>`
+    + `<div class="shp-field pq-field"><textarea id="pq-q" class="shp-in pq-in" name="pq-q" rows="4" maxlength="${press.Q_MAX}" autocapitalize="sentences" placeholder="Coach, …">${esc(item ? item.q : '')}</textarea></div>`
+    + `<p class="shp-note">${esc(`Everyone sees it with your name, and ${nm(A.who)} answers it at the podium. ${item ? 'You can change it' : `You can send ${left === press.SQ_PER_WEEK ? `up to ${left}` : `${left} more`} for this week, and change them`} until the press conference is posted.`)}</p></section>`
+    + `<div class="shp-foot">${ui.button({label: item ? 'Save' : 'Send question', kind: 'primary', block: true, disabled: true, attrs: {'data-ask-send': ''}})}<p class="shp-why" aria-live="polite"></p>`
+    + (item ? ui.button({label: 'Delete question', kind: 'secondary', block: true, cls: 'pq-del is-destructive', attrs: {'data-ask-del': ''}}) : '')
+    + `</div></div>`;
+}
+function paintAsk(A) {
+  const el = A.el;
+  if (!el || A.dead) return;
+  const q = el.querySelector('#pq-q'), box = el.querySelector('.pq-qn');
+  if (box) { box.textContent = `${q.value.length}/${press.Q_MAX}`; box.classList.toggle('is-full', q.value.length >= press.Q_MAX); }
+  const why = A.busy ? '' : !q.value.trim() ? 'Type your question.' : '';
+  const btn = el.querySelector('[data-ask-send]');
+  if (btn) btn.disabled = !!why || A.busy;
+  const w = el.querySelector('.shp-why');
+  if (w) w.textContent = why;
+}
+const ASK_FAIL = {invalid: 'Type your question.', self: 'You’re the one facing the media.', closed: 'The press conference is already posted.',
+  full: `You’ve sent ${press.SQ_PER_WEEK}, the most for a week.`, denied: 'Only league members can send questions.', failed: "Couldn't send. Try again."};
+async function sendAsk(A) {
+  if (A.busy || A.dead) return;
+  if (data.me() !== A.me) { A.sheet.close(); return; }
+  const q = A.el.querySelector('#pq-q').value;
+  A.busy = true; paintAsk(A);
+  let r;
+  try { r = await press.sendQuestion({id: A.id, week: A.key, q, to: A.who}); } catch (e) { console.error(e); r = {r: 'failed'}; }
+  A.busy = false;
+  if (r.r === 'ok' || r.r === 'dev') {
+    ui.haptic('success');
+    ui.toast(`${A.id ? 'Saved' : `Sent to ${nm(A.who)}`}${r.r === 'dev' ? ' on this device (dev)' : ''}`, {icon: 'check-circle'});
+    A.result = {key: A.key, id: r.id};
+    if (!A.dead) A.sheet.close();
+    return;
+  }
+  ui.haptic('warning');
+  paintAsk(A);
+  ui.toast(ASK_FAIL[r.r] || ASK_FAIL.failed, {icon: 'x-circle'});
+}
+async function deleteAsk(A) {
+  if (A.busy || A.dead || !A.id) return;
+  const v = await ui.actionSheet({title: 'Delete your question?', message: 'It comes off the Press Room for everyone.', actions: [{label: 'Delete', value: 'delete', role: 'destructive'}]});
+  if (v !== 'delete' || A.dead) return;
+  if (data.me() !== A.me) { A.sheet.close(); return; }
+  A.busy = true; paintAsk(A);
+  let r;
+  try { r = await press.unsendQuestion(A.key, A.id); } catch (e) { console.error(e); r = 'failed'; }
+  A.busy = false;
+  if (r === 'ok' || r === 'dev') { ui.haptic('success'); ui.toast(r === 'dev' ? 'Deleted on this device (dev)' : 'Deleted', {icon: 'check-circle'}); if (!A.dead) A.sheet.close(); return; }
+  paintAsk(A);
+  ui.toast(ASK_FAIL[r] || ASK_FAIL.failed, {icon: 'x-circle'});
+}
+function wireAsk(A) {
+  const el = A.el;
+  el.addEventListener('input', () => paintAsk(A));
+  el.addEventListener('click', e => {
+    const t = e.target.closest && e.target.closest('[data-ask-send], [data-ask-del]');
+    if (!t) return;
+    if (t.hasAttribute('data-ask-send')) sendAsk(A); else deleteAsk(A);
+  });
+}
+
 // ============================================================================ Screen
 // Pushed on any tab, so a Press Room can be mounted on two tabs at once: each keeps its own state (screens: ctx ->
 // state). memo.snap is the last subscribePressers payload, so a re-mounted screen paints at once.
@@ -926,6 +1021,43 @@ function promptHTML(s, v) {
     + `<span class="pr-miss-tx" aria-hidden="true"><span class="ovl pr-miss-o">Week ${m.week}</span><span class="pr-miss-t">${esc(title)}</span><span class="pr-miss-s">${esc(sub)}</span></span>`
     + `<span class="pr-miss-go" aria-hidden="true">${ui.icon('plus')}<span>Post</span></span></button>`;
 }
+// "Ask {who}" (Nov 11 2026, Evan: "Add a section in the press conference where league members can submit questions to
+// the manager"): the week whose Matchup of the Week loser hasn't faced the media yet (missingWeek, its loser known
+// from the prompt's lookup; never a no-show week). Everyone sees what the league sent (press.sentFor); a league member
+// other than the loser sends up to press.SQ_PER_WEEK and taps his own to change or take them back; the loser sees
+// the questions waiting for him. Once the presser is posted they move under its "Questions from the press".
+function askTarget(s, v) {
+  if (!v.ready || v.err) return null;
+  const m = missingWeek(v);
+  const r = m && s.miss && s.miss.key === m.key && !s.miss.pending ? s.miss.r : null;
+  if (!r || !data.M[r.who]) return null;
+  let skip = false;
+  try { skip = press.noShows(v.byKey).some(n => n.key === m.key); } catch (_) { skip = false; }
+  return skip ? null : {key: m.key, year: m.year, week: m.week, who: r.who};
+}
+function askHTML(s, v) {
+  const t = askTarget(s, v);
+  if (!t) return '';
+  const me = data.me(), sent = press.sentFor(t.key), mine = sent.filter(x => x.by === me), isHim = me === t.who;
+  const items = sent.map(x => {
+    const body = `<span class="pr-q-lead">${ui.avatar(x.by, {size: 32, you: x.by === me})}</span>`
+      + `<span class="pr-q-main"><span class="pr-q-by">${esc(x.by === me ? `${nm(x.by)} (you)` : nm(x.by))}</span><span class="pr-q-t">${esc(x.q)}</span></span>`;
+    return x.by === me
+      ? `<li class="pr-q is-mine"><button type="button" class="pr-q-edit" data-pr-sedit="${esc(x.id)}" aria-label="${esc(`Change your question: ${x.q}`)}">${body}${ui.icon('chevron-right', {cls: 'pr-q-go'})}</button></li>`
+      : `<li class="pr-q">${body}</li>`;
+  }).join('');
+  const sub = isHim ? `The league's questions for your week ${t.week} press conference.`
+    : `${nm(t.who)} faces the media for week ${t.week}. Send a question for the podium.`;
+  const empty = isHim ? 'No questions yet.' : 'No questions yet. Be the first to ask.';
+  let foot = '';
+  if (!me) foot = `<p class="pr-ask-note">League members can send questions from their own profile.</p>`;
+  else if (!isHim && mine.length >= press.SQ_PER_WEEK) foot = `<p class="pr-ask-note">You’ve sent ${press.SQ_PER_WEEK}, the most for a week. Tap one to change it.</p>`;
+  else if (!isHim) foot = `<button type="button" class="pr-qs-add" data-pr-sask="${esc(t.key)}" data-pr-swho="${esc(t.who)}">${ui.icon('plus')}<span>${esc(mine.length ? 'Ask another question' : `Ask ${nm(t.who)} a question`)}</span></button>`;
+  return `<section class="pr-qs pr-ask" aria-labelledby="pr-ask-h" data-pr-ask="${esc(t.key)}"><h2 class="t-2 pr-h" id="pr-ask-h">Ask ${esc(nm(t.who))}</h2>`
+    + `<p class="pr-qs-sub">${esc(sub)}</p>`
+    + (items ? `<ol class="card pr-qs-list">${items}</ol>` : `<p class="card pr-ask-empty">${ui.icon('mic', {size: 18})}<span>${esc(empty)}</span></p>`)
+    + foot + `</section>`;
+}
 // An empty archive slot for a Matchup of the Week loser who never faced the media (the seed's noShows): a vacant
 // thumbnail, no video, nothing to play. It goes once that week has a presser.
 function noShowHTML(n, me) {
@@ -992,6 +1124,7 @@ function sections(s) {
     ['feat', v.feat ? featHTML(v.feat, v.err === 'denied') : featSkHTML()],
     ['qs', qsHTML(v.feat)],
     ['prompt', promptHTML(s, v)],
+    ['ask', askHTML(s, v)],
     ['arch', archHTML(v)],
     ['help', helpHTML()],
     ['dev', devHTML(v)]
@@ -1218,8 +1351,14 @@ async function removePresser(s, key) {
   ui.toast(r === 'denied' ? OFF_MSG : "Couldn't remove it. Try again.", {icon: r === 'denied' ? 'info' : 'x-circle'});
 }
 function onClick(s, e) {
-  const t = e.target.closest && e.target.closest('[data-pr-key], [data-pr-share], [data-pr-replace], [data-pr-remove], [data-pr-post], [data-pr-retry], [data-pr-qadd], [data-pr-qedit]');
+  const t = e.target.closest && e.target.closest('[data-pr-key], [data-pr-share], [data-pr-replace], [data-pr-remove], [data-pr-post], [data-pr-retry], [data-pr-qadd], [data-pr-qedit], [data-pr-sask], [data-pr-sedit]');
   if (!t || !s.el.contains(t)) return;
+  if (t.hasAttribute('data-pr-sask')) { ui.haptic('light'); openAsk({key: t.dataset.prSask, who: t.dataset.prSwho}); return; }
+  if (t.hasAttribute('data-pr-sedit')) {
+    const a = t.closest('[data-pr-ask]'), tg = askTarget(s, vm(s));
+    if (a && tg && tg.key === a.dataset.prAsk) { ui.haptic('light'); openAsk({key: tg.key, who: tg.who, id: t.dataset.prSedit}); }
+    return;
+  }
   if (t.hasAttribute('data-pr-qadd')) { ui.haptic('light'); openQuestion({key: t.dataset.prQadd}); return; }
   if (t.hasAttribute('data-pr-qedit')) { ui.haptic('light'); openQuestion({key: t.dataset.prQweek, id: t.dataset.prQedit}); return; }
   if (t.hasAttribute('data-pr-key')) { ui.haptic('light'); featureKey(s, t.dataset.prKey, {play: true}); }
@@ -1260,7 +1399,7 @@ export default {
     s.autoplay = !!s.want && (!act || act.isActive);
     if (ctx.first) ui.stagger(el);
     subscribe(s);
-    // (the questions Evan adds: a save here or on his other phone, through the board)
+    // (the questions Evan adds and the ones members send: a save here or on another phone, through the board)
     s.unq = press.subscribeQuestions(() => { if (!s.dead) patch(s); });
     // A malformed week key goes straight to the archive (after the push; the first snapshot would do it too).
     if (s.want && !parseKey(s.want) && !s.idle) s.idle = ui.whenIdle(() => { s.idle = null; refresh(s); });

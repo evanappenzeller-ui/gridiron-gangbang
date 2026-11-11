@@ -66,6 +66,23 @@ Verify `check-pocket-battle-flow.cjs` (optional `--shots`), Pocket presentation/
 rules/integration, CPU pacing, tutorial/browser (also `--phone`), legacy table,
 title-screen, rollout, preview/access and stylesheet scope in `tools/dynasty`.
 
+## Press Room: ask the manager (November 11, 2026)
+
+Evan: "Add a section in the press conference where league members can submit questions to the manager." Everyone sees
+it. `views/press.js` `askHTML` adds "Ask {loser}" under the missing-presser prompt for the latest finished week whose
+Matchup of the Week loser hasn't faced the media (`missingWeek` plus the prompt's loser lookup; never a tie, an unknown
+loser or a no-show week). Any league member (`data.me()`, `press.canSend()`) except the loser sends up to
+`SQ_PER_WEEK` (3) questions from `openAsk`'s sheet and taps his own to change or delete them; the loser sees "the
+league's questions for your week N press conference" with no Ask; app users, guests and unselected phones read them.
+A profile change closes the sheet without sending. Each question rides on its asker's own board doc as `prs`
+(`{at, w: {weekKey: [{id, q, t}]}}`, `core/press.js` `sendQuestion`/`unsendQuestion`; the asker is the doc's member by
+`daily.boardKey`, freshest copy per member: `sentOnBoard`), so no Firestore rules change; dev hosts keep them in
+`gg-dev-press-sent`. `questionsFor` lists them after the seeded and Evan-added ones, so once the presser is posted
+they show under its "Questions from the press" and count in the archive; posting closes the week (`sendClosed`: no
+new, changed or deleted questions). `press.__dev.loser(key, r)` fakes a week's loser for the checks. The kit check
+"Press Room: questions members send the manager…" covers it; verify `node tools/press/check-ask.cjs` and
+`check-questions.cjs`.
+
 ## Press Room no-show slots (November 10, 2026)
 
 Evan, with a screenshot of the archive: "Add an empty slot for Corbin's no show." `data/pressers.json` `noShows`

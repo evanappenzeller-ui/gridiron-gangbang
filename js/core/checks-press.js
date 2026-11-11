@@ -409,4 +409,41 @@ export async function pressChecks(check) {
     } finally { press.__dev.sandbox(false); }
     return {pass: board && owner && saved && removed && refused && ordered, detail: `board ${board}; owner ${owner}; saved/changed ${saved}; removed ${removed}; refused ${refused}; after the seed ${ordered}`};
   });
+  check('Press Room: questions members send the manager (Evan, Nov 11 2026: “league members can submit questions to the manager”): read from each league member’s own board docs (the freshest copy, the asker by the doc, never a field), cleaned and capped; sent, changed and taken back by this phone’s member alone (in memory here), never to himself, at most three a week, closed once that week’s presser is posted; they follow the seeded and added questions', async () => {
+    const W = '2026-w4', set = (at, list) => ({at, w: {[W]: list}});
+    const docs = [
+      {id: 'm1', nick: 'Mason', prs: set(5, [{id: 'a', q: 'Old copy', t: 1}])},
+      {id: 'm2', nick: 'Mason', prs: set(9, [{id: 'b', q: '  Coach,   why?  ', t: 3}, {id: 'b', q: 'dup', t: 4}, {id: 'c', q: '', t: 5}, {id: 'd', q: 'Two', t: 6}, {id: 'e', q: 'Three', t: 7}, {id: 'f', q: 'Four', t: 8}])},
+      {id: 'b1', nick: 'Ben', prs: set(2, [{id: 'z', q: 'Ben first', t: 2, by: 'mason'}])},
+      {id: 'u1', nick: 'Ryan D', prs: set(99, [{id: 'u', q: 'An app user', t: 1}])}];
+    const b = press.sentOnBoard(docs);
+    const board = Object.keys(b).sort().join() === 'ben,mason' && b.mason.at === 9 && b.mason.w[W].length === press.SQ_PER_WEEK
+      && b.mason.w[W][0].q === 'Coach, why?' && b.mason.w[W].map(x => x.id).join() === 'b,d,e' && b.ben.w[W][0].q === 'Ben first';
+    const me = data.me(), open = '2026-w15', other = data.ids.find(id => id !== me);
+    press.__dev.sandbox(true);
+    let sent = false, capped = false, closed = false, refused = true, ordered = true, gone = false;
+    try {
+      const r = await press.sendQuestion({week: open, q: 'Coach, a question?', to: other});
+      if (me) {
+        const r2 = await press.sendQuestion({week: open, q: 'Second', to: other});
+        const e = await press.sendQuestion({id: r.id, week: open, q: 'Changed', to: other});
+        const list = press.sentFor(open);
+        sent = r.r === 'dev' && r2.r === 'dev' && e.r === 'dev' && list.length === 2 && list[0].id === r.id && list[0].q === 'Changed' && list.every(x => x.by === me && x.sent);
+        await press.sendQuestion({week: open, q: 'Third', to: other});
+        capped = (await press.sendQuestion({week: open, q: 'Fourth', to: other})).r === 'full' && press.sentFor(open).length === press.SQ_PER_WEEK;
+        const seeded = press.__dev.state().seed ? '2026-w2' : null;
+        closed = !seeded || (press.sendClosed(seeded) && (await press.sendQuestion({week: seeded, q: 'Late', to: 'jackson'})).r === 'closed');
+        refused = (await press.sendQuestion({week: open, q: 'Me?', to: me})).r === 'self' && (await press.sendQuestion({week: open, q: '  '})).r === 'invalid'
+          && (await press.sendQuestion({week: '2026-w99', q: 'x'})).r === 'invalid' && (await press.unsendQuestion(open, 'nope')) === 'invalid';
+        const qs = press.questionsFor(open);
+        ordered = qs.length === press.SQ_PER_WEEK && qs.every(x => x.sent && !x.added);
+        gone = (await press.unsendQuestion(open, r.id)) === 'dev' && press.sentFor(open).length === press.SQ_PER_WEEK - 1;
+      } else {
+        sent = capped = closed = ordered = gone = true;
+        refused = r.r === 'denied' && (await press.unsendQuestion(open, 'x')) === 'denied' && !press.sentFor(open).length;
+      }
+    } finally { press.__dev.sandbox(false); }
+    return {pass: board && sent && capped && closed && refused && ordered && gone,
+      detail: `board ${board}; sent/changed ${sent}; three a week ${capped}; closed once posted ${closed}; refused ${refused}; with the week's questions ${ordered}; taken back ${gone}`};
+  });
 }
