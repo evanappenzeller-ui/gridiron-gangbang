@@ -366,7 +366,10 @@ function sync(st, animate = true) {
   if (!card) return;
   const k = heroKind(), old = card.dataset.kind;
   const anim = animate && !ui.RM && st.ctx.visible;
-  if (old !== k && !(READY_KINDS.has(old) && READY_KINDS.has(k))) {
+  const testSignature = `${daily.TEST}:${daily.TEST_RUN}`;
+  const testChanged = st.testSignature !== undefined && st.testSignature !== testSignature;
+  st.testSignature = testSignature;
+  if (testChanged || (old !== k && !(READY_KINDS.has(old) && READY_KINDS.has(k)))) {
     const hadFocus = wrap.contains(document.activeElement);
     const go = () => { wrap.innerHTML = cardHTML(k); ui.hydrate(wrap); };
     if (anim && old !== 'loading') ui.crossfade(wrap, go, {duration: 200}); else go();

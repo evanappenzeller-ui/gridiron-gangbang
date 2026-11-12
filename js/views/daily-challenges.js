@@ -1,3 +1,4 @@
+import * as daily from '../core/daily.js';
 import * as data from '../core/data.js';
 import * as ui from '../core/ui.js';
 import {profileKey} from '../core/realm-active.js';
@@ -13,23 +14,27 @@ export const SETS = [
 const day = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const number = d => Math.floor(Date.parse(d+'T12:00:00Z')/86400000);
 const key = d => `gg-daily-challenges-v1:${profileKey()}:${d}`;
-function read(d) { try {const x=JSON.parse(localStorage.getItem(key(d))||'{}'); return x && typeof x==='object' && !Array.isArray(x)?x:{};} catch {return {};}}
+let testRun = -1, testProgress = {};
+function read(d) { if(daily.TEST){if(testRun!==daily.TEST_RUN){testRun=daily.TEST_RUN;testProgress={};}return testProgress;} try {const x=JSON.parse(localStorage.getItem(key(d))||'{}'); return x && typeof x==='object' && !Array.isArray(x)?x:{};} catch {return {};}}
 export function challengesHTML() {
  if(!data.isOwner())return '';
  const saved=read(day());
- return `<section class="dc-hub" aria-label="Daily challenges"><div class="dc-heading"><span>TRY SOMETHING NEW</span><h2>Your daily challenges</h2><p>Three quick football puzzles. Progress saved on this device; separate from the league score.</p></div>${TYPES.map(([id,name,desc],i)=>`<button type="button" class="dc-entry" data-challenge="${id}"><span class="dc-number">0${i+1}</span><span><b>${name}</b><small>${desc}</small></span><span class="dc-state">${saved[id]?.done?'✓ Done':'Play →'}</span></button>`).join('')}</section>`;
+ return `<section class="dc-hub" aria-label="Daily challenges"><div class="dc-heading"><span>TRY SOMETHING NEW</span><h2>Your daily challenges</h2><p>${daily.TEST?'Test play: try all three puzzles. Restart test play for a fresh attempt; nothing counts.':'Three quick football puzzles. Progress saved on this device; separate from the league score.'}</p></div>${TYPES.map(([id,name,desc],i)=>`<button type="button" class="dc-entry" data-challenge="${id}"><span class="dc-number">0${i+1}</span><span><b>${name}</b><small>${desc}</small></span><span class="dc-state">${saved[id]?.done?'✓ Done':'Play →'}</span></button>`).join('')}</section>`;
 }
 export function openChallenge(id, after=()=>{}) {
  if(!data.isOwner()||!TYPES.some(t=>t[0]===id))return;
+ const testing=daily.TEST, run=daily.TEST_RUN;
  const date=day(), profile=profileKey(), n=number(date), set=SETS[((n%SETS.length)+SETS.length)%SETS.length], title=TYPES.find(t=>t[0]===id)[1];
  let all=read(date), state=all[id]||{picks:[],found:[],attempts:0}, selected=[], stop=()=>{};
  // Stable shuffled positions, identical for the day and after reload.
  const order=id==='timeline'?[2,0,3,1]:[3,0,4,1,5,2];
- const valid=()=>data.isOwner()&&profileKey()===profile&&day()===date;
+ const valid=()=>data.isOwner()&&profileKey()===profile&&day()===date&&daily.TEST===testing&&daily.TEST_RUN===run;
  const sh=ui.openSheet({title,body:'',detents:['large'],onClose:()=>stop()});
  sh.body.classList.add('dc-game');
- stop=data.subscribe(type=>{if(type==='me')sh.close();});
- function save(next){if(!valid()){sh.close();return false;} const current=read(date); try{localStorage.setItem(key(date),JSON.stringify({...current,[id]:next}));state=next;after();return true;}catch{ui.toast('Progress could not be saved. Please try again.');return false;}}
+ const stopProfile=data.subscribe(type=>{if(type==='me')sh.close();});
+ const stopDaily=daily.subscribe(()=>{if(!valid())sh.close();});
+ stop=()=>{stopProfile();stopDaily();};
+ function save(next){if(!valid()){sh.close();return false;} const current=read(date); try{if(testing)testProgress={...current,[id]:next};else localStorage.setItem(key(date),JSON.stringify({...current,[id]:next}));state=next;after();return true;}catch{ui.toast('Progress could not be saved. Please try again.');return false;}}
  function draw(message='') {
   if(!valid()){sh.close();return;}
   const focused=document.activeElement, focusKey=focused&&sh.body.contains(focused)?['data-answer','data-stop','data-player','data-check','data-undo'].find(k=>focused.hasAttribute(k)):null, focusValue=focusKey?focused.getAttribute(focusKey):'';

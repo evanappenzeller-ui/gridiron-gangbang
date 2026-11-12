@@ -1,5 +1,16 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Daily Puzzles Test Play updates (November 12, 2026)
+
+Evan requested the puzzle updates in his Test Play mode. Daily Test Play excludes Plays and Silhouettes from
+its playable steps and navigation; remaining steps keep their normal points and the displayed maximum follows
+the smaller set. The real day entry, ranked rotation, stored results and historical scoring stay unchanged.
+`daily.setTest` creates a private day copy and restores the real day on exit; only the owner can start it and
+profile changes end it. The three new daily challenges use temporary in-memory progress during Test Play,
+reset on each fresh test run, leaving their real daily completions untouched. The landing page refreshes its
+steps, points and challenge status when test mode starts, resets or ends. Verify `check-challenges.cjs` on today
+and `PUZZLE_DAY=5` (a day containing both removed types), plus the home-browser regression.
+
 ## Daily Puzzles challenge preview (November 12, 2026)
 
 Evan requested stat comparisons, career timelines and team connections, plus a simpler puzzle UI.

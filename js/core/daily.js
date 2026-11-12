@@ -179,10 +179,23 @@ export function saveDS() { try { localStorage.setItem(SKEY, JSON.stringify(DS));
 // Progress goes under a key of its own ('gg-daily-N-test', started fresh each time), is never posted and never counts
 // toward the streak; ending it brings the real day's progress back as it was. A new day ends it.
 export let TEST = false;
+export let TEST_RUN = 0;
+const TEST_SETS = new WeakMap();
 /** Turns test play on (a fresh sandbox of today's puzzles) or off (back to the real day). False before the puzzles. */
 export function setTest(on) {
-  if (!PZ) return false;
+  if (!PZ || (on && !dataOwner())) return false;
+  const realDay = dayFor(PNUM);
   TEST = !!on;
+  DAY = realDay;
+  if (TEST) {
+    TEST_RUN++;
+    const steps = stepsFor(realDay), slugs = slugsFor(realDay);
+    const kept = steps.map((s, i) => ({s, slug: slugs[i]})).filter(x => !['sil', 'play'].includes(x.s.id));
+    DAY = {...realDay};
+    TEST_SETS.set(DAY, {steps: Object.freeze(kept.map(x => x.s)), slugs: Object.freeze(kept.map(x => x.slug))});
+  }
+  STEPS = stepsFor(DAY);
+  SLUGS = slugsFor(DAY);
   SKEY = 'gg-v3-daily-' + PNUM + (TEST ? '-test' : '');
   if (TEST) { try { localStorage.removeItem(SKEY); } catch (_) {} }
   DS = readDS(SKEY, DAY, PNUM);
@@ -451,7 +464,7 @@ export const isV3 = (day = DAY) => isShort(day);
 /** True on v4 (three-puzzle) days only. */
 export const isV4 = (day = DAY) => dayVersion(day) === 4;
 /** Most points a day can score: 1,000 (v1, v3), 1,500 (v2), 600 (v4: its three steps at 200). */
-export const maxPts = (day = DAY) => dayVersion(day) === 4 ? stepsFor(day).reduce((t, s) => t + s.max, 0) : dayVersion(day) === 2 ? 1500 : 1000;
+export const maxPts = (day = DAY) => TEST_SETS.has(day) ? stepsFor(day).reduce((t, s) => t + s.max, 0) : dayVersion(day) === 4 ? stepsFor(day).reduce((t, s) => t + s.max, 0) : dayVersion(day) === 2 ? 1500 : 1000;
 /** Points per item for a day: {col, grid, who, sil, jr: [guess 1, 2, 3]} (see PTS). Shared objects: never mutate. */
 export const ptsTable = (day = DAY) => isShort(day) ? PTS_V3 : PTS_V2;
 /** Prompt copy for a day: {col, who, grid, sil, jr}. v1/v2 days share one fixed set; a v3 or v4 day's grid line only
@@ -590,10 +603,10 @@ function v4Set(day) {
 }
 /** The step list (v1: 3 steps, v2 and v3: 5, v4: the day's 3) for a day entry. The arrays are shared: never mutate
  *  them. */
-export const stepsFor = (day = DAY) => { const v = dayVersion(day); return v === 4 ? v4Set(day).steps : v === 3 ? V3_STEPS : v === 2 ? V2_STEPS : V1_STEPS; };
+export const stepsFor = (day = DAY) => { if(TEST_SETS.has(day)) return TEST_SETS.get(day).steps; const v = dayVersion(day); return v === 4 ? v4Set(day).steps : v === 3 ? V3_STEPS : v === 2 ? V2_STEPS : V1_STEPS; };
 /** Route slugs in step order for a day entry (v2 and v3 days share the five slugs; a v4 day has its three:
  *  'college' | 'silhouette' | 'mystery' | 'journey' | 'grid'). */
-export const slugsFor = (day = DAY) => dayVersion(day) === 4 ? v4Set(day).slugs : isV2(day) ? V2_SLUGS : V1_SLUGS;
+export const slugsFor = (day = DAY) => TEST_SETS.has(day) ? TEST_SETS.get(day).slugs : dayVersion(day) === 4 ? v4Set(day).slugs : isV2(day) ? V2_SLUGS : V1_SLUGS;
 /** True when the day plays the step `id` ('col' | 'sil' | 'who' | 'jr' | 'grid'): v1 days col, who, grid; v2/v3 days
  *  all five; v4 days the three in `t`. */
 export const hasStep = (id, day = DAY) => stepsFor(day).some(s => s.id === id);
@@ -1208,6 +1221,7 @@ function fixGuestRow(mine) {
 let wasGuest = null;
 dataSub(type => {
   if (type !== 'me') return;
+  if (TEST) setTest(false);
   if (LB.all) boardFilter(); // a solo app user's rows (and on the owner's phone, everyone's) show or hide with who this phone is
   const m = dataMe();
   if (wasGuest && m && LB.nick === wasGuest) setNick(dataName(m).slice(0, 24));
