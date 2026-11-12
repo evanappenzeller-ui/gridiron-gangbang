@@ -11,8 +11,8 @@
 //   from the MOTW loser), an optional caption (pre-filled from the YouTube title), a vertical switch (pre-set from a
 //   /shorts/ link), then Post (a week that already has one asks before replacing it).
 // The videos live on YouTube as unlisted uploads; only the id is stored (core/press.js: Firestore pressers/{weekKey}
-// merged over the seeded data/pressers.json; dev hosts write to its local stand-in). Playback is YouTube's embed
-// (youtube-nocookie.com) swapped in for the thumbnail on tap: one player at a time app-wide, and every screen that
+// merged over the seeded data/pressers.json; dev hosts write to its local stand-in). Playback is Google Drive's player
+// for a seeded presser with a Drive file, else YouTube's embed (youtube-nocookie.com), swapped in for the thumbnail on tap: one player at a time app-wide, and every screen that
 // shows tiles stops its players when it hides.
 // Exports for the other surfaces (Matchup, the Wrap, profiles, Hall of Shame):
 //   tileHTML(p, {size: 'l'|'m'|'s', play, context}) -> markup of a presser tile (data-press-key, data-press-vid)
@@ -28,7 +28,6 @@ const esc = data.esc;
 const nm = id => data.name(id);
 const poss = s => `${s}'s`;
 const cap1 = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
-const VID_RE = /^[A-Za-z0-9_-]{11}$/;
 const OFF_MSG = "The Press Room isn't switched on yet.";
 const GONE_MSG = "That press conference isn't here anymore.";
 const POST_FAIL = "Couldn't post. Try again.";
@@ -90,7 +89,7 @@ function postedText(p) {
 // (a fresh upload YouTube is still processing answers with a 120x90 placeholder, or an error) uncovers the card.
 function thumbInner(p, alt) {
   return `<span class="c-press-ph" aria-hidden="true">${ui.icon('mic')}</span>`
-    + `<img class="c-press-img" src="${esc(press.thumbURL(p.vid))}" alt="${esc(alt)}" width="480" height="360" loading="lazy" decoding="async">`;
+    + `<img class="c-press-img" src="${esc(press.thumbOf(p))}" alt="${esc(alt)}" width="480" height="360" loading="lazy" decoding="async">`;
 }
 function thumbHTML(p, cls = '') {
   return `<span class="c-press-th${p.tall ? ' is-tall' : ''}${cls ? ' ' + cls : ''}">${thumbInner(p, '')}<span class="c-press-glyph" aria-hidden="true">${ui.icon('play-fill')}</span></span>`;
@@ -109,7 +108,7 @@ function thumbHTML(p, cls = '') {
  *   context: false leaves the game line out ("Week 3" only).
  */
 export function tileHTML(p, {size = 'l', play = true, context = true} = {}) {
-  if (!p || !p.key || !VID_RE.test(String(p.vid || ''))) return '';
+  if (!p || !p.key || !press.playable(p)) return '';
   const sz = size === 's' || size === 'm' ? size : 'l';
   const label = presserName(p);
   const cap = capOf(p);
@@ -119,7 +118,7 @@ export function tileHTML(p, {size = 'l', play = true, context = true} = {}) {
   const cover = play
     ? `<button type="button" class="c-press-cover" data-press-play aria-label="${esc('Play ' + label)}">${inner}</button>`
     : `<span class="c-press-cover">${inner}</span>`;
-  const back = p.tall ? `<span class="c-press-back" aria-hidden="true"><img class="c-press-bimg" src="${esc(press.thumbURL(p.vid))}" alt="" loading="lazy" decoding="async"></span>` : '';
+  const back = p.tall ? `<span class="c-press-back" aria-hidden="true"><img class="c-press-bimg" src="${esc(press.thumbOf(p))}" alt="" loading="lazy" decoding="async"></span>` : '';
   const media = `<div class="c-press-media">${back}<div class="c-press-frame">${cover}</div></div>`;
   const yt = play ? '<div class="c-press-yt"></div>' : '';
   let body;
@@ -137,18 +136,19 @@ export function tileHTML(p, {size = 'l', play = true, context = true} = {}) {
       + (by ? `<p class="c-press-by">${esc(by)}</p>` : '')
       + `</div>`;
   }
-  return `<article class="c-press is-${sz}${p.tall ? ' is-tall' : ''} ${data.color(p.who).cls}" data-press-key="${esc(p.key)}" data-press-vid="${esc(p.vid)}"`
+  return `<article class="c-press is-${sz}${p.tall ? ' is-tall' : ''} ${data.color(p.who).cls}" data-press-key="${esc(p.key)}" data-press-vid="${esc(p.vid || '')}"`
+    + (p.drive ? ` data-press-drive="${esc(p.drive)}"` : '')
     + ` data-press-title="${esc(label)}"${p.tall ? ' data-press-tall' : ''} aria-label="${esc(label)}">${media}${yt}${body}</article>`;
 }
 
 // ============================================================================ Player
-// Tapping a tile's thumbnail swaps in YouTube's embed (the thumbnail stays underneath until the player has loaded).
+// Tapping a tile's thumbnail swaps in the player (Drive's or YouTube's) (the thumbnail stays underneath until the player has loaded).
 // Only one plays app-wide: starting one puts every other open player in the document back to its thumbnail.
 function playTile(tile) {
   if (!tile || !tile.isConnected) return false;
-  const vid = tile.dataset.pressVid;
+  const src = {vid: tile.dataset.pressVid, drive: tile.dataset.pressDrive};
   const frame = tile.querySelector('.c-press-frame');
-  if (!frame || !VID_RE.test(vid || '')) return false;
+  if (!frame || !press.playable(src)) return false;
   if (frame.classList.contains('is-playing')) return true;
   stopAll(frame);
   const cover = frame.querySelector('.c-press-cover');
@@ -161,7 +161,7 @@ function playTile(tile) {
   ifr.setAttribute('allowfullscreen', '');
   ifr.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
   ifr.setAttribute('loading', 'eager');
-  ifr.src = press.embedURL(vid);
+  ifr.src = press.playerOf(src);
   const loaded = () => { clearTimeout(frame._pressT); if (ifr.isConnected) frame.classList.add('is-loaded'); };
   ifr.addEventListener('load', loaded, {once: true});
   frame._pressT = setTimeout(loaded, 5000); // never leave the player hidden (a blocked or slow load)
@@ -171,7 +171,8 @@ function playTile(tile) {
   frame.append(ifr);
   // A tiny fallback under a playing video (an embed can refuse to play: a private video, embedding turned off).
   const yt = tile.querySelector('.c-press-yt');
-  if (yt) yt.innerHTML = `<a href="${esc(press.watchURL(vid))}" target="_blank" rel="noopener noreferrer">Open in YouTube</a>`;
+  const out = press.openOf(src);
+  if (yt) yt.innerHTML = `<a href="${esc(out.url)}" target="_blank" rel="noopener noreferrer">${esc(out.label)}</a>`;
   if (hadFocus) { try { ifr.focus({preventScroll: true}); } catch (_) {} }
   return true;
 }
@@ -692,7 +693,7 @@ function newState(ctx, el) {
 // The view model: the list, what is featured, and the state of the load.
 function vm(s) {
   const snap = s.snap;
-  const list = snapList(snap).filter(p => p && p.key && VID_RE.test(String(p.vid || '')));
+  const list = snapList(snap).filter(p => p && p.key && press.playable(p));
   const byKey = byKeyOf(snap);
   const err = snap && snap.error ? String(snap.error) : null;
   const ready = !!(snap && snap.ready);
@@ -889,7 +890,7 @@ function patchFeat(s, box, h, fade) {
   t.innerHTML = h;
   const nt = t.content.querySelector('.c-press');
   if (frame && nt && tile.dataset.pressKey === nt.dataset.pressKey && tile.dataset.pressVid === nt.dataset.pressVid
-    && tile.hasAttribute('data-press-tall') === nt.hasAttribute('data-press-tall')) {
+    && tile.dataset.pressDrive === nt.dataset.pressDrive && tile.hasAttribute('data-press-tall') === nt.hasAttribute('data-press-tall')) {
     const b0 = tile.querySelector('.c-press-body'), b1 = nt.querySelector('.c-press-body');
     if (b0 && b1 && b0.innerHTML !== b1.innerHTML) b0.innerHTML = b1.innerHTML;
     const a0 = box.querySelector('.pr-acts'), a1 = t.content.querySelector('.pr-acts');

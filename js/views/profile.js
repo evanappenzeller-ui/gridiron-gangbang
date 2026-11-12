@@ -17,7 +17,7 @@ let PRESS = null, PV = null, pressP = null;
 const loadPress = () => pressP || (pressP = Promise.all([import('../core/press.js'), import('./press.js')]).then(([c, v]) => { PV = v; return c; }, e => { pressP = null; throw e; }));
 function podiumSig(id) {
   const list = PRESS && PV && Array.isArray(PRESS.list) ? PRESS.list.filter(p => p && p.who === id) : [];
-  return list.map(p => [p.key, p.vid, p.title, p.tall ? 1 : 0].join(':')).join('|');
+  return list.map(p => [p.key, p.vid, p.drive, p.title, p.tall ? 1 : 0].join(':')).join('|');
 }
 function podiumHTML(id) {
   const list = PRESS && PV && Array.isArray(PRESS.list) ? PRESS.list.filter(p => p && p.who === id) : []; // newest week first

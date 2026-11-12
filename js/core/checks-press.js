@@ -93,6 +93,25 @@ export async function pressChecks(check) {
     return {pass: urls && codes && noId, detail: `urls ${urls}, statuses ${codes}, bad id -> ${JSON.stringify(short)}`};
   });
 
+  // 2b. Google Drive files (Nov 11 2026): a seeded presser's Drive file plays in Drive's player ahead of its YouTube
+  // video, a Drive-only week is valid, and only the seed carries Drive ids.
+  check('Press Room: a seeded Drive file plays first (thumbnail, player, link), a Drive-only seed week is valid, Firestore docs never carry Drive ids', () => {
+    const D = '1RxzyQ7M2mTpNHELvjReHhDBUvIIsZzIp';
+    const both = press.normalize({vid: V, drive: D, who: 'ben'}, '2026-w3', 'seed');
+    const only = press.normalize({drive: D, who: 'jayton', tall: true}, '2026-w8', 'seed');
+    const remote = press.normalize({vid: V, drive: D, who: 'ben'}, '2026-w3', 'remote');
+    const remoteOnly = press.normalize({drive: D, who: 'ben'}, '2026-w3', 'remote');
+    const bad = press.normalize({drive: 'short', who: 'ben'}, '2026-w3', 'seed');
+    const drv = !!both && both.drive === D && both.vid === V && press.playable(both)
+      && press.thumbOf(both) === `https://drive.google.com/thumbnail?id=${D}&sz=w640`
+      && press.playerOf(both) === `https://drive.google.com/file/d/${D}/preview`
+      && press.openOf(both).url === `https://drive.google.com/file/d/${D}/view` && /Drive/.test(press.openOf(both).label);
+    const solo = !!only && only.vid === null && only.drive === D && only.tall === true && press.playable(only);
+    const yt = !!remote && remote.drive === null && press.playerOf(remote) === press.embedURL(V) && /YouTube/.test(press.openOf(remote).label);
+    const pass = drv && solo && yt && remoteOnly === null && bad === null && !press.playable({vid: null, drive: null});
+    return {pass, detail: `drive first ${drv}, drive only ${solo}, firestore YouTube only ${yt}, firestore drive-only ${JSON.stringify(remoteOnly)}, bad id ${JSON.stringify(bad)}`};
+  });
+
   // 3. Docs -> list
   check('Press Room: list keeps valid docs only (bad vid, unknown manager, bad key dropped), newest first; Firestore beats the seed, the stand-in beats both', () => {
     need();
@@ -276,7 +295,7 @@ export async function pressChecks(check) {
     const list = j && j.pressers;
     if (!Array.isArray(list)) return {pass: false, detail: 'no "pressers" list'};
     if (Object.keys(j).some(k => !['pressers', 'motw', 'questions'].includes(k))) return {pass: false, detail: 'unknown top-level key'};
-    const allowed = new Set(['key', 'vid', 'who', 'title', 'tall']);
+    const allowed = new Set(['key', 'vid', 'drive', 'who', 'title', 'tall']);
     const bad = [], seen = new Set();
     // Matchups of the Week picked in the chat: two different managers who played each other that week (once the
     // week is in the data), one entry per week.
@@ -316,7 +335,8 @@ export async function pressChecks(check) {
       const p = press.normalize(d, d && d.key, 'seed');
       const why = !d || typeof d !== 'object' ? 'not an object'
         : Object.keys(d).some(k => !allowed.has(k)) ? 'unknown field'
-        : !p ? 'bad key, vid or manager'
+        : !p ? 'bad key, vid / Drive id or manager'
+        : d.drive != null && p.drive !== d.drive ? 'bad Drive id'
         : p.key !== d.key ? 'key not canonical'
         : d.title != null && (typeof d.title !== 'string' || d.title !== p.title) ? 'title not clean (<= 80, single spaces)'
         : d.tall != null && typeof d.tall !== 'boolean' ? 'tall not a boolean'

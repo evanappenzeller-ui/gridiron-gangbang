@@ -114,6 +114,23 @@ export const embedURL = vid => `https://www.youtube-nocookie.com/embed/${vid}?au
 export const watchURL = vid => `https://www.youtube.com/watch?v=${vid}`;
 
 // ---------------------------------------------------------------------------
+// Google Drive (Nov 11 2026, the owner: "Upload press conference videos through the drive so we don't need to
+// rely on YouTube"). A seeded presser may carry `drive`: the id of the owner's Drive file, shared "anyone with the
+// link can view". It plays in Drive's own player and wins over the YouTube `vid` (kept as the record of the old
+// link); a week with only a Drive file has no vid. Only the seed file carries Drive ids (the app posts YouTube links).
+export const DRIVE_RE = /^[A-Za-z0-9_-]{25,64}$/;
+const driveOk = id => (typeof id === 'string' && DRIVE_RE.test(id) ? id : null);
+export const driveThumbURL = id => `https://drive.google.com/thumbnail?id=${id}&sz=w640`;
+export const driveEmbedURL = id => `https://drive.google.com/file/d/${id}/preview`;
+export const driveViewURL = id => `https://drive.google.com/file/d/${id}/view`;
+/** Whether a presser item has something to play (a Drive file or a YouTube video). */
+export const playable = p => !!p && (!!driveOk(p.drive) || !!vidOk(p.vid));
+/** A presser item's thumbnail / player / "open elsewhere" link, Drive first. */
+export const thumbOf = p => (driveOk(p.drive) ? driveThumbURL(p.drive) : thumbURL(p.vid));
+export const playerOf = p => (driveOk(p.drive) ? driveEmbedURL(p.drive) : embedURL(p.vid));
+export const openOf = p => (driveOk(p.drive) ? {url: driveViewURL(p.drive), label: 'Open in Google Drive'} : {url: watchURL(p.vid), label: 'Open in YouTube'});
+
+// ---------------------------------------------------------------------------
 // oEmbed check
 
 // HTTP status of the oEmbed endpoint -> null (found) | 'private' (private video, or embedding turned off) |
@@ -345,18 +362,18 @@ function cleanTitle(s) {
   return t;
 }
 
-// One doc -> {key, year, week, vid, who, title, tall, me, nick, at (ms | null), ctx, seed, dev} | null (bad key,
-// vid or manager). src: 'seed' (no poster: nick '', at null) | 'remote' | 'local' (the dev stand-in: dev true).
+// One doc -> {key, year, week, vid (null with only a Drive file), drive (seed only, else null), who, title, tall, me,
+// nick, at (ms | null), ctx, seed, dev} | null (bad key, no vid or Drive file, or unknown manager). src: 'seed' (no poster: nick '', at null) | 'remote' | 'local' (the dev stand-in: dev true).
 export function normalize(d, key, src = 'remote') {
   if (!d || typeof d !== 'object') return null;
   const P = week.parseKey(key != null ? key : d.key);
   if (!P || P.week > MAX_WEEK) return null;
-  const vid = vidOk(d.vid);
-  const who = typeof d.who === 'string' && data.M[d.who] ? d.who : null;
-  if (!vid || !who) return null;
   const seed = src === 'seed';
+  const vid = vidOk(d.vid), drive = seed ? driveOk(d.drive) : null;
+  const who = typeof d.who === 'string' && data.M[d.who] ? d.who : null;
+  if ((!vid && !drive) || !who) return null;
   return {
-    key: week.weekKey(P.year, P.week), year: P.year, week: P.week, vid, who,
+    key: week.weekKey(P.year, P.week), year: P.year, week: P.week, vid, drive, who,
     title: cleanTitle(d.title), tall: d.tall === true,
     me: !seed && typeof d.me === 'string' && data.M[d.me] ? d.me : null,
     nick: !seed && typeof d.nick === 'string' ? d.nick.trim().slice(0, 24) : '',
@@ -412,7 +429,7 @@ const localMap = () => (standIn() ? readStore() : {});
 // ---------------------------------------------------------------------------
 // Seed file (data/pressers.json). Loaded once (network-first through sw.js), again when a new week of data
 // arrives. A failed or missing file is simply empty.
-//   {"pressers": [{key, vid, who, title, tall}],        the seeded archive
+//   {"pressers": [{key, vid, drive, who, title, tall}], the seeded archive (vid and/or a Drive file id)
 //    "motw": [{key: '2026-w3', a: 'jaymin', b: 'ben'}],  Matchups of the Week picked in the league chat before the
 //                                                         app had voting (motwLoser falls back to them)
 //    "questions": {"2026-w2": [{by: 'mason', q: '…'}]}} the questions the league chat asked that week's loser, by
