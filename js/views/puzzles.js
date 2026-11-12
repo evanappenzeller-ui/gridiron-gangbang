@@ -192,7 +192,11 @@ function playedCard() {
     + `<div class="c-cd-host" data-k="cd">${countdownHTML(false)}</div>`
     + `</section>`;
 }
+function sampleCardHTML() {
+  return `<section class="card c-hero dc-hub" data-kind="sample"><div class="dc-heading"><span>TEST MODE</span><h2>Sample playground</h2><p>Pick any game to try its latest UI. Replay as often as you like. Nothing counts toward your daily results.</p></div><div class="dc-classic-list">${daily.STEPS.map((s,i)=>`<button type="button" data-sample="${daily.slug(i)}"><b>${esc(s.label)}</b><small>Play sample →</small></button>`).join('')}</div><button type="button" class="btn btn-secondary" data-sample-refresh>Load new samples</button></section>`;
+}
 function cardHTML(k = heroKind()) {
+  if (daily.TEST && data.isOwner()) return sampleCardHTML() + challengesHTML();
   if (k === 'error') return errorCard();
   if (k === 'played') return playedCard() + challengesHTML();
   if (k === 'loading') return loadingCard();
@@ -364,6 +368,7 @@ function sync(st, animate = true) {
   const wrap = st.el.querySelector('.c-hero-wrap');
   const card = wrap && wrap.querySelector('.c-hero');
   if (!card) return;
+  if (daily.TEST && data.isOwner()) { wrap.innerHTML = sampleCardHTML() + challengesHTML(); ui.hydrate(wrap); patchTest(st); return; }
   const k = heroKind(), old = card.dataset.kind;
   const anim = animate && !ui.RM && st.ctx.visible;
   const testSignature = `${daily.TEST}:${daily.TEST_RUN}`;
@@ -539,8 +544,12 @@ function appsHTML() {
 
 // ============================================================================ Events
 function onClick(st, e) {
+  const sample = e.target.closest('[data-sample]'), refresh = e.target.closest('[data-sample-refresh]');
+  if (daily.TEST && data.isOwner() && sample) { if(daily.replayTestPuzzle(sample.dataset.sample)) st.ctx.nav('/puzzles/play/'+sample.dataset.sample); return; }
+  if (daily.TEST && data.isOwner() && refresh) { daily.setTest(true); return; }
+
   const challenge=e.target.closest('[data-challenge]'), jump=e.target.closest('[data-puzzle-jump]');
-  if(data.isOwner()&&challenge){openChallenge(challenge.dataset.challenge,()=>{const hub=st.el.querySelector('.dc-hub');if(hub)hub.outerHTML=challengesHTML();});return;}
+  if(data.isOwner()&&challenge){openChallenge(challenge.dataset.challenge,()=>{const hub=st.el.querySelector('[aria-label="Daily challenges"]');if(hub)hub.outerHTML=challengesHTML();});return;}
   if(data.isOwner()&&jump){st.ctx.nav('/puzzles/play/'+daily.slug(Number(jump.dataset.puzzleJump)));return;}
 
   const tb = e.target.closest('[data-gm-testall]');
@@ -599,7 +608,7 @@ function testPlay(st, on) {
   daily.setTest(on);
   patchTest(st);
   ui.haptic('medium');
-  ui.announce(on ? 'Test play: today’s puzzles, fresh. It won’t count.' : 'Test play over: back to your real puzzles.');
+  ui.announce(on ? 'Test play: choose any sample game. Nothing counts.' : 'Test play over: back to your real puzzles.');
 }
 function patchTest(st) {
   const h = st.el.querySelector('[data-pz-tp]'), o = st.el.querySelector('#c-hero-o');
@@ -721,7 +730,7 @@ export default {
       patchAtmosphere(st);
       // Also clear a hidden shelf immediately when this phone or another tab changes profile.
       ctx.on('me', () => patchAtmosphere(st));
-      st.list = mountList(el.querySelector('.gm-list'), ctx, {play: id => (id === 'puzzles' && ready() ? playPuzzles(ctx) : ctx.nav(gamePath(id)))});
+      st.list = mountList(el.querySelector('.gm-list'), ctx, {play: id => (id === 'puzzles' && ready() && !daily.TEST ? playPuzzles(ctx) : ctx.nav(gamePath(id)))});
       ctx.setBackTitle('Games'); // a game page's back button: short, so its title has the room
       // A phone with a finished game posts it from any visit to this tab.
       ui.whenIdle(syncSeventeen);

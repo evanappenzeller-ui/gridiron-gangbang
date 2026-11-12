@@ -10,11 +10,28 @@ assert.equal(await page.evaluate(async()=>JSON.stringify((await import('/js/core
 for(const width of [320,390,820]){await page.setViewportSize({width,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No horizontal page overflow');}
 const real = await page.evaluate(async()=>{const d=await import('/js/core/daily.js');return {steps:d.SLUGS,save:localStorage.getItem(d.SKEY)};});
 await page.locator('[data-pz-test="on"]').click();
-await page.waitForFunction(()=>document.querySelector('.dc-heading p')?.textContent.includes('Test play:'));
+await page.waitForFunction(()=>document.querySelector('[aria-label="Daily challenges"] .dc-heading p')?.textContent.includes('Test play:'));
 assert.equal((await page.locator('.dc-state').allTextContents()).filter(t=>t.includes('Done')).length,0,'Test challenges start fresh');
 const sandbox = await page.evaluate(async()=>{const d=await import('/js/core/daily.js');return {test:d.TEST,steps:d.SLUGS,history:d.slugsFor(d.dayFor()),max:d.maxPts()};});
-assert.ok(sandbox.test);assert.deepEqual(sandbox.steps,real.steps.filter(x=>!['plays','silhouette'].includes(x)));assert.deepEqual(sandbox.history,real.steps,'Historical day stays unchanged');assert.equal(sandbox.max,sandbox.steps.length*200);
-await page.locator('[data-challenge="stats"]').click();await page.locator('[data-answer="higher"]').click();await page.locator('[data-close]').click();
+assert.ok(sandbox.test);assert.deepEqual(sandbox.steps,['college','mystery','journey','grid']);assert.deepEqual(sandbox.history,real.steps,'Historical day stays unchanged');assert.equal(sandbox.max,sandbox.steps.length*200);
+for (const slug of ['college','mystery','journey','grid']) {
+  await page.locator(`[data-sample="${slug}"]`).click();
+  await page.waitForFunction(s=>location.hash.endsWith('/play/'+s),slug);
+  await page.locator('.v-run').waitFor();
+  await page.evaluate(()=>{location.hash='/puzzles/daily';});
+  await page.locator('[data-sample="college"]').waitFor();
+}
+const sampleBefore = await page.evaluate(async()=>JSON.stringify((await import('/js/core/daily.js')).DAY));
+await page.locator('[data-sample-refresh]').click();
+await page.waitForFunction(async old=>JSON.stringify((await import('/js/core/daily.js')).DAY)!==old,sampleBefore);
+await page.locator('[data-challenge="stats"]').click();
+const promptBefore=await page.locator('.dc-eyebrow').textContent();
+await page.locator('[data-answer="higher"]').click();
+await page.locator('[data-sample-replay]').click();
+await page.locator('[data-answer="higher"]').waitFor();
+await page.locator('[data-sample-next]').click();
+assert.notEqual(await page.locator('.dc-eyebrow').textContent(),promptBefore,'Next sample changes content');
+await page.locator('[data-close]').click();
 await page.evaluate(async()=>{(await import('/js/core/daily.js')).setTest(true);});
 await page.waitForFunction(()=>[...document.querySelectorAll('.dc-state')].every(x=>!x.textContent.includes('Done')));
 await page.locator('[data-pz-test="off"]').click();

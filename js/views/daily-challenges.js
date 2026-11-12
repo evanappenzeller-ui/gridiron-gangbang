@@ -19,13 +19,14 @@ function read(d) { if(daily.TEST){if(testRun!==daily.TEST_RUN){testRun=daily.TES
 export function challengesHTML() {
  if(!data.isOwner())return '';
  const saved=read(day());
- return `<section class="dc-hub" aria-label="Daily challenges"><div class="dc-heading"><span>TRY SOMETHING NEW</span><h2>Your daily challenges</h2><p>${daily.TEST?'Test play: try all three puzzles. Restart test play for a fresh attempt; nothing counts.':'Three quick football puzzles. Progress saved on this device; separate from the league score.'}</p></div>${TYPES.map(([id,name,desc],i)=>`<button type="button" class="dc-entry" data-challenge="${id}"><span class="dc-number">0${i+1}</span><span><b>${name}</b><small>${desc}</small></span><span class="dc-state">${saved[id]?.done?'✓ Done':'Play →'}</span></button>`).join('')}</section>`;
+ return `<section class="dc-hub" aria-label="Daily challenges"><div class="dc-heading"><span>TRY SOMETHING NEW</span><h2>${daily.TEST?'New game samples':'Your daily challenges'}</h2><p>${daily.TEST?'Test play: explore all three new modes. Replay or load another sample inside each game.':'Three quick football puzzles. Progress saved on this device; separate from the league score.'}</p></div>${TYPES.map(([id,name,desc],i)=>`<button type="button" class="dc-entry" data-challenge="${id}"><span class="dc-number">0${i+1}</span><span><b>${name}</b><small>${desc}</small></span><span class="dc-state">${daily.TEST?'Play sample →':saved[id]?.done?'✓ Done':'Play →'}</span></button>`).join('')}</section>`;
 }
 export function openChallenge(id, after=()=>{}) {
  if(!data.isOwner()||!TYPES.some(t=>t[0]===id))return;
  const testing=daily.TEST, run=daily.TEST_RUN;
- const date=day(), profile=profileKey(), n=number(date), set=SETS[((n%SETS.length)+SETS.length)%SETS.length], title=TYPES.find(t=>t[0]===id)[1];
- let all=read(date), state=all[id]||{picks:[],found:[],attempts:0}, selected=[], stop=()=>{};
+ const date=day(), profile=profileKey(), title=TYPES.find(t=>t[0]===id)[1];
+ let n=testing?run-1:number(date), set=SETS[((n%SETS.length)+SETS.length)%SETS.length];
+ let all=read(date), state=(!testing&&all[id])||{picks:[],found:[],attempts:0}, selected=[], stop=()=>{};
  // Stable shuffled positions, identical for the day and after reload.
  const order=id==='timeline'?[2,0,3,1]:[3,0,4,1,5,2];
  const valid=()=>data.isOwner()&&profileKey()===profile&&day()===date&&daily.TEST===testing&&daily.TEST_RUN===run;
@@ -48,11 +49,11 @@ export function openChallenge(id, after=()=>{}) {
    const players=set.groups.flatMap(g=>g[1]), found=state.found||[];
    html=`<p class="dc-eyebrow">${found.length} OF 2 GROUPS FOUND</p><h2>Which players share a draft team?</h2><p>Find three players drafted by the same franchise. Select three, then check your group. Four tries.</p>${found.map(g=>`<div class="dc-feedback"><b>${esc(set.groups[g][0])}</b><p>${set.groups[g][1].map(esc).join(' · ')}</p></div>`).join('')}<div class="dc-options">${order.filter(i=>!found.includes(Math.floor(i/3))).map(i=>`<button data-player="${i}" aria-pressed="${selected.includes(i)}" ${state.done?'disabled':''}>${esc(players[i])}</button>`).join('')}</div>${state.done?`<div class="dc-feedback">${found.length===2?'Both connections found!':set.groups.filter((g,i)=>!found.includes(i)).map(g=>`${esc(g[0])}: ${g[1].map(esc).join(', ')}`).join('<br>')}</div>`:`<button class="dc-check" data-check ${selected.length!==3?'disabled':''}>Check group · ${4-(state.attempts||0)} tries left</button>`}`;
   }
-  sh.body.innerHTML=html+`<p role="status" aria-live="polite">${esc(message)}</p><button class="dc-secondary" data-close>Back to daily puzzles</button>`;
+  sh.body.innerHTML=html+`<p role="status" aria-live="polite">${esc(message)}</p>${testing?'<button class="dc-secondary" data-sample-replay>Replay sample</button><button class="dc-secondary" data-sample-next>Next sample</button>':''}<button class="dc-secondary" data-close>Back to daily puzzles</button>`;
   if(focusKey){const target=[...sh.body.querySelectorAll('button')].find(b=>b.getAttribute(focusKey)===focusValue&&!b.disabled)||sh.body.querySelector('[data-close]');target?.focus({preventScroll:true});}
  }
  sh.body.addEventListener('click',e=>{
-  const b=e.target.closest('button');if(!b)return;if(b.hasAttribute('data-close')){sh.close();return;}if(!valid()){sh.close();return;}if(state.done||b.disabled)return;
+  const b=e.target.closest('button');if(!b)return;if(b.hasAttribute('data-close')){sh.close();return;}if(!valid()){sh.close();return;}if(testing&&(b.hasAttribute('data-sample-replay')||b.hasAttribute('data-sample-next'))){if(b.hasAttribute('data-sample-next')){n++;set=SETS[n%SETS.length];}selected=[];save({picks:[],found:[],attempts:0});draw();return;}if(state.done||b.disabled)return;
   if(b.dataset.answer){const q=set.stats, higher=n%2===0?q[2]>q[4]:q[4]>q[2];save({...state,done:true,correct:(b.dataset.answer==='higher')===higher});}
   if(b.dataset.stop!==undefined){const picks=[...(state.picks||[]),Number(b.dataset.stop)];save({...state,picks,done:picks.length===4,correct:picks.every((v,i)=>v===i)});}
   if(b.hasAttribute('data-undo'))save({...state,picks:(state.picks||[]).slice(0,-1)});

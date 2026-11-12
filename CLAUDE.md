@@ -1,5 +1,17 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Test Mode sample playground (November 12, 2026)
+
+Evan clarified that Test Mode should provide samples of every supported daily puzzle and new mode to evaluate
+UI changes. Opening the Daily Puzzles case in Test Mode now lands on a sample picker. College, Mystery,
+Journey and Grid are always available, assembled from existing short-format puzzle data regardless of today's
+rotation. Each picker button resets that sample; Load new samples advances the sample content and resets the
+sandbox. Higher or Lower, Career Timeline and Team Connections appear alongside them, open fresh, and provide
+Replay sample and Next sample buttons in their sheets. Plays and Silhouettes remain excluded. All sample progress
+stays separate from real daily results; leaving Test Mode restores the real day's data and scoring tables.
+Verify `tools/puzzles/check-challenges.cjs` on today and `PUZZLE_DAY=5`, including every sample route, content
+advancement, replay, restoration and profile boundaries, and the home-browser regression.
+
 ## Daily Puzzles Test Play updates (November 12, 2026)
 
 Evan requested the puzzle updates in his Test Play mode. Daily Test Play excludes Plays and Silhouettes from

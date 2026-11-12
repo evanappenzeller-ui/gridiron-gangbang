@@ -189,17 +189,34 @@ export function setTest(on) {
   DAY = realDay;
   if (TEST) {
     TEST_RUN++;
-    const steps = stepsFor(realDay), slugs = slugsFor(realDay);
-    const kept = steps.map((s, i) => ({s, slug: slugs[i]})).filter(x => !['sil', 'play'].includes(x.s.id));
-    DAY = {...realDay};
-    TEST_SETS.set(DAY, {steps: Object.freeze(kept.map(x => x.s)), slugs: Object.freeze(kept.map(x => x.slug))});
+    // Assemble all supported sample types, independent of today's limited rotation.
+    DAY = {v: 4, t: ['col', 'who', 'jr', 'grid']};
+    for (const [id, field] of [['col','c'], ['who','w'], ['jr','j'], ['grid','g']]) {
+      const candidates = PZ.days.filter(d => d.v === 4 && d.t.includes(id) && d[field] != null);
+      const sample = candidates[(TEST_RUN - 1) % candidates.length];
+      DAY[field] = sample[field];
+      if (id === 'who' && sample.wx) DAY.wx = sample.wx;
+    }
+    const steps = V3_STEPS.filter(s => DAY.t.includes(s.id));
+    TEST_SETS.set(DAY, {steps: Object.freeze(steps), slugs: Object.freeze(steps.map(s => V2_SLUGS[V3_STEPS.indexOf(s)]))});
   }
   STEPS = stepsFor(DAY);
   SLUGS = slugsFor(DAY);
+  PTS = ptsTable(DAY);
+  PROMPTS = promptsFor(DAY);
   SKEY = 'gg-v3-daily-' + PNUM + (TEST ? '-test' : '');
   if (TEST) { try { localStorage.removeItem(SKEY); } catch (_) {} }
   DS = readDS(SKEY, DAY, PNUM);
   emit('progress', {action: 'test'});
+  return true;
+}
+
+/** Replay one sample without disturbing the other samples or the real daily save. */
+export function replayTestPuzzle(slug) {
+  if (!TEST || !dataOwner() || !SLUGS.includes(slug)) return false;
+  const id = STEPS[SLUGS.indexOf(slug)].id;
+  DS[id] = freshDS({}, DAY)[id];
+  changed('test-replay');
   return true;
 }
 
