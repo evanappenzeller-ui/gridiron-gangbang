@@ -173,19 +173,28 @@ export function tileHTML(p, {size = 'l', play = true, context = true} = {}) {
  * A video that isn't a press conference (League › Media's Happy Meals) as a compact 's' tile, played like one:
  * c = {key, drive (a Drive file id) | vid, who (a manager id, for the colour), title, sub, tall}. Pure (no DOM).
  */
+// c.tag (manager ids, Nov 12 2026, the owner: "Just put the person's name above their happy meal video. Use the same tags
+// that are everywhere else in the app"): the presser cards' manager tag (avatar + name, .c-press-mgr) sits above the
+// video instead of the title beside it, and the tile is a grid cell (.is-clip) that takes the whole row while it plays.
 export function clipHTML(c) {
   if (!c || !c.key || !press.playable(c)) return '';
   const label = String(c.title || 'Video');
+  const tag = (Array.isArray(c.tag) ? c.tag : []).filter(id => data.M[id]);
   const inner = thumbInner(c, label)
     + `<span class="c-press-btn" aria-hidden="true">${ui.icon('play-fill')}<span class="spin"></span></span>`;
   const back = c.tall ? `<span class="c-press-back" aria-hidden="true"><img class="c-press-bimg" src="${esc(press.thumbOf(c))}" alt="" loading="lazy" decoding="async"></span>` : '';
   const media = `<div class="c-press-media">${back}<div class="c-press-frame"><button type="button" class="c-press-cover" data-press-play aria-label="${esc('Play ' + label)}">${inner}</button></div></div>`;
-  const body = `<div class="c-press-body"><span class="c-press-st">${esc(label)}</span>${c.sub ? `<span class="c-press-ss">${esc(c.sub)}</span>` : ''}</div>`;
+  const me = data.me();
+  const tagHTML = tag.length
+    ? `<div class="c-press-mgr c-press-tag">${tag.length === 1 ? ui.avatar(tag[0], {size: 28, you: tag[0] === me}) : ui.avatarStack(tag.map(id => ({id, you: id === me})), {size: 28})}`
+      + `<span class="c-press-tx"><span class="c-press-who">${esc(tag.map(id => data.name(id)).join(' & '))}</span></span></div>`
+    : '';
+  const body = tagHTML || `<div class="c-press-body"><span class="c-press-st">${esc(label)}</span>${c.sub ? `<span class="c-press-ss">${esc(c.sub)}</span>` : ''}</div>`;
   const col = data.M[c.who] ? ' ' + data.color(c.who).cls : '';
-  return `<article class="c-press is-s${c.tall ? ' is-tall' : ''}${col}" data-press-key="${esc(c.key)}" data-press-vid="${esc(c.vid || '')}"`
+  return `<article class="c-press is-s${tag.length ? ' is-clip' : ''}${c.tall ? ' is-tall' : ''}${col}" data-press-key="${esc(c.key)}" data-press-vid="${esc(c.vid || '')}"`
     + (c.drive ? ` data-press-drive="${esc(c.drive)}"` : '')
     + (c.file ? ` data-press-file="${esc(c.file)}"` : '')
-    + ` data-press-title="${esc(label)}"${c.tall ? ' data-press-tall' : ''} aria-label="${esc(label)}">${media}<div class="c-press-yt"></div>${body}</article>`;
+    + ` data-press-title="${esc(label)}"${c.tall ? ' data-press-tall' : ''} aria-label="${esc(label)}">${tagHTML ? body + media : media + body}<div class="c-press-yt"></div></article>`;
 }
 
 // ============================================================================ Player

@@ -122,6 +122,11 @@ all 11) goes through `views/league-media.js` `mealsOf` and `press.js` `clipHTML`
 video/media/. Mitch's (IMG_1894) and Jayton's (IMG_7211) Happy Meals were shared with Evan alone, so Drive asked everyone
 else to sign in; with his OK both are now "anyone with the link can view" like the rest. The Media kit check requires a
 valid `file` on every entry.
+Name tags (Nov 12 2026, Evan: "Just put the persons name above their happy meal video. Use the same tags that are everywhere
+else in the app"): `clipHTML`'s `tag` (the entry's manager ids) puts the presser cards' manager tag (`.c-press-mgr`: the
+colored initials avatar, your own ringed, then the name; two avatars stacked and "Jackson & Jacob" for the shared one) above
+the video in place of the "X's Happy Meal" title. The Happy Meals are a grid (`.md-grid` in `hall.css`: two columns, three
+from 600 px, cells bottom-aligned so wrapped names don't stagger the videos); a playing one takes the whole row.
 
 ## Press Room: ask the manager (November 11, 2026)
 

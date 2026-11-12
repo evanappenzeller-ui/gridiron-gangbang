@@ -424,4 +424,7 @@ html.rm .v-league .rc.is-focus::after { animation-name: hl-flash-rm; }
 .v-league .md-sec { margin-top: 20px; }
 .v-league .md-sec:first-child { margin-top: 16px; }
 .v-league .md-list { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.v-league .md-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; align-items: end; }
+@media (min-width: 600px) { .v-league .md-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.v-league .md-grid > .c-press.is-playing { grid-column: 1 / -1; }
 .v-league .md-host > .empty { background: var(--surface-1); border-radius: var(--r-card); }

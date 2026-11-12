@@ -208,6 +208,11 @@ a.c-press-mgr.is-pressed { opacity: .6; transition: none; }
 }
 .c-press.is-s.is-playing { flex-direction: column; align-items: stretch; gap: 8px; }
 .c-press.is-s.is-playing .c-press-media { width: 100%; }
+/* A grid cell (clipHTML with a tag): the manager tag above the video, the thumbnail the cell's width. */
+.c-press.is-clip { flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; }
+.c-press.is-clip .c-press-media { width: 100%; }
+.c-press.is-clip .c-press-tag { gap: 8px; }
+.c-press.is-clip .c-press-who { font-size: var(--fs-sub); line-height: var(--lh-sub); white-space: normal; overflow-wrap: anywhere; }
 
 /* Small thumbnail (archive rows, the sheet's preview): 16:9 with a play glyph. */
 .c-press-th {

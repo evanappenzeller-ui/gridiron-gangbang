@@ -47,8 +47,8 @@ function mealsHTML(pv, meals) {
   if (!meals) return ui.skeleton('rows', 3, {label: 'Loading Happy Meals'});
   if (!meals.length) return ui.empty({icon: 'info', title: 'No Happy Meals yet'});
   const tiles = [...meals].sort((a, b) => namesOf(a.who).localeCompare(namesOf(b.who)))
-    .map(m => pv.clipHTML({key: m.key, drive: m.drive, file: m.file, tall: m.tall, who: m.who[0], title: `${namesOf(m.who)}'s Happy Meal`}));
-  return `<div class="md-list">${tiles.join('')}</div>`;
+    .map(m => pv.clipHTML({key: m.key, drive: m.drive, file: m.file, tall: m.tall, who: m.who[0], tag: m.who, title: `${namesOf(m.who)}'s Happy Meal`}));
+  return `<div class="md-list md-grid">${tiles.join('')}</div>`;
 }
 
 export function render() {
