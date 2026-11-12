@@ -89,7 +89,7 @@ const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup
 // Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
 const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
 const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays']; // every day's steps are some of these (daily.SLUGS)
-const LEAGUE_SEGS = ['standings', 'trophies', 'records', 'shame'];
+const LEAGUE_SEGS = ['standings', 'trophies', 'records', 'shame', 'media'];
 const BAD_LINK = "That link didn't lead anywhere.";
 const isKeepRoute = r => !!r && ['realm', 'realm-raid', 'realm-scout', 'realm-replay', 'realm-visit'].includes(r.view);
 // "evan-vs-mason" → {a, b} (strings, not validated: the Matchup view checks them), else null.

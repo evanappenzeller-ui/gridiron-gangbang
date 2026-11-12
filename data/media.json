@@ -1,0 +1,16 @@
+{
+  "about": "League › Media: videos that aren't press conferences (those come from pressers.json). Each Happy Meal is one Google Drive file of the owner's, shared 'anyone with the link can view': who (the manager ids in it), drive (the file id), tall (filmed upright).",
+  "happyMeals": [
+    {"key": "hm-ben", "who": ["ben"], "drive": "1pEJ0De-UIV9i9g0yDEKx1Wnlg_f9O5Ff", "tall": true},
+    {"key": "hm-corbin", "who": ["corbin"], "drive": "1X6qI5IEgCGZmH0nUKsMoSeJCLbaTJ7Qz", "tall": true},
+    {"key": "hm-dresden", "who": ["dresden"], "drive": "1PAK4dFpylkhyrUBB2RWZlPB1_F6LraJF", "tall": true},
+    {"key": "hm-evan", "who": ["evan"], "drive": "1h-JTGtuK4ym8WayKqTZmcvZIT3SS7yI6", "tall": false},
+    {"key": "hm-jackson-jacob", "who": ["jackson", "jacob"], "drive": "1NLxFAJCZCn-2pnCsr93kOKUZO295Ybf2", "tall": false},
+    {"key": "hm-jaymin", "who": ["jaymin"], "drive": "1Pr14VR8ZLpW-Bv0Fs6UJdfw7ImbNbr3Z", "tall": true},
+    {"key": "hm-jayton", "who": ["jayton"], "drive": "1NYcM0rZe0i7ugP2XkRxSk8T2VO5Z6Hrw", "tall": true},
+    {"key": "hm-john", "who": ["john"], "drive": "1ppYy8DulR3292hPrUFWjnkKShe5I_lt0", "tall": true},
+    {"key": "hm-mason", "who": ["mason"], "drive": "1O0DL3R3fvskOvJpQIpA32tpLw1S9TPNk", "tall": true},
+    {"key": "hm-mitch", "who": ["mitch"], "drive": "1MpROd4MRkW9rsVdx1kgw1aU4qxiFRdnh", "tall": true},
+    {"key": "hm-sayer", "who": ["sayer"], "drive": "10LzrviWWe8C7XL2nKZh45j_lB8KnXOeQ", "tall": true}
+  ]
+}

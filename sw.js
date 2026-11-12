@@ -7,11 +7,11 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-press-own-player-20261112';
+const CACHE = 'gg-press-own-player-media-20261112';
 const CORE = ['ui', 'home-navigation', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'fantasy-live', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-layout', 'realm-battle', 'checks-realm', 'dynasty', 'dynasty-battle', 'dynasty-match', 'dynasty-table', 'dynasty-solo', 'busy', 'rivals-live', 'rivals-live-match', 'dynasty-real', 'dynasty-legends', 'dynasty-action', 'checks-dynasty'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and live (Live). Keepfall opens from Daily Games.
 const VIEWS = ['dynasty-energy', 'dynasty-pack-shelf', 'welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
-  'league', 'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame', 'return-life', 'return-air-world', 'return-intro',
+  'league', 'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame', 'league-media', 'return-life', 'return-air-world', 'return-intro',
   'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-jetpack', 'return-3dworld', 'return-field-logo', 'return-style', 'return-scenery', 'return-models', 'return-city-bus', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'realm', 'realm-3d', 'realm-world', 'realm-materials', 'realm-buildings', 'realm-lowlevel', 'realm-routines', 'realm-models', 'realm-walls', 'realm-wildlife', 'realm-heroes', 'realm-lore', 'realm-npcs', 'realm-characters', 'realm-dragon', 'realm-dragon-assets', 'realm-dragon-picker', 'realm-raid', 'realm-scout', 'realm-replay', 'realm-visit', 'dynasty', 'dynasty-foil', 'dynasty-table-touch', 'dynasty-table-options', 'dynasty-stats', 'dynasty-team-scenes', 'dynasty-packs', 'dynasty-art-foil', 'dynasty-art-start', 'dynasty-art-std', 'dynasty-art-team', 'dynasty-art-prem', 'dynasty-art-gday', 'dynasty-art-leg', 'dynasty-open', 'dynasty-battle', 'rivals-live-notice', 'rivals-live-lobby', '_kit'];
 const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'kick', 'return', 'realm', 'dynasty', 'dynasty-packs', 'dynasty-open', 'dynasty-rivals', 'dynasty-rivals-hub', 'dynasty-rivals-battle', 'dynasty-rarity', '_kit'];
@@ -49,7 +49,7 @@ const SHELL = [
   'img/kick/holder.webp', 'img/kick/holder-empty.webp', 'img/kick/kicker.webp', 'img/kick/kicker-follow.webp', 'img/kick/line.webp', 'img/kick/football.webp',
   'img/drill/players.webp', 'img/drill/players-mask.webp',
   'icons/hub-192.png', 'icons/hub-512.png', 'icons/hub-maskable-512.png', 'icons/hub-apple-180.png',
-  'data/league.json', 'data/pressers.json', 'data/lay.json', 'data/puzzles-v4.json', 'data/nfl-players.json', 'data/seventeen.json', 'data/drill.json', 'data/dynasty.json',
+  'data/league.json', 'data/pressers.json', 'data/media.json', 'data/lay.json', 'data/puzzles-v4.json', 'data/nfl-players.json', 'data/seventeen.json', 'data/drill.json', 'data/dynasty.json',
   'img/games/dynasty-cover-v3.webp', 'img/games/dynasty-book-v4.webp', 'img/games/dynasty-disc-v4.webp', 'img/games/dynasty-back-v2.webp', 'img/rivals/card-back-v1.webp',
   ...['common', 'rare', 'epic', 'legendary', 'mythic'].map(r => `img/rivals/field-${r}.svg`)
 ];
