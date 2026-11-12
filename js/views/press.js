@@ -165,6 +165,7 @@ export function tileHTML(p, {size = 'l', play = true, context = true} = {}) {
   }
   return `<article class="c-press is-${sz}${p.tall ? ' is-tall' : ''} ${data.color(p.who).cls}" data-press-key="${esc(p.key)}" data-press-vid="${esc(p.vid || '')}"`
     + (p.drive ? ` data-press-drive="${esc(p.drive)}"` : '')
+    + (p.file ? ` data-press-file="${esc(p.file)}"` : '')
     + ` data-press-title="${esc(label)}"${p.tall ? ' data-press-tall' : ''} aria-label="${esc(label)}">${media}${yt}${body}</article>`;
 }
 
@@ -173,13 +174,14 @@ export function tileHTML(p, {size = 'l', play = true, context = true} = {}) {
 // Only one plays app-wide: starting one puts every other open player in the document back to its thumbnail.
 function playTile(tile) {
   if (!tile || !tile.isConnected) return false;
-  const src = {vid: tile.dataset.pressVid, drive: tile.dataset.pressDrive};
+  const src = {vid: tile.dataset.pressVid, drive: tile.dataset.pressDrive, file: tile.dataset.pressFile};
   const frame = tile.querySelector('.c-press-frame');
   if (!frame || !press.playable(src)) return false;
   if (frame.classList.contains('is-playing')) return true;
   stopAll(frame);
   const cover = frame.querySelector('.c-press-cover');
   const hadFocus = !!cover && document.activeElement === cover;
+  if (src.file && press.FILE_RE.test(src.file)) return playFile(tile, frame, cover, hadFocus, src);
   const ifr = document.createElement('iframe');
   ifr.className = 'c-press-ifr';
   ifr.title = tile.dataset.pressTitle || 'Press conference';
@@ -199,15 +201,93 @@ function playTile(tile) {
   // A tiny fallback under a playing video (an embed can refuse to play: a private video, embedding turned off).
   const yt = tile.querySelector('.c-press-yt');
   const out = press.openOf(src);
-  if (yt) yt.innerHTML = `<a href="${esc(out.url)}" target="_blank" rel="noopener noreferrer">${esc(out.label)}</a>`;
+  if (yt && out) yt.innerHTML = `<a href="${esc(out.url)}" target="_blank" rel="noopener noreferrer">${esc(out.label)}</a>`;
   if (hadFocus) { try { ifr.focus({preventScroll: true}); } catch (_) {} }
+  return true;
+}
+
+// The app's own player for a video in the app (press.FILE_RE), Nov 12 2026, the owner: "There's too much on the
+// screen when the video plays. Add a pause and play button with a slider that moves throughout the video". Nothing but
+// the picture and one bar: a play/pause button and a slider that follows the video and seeks when dragged. While it
+// plays the bar fades after a moment; a tap on the picture pauses or plays and brings the bar back. No fullscreen,
+// speed, captions or "open elsewhere" link. A video that won't load says so (with Drive's copy, if any, as a way out).
+const HIDE_MS = 2600;
+const clock = t => { const s = Math.max(0, Math.floor(t || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+function playFile(tile, frame, cover, hadFocus, src) {
+  const name = tile.dataset.pressTitle || 'Press conference';
+  const box = document.createElement('div');
+  box.className = 'c-press-vp is-shown';
+  box.innerHTML = `<video class="c-press-video" playsinline webkit-playsinline preload="auto" poster="${esc(press.thumbOf(src))}" src="${esc(press.playerOf(src))}" aria-label="${esc(name)}"></video>`
+    + `<div class="c-press-ctl">`
+    + `<button type="button" class="c-press-pp" aria-label="Pause">${ui.icon('pause-fill')}</button>`
+    + `<input type="range" class="c-press-seek" min="0" max="1000" step="1" value="0" aria-label="${esc('Position in ' + name)}" aria-valuetext="0:00">`
+    + `</div>`;
+  const v = box.querySelector('video'), pp = box.querySelector('.c-press-pp'), seek = box.querySelector('.c-press-seek');
+  let hideT = 0, raf = 0, dragging = false;
+  const show = () => {
+    box.classList.add('is-shown');
+    clearTimeout(hideT);
+    if (!v.paused && !dragging) hideT = setTimeout(() => { if (!v.paused && !dragging) box.classList.remove('is-shown'); }, HIDE_MS);
+  };
+  const paint = () => {
+    const d = v.duration, f = d > 0 && isFinite(d) ? Math.min(1, v.currentTime / d) : 0;
+    if (!dragging) seek.value = String(Math.round(f * 1000));
+    seek.style.setProperty('--p', `${(dragging ? Number(seek.value) / 10 : f * 100).toFixed(2)}%`);
+    seek.setAttribute('aria-valuetext', `${clock(v.currentTime)} of ${clock(d)}`);
+  };
+  const loop = () => { paint(); raf = !v.paused && box.isConnected ? requestAnimationFrame(loop) : 0; };
+  const state = () => {
+    const playing = !v.paused && !v.ended;
+    pp.innerHTML = ui.icon(playing ? 'pause-fill' : 'play-fill');
+    pp.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    box.classList.toggle('is-paused', !playing);
+    if (playing && !raf) raf = requestAnimationFrame(loop);
+    paint();
+    show();
+  };
+  const toggle = () => {
+    if (v.paused || v.ended) { if (v.ended) v.currentTime = 0; const q = v.play(); if (q && q.catch) q.catch(() => state()); } else v.pause();
+  };
+  const loaded = () => { clearTimeout(frame._pressT); if (box.isConnected) frame.classList.add('is-loaded'); };
+  v.addEventListener('loadeddata', loaded, {once: true});
+  v.addEventListener('playing', loaded);
+  frame._pressT = setTimeout(loaded, 6000);
+  ['play', 'pause', 'ended'].forEach(t => v.addEventListener(t, state));
+  v.addEventListener('timeupdate', () => { if (!raf) paint(); });
+  v.addEventListener('loadedmetadata', paint);
+  v.addEventListener('error', () => {
+    loaded();
+    box.classList.add('is-error');
+    const out = src.drive ? press.openOf({drive: src.drive}) : null;
+    box.insertAdjacentHTML('beforeend', `<p class="c-press-err" role="status">Couldn't play this video.${out ? ` <a href="${esc(out.url)}" target="_blank" rel="noopener noreferrer">${esc(out.label)}</a>` : ''}</p>`);
+  }, {once: true});
+  v.addEventListener('click', () => { toggle(); show(); });
+  pp.addEventListener('click', e => { e.stopPropagation(); toggle(); });
+  const seekTo = () => { const d = v.duration; if (d > 0 && isFinite(d)) v.currentTime = Number(seek.value) / 1000 * d; paint(); };
+  seek.addEventListener('pointerdown', () => { dragging = true; show(); });
+  seek.addEventListener('input', () => { dragging = true; seekTo(); show(); });
+  seek.addEventListener('change', () => { seekTo(); dragging = false; show(); });
+  ['pointerup', 'pointercancel', 'blur'].forEach(t => seek.addEventListener(t, () => { if (dragging) { dragging = false; show(); } }));
+  box.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') show(); });
+  box.addEventListener('focusin', show);
+  box._stop = () => { clearTimeout(hideT); cancelAnimationFrame(raf); raf = 0; try { v.pause(); v.removeAttribute('src'); v.load(); } catch (_) {} };
+  frame.classList.add('is-playing');
+  tile.classList.add('is-playing');
+  if (cover) { cover.setAttribute('aria-hidden', 'true'); cover.tabIndex = -1; }
+  frame.append(box);
+  const q = v.play();
+  if (q && q.catch) q.catch(() => state()); // a refused start leaves it paused with the bar showing
+  if (hadFocus) { try { pp.focus({preventScroll: true}); } catch (_) {} }
   return true;
 }
 function restore(frame) {
   if (!frame) return;
   clearTimeout(frame._pressT);
+  const vp = frame.querySelector('.c-press-vp');
+  const vpFocus = !!vp && vp.contains(document.activeElement);
+  if (vp) { if (vp._stop) vp._stop(); vp.remove(); }
   const ifr = frame.querySelector('.c-press-ifr');
-  const hadFocus = !!ifr && document.activeElement === ifr;
+  const hadFocus = vpFocus || (!!ifr && document.activeElement === ifr);
   if (ifr) ifr.remove();
   frame.classList.remove('is-playing', 'is-loaded');
   const tile = frame.closest('.c-press');
@@ -1189,7 +1269,7 @@ function patchFeat(s, box, h, fade) {
   t.innerHTML = h;
   const nt = t.content.querySelector('.c-press');
   if (frame && nt && tile.dataset.pressKey === nt.dataset.pressKey && tile.dataset.pressVid === nt.dataset.pressVid
-    && tile.dataset.pressDrive === nt.dataset.pressDrive && tile.hasAttribute('data-press-tall') === nt.hasAttribute('data-press-tall')) {
+    && tile.dataset.pressDrive === nt.dataset.pressDrive && tile.dataset.pressFile === nt.dataset.pressFile && tile.hasAttribute('data-press-tall') === nt.hasAttribute('data-press-tall')) {
     const b0 = tile.querySelector('.c-press-body'), b1 = nt.querySelector('.c-press-body');
     if (b0 && b1 && b0.innerHTML !== b1.innerHTML) b0.innerHTML = b1.innerHTML;
     const a0 = box.querySelector('.pr-acts'), a1 = t.content.querySelector('.pr-acts');

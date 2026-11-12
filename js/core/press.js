@@ -123,12 +123,25 @@ const driveOk = id => (typeof id === 'string' && DRIVE_RE.test(id) ? id : null);
 export const driveThumbURL = id => `https://drive.google.com/thumbnail?id=${id}&sz=w640`;
 export const driveEmbedURL = id => `https://drive.google.com/file/d/${id}/preview`;
 export const driveViewURL = id => `https://drive.google.com/file/d/${id}/view`;
-/** Whether a presser item has something to play (a Drive file or a YouTube video). */
-export const playable = p => !!p && (!!driveOk(p.drive) || !!vidOk(p.vid));
-/** A presser item's thumbnail / player / "open elsewhere" link, Drive first. */
-export const thumbOf = p => (driveOk(p.drive) ? driveThumbURL(p.drive) : thumbURL(p.vid));
-export const playerOf = p => (driveOk(p.drive) ? driveEmbedURL(p.drive) : embedURL(p.vid));
-export const openOf = p => (driveOk(p.drive) ? {url: driveViewURL(p.drive), label: 'Open in Google Drive'} : {url: watchURL(p.vid), label: 'Open in YouTube'});
+
+// Videos in the app itself (Nov 12 2026, the owner: "There's too much on the screen when the video plays. Add a pause and
+// play button with a slider that moves throughout the video"). A seeded presser may carry `file`: an H.264 MP4 under
+// video/press/ (faststart, made from the Drive original) with a same-named .jpg poster beside it. It wins over Drive and
+// YouTube and plays in the app's own player (views/press.js: just play/pause and a progress slider). Only the seed file
+// carries files.
+export const FILE_RE = /^video\/press\/[a-z0-9][a-z0-9-]*\.mp4$/;
+const fileOk = f => (typeof f === 'string' && FILE_RE.test(f) ? f : null);
+const ROOT = new URL('../../', import.meta.url).href;
+export const fileURL = f => ROOT + f;
+export const posterURL = f => ROOT + f.replace(/\.mp4$/, '.jpg');
+
+/** Whether a presser item has something to play (a video in the app, a Drive file or a YouTube video). */
+export const playable = p => !!p && (!!fileOk(p.file) || !!driveOk(p.drive) || !!vidOk(p.vid));
+/** A presser item's thumbnail / player / "open elsewhere" link: the app's own file first, then Drive, then YouTube. */
+export const thumbOf = p => (fileOk(p.file) ? posterURL(p.file) : driveOk(p.drive) ? driveThumbURL(p.drive) : thumbURL(p.vid));
+export const playerOf = p => (fileOk(p.file) ? fileURL(p.file) : driveOk(p.drive) ? driveEmbedURL(p.drive) : embedURL(p.vid));
+/** The app's own file needs no "open elsewhere" link (null). */
+export const openOf = p => (fileOk(p.file) ? null : driveOk(p.drive) ? {url: driveViewURL(p.drive), label: 'Open in Google Drive'} : {url: watchURL(p.vid), label: 'Open in YouTube'});
 
 // ---------------------------------------------------------------------------
 // oEmbed check
@@ -364,18 +377,18 @@ function cleanTitle(s) {
   return t;
 }
 
-// One doc -> {key, year, week, vid (null with only a Drive file), drive (seed only, else null), who, title, tall, me,
+// One doc -> {key, year, week, vid (null with only a Drive file or app file), drive, file (seed only, else null), who, title, tall, me,
 // nick, at (ms | null), ctx, seed, dev} | null (bad key, no vid or Drive file, or unknown manager). src: 'seed' (no poster: nick '', at null) | 'remote' | 'local' (the dev stand-in: dev true).
 export function normalize(d, key, src = 'remote') {
   if (!d || typeof d !== 'object') return null;
   const P = week.parseKey(key != null ? key : d.key);
   if (!P || P.week > MAX_WEEK) return null;
   const seed = src === 'seed';
-  const vid = vidOk(d.vid), drive = seed ? driveOk(d.drive) : null;
+  const vid = vidOk(d.vid), drive = seed ? driveOk(d.drive) : null, file = seed ? fileOk(d.file) : null;
   const who = typeof d.who === 'string' && data.M[d.who] ? d.who : null;
-  if ((!vid && !drive) || !who) return null;
+  if ((!vid && !drive && !file) || !who) return null;
   return {
-    key: week.weekKey(P.year, P.week), year: P.year, week: P.week, vid, drive, who,
+    key: week.weekKey(P.year, P.week), year: P.year, week: P.week, vid, drive, file, who,
     title: cleanTitle(d.title), tall: d.tall === true,
     me: !seed && typeof d.me === 'string' && data.M[d.me] ? d.me : null,
     nick: !seed && typeof d.nick === 'string' ? d.nick.trim().slice(0, 24) : '',
@@ -431,7 +444,8 @@ const localMap = () => (standIn() ? readStore() : {});
 // ---------------------------------------------------------------------------
 // Seed file (data/pressers.json). Loaded once (network-first through sw.js), again when a new week of data
 // arrives. A failed or missing file is simply empty.
-//   {"pressers": [{key, vid, drive, who, title, tall}], the seeded archive (vid and/or a Drive file id)
+//   {"pressers": [{key, vid, drive, file, who, title, tall}], the seeded archive (vid, a Drive file id and/or a
+//                                                         video in the app: video/press/<name>.mp4)
 //    "motw": [{key: '2026-w3', a: 'jaymin', b: 'ben'}],  Matchups of the Week picked in the league chat before the
 //                                                         app had voting (motwLoser falls back to them)
 //    "questions": {"2026-w2": [{by: 'mason', q: '…'}]}} the questions the league chat asked that week's loser, by

@@ -101,6 +101,21 @@ bar names the Press and Recap tabs and keeps the rivalry's share for MOTW. Links
 `?s=wrap|last|recap` Recap, the rest MOTW. `#/press` still opens the standalone Press Room. Verify
 `node tools/matchup/check-tabs.cjs` (optional `--shots=<dir>`), the press checks and `check-live-browser.cjs`.
 
+## Press Room: the app's own video player (November 12, 2026)
+
+Evan, with a screenshot of Drive's player: "There's too much on the screen when the video plays. Add a pause and play
+button with a slider that moves throughout the video." Drive's embedded player can't be restyled, so the pressers now
+live in the app: `video/press/<week>-<who>-v1.mp4` (made from the Drive originals with ffmpeg: H.264 high, 540 px wide
+upright, 960 px for the one landscape video, CRF 27 capped at 1.1 Mbps, AAC 96k, `+faststart`; 88 MB for weeks 2–8)
+with a same-named `.jpg` poster (a frame at 3 s). A seeded presser's `file` (`core/press.js` `FILE_RE`, seed only) wins
+over `drive` and `vid`, which stay as the record. `views/press.js` `playFile` builds a plain `<video playsinline>` with one
+bar: a round play/pause button and a range slider whose fill follows the playhead (rAF while playing) and seeks when
+dragged. The bar fades 2.6 s into playback and stays while paused; tapping the picture plays/pauses and brings it back.
+No fullscreen, speed, captions or "Open in…" link (`openOf` is null for files); a load error says so with Drive's link.
+The service worker leaves `.mp4` alone, so GitHub Pages serves byte ranges for seeking. A new video: download the Drive
+file, encode it the same way, add the poster and the seed's `file`; a changed video gets a new version number.
+The kit check "Press Room: Drive first…" covers `file`; the seed-file check validates it.
+
 ## Press Room: ask the manager (November 11, 2026)
 
 Evan: "Add a section in the press conference where league members can submit questions to the manager." Everyone sees

@@ -1,10 +1,10 @@
 {"pressers": [
-  {"key": "2026-w2", "vid": "cY_ifzuuk3s", "drive": "1viCWUo5deOATRi7RTl4duCq0XRrpwCZY", "who": "jackson", "title": "", "tall": false},
-  {"key": "2026-w3", "vid": "ya7waVoDj1Y", "drive": "1vZplMdQJNqCXy6gS_mQxTjuGyJEZtRNC", "who": "ben", "title": "", "tall": true},
-  {"key": "2026-w4", "vid": "ntuC7eVqz5s", "drive": "1BjoSIjlRIGMwhjTi6b6dWbCiH-fBnR--", "who": "jaymin", "title": "", "tall": true},
-  {"key": "2026-w5", "vid": "08UtpHu8I3Q", "drive": "12frXMpG14945uuA4GnMez0dyESYMQ2hO", "who": "jayton", "title": "", "tall": true},
-  {"key": "2026-w6", "vid": "EyO4zroJF5s", "drive": "1cYXHEXYrEX7cJG_gXk-O7UUyf1AActKs", "who": "dresden", "title": "", "tall": true},
-  {"key": "2026-w8", "vid": "objv-RC6dqg", "drive": "1RxzyQ7M2mTpNHELvjReHhDBUvIIsZzIp", "who": "jayton", "title": "", "tall": true}
+  {"key": "2026-w2", "vid": "cY_ifzuuk3s", "drive": "1viCWUo5deOATRi7RTl4duCq0XRrpwCZY", "file": "video/press/2026-w2-jackson-v1.mp4", "who": "jackson", "title": "", "tall": false},
+  {"key": "2026-w3", "vid": "ya7waVoDj1Y", "drive": "1vZplMdQJNqCXy6gS_mQxTjuGyJEZtRNC", "file": "video/press/2026-w3-ben-v1.mp4", "who": "ben", "title": "", "tall": true},
+  {"key": "2026-w4", "vid": "ntuC7eVqz5s", "drive": "1BjoSIjlRIGMwhjTi6b6dWbCiH-fBnR--", "file": "video/press/2026-w4-jaymin-v1.mp4", "who": "jaymin", "title": "", "tall": true},
+  {"key": "2026-w5", "vid": "08UtpHu8I3Q", "drive": "12frXMpG14945uuA4GnMez0dyESYMQ2hO", "file": "video/press/2026-w5-jayton-v1.mp4", "who": "jayton", "title": "", "tall": true},
+  {"key": "2026-w6", "vid": "EyO4zroJF5s", "drive": "1cYXHEXYrEX7cJG_gXk-O7UUyf1AActKs", "file": "video/press/2026-w6-dresden-v1.mp4", "who": "dresden", "title": "", "tall": true},
+  {"key": "2026-w8", "vid": "objv-RC6dqg", "drive": "1RxzyQ7M2mTpNHELvjReHhDBUvIIsZzIp", "file": "video/press/2026-w8-jayton-v1.mp4", "who": "jayton", "title": "", "tall": true}
 ],
 "noShows": [
   {"key": "2026-w7", "who": "corbin"}

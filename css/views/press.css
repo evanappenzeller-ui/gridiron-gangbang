@@ -121,6 +121,53 @@ span.c-press-cover { cursor: inherit; }
   transition: opacity 240ms linear;
 }
 .c-press-frame.is-loaded > .c-press-ifr { opacity: 1; }
+/* The app's own player (a video in the app): the picture and one bar, a play/pause button and a progress slider. The
+   bar fades while it plays (.is-shown comes and goes; press.js) and stays while paused. */
+.c-press-vp { position: absolute; inset: 0; z-index: 2; background: #000; opacity: 0; transition: opacity 240ms linear; }
+.c-press-frame.is-loaded > .c-press-vp { opacity: 1; }
+.c-press-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.c-press-ctl {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; gap: 12px;
+  padding: 32px 14px 12px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.55));
+  transition: opacity 220ms linear;
+}
+.c-press-vp:not(.is-shown) .c-press-ctl { opacity: 0; pointer-events: none; }
+.c-press-vp:not(.is-shown) .c-press-video { cursor: none; }
+.c-press-pp {
+  flex: none; display: grid; place-items: center;
+  width: 40px; height: 40px; margin: 0; padding: 0; border: 0; border-radius: 50%;
+  background: rgba(0,0,0,.5); color: #fff; cursor: pointer;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.c-press-pp > .ic { width: 18px; height: 18px; }
+.c-press-vp.is-paused .c-press-pp > .ic { margin-left: 2px; }
+.c-press-pp:focus-visible, .c-press-seek:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; }
+.c-press-seek {
+  --p: 0%;
+  -webkit-appearance: none; appearance: none;
+  flex: 1; min-width: 0; height: 32px; margin: 0; padding: 0;
+  background: transparent; cursor: pointer;
+}
+.c-press-seek::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 2px;
+  background: linear-gradient(to right, #fff var(--p), rgba(255,255,255,.32) var(--p));
+}
+.c-press-seek::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; margin-top: -5px; border: 0; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45);
+}
+.c-press-seek::-moz-range-track { height: 4px; border-radius: 2px; background: rgba(255,255,255,.32); }
+.c-press-seek::-moz-range-progress { height: 4px; border-radius: 2px; background: #fff; }
+.c-press-seek::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); }
+.c-press-err {
+  position: absolute; left: 12px; right: 12px; top: 50%; transform: translateY(-50%); margin: 0;
+  color: #fff; text-align: center; font: 500 var(--fs-sub)/var(--lh-sub) var(--font-text);
+}
+.c-press-err a { color: var(--tint); }
+.c-press-vp.is-error .c-press-ctl { display: none; }
 .c-press-yt:empty { display: none; }
 .c-press-yt { display: flex; justify-content: flex-end; padding: 2px 2px 0; }
 .c-press-yt > a {
@@ -195,9 +242,9 @@ a.c-press-mgr.is-pressed { opacity: .6; transition: none; }
 .c-press-steps b { font-weight: 600; color: var(--ink); }
 
 @media (prefers-reduced-motion: reduce) {
-  .c-press-ifr, .c-press-btn { transition: none; }
+  .c-press-ifr, .c-press-btn, .c-press-vp, .c-press-ctl { transition: none; }
 }
-html.rm .c-press-ifr, html.rm .c-press-btn { transition: none; }
+html.rm .c-press-ifr, html.rm .c-press-btn, html.rm .c-press-vp, html.rm .c-press-ctl { transition: none; }
 
 /* ================================================================ Screen (.v-press) */
 .v-press .pr-main { min-width: 0; }

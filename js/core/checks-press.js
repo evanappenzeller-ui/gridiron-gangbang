@@ -108,8 +108,16 @@ export async function pressChecks(check) {
       && press.openOf(both).url === `https://drive.google.com/file/d/${D}/view` && /Drive/.test(press.openOf(both).label);
     const solo = !!only && only.vid === null && only.drive === D && only.tall === true && press.playable(only);
     const yt = !!remote && remote.drive === null && press.playerOf(remote) === press.embedURL(V) && /YouTube/.test(press.openOf(remote).label);
-    const pass = drv && solo && yt && remoteOnly === null && bad === null && !press.playable({vid: null, drive: null});
-    return {pass, detail: `drive first ${drv}, drive only ${solo}, firestore YouTube only ${yt}, firestore drive-only ${JSON.stringify(remoteOnly)}, bad id ${JSON.stringify(bad)}`};
+    // A video in the app (Nov 12 2026) wins over Drive and YouTube, has no "open elsewhere" link, and only the seed has one.
+    const F = 'video/press/2026-w3-ben-v1.mp4';
+    const own = press.normalize({vid: V, drive: D, file: F, who: 'ben'}, '2026-w3', 'seed');
+    const ownRemote = press.normalize({vid: V, file: F, who: 'ben'}, '2026-w3', 'remote');
+    const badFile = press.normalize({file: '../x.mp4', who: 'ben'}, '2026-w3', 'seed');
+    const file = !!own && own.file === F && press.playable(own) && press.playerOf(own).endsWith('/' + F)
+      && press.thumbOf(own).endsWith('/video/press/2026-w3-ben-v1.jpg') && press.openOf(own) === null
+      && !!ownRemote && ownRemote.file === null && badFile === null;
+    const pass = drv && solo && yt && file && remoteOnly === null && bad === null && !press.playable({vid: null, drive: null});
+    return {pass, detail: `drive first ${drv}, drive only ${solo}, firestore YouTube only ${yt}, app file first ${file}, firestore drive-only ${JSON.stringify(remoteOnly)}, bad id ${JSON.stringify(bad)}`};
   });
 
   // 3. Docs -> list
@@ -295,7 +303,7 @@ export async function pressChecks(check) {
     const list = j && j.pressers;
     if (!Array.isArray(list)) return {pass: false, detail: 'no "pressers" list'};
     if (Object.keys(j).some(k => !['pressers', 'motw', 'questions', 'noShows'].includes(k))) return {pass: false, detail: 'unknown top-level key'};
-    const allowed = new Set(['key', 'vid', 'drive', 'who', 'title', 'tall']);
+    const allowed = new Set(['key', 'vid', 'drive', 'file', 'who', 'title', 'tall']);
     const bad = [], seen = new Set();
     // Matchups of the Week picked in the chat: two different managers who played each other that week (once the
     // week is in the data), one entry per week.
@@ -353,6 +361,7 @@ export async function pressChecks(check) {
         : Object.keys(d).some(k => !allowed.has(k)) ? 'unknown field'
         : !p ? 'bad key, vid / Drive id or manager'
         : d.drive != null && p.drive !== d.drive ? 'bad Drive id'
+        : d.file != null && p.file !== d.file ? 'bad video file (video/press/<name>.mp4)'
         : p.key !== d.key ? 'key not canonical'
         : d.title != null && (typeof d.title !== 'string' || d.title !== p.title) ? 'title not clean (<= 80, single spaces)'
         : d.tall != null && typeof d.tall !== 'boolean' ? 'tall not a boolean'
