@@ -1,5 +1,18 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Daily Puzzles challenge preview (November 12, 2026)
+
+Evan requested stat comparisons, career timelines and team connections, plus a simpler puzzle UI.
+Under AGENTS.md's non-Rivals owner pilot rule, `views/daily-challenges.js` opens three daily bonus puzzles on
+Evan's Daily Puzzles page. Historical season comparisons, ordering four career stops, and grouping two draft
+franchises rotate through four curated sets by local date. Completion and partial timeline/group progress save
+in `gg-daily-challenges-v1:<profile>:<date>` on this device. These are explicitly separate from league scoring;
+existing daily results, streaks, coins and cloud records are unchanged. A profile/date change prevents stale actions;
+profile changes close sheets and failed storage writes do not advance progress. Other profiles retain their page.
+Evan's main puzzle icons become named Play/Complete rows and the primary action says Play today. New challenge
+sheets support keyboard buttons and visible feedback. Verify `tools/puzzles/check-challenges.cjs` with local
+Firebase disabled and external requests blocked; run the home-browser regression check before publishing.
+
 ## Daily Puzzles leads the shelf (November 11, 2026)
 
 Evan: "Make the daily puzzles the first option when launching the app." Everyone gets it. Daily Puzzles is first in

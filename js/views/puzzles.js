@@ -1,3 +1,4 @@
+import {challengesHTML, openChallenge} from './daily-challenges.js';
 import * as features from '../core/features.js';
 // Daily Games tab (tab id 'puzzles'; tabs-v4 contract §3, replaces the Today hub). Two kinds of screen:
 // - The tab root, /puzzles: the app's home screen (the owner's ask, Oct 30 2026: "Make the games tab the main home page
@@ -113,6 +114,7 @@ async function testAllTap(st, btn) {
 const lineText = () => 'Daily Puzzles';
 function typesHTML() {
   const S = daily.STEPS;
+  if(data.isOwner()) return `<div class="dc-classic-list">${S.map((s,i)=>`<button type="button" data-puzzle-jump="${i}"><b>${esc(s.label)}</b><small>${s.done()?'Complete ✓':'Play →'}</small></button>`).join('')}</div>`;
   const label = `Today: ${daily.andList(S.map(s => s.label))}`;
   return `<div class="c-hero-types" role="img" aria-label="${esc(label)}">`
     + S.map((s, i) => `<span class="c-hero-ti${s.done() ? ' is-done' : ''}" data-i="${i}">${ui.icon(stepIcon(i), {size: 18})}</span>`).join('')
@@ -141,7 +143,7 @@ function topHTML(k) {
 }
 const CTA = {new: 'Play', started: 'Continue', done: 'See results'};
 function ctaInner(k) {
-  return `${k === 'done' ? '' : ui.icon('play-fill', {cls: 'c-cta-ic'})}<span class="btn-label">${esc(CTA[k])}</span>`;
+  return `${k === 'done' ? '' : ui.icon('play-fill', {cls: 'c-cta-ic'})}<span class="btn-label">${esc(data.isOwner()&&k==='new'?'Play today':CTA[k])}</span>`;
 }
 const ctaHTML = k => `<button type="button" class="btn btn-primary c-hero-cta${k === 'done' ? '' : ' is-big'}" data-cta>${ctaInner(k)}</button>`;
 const shareHTML = () => `<button type="button" class="btn btn-secondary c-hero-share" data-share>${ui.icon('share')}<span class="btn-label">Share</span></button>`;
@@ -192,9 +194,9 @@ function playedCard() {
 }
 function cardHTML(k = heroKind()) {
   if (k === 'error') return errorCard();
-  if (k === 'played') return playedCard();
+  if (k === 'played') return playedCard() + challengesHTML();
   if (k === 'loading') return loadingCard();
-  return readyCard(k);
+  return readyCard(k) + challengesHTML();
 }
 
 // ============================================================================ Game pages
@@ -397,6 +399,7 @@ function morph(card, k) {
 
 function patchProgress(card, anim) {
   const S = daily.STEPS;
+  card.querySelectorAll('[data-puzzle-jump]').forEach(b=>{const step=S[Number(b.dataset.puzzleJump)];if(step)b.querySelector('small').textContent=step.done()?'Complete ✓':'Play →';});
   card.querySelectorAll('.c-prog-f').forEach((b, i) => {
     if (!S[i]) return;
     const tf = `scaleX(${fracOf(i)})`;
@@ -533,6 +536,10 @@ function appsHTML() {
 
 // ============================================================================ Events
 function onClick(st, e) {
+  const challenge=e.target.closest('[data-challenge]'), jump=e.target.closest('[data-puzzle-jump]');
+  if(data.isOwner()&&challenge){openChallenge(challenge.dataset.challenge,()=>{const hub=st.el.querySelector('.dc-hub');if(hub)hub.outerHTML=challengesHTML();});return;}
+  if(data.isOwner()&&jump){st.ctx.nav('/puzzles/play/'+daily.slug(Number(jump.dataset.puzzleJump)));return;}
+
   const tb = e.target.closest('[data-gm-testall]');
   if (tb) { testAllTap(st, tb); return; }
   if (st.game === null && onListClick(st, e)) return;
