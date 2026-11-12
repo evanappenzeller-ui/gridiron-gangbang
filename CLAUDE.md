@@ -1,5 +1,17 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Featured trivia lineup (November 12, 2026)
+
+Evan removed the Build his career / Career Timeline mode and requested only 3–4 featured games per daily.
+The v5 rollout now uses four games per day, worth 800 points total, in a seven-day rotation across College,
+Mystery, Journey, Grid, Higher or Lower, Team Connections and Number Trivia. November 13 specifically features
+College, Higher or Lower, Team Connections and the circular Number Trivia game. Career Timeline is removed
+from selectable challenges and routes as well as the scheduled lineup; Plays and Silhouettes remain excluded.
+Test Mode previews the same four-game days, advancing the lineup when starting a fresh test day. The run,
+results, board summaries and score maximum follow the selected games. This supersedes the eight-game daily below.
+Verify `check-challenges.cjs` with `PUZZLE_DAY=5` and `check-rollout.cjs`, including 30 future lineups, tomorrow's
+Number Trivia selection, complete four-game play, scoring, persistence and non-owner rollout boundaries.
+
 ## November 13 trivia rollout and Number Trivia (November 12, 2026)
 
 Evan requested all recent trivia/UI changes and the new game modes for tomorrow's trivia. From local midnight

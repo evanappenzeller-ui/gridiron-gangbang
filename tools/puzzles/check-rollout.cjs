@@ -16,14 +16,17 @@ const server=http.createServer((req,res)=>{let p=path.join(root,new URL(req.url,
   assert.equal(await page.locator('[data-challenge]').count(),0,'No preview for another profile today');
   await open(47);
   assert.equal(await page.evaluate(async()=>(await import('/js/core/daily.js')).dayVersion()),5,'November 13 activates shared rollout');
-  assert.equal(await page.locator('[data-puzzle-jump]').count(),8);
+  assert.equal(await page.locator('[data-puzzle-jump]').count(),4);
+  const rotation=await page.evaluate(async()=>{const d=await import('/js/core/daily.js');return Array.from({length:30},(_,i)=>{const day=d.dayFor(47+i);return {ids:d.stepsFor(day).map(s=>s.id),max:d.maxPts(day)};});});
+  for(const day of rotation){assert.ok(day.ids.length>=3&&day.ids.length<=4);assert.equal(new Set(day.ids).size,day.ids.length);assert.ok(!day.ids.some(x=>['timeline','sil','play'].includes(x)));assert.equal(day.max,day.ids.length*200);}
+  assert.ok(rotation[0].ids.includes('numbers'),'Tomorrow features circular trivia');
+  assert.ok(new Set(rotation.map(x=>x.ids.join())).size>1,'Lineups rotate');
   await page.locator('[data-cta]').click();
-  const slugs=['college','mystery','journey','grid','stats','timeline','connections','numbers'];
+  const slugs=['college','stats','connections','numbers'];
   for(const [i,slug] of slugs.entries()){
    await page.waitForFunction(s=>location.hash.endsWith('/play/'+s),slug);await page.locator(`[data-page="${slug}"]`).waitFor();
-   if(i<4)await page.evaluate(async s=>{const d=await import('/js/core/daily.js');if(s==='college')while(!d.colDone())d.colPick(0);if(s==='mystery')d.whoGuess(d.DAY.w);if(s==='journey')d.journeyGuess(d.DAY.j.p);if(s==='grid')d.gridGiveUp();},slug);
+   if(['college','mystery','journey','grid'].includes(slug))await page.evaluate(async s=>{const d=await import('/js/core/daily.js');if(s==='college')while(!d.colDone())d.colPick(0);if(s==='mystery')d.whoGuess(d.DAY.w);if(s==='journey')d.journeyGuess(d.DAY.j.p);if(s==='grid')d.gridGiveUp();},slug);
    if(slug==='stats')await page.locator('[data-answer="higher"]').click();
-   if(slug==='timeline')for(const k of [0,1,2,3])await page.locator(`[data-stop="${k}"]`).click();
    if(slug==='connections')for(const g of [[0,1,2],[3,4,5]]){for(const k of g)await page.locator(`[data-player="${k}"]`).click();await page.locator('[data-check]').click();}
    if(slug==='numbers'){
     const dial=page.locator('[data-number-dial]');assert.equal(await dial.getAttribute('aria-valuemax'),'5000');
@@ -39,11 +42,11 @@ const server=http.createServer((req,res)=>{let p=path.join(root,new URL(req.url,
    }
    await page.waitForTimeout(350);await page.locator('[data-rn-next]').click();
   }
-  await page.locator('.c-rbreak').waitFor();assert.equal(await page.locator('.c-rb').count(),8);
+  await page.locator('.c-rbreak').waitFor();assert.equal(await page.locator('.c-rb').count(),4);
   const score=await page.evaluate(async()=>{const d=await import('/js/core/daily.js');const e=d.boardEntry();return {e,p:d.totalPts(),max:d.maxPts(),entry:d.entryFor({days:{47:e}},47),old:d.entryFor({days:{47:{v:4,p:600}}},47),text:d.shareText(),points:d.pointsFor(JSON.parse(JSON.stringify(d.DS)),47),rows:d.boardRows('today',[{id:'sample',nick:'Mason',days:{47:e}}],47)};});
-  assert.equal(score.e.v,5);assert.equal(score.e.b.numbers,185);assert.equal(score.e.p,score.p);assert.equal(score.max,1600);assert.deepEqual(score.entry,score.e);assert.equal(score.old,null);assert.equal(score.points,score.p);assert.equal(score.rows.length,1);assert.ok(score.text.includes('Number Trivia'));assert.ok(!score.text.includes('Test day'));
-  await page.reload();await page.locator('.c-rbreak').waitFor();assert.equal(await page.locator('.c-rb').count(),8,'Real completion survives reload');
-  await open(48);await page.locator('[data-puzzle-jump="7"]').click();const dial=page.locator('[data-number-dial]');await dial.waitFor();assert.equal(await dial.getAttribute('aria-valuemax'),'10','Championship question changes scale');await dial.press('Home');for(let i=0;i<6;i++)await dial.press('ArrowRight');await page.locator('[data-number-submit]').click();assert.ok((await page.locator('.dc-feedback').textContent()).includes('200 / 200 points'));
+  assert.equal(score.e.v,5);assert.equal(score.e.b.numbers,185);assert.equal(score.e.p,score.p);assert.equal(score.max,800);assert.deepEqual(score.entry,score.e);assert.equal(score.old,null);assert.equal(score.points,score.p);assert.equal(score.rows.length,1);assert.ok(score.text.includes('Number Trivia'));assert.ok(!score.text.includes('Test day'));
+  await page.reload();await page.locator('.c-rbreak').waitFor();assert.equal(await page.locator('.c-rb').count(),4,'Real completion survives reload');
+  await open(48);await page.locator('[data-puzzle-jump="3"]').click();const dial=page.locator('[data-number-dial]');await dial.waitFor();assert.equal(await dial.getAttribute('aria-valuemax'),'10','Championship question changes scale');await dial.press('Home');for(let i=0;i<6;i++)await dial.press('ArrowRight');await page.locator('[data-number-submit]').click();assert.ok((await page.locator('.dc-feedback').textContent()).includes('200 / 200 points'));
   const scoring=await page.evaluate(async()=>{const {NUMBER_QUESTIONS:q,numberPoints:p}=await import('/js/views/number-trivia.js');return q.map(x=>[p(x,x.answer),p(x,x.answer-1),p(x,0)]);});for(const [exact,near,far]of scoring){assert.equal(exact,200);assert.ok(exact>=near&&near>far);}
   assert.deepEqual(errors,[]);console.log('PASS: Nov 13 shared rollout, full real day, adaptive dial, proximity scoring, versioned board entries and persistence');
  }finally{if(browser)await browser.close();server.close();}

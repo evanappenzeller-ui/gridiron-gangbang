@@ -88,7 +88,7 @@ const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', leag
 const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay', live: 'Scores'};
 // Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
 const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
-const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays', 'stats', 'timeline', 'connections', 'numbers']; // every day's steps are some of these (daily.SLUGS)
+const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays', 'stats', 'connections', 'numbers']; // every day's steps are some of these (daily.SLUGS)
 const LEAGUE_SEGS = ['standings', 'trophies', 'records', 'shame', 'media'];
 const BAD_LINK = "That link didn't lead anywhere.";
 const isKeepRoute = r => !!r && ['realm', 'realm-raid', 'realm-scout', 'realm-replay', 'realm-visit'].includes(r.view);

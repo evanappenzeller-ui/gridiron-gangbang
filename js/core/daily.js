@@ -181,7 +181,7 @@ export function saveDS() { try { localStorage.setItem(SKEY, JSON.stringify(DS));
 export let TEST = false;
 export let TEST_RUN = 0;
 const TEST_SETS = new WeakMap();
-const TEST_BONUS = [['stats', 'Higher or Lower'], ['timeline', 'Career Timeline'], ['connections', 'Team Connections'], ['numbers', 'Number Trivia']];
+const TEST_BONUS = [['stats', 'Higher or Lower'], ['connections', 'Team Connections'], ['numbers', 'Number Trivia']];
 const TEST_BONUS_STEPS = TEST_BONUS.map(([id, label]) => ({id, label, max: 200,
   done: (ds = DS) => !!ds[id]?.done,
   started: (ds = DS) => !!ds[id] && (!!ds[id].done || !!ds[id].picks?.length || !!ds[id].attempts || ds[id].guess != null),
@@ -189,7 +189,7 @@ const TEST_BONUS_STEPS = TEST_BONUS.map(([id, label]) => ({id, label, max: 200,
   result: (ds = DS) => id === 'numbers' ? `Guess: ${ds[id]?.guess ?? '—'}` : id === 'connections' ? `${ds[id]?.found?.length || 0} of 2 groups` : ds[id]?.correct ? 'Correct' : 'Not solved'
 }));
 export function saveChallengeState(id, state) {
-  if ((TEST ? !dataOwner() : dayVersion() !== 5 || shut() || DS[id]?.done) || !TEST_BONUS.some(x => x[0] === id)) return false;
+  if ((TEST ? !dataOwner() : dayVersion() !== 5 || shut() || DS[id]?.done) || !hasStep(id) || !TEST_BONUS.some(x => x[0] === id)) return false;
   DS[id] = state;
   changed('test-challenge');
   return true;
@@ -197,16 +197,26 @@ export function saveChallengeState(id, state) {
 // Shared rollout starts at local midnight on November 13, 2026 (puzzle day 47).
 export const TRIVIA_FROM = 47;
 const FULL_DAYS = new Map();
+// Four featured games per day. November 13 (seed 0) includes the circular Number Trivia game.
+const DAILY_LINEUPS = [
+  ['col', 'stats', 'connections', 'numbers'],
+  ['who', 'jr', 'grid', 'numbers'],
+  ['col', 'who', 'stats', 'connections'],
+  ['jr', 'grid', 'connections', 'numbers'],
+  ['col', 'grid', 'stats', 'numbers'],
+  ['who', 'jr', 'stats', 'connections'],
+  ['col', 'who', 'grid', 'numbers']
+];
 function fullDay(seed, test = false) {
-  const day = {v: 5, t: ['col', 'who', 'jr', 'grid', ...TEST_BONUS.map(x=>x[0])], challengeSeed: seed, test};
+  const day = {v: 5, t: [...DAILY_LINEUPS[seed % DAILY_LINEUPS.length]], challengeSeed: seed, test};
   for (const [id, field] of [['col','c'], ['who','w'], ['jr','j'], ['grid','g']]) {
+    if (!day.t.includes(id)) continue;
     const candidates = PZ.days.filter(d => d.v === 4 && d.t.includes(id) && d[field] != null);
     const source = candidates[seed % candidates.length];
     day[field] = source[field];
     if (id === 'who' && source.wx) day.wx = source.wx;
   }
-  const steps = V3_STEPS.filter(s => day.t.includes(s.id));
-  TEST_SETS.set(day, {steps: Object.freeze([...steps, ...TEST_BONUS_STEPS]), slugs: Object.freeze([...steps.map(s => V2_SLUGS[V3_STEPS.indexOf(s)]), ...TEST_BONUS.map(x => x[0])])});
+  fullSet(day);
   return day;
 }
 /** Turns test play on (a fresh sandbox of today's puzzles) or off (back to the real day). False before the puzzles. */
@@ -841,7 +851,7 @@ export function journeyPath(day = DAY) {
 // them, silhouette rounds) become -1 (wrong), the Mystery (and the Journey) end unsolved. A v4 day's other parts are
 // left alone (v1 days: the old lockIn exactly).
 export function lockIn() {
-  if (TEST || dayVersion() === 5) for (const [id] of TEST_BONUS) DS[id] = {...DS[id], done: true};
+  if (TEST || dayVersion() === 5) for (const [id] of TEST_BONUS) if(hasStep(id)) DS[id] = {...DS[id], done: true};
   if (hasStep('grid')) DS.grid.over = true;
   if (hasStep('col')) while (DS.col.a.length < colCount()) DS.col.a.push(-1);
   if (hasStep('who') && !DS.who.done) { DS.who.done = true; DS.who.won = false; }
@@ -1021,7 +1031,7 @@ export function boardEntry(ds = DS, day = DAY) {
     if (has('jr')) e.j = jrGuessNo(ds);
     if (has('grid')) e.g = gridScore(ds);
     if (has('play')) e.y = playScore(ds, day);
-    if (dayVersion(day) === 5) e.b = Object.fromEntries(TEST_BONUS_STEPS.map(s=>[s.id,s.pts(ds)]));
+    if (dayVersion(day) === 5) e.b = Object.fromEntries(TEST_BONUS_STEPS.filter(s=>has(s.id)).map(s=>[s.id,s.pts(ds)]));
     return e;
   }
   if (dayVersion(day) === 3) return {v: 3, p: totalPts(ds, day), c: colScore(ds, day), s: silScore(ds, day), w, j: jrGuessNo(ds), g: gridScore(ds)};
@@ -1290,7 +1300,7 @@ try { wasGuest = dataGuest(); } catch (_) {}
 // 'Faces 2/2, ID on clue 3, path on guess 2', 'No ID, path on guess 2, grid 1/2' (the entry's own fields when the day
 // is not a v4 day).
 function daySub(d, day) {
-  if(d.v===5) return `${d.p || 0} of ${maxPts(day)} points · 8 games`;
+  if(d.v===5) return `${d.p || 0} of ${maxPts(day)} points · ${stepsFor(day).length} games`;
   const id = d.w ? 'ID on clue ' + d.w : 'no ID';
   if (d.v === 4) {
     const F = {col: 'c', sil: 's', who: 'w', jr: 'j', grid: 'g', play: 'y'};

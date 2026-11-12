@@ -26,7 +26,7 @@ import grid from './grid.js';
 import plays from './plays.js';
 
 const esc = data.esc;
-const MODS = {college, silhouette, mystery, journey, grid, plays, stats: challengeModule('stats'), timeline: challengeModule('timeline'), connections: challengeModule('connections'), numbers: challengeModule('numbers')};
+const MODS = {college, silhouette, mystery, journey, grid, plays, stats: challengeModule('stats'), connections: challengeModule('connections'), numbers: challengeModule('numbers')};
 const SLUG_ID = {college: 'col', silhouette: 'sil', mystery: 'who', journey: 'jr', grid: 'grid', plays: 'play'};
 // Labels before puzzles load (then daily.STEPS[i].label).
 const SLUG_LABEL = {college: 'College', silhouette: 'Silhouettes', mystery: 'Mystery player', journey: 'Journey', grid: 'Grid', plays: 'Name the play'};

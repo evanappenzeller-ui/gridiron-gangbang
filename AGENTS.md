@@ -10,9 +10,9 @@ Use the existing profile mechanism; do not claim it is verified authentication o
 ## Daily trivia rollout (November 13, 2026)
 
 Evan requested all Daily Puzzles UI changes and new game modes in tomorrow's trivia on November 12.
-From November 13's local daily reset (puzzle day 47), the updated eight-game trivia day is shared with everyone.
-This includes Higher or Lower, Career Timeline, Team Connections and Number Trivia, and excludes Plays and
-Silhouettes. Earlier days keep their original formats and scores. Test Mode remains owner-only.
+From November 13's local daily reset (puzzle day 47), the updated trivia day is shared with everyone.
+Feature only 3–4 games a day (currently four rotating games), including Number Trivia on November 13.
+Career Timeline (Build his career), Plays and Silhouettes are removed from the rotation. Earlier days keep their original formats and scores. Test Mode remains owner-only.
 
 The owner explicitly authorized the Gridiron Hub v3.0 rollout to everyone on October 22, 2026.
 Its existing Keepfall, Return Man, game presentation and navigation features are now shared baseline behavior
