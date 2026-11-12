@@ -114,7 +114,7 @@ async function testAllTap(st, btn) {
 const lineText = () => 'Daily Puzzles';
 function typesHTML() {
   const S = daily.STEPS;
-  if(data.isOwner()) return `<div class="dc-classic-list">${S.map((s,i)=>`<button type="button" data-puzzle-jump="${i}"><b>${esc(s.label)}</b><small>${s.done()?'Complete ✓':'Play →'}</small></button>`).join('')}</div>`;
+  if(data.isOwner()||daily.dayVersion()===5) return `<div class="dc-classic-list">${S.map((s,i)=>`<button type="button" data-puzzle-jump="${i}"><b>${esc(s.label)}</b><small>${s.done()?'Complete ✓':'Play →'}</small></button>`).join('')}</div>`;
   const label = `Today: ${daily.andList(S.map(s => s.label))}`;
   return `<div class="c-hero-types" role="img" aria-label="${esc(label)}">`
     + S.map((s, i) => `<span class="c-hero-ti${s.done() ? ' is-done' : ''}" data-i="${i}">${ui.icon(stepIcon(i), {size: 18})}</span>`).join('')
@@ -143,7 +143,7 @@ function topHTML(k) {
 }
 const CTA = {new: 'Play', started: 'Continue', done: 'See results'};
 function ctaInner(k) {
-  return `${k === 'done' ? '' : ui.icon('play-fill', {cls: 'c-cta-ic'})}<span class="btn-label">${esc(data.isOwner()&&k==='new'?'Play today':CTA[k])}</span>`;
+  return `${k === 'done' ? '' : ui.icon('play-fill', {cls: 'c-cta-ic'})}<span class="btn-label">${esc((data.isOwner()||daily.dayVersion()===5)&&k==='new'?'Play today':CTA[k])}</span>`;
 }
 const ctaHTML = k => `<button type="button" class="btn btn-primary c-hero-cta${k === 'done' ? '' : ' is-big'}" data-cta>${ctaInner(k)}</button>`;
 const shareHTML = () => `<button type="button" class="btn btn-secondary c-hero-share" data-share>${ui.icon('share')}<span class="btn-label">Share</span></button>`;
@@ -194,7 +194,7 @@ function playedCard() {
 }
 function sampleCardHTML() {
   const done = daily.STEPS.filter(s=>s.done()).length;
-  return `<section class="card c-hero dc-hub" data-kind="sample"><div class="dc-heading"><span>TEST MODE · FULL DAY</span><h2>A full day of games</h2><p>Play all seven puzzles in one complete run, from the first game through the results screen.</p><p>${done} of 7 complete · ${nf(daily.totalPts())} / ${nf(daily.maxPts())} test points</p></div><button type="button" class="btn btn-primary btn-block" data-test-day>${done===7?'See day results':daily.anyStarted()?'Continue test day':'Play full test day'}</button><div class="dc-classic-list">${daily.STEPS.map((s,i)=>`<button type="button" data-test-jump="${daily.slug(i)}"><b>${esc(s.label)}</b><small>${s.done()?'Complete ✓':'Play →'}</small></button>`).join('')}</div><button type="button" class="btn btn-secondary" data-sample-refresh>Start a fresh test day</button></section>`;
+  return `<section class="card c-hero dc-hub" data-kind="sample"><div class="dc-heading"><span>TEST MODE · FULL DAY</span><h2>A full day of games</h2><p>Play all ${daily.STEPS.length} puzzles in one complete run, from the first game through the results screen.</p><p>${done} of ${daily.STEPS.length} complete · ${nf(daily.totalPts())} / ${nf(daily.maxPts())} test points</p></div><button type="button" class="btn btn-primary btn-block" data-test-day>${done===daily.STEPS.length?'See day results':daily.anyStarted()?'Continue test day':'Play full test day'}</button><div class="dc-classic-list">${daily.STEPS.map((s,i)=>`<button type="button" data-test-jump="${daily.slug(i)}"><b>${esc(s.label)}</b><small>${s.done()?'Complete ✓':'Play →'}</small></button>`).join('')}</div><button type="button" class="btn btn-secondary" data-sample-refresh>Start a fresh test day</button></section>`;
 }
 function cardHTML(k = heroKind()) {
   if (daily.TEST && data.isOwner()) return sampleCardHTML();
@@ -557,7 +557,7 @@ function onClick(st, e) {
 
   const challenge=e.target.closest('[data-challenge]'), jump=e.target.closest('[data-puzzle-jump]');
   if(data.isOwner()&&challenge){openChallenge(challenge.dataset.challenge,()=>{const hub=st.el.querySelector('[aria-label="Daily challenges"]');if(hub)hub.outerHTML=challengesHTML();});return;}
-  if(data.isOwner()&&jump){st.ctx.nav('/puzzles/play/'+daily.slug(Number(jump.dataset.puzzleJump)));return;}
+  if((data.isOwner()||daily.dayVersion()===5)&&jump){st.ctx.nav('/puzzles/play/'+daily.slug(Number(jump.dataset.puzzleJump)));return;}
 
   const tb = e.target.closest('[data-gm-testall]');
   if (tb) { testAllTap(st, tb); return; }

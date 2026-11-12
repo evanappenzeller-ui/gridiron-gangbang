@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-full-test-day-20261112';
+const CACHE = 'gg-trivia-rollout-20261113';
 const CORE = ['ui', 'home-navigation', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'fantasy-live', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-layout', 'realm-battle', 'checks-realm', 'dynasty', 'dynasty-battle', 'dynasty-match', 'dynasty-table', 'dynasty-solo', 'busy', 'rivals-live', 'rivals-live-match', 'dynasty-real', 'dynasty-legends', 'dynasty-action', 'checks-dynasty'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and live (Live). Keepfall opens from Daily Games.
 const VIEWS = ['dynasty-energy', 'dynasty-pack-shelf', 'welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -16,7 +16,7 @@ const VIEWS = ['dynasty-energy', 'dynasty-pack-shelf', 'welcome', 'guest', 'puzz
 const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'kick', 'return', 'realm', 'dynasty', 'dynasty-packs', 'dynasty-open', 'dynasty-rivals', 'dynasty-rivals-hub', 'dynasty-rivals-battle', 'dynasty-rarity', '_kit'];
 const SHELL = [
-  'js/views/daily-challenges.js', 'css/views/daily-challenges.css',
+  'js/views/daily-challenges.js', 'js/views/number-trivia.js', 'css/views/daily-challenges.css',
   'js/views/dynasty-market.js', 'css/views/dynasty-market.css',
   'js/core/dynasty-tutorial.js',
   'js/views/dynasty-pack-preview.js', 'img/rivals/pack-studio-v1.svg',

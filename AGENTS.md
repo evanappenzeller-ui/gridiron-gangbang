@@ -7,6 +7,13 @@ stable manager ID `evan`) unless the user explicitly authorizes wider rollout. T
 the whole app, not only Return Man. Other profiles and unselected/guest users retain existing behavior.
 Use the existing profile mechanism; do not claim it is verified authentication or match display names.
 
+## Daily trivia rollout (November 13, 2026)
+
+Evan requested all Daily Puzzles UI changes and new game modes in tomorrow's trivia on November 12.
+From November 13's local daily reset (puzzle day 47), the updated eight-game trivia day is shared with everyone.
+This includes Higher or Lower, Career Timeline, Team Connections and Number Trivia, and excludes Plays and
+Silhouettes. Earlier days keep their original formats and scores. Test Mode remains owner-only.
+
 The owner explicitly authorized the Gridiron Hub v3.0 rollout to everyone on October 22, 2026.
 Its existing Keepfall, Return Man, game presentation and navigation features are now shared baseline behavior
 (`core/features.js`). Scoreboards, pictures and Keepfall show everyone to everyone since Oct 24, 2026 (CLAUDE.md).

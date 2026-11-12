@@ -992,7 +992,7 @@ export async function runChecks() {
     const sum = d => daily.stepsFor(d).reduce((t, s) => t + s.max, 0);
     const P3 = daily.promptsFor(V3), P2 = daily.promptsFor(V2);
     const log = [
-      daily.dayVersion(V1) === 1 && daily.dayVersion(V2) === 2 && daily.dayVersion(V3) === 3 && daily.dayVersion(null) === 1 && daily.dayVersion({v: 5}) === 1,
+      daily.dayVersion(V1) === 1 && daily.dayVersion(V2) === 2 && daily.dayVersion(V3) === 3 && daily.dayVersion(null) === 1 && daily.dayVersion({v: 5}) === 5 && daily.dayVersion({v: 6}) === 1,
       !daily.isV2(V1) && daily.isV2(V2) && daily.isV2(V3) && !daily.isV3(V2) && daily.isV3(V3) && !daily.isV3(null) && !daily.isV2(null),
       daily.maxPts(V1) === 1000 && daily.maxPts(V2) === 1500 && daily.maxPts(V3) === 1000 && daily.maxPts(null) === 1000,
       ids(V3) === 'col,sil,who,jr,grid' && maxes(V3) === '200,200,200,200,200' && sum(V3) === 1000 && sum(V2) === 1500 && sum(V1) === 1000,
@@ -1282,7 +1282,7 @@ export async function runChecks() {
     const titans = D => [...daily.gridShape(D).rows, ...daily.gridShape(D).cols].some(c => daily.critKind(c) === 't' && /Titans/.test(daily.PZ.teams[+String(c).split(':')[1]] || ''));
     const log = [
       W.every(D => daily.dayVersion(D) === 4 && daily.isV4(D) && daily.isV3(D) && !daily.isV2(D)) && daily.dayVersion({v: 4}) === 4
-        && !daily.isV4(V1) && !daily.isV4(V2) && !daily.isV4(V3) && !daily.isV4(null) && daily.dayVersion({v: 5}) === 1,
+        && !daily.isV4(V1) && !daily.isV4(V2) && !daily.isV4(V3) && !daily.isV4(null) && daily.dayVersion({v: 5}) === 5 && daily.dayVersion({v: 6}) === 1,
       W.map(ids4).join(' / ') === 'col,sil,who / sil,who,jr / who,jr,grid / col,jr,grid / col,sil,grid',
       W.map(D => daily.slugsFor(D).join()).join(' / ') === 'college,silhouette,mystery / silhouette,mystery,journey / mystery,journey,grid / college,journey,grid / college,silhouette,grid',
       // The v3 step objects themselves (labels, 200 each, results), 600 a day.

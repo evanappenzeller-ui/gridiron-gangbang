@@ -181,18 +181,33 @@ export function saveDS() { try { localStorage.setItem(SKEY, JSON.stringify(DS));
 export let TEST = false;
 export let TEST_RUN = 0;
 const TEST_SETS = new WeakMap();
-const TEST_BONUS = [['stats', 'Higher or Lower'], ['timeline', 'Career Timeline'], ['connections', 'Team Connections']];
+const TEST_BONUS = [['stats', 'Higher or Lower'], ['timeline', 'Career Timeline'], ['connections', 'Team Connections'], ['numbers', 'Number Trivia']];
 const TEST_BONUS_STEPS = TEST_BONUS.map(([id, label]) => ({id, label, max: 200,
   done: (ds = DS) => !!ds[id]?.done,
-  started: (ds = DS) => !!ds[id] && (!!ds[id].done || !!ds[id].picks?.length || !!ds[id].attempts),
-  pts: (ds = DS) => id === 'connections' ? (ds[id]?.found?.length || 0) * 100 : ds[id]?.done && ds[id]?.correct ? 200 : 0,
-  result: (ds = DS) => id === 'connections' ? `${ds[id]?.found?.length || 0} of 2 groups` : ds[id]?.correct ? 'Correct' : 'Not solved'
+  started: (ds = DS) => !!ds[id] && (!!ds[id].done || !!ds[id].picks?.length || !!ds[id].attempts || ds[id].guess != null),
+  pts: (ds = DS) => id === 'numbers' ? (ds[id]?.done ? ds[id].points || 0 : 0) : id === 'connections' ? (ds[id]?.found?.length || 0) * 100 : ds[id]?.done && ds[id]?.correct ? 200 : 0,
+  result: (ds = DS) => id === 'numbers' ? `Guess: ${ds[id]?.guess ?? '—'}` : id === 'connections' ? `${ds[id]?.found?.length || 0} of 2 groups` : ds[id]?.correct ? 'Correct' : 'Not solved'
 }));
-export function saveTestChallenge(id, state) {
-  if (!TEST || !dataOwner() || !TEST_BONUS.some(x => x[0] === id)) return false;
+export function saveChallengeState(id, state) {
+  if ((TEST ? !dataOwner() : dayVersion() !== 5 || shut() || DS[id]?.done) || !TEST_BONUS.some(x => x[0] === id)) return false;
   DS[id] = state;
   changed('test-challenge');
   return true;
+}
+// Shared rollout starts at local midnight on November 13, 2026 (puzzle day 47).
+export const TRIVIA_FROM = 47;
+const FULL_DAYS = new Map();
+function fullDay(seed, test = false) {
+  const day = {v: 5, t: ['col', 'who', 'jr', 'grid', ...TEST_BONUS.map(x=>x[0])], challengeSeed: seed, test};
+  for (const [id, field] of [['col','c'], ['who','w'], ['jr','j'], ['grid','g']]) {
+    const candidates = PZ.days.filter(d => d.v === 4 && d.t.includes(id) && d[field] != null);
+    const source = candidates[seed % candidates.length];
+    day[field] = source[field];
+    if (id === 'who' && source.wx) day.wx = source.wx;
+  }
+  const steps = V3_STEPS.filter(s => day.t.includes(s.id));
+  TEST_SETS.set(day, {steps: Object.freeze([...steps, ...TEST_BONUS_STEPS]), slugs: Object.freeze([...steps.map(s => V2_SLUGS[V3_STEPS.indexOf(s)]), ...TEST_BONUS.map(x => x[0])])});
+  return day;
 }
 /** Turns test play on (a fresh sandbox of today's puzzles) or off (back to the real day). False before the puzzles. */
 export function setTest(on) {
@@ -202,16 +217,7 @@ export function setTest(on) {
   DAY = realDay;
   if (TEST) {
     TEST_RUN++;
-    // Assemble all supported sample types, independent of today's limited rotation.
-    DAY = {v: 4, t: ['col', 'who', 'jr', 'grid']};
-    for (const [id, field] of [['col','c'], ['who','w'], ['jr','j'], ['grid','g']]) {
-      const candidates = PZ.days.filter(d => d.v === 4 && d.t.includes(id) && d[field] != null);
-      const sample = candidates[(TEST_RUN - 1) % candidates.length];
-      DAY[field] = sample[field];
-      if (id === 'who' && sample.wx) DAY.wx = sample.wx;
-    }
-    const steps = V3_STEPS.filter(s => DAY.t.includes(s.id));
-    TEST_SETS.set(DAY, {steps: Object.freeze([...steps, ...TEST_BONUS_STEPS]), slugs: Object.freeze([...steps.map(s => V2_SLUGS[V3_STEPS.indexOf(s)]), ...TEST_BONUS.map(x => x[0])])});
+    DAY = fullDay(TEST_RUN - 1, true);
   }
   STEPS = stepsFor(DAY);
   SLUGS = slugsFor(DAY);
@@ -238,7 +244,8 @@ function initDay(pz) {
   PP = PZ.P;
   dayIndex = devDay ? devDay - 1 : indexFor(PZ.start, new Date());
   PNUM = dayIndex + 1;
-  DAY = PZ.days[dayIndex % PZ.days.length];
+  FULL_DAYS.clear();
+  DAY = dayFor(PNUM);
   STEPS = stepsFor(DAY);
   SLUGS = slugsFor(DAY);
   PTS = ptsTable(DAY);
@@ -261,6 +268,10 @@ export function dateOf(pnum) {
 // The puzzle entry (days[i]) for a puzzle day number, or null before puzzles load.
 export function dayFor(pnum = PNUM) {
   if (!PZ || !(pnum >= 1)) return null;
+  if (pnum >= TRIVIA_FROM) {
+    if (!FULL_DAYS.has(pnum)) FULL_DAYS.set(pnum, fullDay(pnum - TRIVIA_FROM));
+    return FULL_DAYS.get(pnum);
+  }
   return PZ.days[(pnum - 1) % PZ.days.length];
 }
 
@@ -483,7 +494,7 @@ export function whoClues(i) {
 /** Puzzle format of a day entry: 1 (no `v`: three puzzles), 2 (`v: 2`: five puzzles, 1,500 points), 3 (`v: 3`:
  *  five short puzzles, 1,000 points) or 4 (`v: 4`: three short puzzles from `t`, 600 points). 1 for null (and for an
  *  unknown `v`). */
-export const dayVersion = (day = DAY) => !day ? 1 : day.v === 4 ? 4 : day.v === 3 ? 3 : day.v === 2 ? 2 : 1;
+export const dayVersion = (day = DAY) => !day ? 1 : day.v === 5 ? 5 : day.v === 4 ? 4 : day.v === 3 ? 3 : day.v === 2 ? 2 : 1;
 /** True on five-puzzle days (v2 AND v3): the day has Silhouettes and a Journey. False on v4 days (three puzzles: ask
  *  hasStep('sil') / hasStep('jr')). Use dayVersion() for anything that depends on the point scale or the item counts. */
 export const isV2 = (day = DAY) => { const v = dayVersion(day); return v === 2 || v === 3; };
@@ -494,7 +505,7 @@ export const isV3 = (day = DAY) => isShort(day);
 /** True on v4 (three-puzzle) days only. */
 export const isV4 = (day = DAY) => dayVersion(day) === 4;
 /** Most points a day can score: 1,000 (v1, v3), 1,500 (v2), 600 (v4: its three steps at 200). */
-export const maxPts = (day = DAY) => TEST_SETS.has(day) ? stepsFor(day).reduce((t, s) => t + s.max, 0) : dayVersion(day) === 4 ? stepsFor(day).reduce((t, s) => t + s.max, 0) : dayVersion(day) === 2 ? 1500 : 1000;
+export const maxPts = (day = DAY) => TEST_SETS.has(day) ? stepsFor(day).reduce((t, s) => t + s.max, 0) : dayVersion(day) >= 4 ? stepsFor(day).reduce((t, s) => t + s.max, 0) : dayVersion(day) === 2 ? 1500 : 1000;
 /** Points per item for a day: {col, grid, who, sil, jr: [guess 1, 2, 3]} (see PTS). Shared objects: never mutate. */
 export const ptsTable = (day = DAY) => isShort(day) ? PTS_V3 : PTS_V2;
 /** Prompt copy for a day: {col, who, grid, sil, jr}. v1/v2 days share one fixed set; a v3 or v4 day's grid line only
@@ -631,12 +642,21 @@ function v4Set(day) {
   }
   return s;
 }
+function fullSet(day) {
+  if (!TEST_SETS.has(day)) {
+    const types = Array.isArray(day.t) ? day.t : [];
+    const classic = V3_STEPS.filter(s => types.includes(s.id));
+    const bonus = TEST_BONUS_STEPS.filter(s => types.includes(s.id));
+    TEST_SETS.set(day, {steps: Object.freeze([...classic, ...bonus]), slugs: Object.freeze([...classic.map(s=>V2_SLUGS[V3_STEPS.indexOf(s)]), ...bonus.map(s=>s.id)])});
+  }
+  return TEST_SETS.get(day);
+}
 /** The step list (v1: 3 steps, v2 and v3: 5, v4: the day's 3) for a day entry. The arrays are shared: never mutate
  *  them. */
-export const stepsFor = (day = DAY) => { if(TEST_SETS.has(day)) return TEST_SETS.get(day).steps; const v = dayVersion(day); return v === 4 ? v4Set(day).steps : v === 3 ? V3_STEPS : v === 2 ? V2_STEPS : V1_STEPS; };
+export const stepsFor = (day = DAY) => { if(dayVersion(day)===5)return fullSet(day).steps; if(TEST_SETS.has(day)) return TEST_SETS.get(day).steps; const v = dayVersion(day); return v === 4 ? v4Set(day).steps : v === 3 ? V3_STEPS : v === 2 ? V2_STEPS : V1_STEPS; };
 /** Route slugs in step order for a day entry (v2 and v3 days share the five slugs; a v4 day has its three:
  *  'college' | 'silhouette' | 'mystery' | 'journey' | 'grid'). */
-export const slugsFor = (day = DAY) => TEST_SETS.has(day) ? TEST_SETS.get(day).slugs : dayVersion(day) === 4 ? v4Set(day).slugs : isV2(day) ? V2_SLUGS : V1_SLUGS;
+export const slugsFor = (day = DAY) => dayVersion(day)===5 ? fullSet(day).slugs : TEST_SETS.has(day) ? TEST_SETS.get(day).slugs : dayVersion(day) === 4 ? v4Set(day).slugs : isV2(day) ? V2_SLUGS : V1_SLUGS;
 /** True when the day plays the step `id` ('col' | 'sil' | 'who' | 'jr' | 'grid'): v1 days col, who, grid; v2/v3 days
  *  all five; v4 days the three in `t`. */
 export const hasStep = (id, day = DAY) => stepsFor(day).some(s => s.id === id);
@@ -821,7 +841,7 @@ export function journeyPath(day = DAY) {
 // them, silhouette rounds) become -1 (wrong), the Mystery (and the Journey) end unsolved. A v4 day's other parts are
 // left alone (v1 days: the old lockIn exactly).
 export function lockIn() {
-  if (TEST) for (const [id] of TEST_BONUS) DS[id] = {...DS[id], done: true};
+  if (TEST || dayVersion() === 5) for (const [id] of TEST_BONUS) DS[id] = {...DS[id], done: true};
   if (hasStep('grid')) DS.grid.over = true;
   if (hasStep('col')) while (DS.col.a.length < colCount()) DS.col.a.push(-1);
   if (hasStep('who') && !DS.who.done) { DS.who.done = true; DS.who.won = false; }
@@ -973,14 +993,14 @@ export const displayName = p => { const u = userNamed(p.nick); return u ? u.boar
 
 /** Format of a board day entry: 4 (carries v: 4), 3 (carries v: 3), 2 (carries s, no v), 1 (neither: {p, g, c, w});
  *  0 for none. */
-export const entryVersion = d => !d ? 0 : d.v === 4 ? 4 : d.v === 3 ? 3 : d.s != null ? 2 : 1;
+export const entryVersion = d => !d ? 0 : d.v === 5 ? 5 : d.v === 4 ? 4 : d.v === 3 ? 3 : d.s != null ? 2 : 1;
 
 // A player's posted entry for puzzle day pnum, or null. On a v2, v3 or v4 day an entry counts only when its format
 // matches the day's version: one without the v2 fields was posted for the day's earlier three-puzzle version
 // (Sep 29 2026 was re-released mid-day), so it no longer counts as played that day, and posting the new score
 // replaces it. v1 days take any entry, as before.
 // `day` (default: puzzle day pnum's entry) is the day the entry is judged against.
-export function entryFor(p, pnum = PNUM, day = PZ ? PZ.days[(pnum - 1) % PZ.days.length] : null) {
+export function entryFor(p, pnum = PNUM, day = dayFor(pnum)) {
   const d = p && p.days && p.days[pnum];
   if (!d || (d.r || 0) !== relOf(pnum)) return null;
   const v = dayVersion(day);
@@ -993,14 +1013,15 @@ export function entryFor(p, pnum = PNUM, day = PZ ? PZ.days[(pnum - 1) % PZ.days
  *  Mystery clue it was solved on (0 = stumped); j = the Journey guess it was solved on (0 = missed). */
 export function boardEntry(ds = DS, day = DAY) {
   const w = ds.who.won ? ds.who.clues : 0;
-  if (dayVersion(day) === 4) {
-    const e = {v: 4, p: totalPts(ds, day)}, has = id => hasStep(id, day);
+  if (dayVersion(day) >= 4) {
+    const e = {v: dayVersion(day), p: totalPts(ds, day)}, has = id => hasStep(id, day);
     if (has('col')) e.c = colScore(ds, day);
     if (has('sil')) e.s = silScore(ds, day);
     if (has('who')) e.w = w;
     if (has('jr')) e.j = jrGuessNo(ds);
     if (has('grid')) e.g = gridScore(ds);
     if (has('play')) e.y = playScore(ds, day);
+    if (dayVersion(day) === 5) e.b = Object.fromEntries(TEST_BONUS_STEPS.map(s=>[s.id,s.pts(ds)]));
     return e;
   }
   if (dayVersion(day) === 3) return {v: 3, p: totalPts(ds, day), c: colScore(ds, day), s: silScore(ds, day), w, j: jrGuessNo(ds), g: gridScore(ds)};
@@ -1132,8 +1153,8 @@ export function shareText(ds = DS, day = DAY) {
   const sq = c => c && c.ok ? '🟩' : '🟥';
   // The header date is today's (a dev ?day= preview shows the previewed puzzle day's date instead).
   const when = devDay && PZ ? dateOf(PNUM) : new Date();
-  const lines = [`${TEST_SETS.has(day)?'Test day · ':''}${leagueName} daily, ${when.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}: ${nf(totalPts(ds, day))} pts`];
-  if (ver === 4) {
+  const lines = [`${day?.test?'Test day · ':''}${leagueName} daily, ${when.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}: ${nf(totalPts(ds, day))} pts`];
+  if (ver >= 4) {
     const line = {
       col: () => 'College ' + ds.col.a.map((a, r) => day.c[r] && a === day.c[r][2] ? '🟩' : '🟥').join(''),
       sil: () => 'Faces ' + silA(ds).map((a, r) => day.s[r] && a === day.s[r].a ? '🟩' : '🟥').join(''),
@@ -1269,6 +1290,7 @@ try { wasGuest = dataGuest(); } catch (_) {}
 // 'Faces 2/2, ID on clue 3, path on guess 2', 'No ID, path on guess 2, grid 1/2' (the entry's own fields when the day
 // is not a v4 day).
 function daySub(d, day) {
+  if(d.v===5) return `${d.p || 0} of ${maxPts(day)} points · 8 games`;
   const id = d.w ? 'ID on clue ' + d.w : 'no ID';
   if (d.v === 4) {
     const F = {col: 'c', sil: 's', who: 'w', jr: 'j', grid: 'g', play: 'y'};
@@ -1398,7 +1420,7 @@ export function social(players = LB.players, pnum = PNUM) {
 // progress stamped with that version (v: 3, v: 4) counts (as when it is loaded: anything else scores 0).
 export function pointsFor(ds, pnum = PNUM) {
   if (!PZ) return null;
-  const day = PZ.days[(pnum - 1) % PZ.days.length];
+  const day = dayFor(pnum);
   if ((dayVersion(day) >= 3 || relOf(pnum)) && !stampOk(ds, day, pnum)) ds = {};
   return totalPts(freshDS(ds, day), day);
 }

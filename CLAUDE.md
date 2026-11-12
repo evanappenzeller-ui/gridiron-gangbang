@@ -1,5 +1,24 @@
 # Gridiron Gangbang: rules for working on this app
 
+## November 13 trivia rollout and Number Trivia (November 12, 2026)
+
+Evan requested all recent trivia/UI changes and the new game modes for tomorrow's trivia. From local midnight
+November 13 (puzzle day 47), everyone gets a v5 eight-game daily: College, Mystery, Journey, Grid, Higher or Lower,
+Career Timeline, Team Connections, and Number Trivia. Plays and Silhouettes are excluded. `daily.dayFor` creates
+stable, cached v5 days from the existing short-form data, keeping the source file and all days before 47 intact.
+The named puzzle buttons and Play today UI are shared on v5 days. New modes run inline with normal progress,
+results and leaderboard posting. Daily saves/board entries carry v5; new-mode point breakdowns are in `b`.
+Each game is worth 200 points (1,600 total), with historical scoring preserved. Old-format entries do not count
+for new-format days. Owner Test Mode previews the same full day immediately and never posts.
+
+Number Trivia uses a pointer/touch/keyboard circular dial with a question-specific range: e.g. 0–5,000 yards or
+0–10 championships. Arrows adjust one, PageUp/Down adjusts 5%, Home/End selects bounds. Guess points are
+round(200 × max(0, 1 − absolute error / range)); reveal shows guess, correct answer, distance and points. The
+question data and dial geometry are in `views/number-trivia.js`; records use completed seasons/careers. A locked
+answer cannot be changed. Test Mode supports fresh days; real daily progress resumes after reload.
+Verify `check-challenges.cjs` with `PUZZLE_DAY=5`, `check-rollout.cjs` (Nov 12/13 boundary, non-owner complete run,
+5,000 vs 10 scales, dial controls, scoring, v5 board entries, reload persistence) and home-browser checks.
+
 ## Full test day (November 12, 2026)
 
 Evan clarified that Test Mode must include a full day's games to test the complete UI flow. Its primary action
