@@ -1,0 +1,8 @@
+Asset: img/rivals/home-battle-v1.webp
+Created with the built-in image_gen tool. Original 1536 x 1024 PNG converted to WebP at quality 86.
+
+Final generation prompt:
+Use case: stylized-concept.
+Asset type: full-bleed hero banner artwork for the Home screen of Gridiron Rivals, a mobile American football trading card game.
+Primary request: an exhilarating, premium 3D game illustration of two original American football players about to face off in a glowing stadium. A blue and white uniform ball carrier on the left surges forward holding a brown football; an orange and white uniform defender on the right readies a tackle. Full helmets, athletic anatomy, expressive dynamic poses, polished stylized materials. Cyan and electric blue energy streaks around the runner, warm gold sparks around the defender, a soft bright stadium and field at the bottom. Clear readable silhouettes, beautiful rim lighting, subtle depth of field, dramatic foreshortening, saturated and inviting like a modern collectible card mobile game.
+Composition: landscape 3:2 image. Both players dominate the middle and lower two thirds, faces and ball visible. Upper left has some clean blue space for a separate HTML title. Keep essential subjects away from outer 10% so a slanted banner can crop edges. No frame, no UI, no cards, no text, no numbers, no logos, no watermark. This is a football scene, not Pokemon characters.

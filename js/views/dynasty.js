@@ -1,7 +1,16 @@
+import {rivalsUpdated, rivalsVersus} from '../core/features.js';
+import {energySVG, energyBannerUrl, ENERGY_COLOR} from './dynasty-energy.js';
+import {tableOptions, tableDeckSheet} from './dynasty-table-options.js';
+import {musicSheet, soundSheet, attachMusic} from './dynasty-music.js';
+import * as sfx from '../core/dynasty-sfx.js';
+import {deckShelfHTML, handleDeckShelf} from './dynasty-decks.js';
+import {deckShelfHTML as pocketShelfHTML, handleDeckShelf as handlePocketShelf, guideHTML as pocketGuideHTML} from './dynasty-pocket-decks.js';
+import * as PC from '../core/dynasty-pocket-cards.js';
+import {marketHTML, marketEvent} from './dynasty-market.js';
 // Gridiron Rivals (legacy route/save identifiers remain dynasty). The four labeled tabs are
 // Play, Cards, Decks and Packs. Play opens first with a resume/solo action and the active deck.
 // The header menu holds settings/rules; the title screen and pack-opening flow remain available.
-// cardHTML/trainerHTML render collectible faces; the battle view renders compact game pieces.
+// cardHTML/trainerHTML share collectible faces with the current battle view.
 // Card details show the player's page (views/dynasty-stats.js). Match rules are versioned so old
 // turns replay unchanged while new matches use signature energy costs and predictable Juke.
 import * as ui from '../core/ui.js';
@@ -11,8 +20,11 @@ import * as D from '../core/dynasty.js';
 import * as B from '../core/dynasty-battle.js';
 import * as MT from '../core/dynasty-match.js';
 import * as SOLO from '../core/dynasty-solo.js';
+import * as LIVE from '../core/rivals-live.js';
 import {profileKey} from '../core/realm-active.js';
 import {packHTML, designsOf} from './dynasty-packs.js';
+import {nextPackPreview} from './dynasty-pack-preview.js';
+import {packShelfHTML, mountPackShelf} from './dynasty-pack-shelf.js';
 import {openScene} from './dynasty-open.js';
 import {bindCardFoil} from './dynasty-foil.js';
 import {teamSceneStyle, teamSceneHTML} from './dynasty-team-scenes.js';
@@ -33,15 +45,20 @@ export const headUrl = (h, w = 300) => {
   if (/^https?:\/\//.test(s)) return s;
   // (a Legend's photo, from Wikimedia Commons: core/dynasty-legends.js)
   if (s.startsWith('w:')) return legendUrl(s.slice(2));
-  // (an Epic or better card's action photo, cut out, from Wikimedia Commons: core/dynasty-action.js)
+  // (a Legendary or Mythic card's action photo, cut out: core/dynasty-action.js)
   if (s.startsWith('a:')) return actionUrl(s.slice(2));
-  if (s.startsWith('n:')) return `https://static.www.nfl.com/image/upload/f_auto,q_auto,w_${w}/league/${encodeURIComponent(s.slice(2))}`;
+  // (his official NFL.com headshot, Common and Epic cards: 'n:<id>', or 'n:private/<id>' in NFL's private bucket;
+  // tools/dynasty/nfl_heads.py)
+  if (s.startsWith('n:')) {
+    const [kind, id] = s.startsWith('n:private/') ? ['private', s.slice(10)] : ['upload', s.slice(2)];
+    return `https://static.www.nfl.com/image/${kind}/f_auto,q_auto,w_${w}/league/${encodeURIComponent(id)}`;
+  }
   return `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${s.replace(/[^0-9]/g, '')}.png&w=${w}&h=${Math.round(w * 436 / 600)}`;
 };
 // (a real card that won't load gives way to the headshot it carries, else to the window beneath: a Legend's number)
 const REAL_FAIL = "if(this.dataset.alt){this.className='pk-c-ph';this.src=this.dataset.alt;this.removeAttribute('data-alt')}else this.remove()";
 export const logoUrl = (abbr, w = 80) => `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${String(D.teamOf(abbr).espn || abbr).toLowerCase()}.png&w=${w}&h=${w}`;
-const coinHTML = n => `<span class="pk-coin-n"><i class="pk-coin" aria-hidden="true"></i><b>${nf(n)}</b><span class="sr-only"> coins</span></span>`;
+const coinHTML = n => `<span class="pk-coin-n"${n === Infinity ? ' aria-label="Unlimited coins"' : ''}><i class="pk-coin" aria-hidden="true"></i><b>${nf(n)}</b><span class="sr-only"> coins</span></span>`;
 
 // ---------------------------------------------------------------------------------------------------- energy symbols
 // Each Play Call's symbol, as Pokémon's energy symbols: Pass (a football in flight), Run (a cleat's chevrons), Blitz (a
@@ -51,46 +68,66 @@ const GLYPH = {
   R: '<path d="M4 6l6 6-6 6M11 6l6 6-6 6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
   B: '<path d="M12 2.5l2.4 5.6 6-1.3-3.9 4.8 3.9 4.8-6-1.3L12 20.7l-2.4-5.6-6 1.3 3.9-4.8-3.9-4.8 6 1.3z" fill="#fff"/>',
   C: '<path d="M12 3l7.5 3v5.5c0 4.4-3.1 8.2-7.5 9.5-4.4-1.3-7.5-5.1-7.5-9.5V6z" fill="#fff"/>',
+  K: '<path d="M5 4v7h14V4M12 11v9m-4 0h8" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>',
   '*': '<path d="M12 3.2l2.6 5.5 6 .7-4.4 4.1 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.4l6-.7z" fill="#fff"/>'
 };
-const ENERGY_COLOR = {P: '#3D9BE9', R: '#4FAE3E', B: '#E8573A', C: '#9562D9', '*': '#A9A391'};
-/** An energy symbol (e: P, R, B, C or *). */
-export const pipHTML = e => `<i class="pk-e" style="--ec:${ENERGY_COLOR[e] || '#999'}" title="${esc(B.ENERGY[e])}"><svg viewBox="0 0 24 24" aria-hidden="true">${GLYPH[e] || ''}</svg><span class="sr-only">${esc(B.ENERGY[e])}</span></i>`;
+/** A current Energy logo, or a saved match's original football Play Call symbol. */
+export const pipHTML = e => `<i class="pk-e" style="--ec:${ENERGY_COLOR[e] || '#999'}" title="${esc(B.ENERGY[e] || e)}">${!GLYPH[e] && rivalsUpdated() ? energySVG(e) : `<svg viewBox="0 0 24 24" aria-hidden="true">${GLYPH[e] || `<text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${esc(String(e).slice(0,1))}</text>`}</svg>`}<span class="sr-only">${esc(B.ENERGY[e] || e)}</span></i>`;
 /** A type's symbol (A, G, B, C, S). */
-const typeHTML = t => pipHTML(B.TYPES[t] ? B.TYPES[t].e : '*');
+const currentEnergyRule = () => rivalsUpdated() ? B.FRONT_ENERGY : 0;
+const typeHTML = (t, rule) => pipHTML(B.TYPES[t] ? B.typeEnergy(t, rule) : t);
 
-// ---------------------------------------------------------------------------------------------------- a card
-/** Whether a head is a photo (a Legend's: a rectangle filling the window), not a cut-out (a headshot, or a Epic or
- *  better card's action photo). */
+/** Whether a head is a photo (a Legend's: a rectangle filling the window), not a cut-out (a headshot, or a Legendary or
+ *  Mythic card's action photo). */
 export const isPhoto = h => /^w:/.test(String(h || ''));
-/** Whether a head is an Epic or better card's action photo (a cut-out of him in uniform). */
+/** Whether a head is a Legendary or Mythic card's action photo (a cut-out of him in uniform). */
 export const isAction = h => /^a:/.test(String(h || ''));
+// New photo previews follow the four-player Rivals rollout, evaluated when rendering so switching profiles
+// re-evaluates the selected profile on every card render. Keep these outside action_photos.py's shared rebuild.
+const ownerActionUrl = c => rivalsUpdated() && c?.p === '0035276' && D.actionRarity(c.r)
+  ? 'img/dynasty/owner/0035276-v1.webp' : '';
+/** The portrait for this viewer, shared by collection cards and battle pieces (alt: ESPN's headshot, for when the
+ *  official NFL one won't load). */
+export function portraitOf(c, w = 300) {
+  const owner = ownerActionUrl(c), h = c?.head;
+  const url = owner || (h && !/^https?:/.test(h) ? headUrl(h, w) : '');
+  return {url, alt: url && !owner && String(h).startsWith('n:') && c.alt ? headUrl(c.alt, w) : '',
+    photo: !owner && isPhoto(h), action: !!owner || isAction(h)};
+}
+/** An <img>'s alt-source attribute and error handler: falls back to data-alt once, then removes itself. */
+export const imgFallback = p => (p.alt ? ` data-alt="${esc(p.alt)}"` : '') + ` onerror="${HEAD_FAIL}"`;
+const HEAD_FAIL = "if(this.dataset.alt){this.src=this.dataset.alt;this.removeAttribute('data-alt')}else this.remove()";
 /** A player card, laid out as a Pokémon card. o: {size: 's'|'m'|'l', count (copies held), ghost (not held), isNew, tag
  *  (a button: data-dy-card), cls}. */
 export function cardHTML(c, o = {}) {
   if (!c) return '';
-  const st = B.stats(c.id), T = D.teamOf(c.team), m = D.markOf(c), S = D.SERIES[c.s];
+  const pc = rivalsUpdated() && (!o.rulesVersion || o.rulesVersion === 7) ? (o.pocketCard || PC.card(c.id)) : null;
+  const st = pc ? {hp:pc.hp, type:pc.types[0], ex:pc.classification !== 'regular', weak:pc.weakness, retreat:pc.retreat, ability:pc.ability, attacks:pc.attacks.map(a => ({...a,dmg:a.damage,fx:''}))} : B.stats(c.id), T = D.teamOf(c.team), m = D.markOf(c), S = D.SERIES[c.s] || D.SERIES.L;
   // Portraits give every series one clear visual language. 
   // Some legacy head values are complete card scans; use a jersey number instead of framing those twice.
-  const head = c.head && !/^https?:/.test(c.head) ? headUrl(c.head, o.size === 'l' ? 520 : 300) : '';
-  const photo = head ? `<img class="pk-c-ph${isPhoto(c.head) ? ' is-photo' : isAction(c.head) ? ' is-action' : ''}" src="${esc(head)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
-  const rarity = String(c.r || 'common'), stage = B.stageOf(c.id, o.rulesVersion || B.RULES_VERSION);
-  const label = `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
+  const portrait = portraitOf(c, o.size === 'l' ? 520 : 300);
+  const photo = portrait.url ? `<img class="pk-c-ph${portrait.photo ? ' is-photo' : portrait.action ? ' is-action' : ''}" src="${esc(portrait.url)}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async" draggable="false"${imgFallback(portrait)}>` : '';
+  const rarity = String(c.r || 'common'), stage = pc ? 0 : B.stageOf(c.id, o.rulesVersion || B.RULES_VERSION);
+  const energy = pc ? st.type : B.typeEnergy(st.type, o.roundEnergy ?? currentEnergyRule());
+  const energyBadge = rivalsUpdated() ? `<span class="pk-c-energy" data-card-energy="${esc(energy)}" style="--energy-color:${ENERGY_COLOR[energy] || '#697c85'}"><img class="pk-c-energy-art" src="${energyBannerUrl(energy)}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async" draggable="false" onerror="this.remove()">${pipHTML(energy)}</span>` : '';
+  const label = pc ? `${pc.canonicalName}, ${rarity}, ${pc.position}, ${pc.hp} HP, ${pc.types.join(' / ')}, ${PC.pointValue(pc)} knockout point, fictional balance values${o.count > 1 ? `, ${o.count} copies` : ''}` : `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const atk = st.attacks.map((a, n) => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}</em></span>`
-    + (n === 1 ? `<span class="pk-c-fx">${esc([B.fxText(a), B.signatureText({v: o.rulesVersion || B.RULES_VERSION}, n)].filter(Boolean).join(' '))}</span>` : '')).join('');
-  const ability = st.ability ? `<span class="pk-c-ab"><i>Ability</i><b>${esc(B.ABILITY[st.ability].name)}</b></span>` : '';
+    + (pc ? a.text ? `<span class="pk-c-fx">${esc(a.text)}</span>` : '' : n === 1 ? `<span class="pk-c-fx">${esc([B.fxText(a), B.signatureText({v: o.rulesVersion || B.RULES_VERSION}, n)].filter(Boolean).join(' '))}</span>` : '')).join('');
+  const ability = st.ability ? `<span class="pk-c-ab"><i>Ability</i><b>${esc(pc ? pc.ability.name : B.ABILITY[st.ability].name)}</b></span>${pc?.ability.text ? `<span class="pk-c-fx">${esc(pc.ability.text)}</span>` : ''}` : '';
   const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
   const inner = `<span class="pk-c-face" aria-hidden="true">`
-    + `<span class="pk-c-head"><span class="pk-c-stage">${stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${typeHTML(st.type)}</span></span>`
+    + `<span class="pk-c-head"><span class="pk-c-stage">${pc ? esc(pc.stage.toUpperCase()) : stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(pc?.athlete || c.name)}${pc && st.ex ? `<span class="pk-c-ex">${pc.classification === 'mega-ex' ? 'Mega ex' : 'ex'}</span>` : ''}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${energyBadge ? '' : typeHTML(st.type, o.roundEnergy ?? currentEnergyRule())}</span></span>`
+    + (pc?.predecessor ? `<span class="pk-c-evo">Develops from ${esc(PC.card(pc.predecessor)?.canonicalName || pc.predecessor)}</span>` : '')
+    + energyBadge
     + `<span class="pk-c-art">${teamSceneHTML(c.team)}<span class="pk-c-num">${esc(String(c.num || c.pos))}</span>${photo}<span class="pk-c-art-team">${esc(c.team)}</span></span>`
     + `<span class="pk-c-strip">${esc(c.pos)} · ${esc(T.name)} · ${esc(S.short)}</span>`
     + `<span class="pk-c-body${st.ability ? ' has-ability' : ''}">${ability}${atk}</span>`
-    + `<span class="pk-c-foot"><span><small>weakness</small>${st.weak ? `${typeHTML(st.weak)}<b>+${B.WEAK_BONUS}</b>` : '<b>—</b>'}</span><span><small>retreat</small>${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : '<b>free</b>'}</span></span>`
-    + `<span class="pk-c-meta"><span class="pk-c-rar is-${m.kind}">${esc(rarity)}</span><span class="pk-c-ovr"><b>${c.o}</b><small>OVR</small></span>${st.ex ? '<span class="pk-c-set">2 PT</span>' : ''}`
+    + `<span class="pk-c-foot"><span><small>weakness</small>${st.weak ? `${typeHTML(st.weak)}<b>+${B.WEAK_BONUS}</b>` : '<b>—</b>'}</span><span><small>retreat</small>${st.retreat ? Array.from({length: st.retreat}, () => pipHTML(pc ? 'Colorless' : '*')).join('') : '<b>free</b>'}</span></span>`
+    + `<span class="pk-c-meta"><span class="pk-c-rar is-${m.kind}">${esc(rarity)}</span>${pc ? `<span class="pk-c-set">${PC.pointValue(pc)} POINT${PC.pointValue(pc) === 1 ? '' : 'S'}</span>` : `<span class="pk-c-ovr"><b>${c.o}</b><small>OVR</small></span>${st.ex ? '<span class="pk-c-set">2 PT</span>' : ''}`}`
     + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
     + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + `</span>${finish}</span>`;
-  const cls = `pk-card pk-rivals-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${rarity} s-${c.s} sz-${o.size || 'm'}${st.ex ? ' is-ex' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
-  const style = `--tp:${T.pri};--ts:${T.sec};--type-color:${B.TYPES[st.type].color}${teamSceneStyle(c.team)}`;
+  const cls = `pk-card pk-rivals-card${energyBadge ? ' pk-energy-card' : ''} t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${rarity} s-${c.s} sz-${o.size || 'm'}${st.ex ? ' is-ex' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
+  const style = `--tp:${T.pri};--ts:${T.sec};--type-color:${B.TYPES[st.type]?.color || ENERGY_COLOR[st.type] || '#697c85'}${energyBadge ? `;--energy-color:${ENERGY_COLOR[energy] || '#697c85'}` : ''}${teamSceneStyle(c.team)}`;
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(c.id)}" aria-label="${esc(label)}">${inner}</button>`;
 }
@@ -103,17 +140,42 @@ const TRAINER_ART = {
 const TRAINER_KIND = {coach: 'Supporter', item: 'Item', stadium: 'Stadium'};
 const TRAINER_RULE = {coach: 'You may play only 1 Supporter card during your turn.', item: 'You may play any number of Item cards during your turn.',
   stadium: 'This Stadium stays in play for both sides until another replaces it.'};
+const SUPPORT_RULE = {coach: 'Play 1 Coach per turn.', supporter: 'Play 1 Supporter per turn.',
+  item: 'Play any number during your turn.', tool: 'Stays attached · 1 Tool per athlete.',
+  stadium: 'Affects both sides until replaced.'};
+const TOOL_ART = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 7 51 15v17c0 12-9 20-19 25C22 52 13 44 13 32V15z" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/><path d="m23 31 6 6 13-14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+/** Flat support faces share their printed effect with the match, including legacy energy variants. */
+function abilityCardHTML(t, o, {pc, legacy, kind, rarity, text}) {
+  const type = pc?.kind || t.kind;
+  const rule = legacy ? 'For your saved legacy matches.' : SUPPORT_RULE[type] || '';
+  const label = `${t.name}, ${kind} card. ${text} ${rule}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
+  const icon = type === 'tool' ? TOOL_ART : TRAINER_ART[type === 'supporter' ? 'coach' : type] || '';
+  const inner = `<span class="pk-c-face" aria-hidden="true"><span class="pk-t-head"><b>RIVALS</b><i>${esc(kind)}</i></span>`
+    + `<span class="pk-t-art">${icon}</span><b class="pk-t-name">${esc(t.name)}</b>`
+    + `<span class="pk-t-effect"><small>EFFECT</small><span class="pk-t-text">${esc(text)}</span></span>`
+    + `<span class="pk-t-rule">${esc(rule)}</span>`
+    + `<span class="pk-c-meta"><span class="pk-c-rar">${esc(rarity)}</span>`
+    + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
+    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + '</span></span>';
+  const cls = `pk-card pk-rivals-card pk-trainer pk-ability-card r-${rarity} k-${type} sz-${o.size || 'm'}${text.length > 140 ? ' has-long-effect' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
+  return o.tag === false ? `<div class="${cls}" role="img" aria-label="${esc(label)}">${inner}</div>`
+    : `<button type="button" class="${cls}" data-dy-card="${esc(t.id)}" aria-label="${esc(label)}">${inner}</button>`;
+}
 /** A Coach (Supporter), Item or Stadium card, laid out as a Pokémon Trainer card. o: as cardHTML's. */
 export function trainerHTML(t, o = {}) {
   if (!t) return '';
   const T = t.team ? D.teamOf(t.team) : null, m = D.markOf(t);
   const rarity = D.RARITY.includes(t.r) ? t.r : 'common';
   const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
-  const kind = t.kind === 'coach' ? 'Coach' : TRAINER_KIND[t.kind];
-  const label = `${t.name}, ${kind} card. ${t.text}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
+  const pc = rivalsUpdated() && (!o.rulesVersion || o.rulesVersion === 7) ? o.pocketCard : null;
+  const legacy = !pc && rivalsUpdated() && (!o.rulesVersion || o.rulesVersion === 7);
+  const kind = pc ? pc.kind[0].toUpperCase() + pc.kind.slice(1) : legacy ? 'Legacy support' : t.kind === 'coach' ? 'Coach' : TRAINER_KIND[t.kind];
+  const text = pc ? pc.text : B.trainerText(t, o.roundEnergy ?? currentEnergyRule());
+  if (rivalsUpdated()) return abilityCardHTML(t, o, {pc, legacy, kind, rarity, text});
+  const label = `${t.name}, ${kind} card. ${text}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const inner = `<span class="pk-c-face" aria-hidden="true"><span class="pk-t-head"><b>RIVALS</b><i>${kind}</i></span>`
     + `<span class="pk-t-art">${T ? teamSceneHTML(t.team) : ''}${TRAINER_ART[t.kind] || ''}${T ? `<img class="pk-t-logo" src="${esc(logoUrl(t.team, 96))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : ''}</span>`
-    + `<b class="pk-t-name">${esc(t.name)}</b><span class="pk-t-text">${esc(t.text)}</span>`
+    + `<b class="pk-t-name">${esc(t.name)}</b><span class="pk-t-text">${esc(text)}</span>`
     + `<span class="pk-c-meta"><span class="pk-c-rar is-d">${esc(rarity)}</span><span class="pk-c-set">${kind}</span>`
     + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
     + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + `</span>${finish}</span>`;
@@ -126,26 +188,31 @@ export function trainerHTML(t, o = {}) {
 export const lockedHTML = (o = {}) => `<div class="pk-card pk-locked sz-${o.size || 'm'}" role="img" aria-label="A card not in your collection yet"><span class="pk-l-face" aria-hidden="true">${ui.icon('lock')}</span></div>`;
 /** Any card by id: a player's or a Trainer card. */
 export const anyHTML = (id, o = {}) => (D.card(id) ? cardHTML(D.card(id), o) : trainerHTML(D.trainer(id), o));
-/** A card's battle side in words: type, HP, weakness and retreat, its Ability, its attacks. */
-export function battleHTML(id, game = {v: B.RULES_VERSION}) {
+/** A card's battle side in words: type, HP, weakness and retreat, its Ability, its attacks (o.attacks false: left out,
+ *  where a battle's sheet shows them as buttons). */
+export function battleHTML(id, game = {v: rivalsUpdated() ? 7 : B.RULES_VERSION, roundEnergy: currentEnergyRule()}, o = {}) {
+  const pc = game.v === 7 ? PC.card(id) : null;
+  if (pc) return `<div class="pk-info"><div class="pk-info-h"><span>${esc(pc.canonicalName)} · ${esc(pc.types.join(' / '))} · ${PC.pointValue(pc)} knockout point</span><b>${pc.hp} HP</b></div><ul class="pk-atk">${pc.attacks.map(a => `<li><span class="pk-cost">${a.cost.map(pipHTML).join('')}</span><span class="pk-an"><b>${esc(a.name)}</b><small>${esc(a.text || '')}</small></span><em>${a.damage}</em></li>`).join('')}</ul><p>Weakness: ${esc(pc.weakness || 'None')}${pc.weakness ? ' +20' : ''} · Retreat: ${pc.retreat} Energy</p><p>Develops into ${esc(PC.card(id + '~breakout')?.canonicalName || '—')}. Matching development cards are available in My decks.</p><p class="pk-note">${esc(PC.BALANCE_NOTE)} Energy stays attached after attacks unless the card says otherwise. Rarity and athlete stats are cosmetic or informational.</p></div>`;
   const t = D.trainer(id);
-  if (t) return `<div class="pk-info"><p class="pk-info-k">${TRAINER_KIND[t.kind]} · ${TRAINER_RULE[t.kind]}</p><p>${esc(t.text)}</p></div>`;
+  if (t && game.v === 7) return '<div class="pk-info"><p>This is a legacy support card, retained in your collection and old matches. New battles use the support playbook in My decks.</p></div>';
+  if (t) return `<div class="pk-info"><p class="pk-info-k">${TRAINER_KIND[t.kind]} · ${TRAINER_RULE[t.kind]}</p><p>${esc(B.trainerText(t, game.roundEnergy))}</p></div>`;
   const st = B.stats(id), c = D.card(id);
   if (!st) return '';
   const T = B.TYPES[st.type];
-  const ab = st.ability ? `<div class="pk-ab"><b>Ability · ${esc(B.ABILITY[st.ability].name)}</b><span>${esc(B.abilityText(st.ability, game.v))}</span></div>` : '';
-  const atk = st.attacks.map((a, n) => `<li><span class="pk-cost">${a.cost.map(pipHTML).join('')}</span><span class="pk-an"><b>${esc(a.name)}</b>`
+  const ab = st.ability ? `<div class="pk-ab"><b>Ability · ${esc(B.ABILITY[st.ability].name)}</b><span>${esc(B.abilityText(st.ability, game.v))}${game.roundEnergy ? ' This player gets 2 energy at the start of your turn.' : ''}</span></div>` : '';
+  const atk = B.attacksOf(id, game.v).map((a, n) => `<li><span class="pk-cost">${a.cost.map(pipHTML).join('')}</span><span class="pk-an"><b>${esc(a.name)}</b>`
     + `${B.fxText(a) ? `<small>${esc(B.fxText(a))}</small>` : ''}${a.note ? `<small>${esc(a.note)}</small>` : ''}${a.flat ? '<small>Ignores weakness.</small>' : ''}${B.signatureText(game, n) ? `<small class="pk-signature-note">${esc(B.signatureText(game, n))}</small>` : ''}</span><em>${a.dmg}</em></li>`).join('');
   const stage = B.stageOf(id, game.v) ? `Stage 1: evolves from ${esc(c.name)}’s Basic card` : 'Basic';
-  return `<div class="pk-info"><div class="pk-info-h">${typeHTML(st.type)}<span>${esc(T.name)} · ${stage}${st.ex ? ' · ex: worth 2 points' : ''}</span><b>${st.hp} HP</b></div>`
-    + ab + `<ul class="pk-atk">${atk}</ul>`
+  return `<div class="pk-info"><div class="pk-info-h">${typeHTML(st.type, game.roundEnergy)}<span>${esc(T.name)} · ${stage}${st.ex && game.v < 6 ? ' · ex: worth 2 points' : ''}</span><b>${st.hp} HP</b></div>`
+    + ab + (o.attacks === false ? '' : `<ul class="pk-atk">${atk}</ul>`)
     + `<p class="pk-foot">Weakness ${st.weak ? `${typeHTML(st.weak)} +${B.WEAK_BONUS}` : 'none'} · Retreat ${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : 'free'}</p></div>`;
 }
 /** A photo's credit (author, licence, its Wikimedia Commons page), for his card up close: the playing-days photo the card
  *  wears, else a Legend's photo. */
 export function creditHTML(c) {
+  if (ownerActionUrl(c)) return '';
   const r = String(c.head).startsWith('a:') ? actionCredit(c.p) : String(c.head).startsWith('w:') ? legendCredit(c.p) : null;
-  if (!r) return '';
+  if (!r || r.own) return '';
   if (r.card) return `<p class="pk-credit">Photo: from his ${esc(realName(r.card))} card</p>`;
   const lic = r.licenceUrl ? `<a href="${esc(r.licenceUrl)}" target="_blank" rel="noopener">${esc(r.licence)}</a>` : esc(r.licence);
   return `<p class="pk-credit">Photo: ${esc(r.author)} · ${lic} · <a href="${esc(r.page)}" target="_blank" rel="noopener">${esc(r.site || 'Wikimedia Commons')}</a></p>`;
@@ -154,22 +221,27 @@ export function creditHTML(c) {
 function cardSheet(st, id) {
   const c = D.anyCard(id);
   if (!c) return;
-  const s = D.mine(), n = s.o[id] || 0, inDeck = s.dk.filter(x => x === id).length;
+  const key = profileKey();
+  const s = D.mine(), n = s.o[id] || 0, inDeck = (rivalsUpdated() ? D.pocketDeck(s).ids : s.dk).filter(x => x === id).length;
   if (D.isNew(id, s)) invalidatePanes(st);
   D.markSeen([id]);
   const acts = [];
-  if (n > inDeck && s.dk.length < B.DECK_SIZE) acts.push(ui.button({label: 'Add to my deck', kind: 'primary', block: true, attrs: {'data-dy-add': id}}));
-  if (inDeck) acts.push(ui.button({label: 'Take out of my deck', kind: 'secondary', block: true, attrs: {'data-dy-rm': id}}));
-  if (n > inDeck) acts.push(ui.button({label: `Quick sell for ${nf(D.sellValue(c))} coins`, kind: 'secondary', block: true, attrs: {'data-dy-sell': id}}));
+  if (!rivalsUpdated() && n > inDeck && s.dk.length < B.DECK_SIZE) acts.push(ui.button({label: 'Add to my deck', kind: 'primary', block: true, attrs: {'data-dy-add': id}}));
+  if (!rivalsUpdated() && inDeck) acts.push(ui.button({label: 'Take out of my deck', kind: 'secondary', block: true, attrs: {'data-dy-rm': id}}));
+  if (D.sellableCount(id, s) > 0) acts.push(ui.button({label: `Quick sell for ${nf(D.sellValue(c))} coins`, kind: 'secondary', block: true, attrs: {'data-dy-sell': id}}));
   if (!n && D.ppCost(c)) acts.push(ui.button({label: `Get it for ${nf(D.ppCost(c))} pack points`, kind: s.pp >= D.ppCost(c) ? 'primary' : 'secondary', block: true, attrs: {'data-dy-pp': id}, disabled: s.pp < D.ppCost(c)}));
   const body = `<div class="pk-zoom">${anyHTML(id, {size: 'l', tag: false, ghost: !n, noCount: true})}</div>`
     + `<p class="pk-own">${n ? `${n} in your collection${inDeck ? ` · ${inDeck} in your deck` : ''}` : 'Not in your collection yet'}</p>`
+    + (rivalsUpdated() ? '<p class="pk-note">Build your 20-card battle deck in My decks. Card balance values are fictional; athlete stats and rarity do not add battle bonuses.</p>' : '')
+    + (D.marketQuote(c) ? `<p class="pk-note">Market sell offer: ${nf(D.marketQuote(c).sell)} coins. Quick sell: ${nf(D.sellValue(c))} coins (70% of the market offer).</p><button type="button" class="pk-pill" data-dy-open-market>Open marketplace</button>` : '')
     + (acts.length ? `<div class="pk-acts">${acts.join('')}</div>` : '') + battleHTML(id) + (D.card(id) ? pageHTML(c) : '') + (D.card(id) ? creditHTML(c) : '');
   let stopFoil = () => {};
   const sh = ui.openSheet({title: 'Card details', body, cls: 'pk-sheet', detents: ['large'], onClose: () => stopFoil()});
   stopFoil = bindCardFoil(sh.body);
   if (D.card(id)) bindPage(sh.body, c);
   sh.body.addEventListener('click', e => {
+    if (key !== profileKey() || st.dead || st.hidden) { sh.close(); return; }
+    if (e.target.closest('[data-dy-open-market]')) { sh.close(); go(st, 'market'); return; }
     if (e.target.closest('[data-dy-sell]')) {
       const r = D.sell(id, 1);
       if (r.ok) { ui.haptic('success'); ui.toast(`Sold for ${nf(r.coins)} coins`, {icon: 'check-circle'}); sh.close(); refresh(st); }
@@ -214,14 +286,22 @@ const TABS = [
   {id: 'decks', label: 'Decks', title: 'Decks', ic: '<path d="M4 8h16v12H4zM7 4h10v4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 13h6M9 16h4" stroke="currentColor" stroke-width="1.8"/>'},
   {id: 'packs', label: 'Packs', title: 'Packs', ic: '<path d="M6 3h12v18H6zM6 7h12M6 17h12" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m12 9 2 3-2 3-2-3z" fill="currentColor"/>'}
 ];
-const PANE_TABS = TABS;
+// The reference-inspired Home is shared by the four Rivals players.
+const HOME_TAB = {id: 'home', label: 'Home', title: 'Home', ic: '<path d="m3 10 9-7 9 7v10h-6v-7H9v7H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>'};
+const homeOpen = () => rivalsUpdated();
+const tabsOf = () => homeOpen() ? [HOME_TAB, {...TABS[0], label: 'Battle', title: 'Battle'}, TABS[3], {...TABS[1], label: 'Collection', title: 'Collection'}, TABS[2]] : TABS;
+const navHTML = () => tabsOf().map((t, i) => `<button type="button" class="pk-tab${i === 0 ? ' is-on' : ''}" data-dy-tab="${t.id}" aria-pressed="${i === 0}">`
+  + `<svg viewBox="0 0 24 24" aria-hidden="true">${t.ic}</svg><span class="rh-tab-label">${t.label}</span><i class="pk-dot" hidden></i></button>`).join('');
 export function shellHTML() {
-  return `<div class="pk" data-dy><header class="pk-hdr">${ui.exitButton('data-dy-exit', 'Exit Gridiron Rivals')}`
-    + `<div class="rh-brand"><span>GRIDIRON RIVALS</span><h1 class="pk-title" data-pk-title tabindex="-1">Play</h1></div><span class="pk-hud" data-dy-hud></span>`
+  return `<div class="pk${homeOpen() ? ' rh-home-enabled' : ''}" data-dy><header class="pk-hdr">${ui.exitButton('data-dy-exit', 'Exit Gridiron Rivals')}`
+    + `<div class="rh-brand"><span>GRIDIRON RIVALS</span><h1 class="pk-title" data-pk-title tabindex="-1">${homeOpen() ? 'Home' : 'Play'}</h1></div><span class="pk-hud" data-dy-hud></span>`
     + `<button type="button" class="rh-menu" data-dy-menu aria-label="Menu">${ui.icon('list', {size: 22})}</button></header>`
-    + `<div class="pk-pane" data-dy-pane></div>`
-    + `<nav class="pk-nav" aria-label="Gridiron Rivals">${TABS.map((t, i) => `<button type="button" class="pk-tab${i === 0 ? ' is-on' : ''}" data-dy-tab="${t.id}" aria-pressed="${i === 0}">`
-      + `<svg viewBox="0 0 24 24" aria-hidden="true">${t.ic}</svg><span class="rh-tab-label">${t.label}</span><i class="pk-dot" hidden></i></button>`).join('')}</nav>`
+    + `<div class="rm-shop-tabs" data-dy-shop-tabs role="tablist" aria-label="Packs sections" hidden>
+      <button type="button" id="dy-shop-packs" role="tab" data-dy-shop-tab="packs" data-dy-tab="packs" aria-selected="true" aria-controls="dy-shop-panel">Packs</button>
+      <button type="button" id="dy-shop-market" role="tab" data-dy-shop-tab="market" data-dy-tab="market" aria-selected="false" aria-controls="dy-shop-panel" tabindex="-1">Marketplace</button>
+    </div>`
+    + `<div class="pk-pane" id="dy-shop-panel" data-dy-pane></div>`
+    + `<nav class="pk-nav" aria-label="Gridiron Rivals">${navHTML()}</nav>`
     + startHTML() + '</div>';
 }
 /** The header's counters: packs to open (tap for the pack list) and coins. */
@@ -243,6 +323,7 @@ function packsHTML(st) {
   // (the Starter Pack first while it waits; once opened, back to the Standard Pack)
   if (s.pk.start && !st.startShown) { st.pack = 'start'; st.startShown = true; }
   if (!D.PACKS[st.pack] || (D.PACKS[st.pack].starter && !s.pk[st.pack])) st.pack = D.DAILY_PACK;
+  if (rivalsUpdated()) return packShelfHTML(packKinds(s), st.pack, kind => artAt(st, kind), c => cardHTML(c, {size: 's', tag: false, noCount: true}), st.packPreview ||= nextPackPreview(profileKey(), ui.lsGet, ui.lsSet));
   const kind = st.pack, P = D.PACKS[kind], have = s.pk[kind] || 0, free = D.dailyReady(s) && kind === D.DAILY_PACK;
   const wait = waitingOf(st), ready = D.claimable(s);
   const best = packBest(kind);
@@ -293,7 +374,7 @@ function oddsSheet(kind) {
   const pool = {live: 'any active player (one card each, his best)', trainer: 'a Trainer card (Supporter, Item or Stadium)', all: 'any active player, more often a Rookie, Gameday, Prime or Award card', gameday: 'a Gameday card (this week’s three times as likely)', elite: 'Legend 25%, Prime 30%, Award 20%, Gameday 25%, all 90+'};
   const body = D.packOdds(kind).map(g => `<section class="pk-odds"><h3>${g.n === 1 ? '1 card' : `${g.n} cards`}: ${esc(pool[g.pool] || g.pool)}</h3>`
     + `<ul>${g.odds.map(o => `<li><span class="pk-sym">${g.pool === 'trainer' ? (o.r === 'legendary' ? '◆◆◆' : '◆◆') : g.pool === 'elite' || g.pool === 'gameday' ? '★★ ♛' : RAR_SYM[o.r]}</span>${esc(g.pool === 'trainer' ? (o.r === 'legendary' ? 'Legendary' : 'Epic') : D.RARITY_NAME[o.r])}<b>${o.pct}%</b></li>`).join('')}</ul></section>`).join('')
-    + `<p class="pk-note">One card a player, its rarity by his OVR: ◆ Common (under ${D.SCALE.epic}, his headshot) · ◆◆◆ Epic (${D.SCALE.epic}–${D.SCALE.legendary - 1}) · ◆◆◆◆ Legendary (${D.SCALE.legendary}–${D.SCALE.mythic - 1}) · ★ Mythic (${D.SCALE.mythic}+) · ★★ Prime, Gameday and Award cards · ♛ Legends. No pack holds the same card or player twice. Every pack also gives 5 pack points.</p>`;
+    + `<p class="pk-note">One card a player, its rarity by his OVR: ◆ Common (${D.SCALE.epic - 1} or less, his NFL headshot) · ◆◆◆ Epic (${D.SCALE.epic}–${D.SCALE.legendary - 1}, his NFL headshot) · ◆◆◆◆ Legendary (${D.SCALE.legendary}–${D.SCALE.mythic - 1}, an action photo) · ★ Mythic (${D.SCALE.mythic}–99, an action photo) · ★★ Prime, Gameday and Award cards · ♛ Legends. No pack holds the same card or player twice. Every pack also gives 5 pack points.</p>`;
   ui.openSheet({title: 'Offering Rates', body: `<p class="pk-note">${esc(P.name)}</p>` + body, cls: 'pk-sheet', detents: ['fit']});
 }
 /** The packs on the home, in Pocket's order: the Starter Pack first while it waits, then the rest. */
@@ -422,7 +503,8 @@ function artTo(st, to, dir) {
 function earnSheet() {
   const s = D.mine(), E = D.earned(s);
   const rows = Object.keys(D.PAY).map(g => `<li><span><b>${esc(D.GAME_NAME[g])}</b><small>${esc(D.PAY_WORDS[g])}</small></span><em>${E.today[g] ? '+' + nf(E.today[g]) : '–'}</em></li>`).join('');
-  const body = `<p class="pk-note">Coins open packs. The Daily Games pay them: each game’s first finished result of the day, from the day your Rivals began. You’ve earned ${nf(E.total)} from ${E.days} game${E.days === 1 ? '' : 's'}.</p>`
+  const body = (D.unlimitedCoins() ? '<p class="pk-note">You have unlimited coins. Pack purchases leave your earned coins untouched.</p>' : '')
+    + `<p class="pk-note">Coins open packs. The Daily Games pay them: each game’s first finished result of the day, from the day your Rivals began. You’ve earned ${nf(E.total)} from ${E.days} game${E.days === 1 ? '' : 's'}.</p>`
     + `<ul class="pk-list">${rows}</ul>`
     + `<p class="pk-note">You also get a free Standard Pack every day, Epic Packs for Solo milestones and collection rewards, ${nf(D.BATTLE_PAY.w.coins)} coins for a battle won (${nf(D.BATTLE_PAY.l.coins)} for a loss), coins for quick-selling cards, and collection rewards. Every pack opened gives ${D.PP_PER_PACK} pack points, to trade for a card you don’t have.</p>`;
   ui.openSheet({title: 'Coins', body, cls: 'pk-sheet', detents: ['large']});
@@ -448,15 +530,25 @@ function pointsSheet(st) {
 // ---------------------------------------------------------------------------------------------------- My Cards
 const POS_ORDER = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'];
 const PAGE = 60;
-// The binder's order (Nov 1 2026, Evan: "Add a section to sort cards by rarity, team, position"): best first, else
-// grouped under a heading per rarity (Mythic down), team (A-Z) or position (QB to K), best first within each; Trainers last.
+// Overall is the default. Energy, team, position and rarity are independent binder sort options.
+// The original sort preference remains valid, and viewers outside the rollout keep their original controls.
 const SORTS = [{id: '', label: 'Best'}, {id: 'rar', label: 'Rarity'}, {id: 'team', label: 'Team'}, {id: 'pos', label: 'Position'}];
+const sortsOf = () => rivalsUpdated() ? [{id: '', label: 'Overall'}, {id: 'energy', label: 'Energy type'}, SORTS[2], SORTS[3], SORTS[1]] : SORTS;
+const BINDER_ENERGY = [...PC.ENERGY_TYPES, 'Colorless', 'Dragon'];
+const energyOf = c => PC.card(c.id)?.types[0] || B.typeEnergy(B.stats(c.id).type, currentEnergyRule());
+const energyAt = e => { const i = BINDER_ENERGY.indexOf(e); return i < 0 ? BINDER_ENERGY.length : i; };
+const energyGroupOf = c => {
+  if (!D.card(c.id)) return {k: 'trainers', label: 'Trainers'};
+  const energy = energyOf(c);
+  return {k: energy, label: energy, energy};
+};
 const SORT_KEY = 'gg-dy-sort';
-const sortLoad = () => { try { const v = localStorage.getItem(SORT_KEY) || ''; return SORTS.some(x => x.id === v) ? v : ''; } catch (e) { return ''; } };
+const sortLoad = () => { try { const v = localStorage.getItem(SORT_KEY) || ''; return sortsOf().some(x => x.id === v) ? v : ''; } catch (e) { return ''; } };
 const sortSave = v => { try { localStorage.setItem(SORT_KEY, v); } catch (e) { /* (kept for this visit only) */ } };
 const posAt = p => { const i = POS_ORDER.indexOf(p); return i < 0 ? POS_ORDER.length : i; };
 function groupOf(sort, c) {
   if (!sort) return null;
+  if (sort === 'energy' && rivalsUpdated()) return energyGroupOf(c);
   if (!D.card(c.id)) return {k: 'T', label: 'Trainers'};
   if (sort === 'rar') return {k: c.r, label: D.RARITY_NAME[c.r] || c.r, sym: RAR_SYM[c.r]};
   if (sort === 'team') { const t = D.teamOf(c.team); return {k: c.team, label: t.name || c.team, team: c.team}; }
@@ -474,7 +566,7 @@ function cardsHTML(st) {
     + `<button type="button" class="pk-toggle${f.view === 'all' ? ' is-on' : ''}" data-dy-all aria-pressed="${f.view === 'all'}" aria-label="Show every card in the game"><i></i></button>`
     + `<button type="button" class="pk-iconb${filters ? ' is-on' : ''}" data-dy-filter aria-label="Filter">${ui.icon('sort', {size: 20})}${filters ? `<i>${filters}</i>` : ''}</button></div>`
     + `<div class="pk-search">${ui.searchField({name: 'dy-q', placeholder: 'Search players, teams or cards', value: f.q})}</div>`
-    + `<div class="pk-sortr" role="group" aria-label="Sort cards"><span>Sort</span>${SORTS.map(x => `<button type="button" data-dy-sort="${x.id}" aria-pressed="${(f.sort || '') === x.id}">${x.label}</button>`).join('')}</div></div>`;
+    + `<div class="pk-sortr${rivalsUpdated() ? ' is-binder-sort' : ''}" role="group" aria-label="Sort cards"><span>Sort</span>${sortsOf().map(x => `<button type="button" data-dy-sort="${x.id}" aria-pressed="${(f.sort || '') === x.id}">${x.label}</button>`).join('')}</div></div>`;
   const sp = D.spares(s);
   if (sp.list.length && f.view === 'mine') h += `<button type="button" class="pk-alert is-soft" data-dy-spares>${ui.icon('bolt', {size: 18})}<span>Quick sell ${sp.list.reduce((t, x) => t + x.n, 0)} spare cop${sp.list.reduce((t, x) => t + x.n, 0) === 1 ? 'y' : 'ies'} for ${nf(sp.coins)} coins</span></button>`;
   return h + '<div data-dy-grid></div>';
@@ -499,23 +591,28 @@ function filtered(st) {
   const f = st.f, s = D.mine(), q = data.norm(f.q || '');
   const tr = !f.pos && (!f.ser || f.ser === 'T') ? D.TRAINER_IDS.map(D.trainer).filter(t => (f.view === 'all' || s.o[t.id] > 0) && (!f.rar || t.r === f.rar)
     && (!q || data.norm(`${t.name} ${t.text}`).includes(q))) : [];
-  if (f.ser === 'T') return tr;
+  if (f.ser === 'T' && !rivalsUpdated()) return tr;
   const best = (a, b) => b.o - a.o || D.SERIES_ORDER.indexOf(a.s) - D.SERIES_ORDER.indexOf(b.s) || a.name.localeCompare(b.name);
   const by = {
+    energy: rivalsUpdated() ? (a, b) => energyAt(energyOf(a)) - energyAt(energyOf(b)) || energyOf(a).localeCompare(energyOf(b)) : null,
     rar: (a, b) => D.RARITY.indexOf(b.r) - D.RARITY.indexOf(a.r),
     team: (a, b) => (D.teamOf(a.team).name || a.team || '').localeCompare(D.teamOf(b.team).name || b.team || ''),
     pos: (a, b) => posAt(a.pos) - posAt(b.pos)
   }[f.sort];
   if (by) tr.sort((a, b) => D.RARITY.indexOf(b.r) - D.RARITY.indexOf(a.r) || a.name.localeCompare(b.name));
+  if (f.ser === 'T') return tr;
+  const compare = (a, b) => (by ? by(a, b) : 0) || best(a, b);
   return D.CARDS.filter(c => (f.view === 'all' || s.o[c.id] > 0) && (!f.ser || c.s === f.ser) && (!f.pos || c.pos === f.pos) && (!f.rar || c.r === f.rar)
     && (!q || data.norm(`${c.name} ${c.team} ${D.teamOf(c.team).name}`).includes(q)))
-    .sort(by ? (a, b) => by(a, b) || best(a, b) : best).concat(tr);
+    .sort(compare).concat(tr);
 }
 /** A card in the binder. Copies stack (Nov 2 2026, the owner: "If a user has more than one player card, should stack in
  *  the cards screen with a number in the corner showing how many total"): one card on top, the copies' edges behind it
  *  (two at most) and the total in a badge at the top-left corner. */
 function stackHTML(id, n, isNew) {
-  const one = anyHTML(id, {size: 's', count: n, noCount: n > 1, ghost: !(n > 0), isNew});
+  // Load the bounded binder page ahead of scrolling. Lazy portraits inside content-visibility
+  // wait for offscreen cards to render, leaving players blank during a fast swipe.
+  const one = anyHTML(id, {size: 's', count: n, noCount: n > 1, ghost: !(n > 0), isNew, eager: rivalsUpdated()});
   if (n < 2) return one;
   return `<div class="pk-stack is-${n > 2 ? 3 : 2}">${'<i class="pk-stack-l" aria-hidden="true"></i>'.repeat(n > 2 ? 2 : 1)}${one}<b class="pk-stack-n" aria-hidden="true">${nf(n)}</b></div>`;
 }
@@ -528,14 +625,17 @@ function drawGrid(st, more = false) {
   st.gridKey = key; st.renderedKey = key;
   st.shown = from + PAGE;
   // (a heading opens each group: its name and how many cards it holds in this view)
-  const sort = st.f.sort || '', n = {};
+  const sort = st.f.sort || '', energySort = sort === 'energy' && rivalsUpdated(), n = {};
   if (sort) list.forEach(c => { const k = groupOf(sort, c).k; n[k] = (n[k] || 0) + 1; });
+  const heading = (g, count) => {
+    const lead = g.energy ? pipHTML(g.energy) : g.team ? `<img src="${esc(logoUrl(g.team, 64))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : g.sym ? `<i class="is-${esc(g.k)}" aria-hidden="true">${g.sym}</i>` : '';
+    const attrs = energySort ? ` data-dy-energy="${esc(g.k)}"` : ` data-dy-group="${esc(g.k)}"`;
+    return `<h3 class="pk-gh${energySort ? ' pk-energy-gh' : ''}"${attrs}>${lead}<span>${esc(g.label)}</span><small>${nf(count)}</small></h3>`;
+  };
   const head = i => {
     if (!sort) return '';
     const g = groupOf(sort, list[i]);
-    if (i > 0 && groupOf(sort, list[i - 1]).k === g.k) return '';
-    const lead = g.team ? `<img src="${esc(logoUrl(g.team, 64))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : g.sym ? `<i class="is-${esc(g.k)}" aria-hidden="true">${g.sym}</i>` : '';
-    return `<h3 class="pk-gh">${lead}<span>${esc(g.label)}</span><small>${nf(n[g.k])}</small></h3>`;
+    return i > 0 && groupOf(sort, list[i - 1]).k === g.k ? '' : heading(g, n[g.k]);
   };
   const cards = list.slice(from, st.shown).map((c, j) => head(from + j) + stackHTML(c.id, s.o[c.id] || 0, D.isNew(c.id, s))).join('');
   const next = list.length > st.shown ? `<button type="button" class="pk-more" data-dy-more>Show more (${nf(list.length - st.shown)})</button>` : '';
@@ -589,25 +689,28 @@ function claimIt(st, id) {
 
 // ---------------------------------------------------------------------------------------------------- Decks
 function decksHTML(st) {
+  if (rivalsUpdated() && !st.friendDeck) return pocketShelfHTML(portraitOf);
+  if (D.tableOpen() && !st.friendDeck) return deckShelfHTML(cardHTML);
   const s = D.mine(), dk = D.deckOf(s);
   const counts = {};
   dk.ids.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
   const order = id => (D.card(id) ? 0 : D.trainer(id).kind === 'coach' ? 1 : D.trainer(id).kind === 'item' ? 2 : 3);
   const uniq = Object.keys(counts).sort((a, b) => order(a) - order(b) || (D.card(b) ? D.card(b).o : 0) - (D.card(a) ? D.card(a).o : 0));
   const stars = uniq.filter(id => D.card(id)).slice(0, 2);
+  const types = rivalsUpdated() ? [...new Set(uniq.filter(id => D.card(id)).map(id => B.typeEnergy(B.stats(id).type, B.FRONT_ENERGY)))] : dk.types;
   let h = `<div class="pk-deckbox"><div class="pk-deckbox-cards">${stars.map((id, i) => `<span style="--i:${i}">${cardHTML(D.card(id), {size: 's', tag: false, noCount: true})}</span>`).join('')}</div>`
     + `<div class="pk-deckbox-t"><button type="button" class="pk-deckname" data-dy-rename>${esc(D.teamName(s))} ${ui.icon('gear', {size: 14})}</button>`
-    + `<span class="pk-deck-en">${dk.types.map(pipHTML).join('')}<small>${esc(dk.types.map(e => B.ENERGY[e]).join(' · '))}</small></span>`
+    + `<span class="pk-deck-en">${types.map(pipHTML).join('')}<small>${esc(types.map(e => B.ENERGY[e]).join(' · '))}</small></span>`
     + `<span class="pk-deck-n${dk.ok ? ' is-ok' : ''}">${dk.ids.length}/${B.DECK_SIZE}${dk.ok ? ' · Ready to battle' : ''}</span>${dk.ok ? '' : `<span class="pk-warn">${esc(dk.why)}</span>`}</div></div>`;
   h += `<div class="pk-actions is-deck"><button type="button" class="pk-pill" data-dy-addsheet>${ui.icon('plus', {size: 14})} Add cards</button>`
     + `<button type="button" class="pk-pill" data-dy-autodeck>${ui.icon('bolt', {size: 14})} Build my best deck</button></div>`;
-  h += `<p class="pk-note">20 cards, at most 2 of any player or card, at least one Basic player. Your players’ types decide your energy: one or two types work best. Tap a card to see it or take it out.</p>`;
+  h += `<p class="pk-note">20 cards, at most 2 of any player or card, at least one Basic player. Your active player determines which energy your lineup receives each turn. Tap a card to see it or take it out.</p>`;
   h += `<section class="rh-strategies"><h2>Find your play style</h2><p>Build from cards you own. Your current deck changes only when you choose a style.</p>${D.STRATEGIES.map(plan => {
     const candidate = D.strategyDeck(plan.id, s.o);
     return `<article class="rh-strategy"><div><h3>${esc(plan.name)}</h3><p>${esc(plan.description)}</p><small>${esc(plan.weakness)}</small></div><button type="button" class="pk-btn is-go" data-dy-strategy="${plan.id}"${candidate.ok ? '' : ' disabled'}>Use deck</button>${candidate.ok ? '' : `<p class="rh-strategy-missing">${esc(candidate.why)}</p>`}</article>`;
   }).join('')}</section>`;
   h += `<div class="pk-grid">${uniq.map(id => anyHTML(id, {size: 's', count: counts[id]})).join('')}</div>`;
-  return h;
+  return (D.tableOpen() ? '<button type="button" class="pk-pill" data-rd-back>← My Decks</button>' : '') + h;
 }
 function addSheet(st) {
   const s = D.mine();
@@ -645,6 +748,34 @@ function renameSheet(st) {
   });
 }
 
+// ---------------------------------------------------------------------------------------------------- Home
+function homeHTML(st) {
+  if (!homeOpen()) return battleHome(st);
+  const s = D.mine(), own = D.owned(s), ready = D.claimable(s).length, wait = waitingOf(st);
+  const current = matchesOf(st).find(x => ['setup', 'yours'].includes(x.state)) || SOLO.current();
+  const at = SOLO.ladderAt(s), next = SOLO.stage(Math.min(at, SOLO.LADDER));
+  const packs = D.unlimited() ? 'Unlimited packs' : D.dailyReady(s) ? 'Free pack ready' : 'Find your next star';
+  const arrow = ui.icon('chevron-right', {size: 20});
+  return `<section class="rh-home" aria-label="Rivals home">`
+    + `<button type="button" class="rh-home-battle" data-dy-tab="battle" aria-label="Battle: ${rivalsVersus() ? 'solo ladder and versus' : 'solo ladder'}">`
+    + `<span class="rh-home-banner"><img class="rh-home-art" src="img/rivals/home-battle-v1.webp" width="1536" height="1024" alt="" fetchpriority="high" decoding="async">`
+    + `<span class="rh-home-heading"><small>TAKE THE FIELD</small><b>Battle</b></span><span class="rh-home-versus" aria-hidden="true">VS</span>`
+    + `<span class="rh-home-ribbon"><span>${ui.icon('versus', {size: 22})}<b>${rivalsVersus() ? 'Solo &amp; Versus' : 'Solo ladder'}</b></span>${arrow}</span></span></button>`
+    + (current ? `<button type="button" class="rh-home-resume" data-dy-go="${esc(current.mid)}"><span class="rh-home-status"></span><span><b>Continue your match</b><small>vs. ${esc(current.opp.name)}</small></span>${arrow}</button>`
+      : `<div class="rh-home-progress"><span class="rh-home-status"></span><span>${at > SOLO.LADDER ? 'Solo ladder complete' : `Solo ladder · Game ${next.n} of ${SOLO.LADDER}`}</span><b>${esc(next.tier.name)}</b></div>`)
+    + liveEntryHTML('rh-home-notice')
+    + `<div class="rh-home-section"><h2>Build your next win</h2><span>COLLECT. COMPETE. REPEAT.</span></div>`
+    + `<div class="rh-home-destinations">`
+    + `<button type="button" class="rh-home-tile is-packs" data-dy-tab="packs"><span class="rh-home-tile-art rh-home-packs" aria-hidden="true">${packHTML('std')}${packHTML('prem')}</span>`
+    + `<span class="rh-home-tile-copy"><b>Packs</b><small>${packs}</small></span><span class="rh-home-tile-arrow" aria-hidden="true">${arrow}</span></button>`
+    + `<button type="button" class="rh-home-tile is-collection" data-dy-tab="cards"><span class="rh-home-tile-art rh-home-cards" aria-hidden="true"><i></i><i></i><i></i></span>`
+    + `<span class="rh-home-tile-copy"><b>Collection</b><small>${nf(own.have)} cards collected</small></span><span class="rh-home-tile-arrow" aria-hidden="true">${arrow}</span></button></div>`
+    + (ready ? `<button type="button" class="rh-home-notice" data-dy-goto="cols">${ui.icon('trophy', {size: 18})}<span>${ready === 1 ? '1 collection reward' : `${nf(ready)} collection rewards`} ready to claim</span>${arrow}</button>` : '')
+    + (wait ? `<button type="button" class="rh-home-notice" data-dy-home-versus>${ui.icon('versus', {size: 18})}<span>${wait === 1 ? '1 battle needs' : `${nf(wait)} battles need`} your attention</span>${arrow}</button>` : '')
+    + `<div class="rh-home-tools"><button type="button" data-dy-tab="decks"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">${TABS[2].ic}</svg><span>My decks</span>${arrow}</button><button type="button" data-dy-guide>${ui.icon('info', {size: 24})}<span>How to play</span>${arrow}</button></div>`
+    + `<p class="rh-home-signoff">YOUR TEAM. YOUR CARDS. YOUR LEGACY.</p></section>`;
+}
+
 // ---------------------------------------------------------------------------------------------------- Battle
 // Pocket's Battle screen: the banner (your next Solo ladder game: core/dynasty-solo.js; the owner, Oct 30 2026: "This
 // game mode should be focused on games against the cpu getting increasingly difficult"), then the ladder and Versus
@@ -652,7 +783,7 @@ function renameSheet(st) {
 const ago = ms => { const m = Math.round(ms / 60000); return m < 60 ? `${Math.max(1, m)}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
 const avatarOf = (o, size = 36) => (o.member ? ui.avatar(o.member, {size}) : ui.nickAvatar(o.name, {size}));
 export function battleHome(st, s = D.mine()) {
-  const wait = waitingOf(st), cur = SOLO.current(), dk = D.deckOf(s), ready = D.claimable(s).length;
+  const wait = waitingOf(st), cur = SOLO.current(), dk = rivalsUpdated() ? D.pocketDeck(s) : D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), ready = D.claimable(s).length;
   const move = matchesOf(st).find(x => ['setup', 'yours'].includes(x.state));
   const resume = move || cur;
   const stars = dk.ids.map(id => D.card(id)).filter(Boolean).filter((c, i, a) => a.findIndex(x => x.id === c.id) === i).slice(0, 3);
@@ -663,14 +794,14 @@ export function battleHome(st, s = D.mine()) {
   return `<section class="rh-hero" aria-label="Play Rivals"><div class="rh-kicker"><span class="rh-live"></span> ${at > SOLO.LADDER ? 'LADDER COMPLETE · REPLAY THE FINAL' : `SOLO LADDER · GAME ${next.n} OF ${SOLO.LADDER}`}</div>`
     + `<h2>${esc(next.name)}</h2><p>${resume ? `Your match against ${esc(resume.opp.name)} is waiting.` : `${esc(next.tier.name)}: ${esc(next.tier.blurb)}`}</p>`
     + `<button type="button" class="rh-play" ${action}>${ui.icon('play-fill', {size: 18})}${label}${ui.icon('chevron-right', {size: 18})}</button>`
-    + `<span class="rh-hero-note">${resume ? 'Your cards and progress are saved' : starter ? 'Your first pack builds a ready-to-play deck' : 'Each win unlocks the next game · First to three touchdowns'}</span>`
+    + `<span class="rh-hero-note">${resume ? 'Your cards and progress are saved' : rivalsUpdated() ? (dk.rental ? 'Starter rental · 20 cards · First to three knockout points' : '20-card decks · First to three knockout points') : starter ? 'Your first pack builds a ready-to-play deck' : D.tableOpen() ? 'Win by knocking out three players · 40-card solo deck' : 'Each win unlocks the next game · First to three touchdowns'}</span>`
     + `<div class="rh-yard" aria-hidden="true"><span>20</span><span>40</span><span>50</span><span>40</span><span>20</span></div></section>`
     + `<button type="button" class="rh-active-deck" data-dy-tab="decks"><span class="rh-deck-art" aria-hidden="true">${stars.slice(0, 2).map((c, i) => `<span style="--i:${i}">${cardHTML(c, {size: 's', tag: false, noCount: true})}</span>`).join('')}</span>`
-    + `<span class="rh-deck-copy"><small>ACTIVE DECK</small><b>${esc(D.teamName(s))}</b><span>${dk.ids.length}/20 cards · ${dk.ok ? 'Ready to play' : esc(dk.why)}</span></span>${ui.icon('chevron-right', {size: 18})}</button>`
+    + `<span class="rh-deck-copy"><small>ACTIVE DECK</small><b>${esc(rivalsUpdated() ? dk.name : D.teamName(s))}</b><span>${dk.ids.length}/${rivalsUpdated() ? 20 : D.tableOpen() ? 40 : 20} cards · ${dk.ok ? 'Ready to play' : esc(dk.why)}</span></span>${ui.icon('chevron-right', {size: 18})}</button>`
     + `<div class="rh-section-head"><h2>Choose your matchup</h2><span>${nf(s.rec.w)} W · ${nf(s.rec.l)} L</span></div>`
     + `<div class="pk-modes"><button type="button" class="pk-mode" data-dy-bv="solo">${MODE_IC.solo}<b>Solo ladder</b><small>${at > SOLO.LADDER ? 'All 30 games won' : `Game ${at} of ${SOLO.LADDER} · ${esc(next.tier.name)}`}</small></button>`
-    + `<button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Challenge a friend</b><small>${wait ? `${wait} ${wait === 1 ? 'match needs' : 'matches need'} your attention` : 'Take turns, on your schedule'}</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button></div>`
-    + `<details class="rh-how"><summary>Make every card count <span>How to play</span></summary><ol><li><b>Set your lineup.</b> One active player, up to three on the bench.</li><li><b>Tap a card.</b> It lifts up with its plays. Pick one, or put it back.</li><li><b>Energy is automatic.</b> Each turn it goes on your active player (or the bench player who needs it).</li><li><b>Choose your moment.</b> Quick plays keep energy. Signature plays spend one energy for a bigger hit.</li></ol><p>Knockouts score touchdowns. First to three wins. Matches already in progress keep their original rules.</p></details>`
+    + (rivalsVersus() ? `<button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Challenge a friend</b><small>${wait ? `${wait} ${wait === 1 ? 'match needs' : 'matches need'} your attention` : 'Take turns, on your schedule'}</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button>` : '') + '</div>'
+    + `<details class="rh-how"><summary>Make every card count <span>How to play</span></summary><ol><li><b>Prepare your team.</b> One Active athlete and up to three on the Bench.</li><li><b>Invest your Energy.</b> Attach one Energy each turn to your Active athlete or a future attacker. The first manager receives none on the opening turn.</li><li><b>Develop your players.</b> Play matching Breakout and Prime cards from your hand. Keep attached Energy and existing damage.</li><li><b>Choose your moment.</b> Play support cards, then attack. Energy normally stays attached; attacking ends your turn.</li></ol><p>Regular knockouts earn 1 point, ex earns 2, Mega ex earns 3. Reach three points or leave your opponent with no athlete in play to win. Existing matches retain their original rules.</p></details>`
     + `<div class="pk-row-s"><button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Rules</span></button>`
     + `<button type="button" class="pk-mini" data-dy-tab="decks">${TILE.decks}<span>Decks</span></button>`
     + `<button type="button" class="pk-mini" data-dy-bv="rank">${MODE_IC.rank}<span>Rankings</span></button>`
@@ -717,21 +848,31 @@ function rankHTML() {
       + `<span class="pk-row-t"><b>${esc(r.me ? `${r.team} (you)` : r.team)}</b><small>${esc(r.name)}${r.guest ? ' · Guest' : ''} · ${r.rec.w}–${r.rec.l} · ${nf(r.cards)} cards</small></span>`
       + `<span class="pk-tro">${MODE_IC.rank}<b>${nf(r.tr)}</b></span></li>`).join('')}</ol>` : ui.empty({icon: 'trophy', title: 'No rankings yet', body: 'Win battles to climb.'}));
 }
-function guideSheet() {
+function guideSheet(st) {
+  if (rivalsUpdated()) {
+    const sh = ui.openSheet({title: 'Gridiron Rivals · How to play', cls: 'pk-sheet', detents: ['large'], body: '<button type="button" class="pk-btn" data-dy-tutorial>Play the gameplay tutorial</button>' + pocketGuideHTML()});
+    sh.body.querySelector('[data-dy-tutorial]').addEventListener('click', () => { sh.close(); if (!st.dead && rivalsUpdated()) st.ctx.nav('/puzzles/dynasty/battle/tutorial'); });
+    return;
+  }
+  if (D.tableOpen()) {
+    ui.openSheet({title: 'Solo table rules', cls: 'pk-sheet', detents: ['large'], body: `<ol class="pk-guide"><li><b>Build your deck</b>40 cards, at least 6 players, up to 2 of each. Mix your collection with eight reusable match-playbook abilities in Decks.</li><li><b>Set your lineup</b>Hold a player in your hand, then drag to Active or one of three Bench spaces. Tap Start when ready.</li><li><b>Hold to inspect</b>Hold any face-up card, yours or theirs. Release to read its attacks. Opponent hand cards stay hidden. Tapping a card also opens its actions.</li><li><b>Play a card</b>Hold, move, then drop on a glowing space. Players go to your bench. Instant abilities go in the center; targeted ones go on your player. An invalid drop returns the card to your hand.</li><li><b>Make your play</b>At the start of your turn, draw one card automatically. Your active player sets the energy type for your whole lineup: QB/WR/TE generate Pass, RB/OL Run, DL/LB Blitz, CB/S Coverage, and K Kick. Each player gains one. A special ability, Energy Surge, or Speed Cleats raises that player’s grant to two. A switch affects the next turn’s grant. Fresh Playbook draws two cards. Items play immediately; use at most one Coach each turn.</li><li><b>Attack</b>Tap your active player and choose an attack whose energy cost they can meet. Quick attacks keep energy; signature attacks spend one. All or Nothing flips a coin: heads hits hard, tails fails. Every attack ends your turn.</li><li><b>Three knockouts</b>Every player counts as one, including Legends. The first team to lose three players loses. If your bench is empty, a player from your hand or deck joins it as a reserve. A 100-turn stalemate is a draw.</li><li><b>Make the table yours</b>Unlock finishes through solo wins, challenge 10 and pack openings. Equip one in Decks or from the table. The felt changes with the turn.</li></ol>${rivalsVersus() ? '<p class="pk-note">New friend matches use the same turn-start draw and energy rules. Matches already in progress follow their original rules.</p>' : ''}`});
+    return;
+  }
   const body = `<ol class="pk-guide">`
     + `<li><b>Build a deck</b>20 cards: players and Trainers, at most 2 of any one, with at least one Basic player.</li>`
     + `<li><b>Set up</b>Start with 5 cards. Put a Basic player out as your active player and up to 3 on your bench.</li>`
     + `<li><b>Each turn</b>Draw a card. The turn’s energy goes on by itself: your active player while his plays need it, else the bench player it helps most. Put Basics on your bench, evolve, play Items (as many as you like), one Coach card and a Stadium, and switch out your active player once.</li>`
-    + `<li><b>Tap any card</b>It lifts off the table with what it can do now: your active player’s plays, a bench player’s Send in, a hand card’s play. Put back sets it down.</li>`
+    + `<li><b>Tap any card</b>Its details open with what it can do now: your active player’s plays, a bench player’s Send in, a hand card’s play. Close them to set it down.</li>`
     + `<li><b>Attack</b>An attack needs its energy on your active player. Attacking ends your turn. In new matches, the second (signature) attack spends one attached energy; quick plays keep it. Existing matches keep their original rules. Hitting a weakness does +20: Air beats Blitz, Blitz beats Ground, Ground beats Coverage, Coverage beats Air.</li>`
     + `<li><b>Win</b>Knock out a player for a point (a Legend or Prime ex for two). Three points wins.</li>`
-    + `<li><b>Solo ladder</b>Thirty games against the computer, each win unlocking the next. The first ones are gentle; from game 16 the computer counters your deck’s main type and plays every trick. A win pays coins (double the first time), and every fifth game’s first win pays packs.</li>`
-    + `<li><b>Versus</b>Battles go in turns: play yours when you like, and your opponent gets YOUR MOVE on their Rivals case.</li></ol>`;
+    + `<li><b>Solo ladder</b>Thirty games against the computer, each win unlocking the next. The first ones are gentle; from game 16 the computer counters your deck’s main type and plays every trick. A win pays coins (double the first time).${D.bossLadderOpen() ? ' Every fifth battle features an Epic-or-better boss. First-defeat rewards alternate: one pack at battles 5, 15 and 25; the featured player card at 10, 20 and 30. Each boss reward is earned once. Previously won stages and earned rewards are preserved.' : ' Every fifth game’s first win pays packs.'}</li>`
+    + (rivalsVersus() ? `<li><b>Versus</b>Battles go in turns: play yours when you like, and your opponent gets YOUR MOVE on their Rivals case.</li>` : '') + '</ol>';
   ui.openSheet({title: 'Guide', body, cls: 'pk-sheet', detents: ['large']});
 }
 // Solo: your battle in play, then the ladder by tier: each game won, the next one to play, or locked, with what it pays.
 function soloHTML() {
-  const s = D.mine(), dk = D.deckOf(s), cur = SOLO.current(), at = SOLO.ladderAt(s);
+  if (D.bossLadderOpen()) return soloLadderHTML();
+  const s = D.mine(), dk = rivalsUpdated() ? D.pocketDeck(s) : D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), cur = SOLO.current(), at = SOLO.ladderAt(s);
   let h = `<button type="button" class="pk-backrow" data-dy-bv="">${ui.icon('chevron-left', {size: 16})} Play</button>`;
   if (!dk.ok) h += `<button type="button" class="pk-alert is-gold" data-dy-tab="decks">${ui.icon('info', {size: 18})}<span>Your deck isn’t ready: ${esc(dk.why)}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
   if (cur) h += `<button type="button" class="pk-alert" data-dy-go="${cur.mid}">${MODE_IC.solo}<span>Your battle against ${esc(cur.opp.name)}: ${cur.state === 'theirs' ? 'its move' : 'your move'} · ${cur.G.p[0].pts}–${cur.G.p[1].pts}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
@@ -750,6 +891,49 @@ function soloHTML() {
   });
   return h;
 }
+
+// Live battle entry (core/rivals-live.js, views/rivals-live-lobby.js): your live battle to return to, else who's online.
+function liveEntryHTML(cls) {
+  if (!LIVE.enabled()) return '';
+  const cur = LIVE.current(), on = LIVE.players().filter(p => p.online).length, arrow = ui.icon('chevron-right', {size: 18});
+  if (cur) return `<button type="button" class="${cls} rlv-entry is-live" data-dy-go="${esc(cur.id)}"><i class="rlv-dot is-on" aria-hidden="true"></i><span><b>Return to your live battle</b><small>vs. ${esc(LIVE.nameFor(cur.o))}</small></span>${arrow}</button>`;
+  return `<button type="button" class="${cls} rlv-entry" data-dy-live><i class="rlv-dot ${on ? 'is-on' : 'is-off'}" aria-hidden="true"></i><span><b>Live battle</b><small>${on ? `${on} ${on === 1 ? 'manager' : 'managers'} in the app now` : 'Challenge a manager in the app'}</small></span>${arrow}</button>`;
+}
+// Owner ladder: compact numbered matches, with collectible artwork reserved for every fifth battle.
+function soloLadderHTML() {
+  const s = D.mine(), dk = rivalsUpdated() ? D.pocketDeck(s) : D.tableOpen() ? D.tableDeck(s) : D.deckOf(s), cur = SOLO.current();
+  const at = SOLO.ladderAt(s), done = SOLO.STAGES.filter(g => s.so[g.id]).length;
+  const colors = ['#5cbf70', '#39b3cf', '#648ee1', '#a275d3', '#d4a23c', '#db77ae'];
+  let h = `<section class="rl-ladder" aria-label="Solo battle ladder">${rivalsVersus() ? `<div class="rl-switch" aria-label="Battle mode"><button type="button" class="is-on" data-dy-bv="solo" aria-pressed="true">${MODE_IC.solo}Solo ladder</button><button type="button" data-dy-bv="versus" aria-pressed="false">${MODE_IC.versus}Versus</button></div>` : ''}`
+    + `<div class="rl-hero"><div class="rl-hero-plate"><small>30 BATTLES · A BOSS EVERY 5</small><h2>Road to Glory</h2><p>Boss rewards: pack → Epic+ player → repeat</p></div></div>`
+    + `<div class="rl-progress"><div><b>${done}<small> / ${SOLO.LADDER} won</small></b><span>${at > SOLO.LADDER ? 'Ladder complete · Replay for coins' : 'Win each battle to unlock the next'}</span></div><button type="button" data-dy-ladder-next>${at > SOLO.LADDER ? 'Final boss' : `Battle ${at}`}${ui.icon('chevron-down', {size: 16})}</button></div>`
+    + `<div class="rl-progress-track" role="progressbar" aria-label="Solo battles won" aria-valuemin="0" aria-valuemax="30" aria-valuenow="${done}"><i style="width:${done / SOLO.LADDER * 100}%"></i></div>`
+    + liveEntryHTML('rl-live');
+  if (cur) h += `<button type="button" class="rl-resume" data-dy-go="${esc(cur.mid)}">${ui.icon('play-fill', {size: 20})}<span><b>Continue your battle</b><small>${esc(cur.opp.name)}</small></span>${ui.icon('chevron-right', {size: 20})}</button>`;
+  if (!dk.ok) h += `<button type="button" class="pk-alert is-gold" data-dy-tab="${s.pk.start ? 'packs' : 'decks'}">${ui.icon('info', {size: 18})}<span>${s.pk.start ? 'Open your Starter Pack to build your first deck.' : `Prepare your deck: ${esc(dk.why)}`}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
+  SOLO.TIERS.forEach((tier, i) => {
+    h += `<section class="rl-tier" style="--rl-accent:${colors[i]}"><h3><span>${esc(tier.name)}</span><small>BATTLES ${tier.from}–${tier.from + 4}</small></h3><ol start="${tier.from}" class="rl-matches pk-solo">`;
+    SOLO.STAGES.filter(g => g.n >= tier.from && g.n < tier.from + 5).forEach(g => {
+      const boss = D.soloBoss(g.id), prize = D.soloBossReward(g.id), won = !!s.so[g.id], unlocked = SOLO.unlocked(g.id, s), paid = !!s.bossRewards?.[g.id];
+      const P = D.ladderPay(g.n), playable = unlocked && dk.ok;
+      const action = !unlocked ? 'Locked' : !dk.ok ? 'Deck needed' : won ? 'Replay' : 'Battle';
+      const title = boss ? `${boss.name}’s team` : g.name;
+      const reward = boss ? (paid ? 'Reward earned' : prize.pack ? `1 ${D.PACKS[prize.pack].name}` : `${D.RARITY_NAME[boss.r]} player card`) : `${nf(P.coins * (won ? 1 : 2))} coins${won ? ' per win' : ' on first win'}`;
+      const extra = !unlocked ? `Win battle ${g.n - 1} to unlock` : boss && paid ? 'Replay for coins' : boss ? 'Win to claim · One-time reward' : 'Victory unlocks the next battle';
+      const status = won ? ui.icon('check-circle', {size: 17}) : !unlocked ? ui.icon('lock', {size: 16}) : '<i class="rl-ready-dot"></i>';
+      h += `<li class="rl-match${boss ? ' is-boss' : ''}${won ? ' is-won' : ''}${g.n === at ? ' is-next' : ''}${unlocked ? '' : ' is-locked'}" data-ladder-stage="${g.id}"><button type="button" data-dy-solo="${g.id}"${playable ? '' : ' disabled'} aria-label="${esc(`Battle ${g.n}${boss ? ', boss' : ''}: ${title}. ${reward}. ${extra}. ${action}`)}">`
+        + (boss ? `<span class="rl-card" aria-hidden="true">${cardHTML(boss, {tag: false, noCount: true, eager: true})}<span class="rl-cpu">BOSS</span></span>`
+          + `<span class="rl-match-copy"><span class="rl-match-top"><span class="rl-number">${String(g.n).padStart(2, '0')}</span><span class="rl-level">${D.RARITY_NAME[boss.r]} boss</span>${status}</span>`
+          + `<strong>${esc(title)}</strong><span class="rl-match-reward">${ui.icon(paid ? 'check' : 'trophy', {size: 14})}${esc(reward)}</span>`
+          + `<small>${esc(extra)}</small><span class="rl-match-action"><em>${paid ? 'COMPLETED' : prize.pack ? 'PACK REWARD' : 'PLAYER REWARD'}</em><b>${action}${playable ? ui.icon('chevron-right', {size: 15}) : ''}</b></span></span>`
+          : `<span class="rl-step" aria-hidden="true">${String(g.n).padStart(2, '0')}</span><span class="rl-match-copy"><strong>${esc(title)}</strong><span class="rl-match-reward">${esc(unlocked ? reward : extra)}</span></span><span class="rl-match-status">${status}<b>${action}</b></span>`)
+        + '</button></li>';
+    });
+    h += '</ol></section>';
+  });
+  h += `<div class="pk-row-s rl-tools"><button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Rules</span></button><button type="button" class="pk-mini" data-dy-tab="decks">${TILE.decks}<span>Decks</span></button><button type="button" class="pk-mini" data-dy-bv="rank">${MODE_IC.rank}<span>Rankings</span></button><button type="button" class="pk-mini" data-dy-goto="cols">${MODE_IC.missions}<span>Collections</span></button></div></section>`;
+  return h;
+}
 function startSolo(st, id) {
   const go = () => { const r = SOLO.start(id); if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; } ui.haptic('success'); st.ctx.nav(`/puzzles/dynasty/battle/${r.mid}`); };
   const cur = SOLO.current();
@@ -757,7 +941,7 @@ function startSolo(st, id) {
   ui.actionSheet({title: 'Start a new battle?', message: `Your battle against ${cur.opp.name} ends unplayed.`, cls: 'pk-sheet', actions: [{label: 'Start the new one', role: 'primary', value: 'y'}]})
     .then(v => { if (v === 'y') { SOLO.resign(cur.mid); go(); } });
 }
-function battleHTML2(st) { return st.bv === 'versus' ? versusHTML(st) : st.bv === 'rank' ? rankHTML() : st.bv === 'solo' ? soloHTML() : battleHome(st); }
+function battleHTML2(st) { return st.bv === 'versus' && rivalsVersus() ? versusHTML(st) : st.bv === 'rank' ? rankHTML() : st.bv === 'solo' || D.bossLadderOpen() ? soloHTML() : battleHome(st); }
 
 // ---------------------------------------------------------------------------------------------------- opening a pack
 function openHere(st) {
@@ -777,7 +961,7 @@ function openPack(st, kind, team = null) {
   const r = D.open(kind, {team});
   if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
   refresh(st);
-  openScene({kind, design: artAt(st, kind), cards: r.cards, dup: r.dup, cardHTML: anyHTML, onClose: () => refresh(st), focusBack: '.pk-actions [data-dy-openhere]'});
+  openScene({kind, design: artAt(st, kind), cards: r.cards, dup: r.dup, cardHTML: anyHTML, onClose: () => refresh(st), focusBack: '.pk-pack-buy, .pk-actions [data-dy-openhere]'});
 }
 function teamPicker(done) {
   const teams = Object.values(D.TEAMS).sort((a, b) => a.name.localeCompare(b.name));
@@ -811,7 +995,7 @@ export function startHTML() {
 function drawStart(st) {
   const sc = st.el.querySelector('[data-dy-start]');
   st.el.querySelector('.pk').classList.toggle('is-start', !!sc);
-  ['.pk-hdr', '[data-dy-pane]', '.pk-nav'].forEach(q => { const el = st.el.querySelector(q); if (el) { if (sc) el.setAttribute('inert', ''); else el.removeAttribute('inert'); } });
+  ['.pk-hdr', '[data-dy-shop-tabs]', '[data-dy-pane]', '.pk-nav'].forEach(q => { const el = st.el.querySelector(q); if (el) { if (sc) el.setAttribute('inert', ''); else el.removeAttribute('inert'); } });
   if (!sc) return;
   const say = sc.querySelector('[data-dy-start-say]');
   if (say && say.textContent !== startSay()) say.textContent = startSay();
@@ -832,6 +1016,7 @@ function startGame(st) {
     sc.remove(); st.starting = false;
     if (st.dead) return;
     drawStart(st);
+    if (!st.hidden && D.tutorialDue()) { st.ctx.nav('/puzzles/dynasty/battle/tutorial'); return; }
     const h = st.el.querySelector('[data-pk-title]');
     if (h) { try { h.focus({preventScroll: true}); } catch (_) {} }
   };
@@ -852,6 +1037,10 @@ function showStart(st) {
 function menuSheet(st) {
   const s = D.status === 'ready' ? D.mine() : null, P = D.PACKS[st.pack] || D.PACKS[D.DAILY_PACK];
   const items = [
+    // (Nov 9 2026: Jukebox for the songs, Sound for the music and effects levels)
+    ...(rivalsUpdated() ? [{id: 'music', svg: '<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V10a7 7 0 0 1 14 0v11z"/><path d="M8.5 13.5V10.5a3.5 3.5 0 0 1 7 0v3z"/><path d="M8.5 17h7"/></svg>', label: 'Jukebox', sub: 'Songs, play/pause & shuffle'},
+      {id: 'sound', svg: '<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4 6 8H3v8h3l5 4z"/><path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></svg>', label: 'Sound', sub: 'Music and sound effects levels'}] : []),
+    {id: 'market', ic: 'sparkle', label: 'Marketplace', sub: 'Buy and sell cards for coins'},
     {id: 'guide', ic: 'info', label: 'Guide', sub: 'How to play'},
     {id: 'coins', ic: 'sparkle', label: 'Coins', sub: s ? `${nf(D.balance(s))} · how you earn them` : 'How you earn them'},
     {id: 'rank', ic: 'trophy', label: 'Rankings', sub: s ? `${nf(s.tr)} trophies · ${s.rec.w}–${s.rec.l}` : 'The Rivals board'},
@@ -859,7 +1048,7 @@ function menuSheet(st) {
     {id: 'title', ic: 'play-fill', label: 'Title screen', sub: 'Back to the start'},
     {id: 'exit', ic: 'close', label: 'Exit Gridiron Rivals', sub: 'Back to Daily Games', cls: 'is-exit'}
   ];
-  const body = `<ul class="pk-list pk-menu">${items.map(x => `<li><button type="button" class="pk-menu-b${x.cls ? ' ' + x.cls : ''}" data-dy-m="${x.id}"><i class="pk-menu-i">${ui.icon(x.ic, {size: 20})}</i>`
+  const body = `<ul class="pk-list pk-menu">${items.map(x => `<li><button type="button" class="pk-menu-b${x.cls ? ' ' + x.cls : ''}" data-dy-m="${x.id}"><i class="pk-menu-i">${x.svg || ui.icon(x.ic, {size: 20})}</i>`
     + `<span class="pk-row-t"><b>${esc(x.label)}</b><small>${esc(x.sub)}</small></span>${ui.icon('chevron-right', {size: 16})}</button></li>`).join('')}</ul>`
     + `<p class="pk-note pk-menu-foot">Gridiron Rivals · Ver. ${APP_VER}.${D.VERSION} · Support ID ${supportId()}<br><a href="${new URL('../../img/rivals/team-graphics-v2/credits.html', import.meta.url).href}" target="_blank" rel="noopener">Artwork credits</a></p>`;
   const sh = ui.openSheet({title: 'Menu', body, cls: 'pk-sheet', detents: ['fit']});
@@ -870,7 +1059,10 @@ function menuSheet(st) {
     ui.haptic('selection'); sh.close();
     setTimeout(() => {
       if (st.dead) return;
-      if (id === 'guide') guideSheet();
+      if (id === 'market') { if (s) go(st, 'market'); }
+      else if (id === 'guide') guideSheet(st);
+      else if (id === 'music') musicSheet();
+      else if (id === 'sound') soundSheet();
       else if (id === 'coins') { if (s) earnSheet(); }
       else if (id === 'rank') { if (s) { st.bv = 'rank'; go(st, 'battle', {keep: true}); } }
       else if (id === 'odds') oddsSheet(st.pack);
@@ -881,10 +1073,11 @@ function menuSheet(st) {
 }
 
 // ---------------------------------------------------------------------------------------------------- the screen
-const PANES = {packs: packsHTML, cards: cardsHTML, decks: decksHTML, battle: battleHTML2};
+const PANES = {market: st => marketHTML(st, anyHTML), home: homeHTML, packs: packsHTML, cards: cardsHTML, decks: decksHTML, battle: battleHTML2};
 // Replaying multiplayer logs is expensive. Share one short-lived snapshot across the badge and screens;
 // match/board/profile events and returning from a battle invalidate it before it can be used again.
 function matchesOf(st) {
+  if (!rivalsVersus()) return [];
   const key = profileKey(), now = Date.now();
   if (!st.matches || st.matchKey !== key || now - st.matchAt > 15000) {
     st.matches = MT.list(); st.matchKey = key; st.matchAt = now;
@@ -892,9 +1085,9 @@ function matchesOf(st) {
   return st.matches;
 }
 const waitingOf = st => matchesOf(st).filter(x => ['invite', 'setup', 'yours'].includes(x.state)).length;
-const paneKey = st => JSON.stringify([st.tab, st.tab === 'cards' ? st.f : st.tab === 'battle' ? st.bv : st.tab === 'packs' ? [st.pack, st.art] : null]);
+const paneKey = st => JSON.stringify([st.tab, st.tab === 'market' ? st.market : st.tab === 'cards' ? st.f : st.tab === 'battle' ? st.bv : st.tab === 'packs' ? [st.pack, st.art] : st.tab === 'decks' ? !!st.friendDeck : null]);
 // Pack countdowns and battle idle times age even without a save event. Reusing nodes must not reset their age.
-const paneFresh = (tab, at) => !(tab === 'packs' || tab === 'battle') || Date.now() - at < 15000;
+const paneFresh = (tab, at) => !(tab === 'packs' || tab === 'battle' || tab === 'home' || tab === 'market') || Date.now() - at < 15000;
 function invalidatePanes(st, matches = false) {
   st.revision++; st.panes.clear();
   if (matches) st.matches = null;
@@ -905,10 +1098,30 @@ function scheduleRefresh(st) {
   st.refreshFrame = requestAnimationFrame(() => { st.refreshFrame = 0; refresh(st); });
 }
 function updateChrome(st) {
-  const el = st.el, hud = hudHTML(D.mine());
+  const save = D.mine();
+  if (st.tab === 'market') D.earned(save, true);
+  const el = st.el, hud = hudHTML(save);
+  const shell = el.querySelector('.pk'), owner = homeOpen();
+  if (shell.classList.contains('rh-home-enabled') !== owner) {
+    shell.classList.toggle('rh-home-enabled', owner);
+    el.querySelector('.pk-nav').innerHTML = navHTML();
+  }
+  if (st.tab === 'home' && !owner) st.tab = 'battle';
+  shell.classList.toggle('is-home', owner && st.tab === 'home');
+  shell.classList.toggle('is-pack-shop', rivalsUpdated() && st.tab === 'packs');
+  shell.classList.toggle('is-ladder', D.bossLadderOpen() && st.tab === 'battle' && !(st.bv === 'rank' || (st.bv === 'versus' && rivalsVersus())));
   if (hud !== st.hud) { el.querySelector('[data-dy-hud]').innerHTML = hud; st.hud = hud; }
-  el.querySelector('[data-pk-title]').textContent = (PANE_TABS.find(t => t.id === st.tab) || PANE_TABS[0]).title;
-  el.querySelectorAll('.pk-tab[data-dy-tab]').forEach(b => { const on = b.dataset.dyTab === st.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
+  el.querySelector('[data-pk-title]').textContent = (st.tab === 'market' ? 'Packs' : (tabsOf().find(t => t.id === st.tab) || TABS[0]).title);
+  el.querySelectorAll('.pk-tab[data-dy-tab]').forEach(b => { const on = b.dataset.dyTab === (st.tab === 'market' ? 'packs' : st.tab); b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
+  const shop = st.tab === 'packs' || st.tab === 'market', shopTabs = el.querySelector('[data-dy-shop-tabs]');
+  shopTabs.hidden = !shop;
+  shopTabs.querySelectorAll('[data-dy-shop-tab]').forEach(b => {
+    const selected = b.dataset.dyShopTab === st.tab;
+    b.setAttribute('aria-selected', String(selected)); b.tabIndex = selected ? 0 : -1;
+  });
+  const pane = el.querySelector('[data-dy-pane]');
+  if (shop) { pane.setAttribute('role', 'tabpanel'); pane.setAttribute('aria-labelledby', 'dy-shop-' + st.tab); }
+  else { pane.removeAttribute('role'); pane.removeAttribute('aria-labelledby'); }
   const dot = el.querySelector('.pk-tab[data-dy-tab="battle"] .pk-dot');
   if (dot) dot.hidden = !waitingOf(st);
 }
@@ -918,12 +1131,25 @@ function updateChrome(st) {
 function fullScreen(st, on) {
   document.documentElement.classList.toggle('is-dynasty-playing', !!on && !st.dead && D.mayPlay());
 }
+function stopPackShelf(st) {
+  if (st.packShelf) st.packShelf.destroy();
+  st.packShelf = null;
+}
+function startPackShelf(st) {
+  if (!rivalsUpdated() || st.tab !== 'packs') return;
+  const root = st.el.querySelector('.pk-pack-shop');
+  if (root) st.packShelf = mountPackShelf(root, st.pack, {
+    onSelect: kind => { st.pack = kind; },
+    onRest: () => { if (st.dirty) { st.dirty = false; scheduleRefresh(st); } }
+  });
+}
 function refresh(st) {
   if (st.dead || st.hidden) return;
   if (st.refreshFrame) { cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; }
   const el = st.el;
   // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
   if (!D.mayPlay()) {
+    stopPackShelf(st);
     fullScreen(st, false); el.querySelector('[data-dy-pane]').innerHTML = '';
     const sc = el.querySelector('[data-dy-start]'); if (sc) sc.remove(); drawStart(st);
     if (!st.left) { st.left = true; st.ctx.back(); }
@@ -936,27 +1162,32 @@ function refresh(st) {
   }
   updateChrome(st);
   const pane = el.querySelector('[data-dy-pane]');
-  const input = pane.querySelector('input[name="dy-q"]');
+  const input = pane.querySelector('input[name="dy-q"], [data-market-search]');
   const selection = input && input === document.activeElement ? [input.selectionStart, input.selectionEnd] : null;
   // (a finger on the big pack mid-swipe: the redraw waits till it's let go, swEnd)
-  if (st.tab === 'packs' && st.sw && st.sw.on) { st.dirty = true; return; }
+  if (st.tab === 'packs' && ((st.sw && st.sw.on) || st.packShelf?.busy)) { st.dirty = true; return; }
   // (the pack, an arrow or a dot focused: the same one after the redraw)
-  const had = document.activeElement, fk = had && pane.contains(had) ? (had.matches('[data-dy-art]') ? `[data-dy-art="${had.dataset.dyArt}"]` : had.matches('[data-dy-artat]') ? `[data-dy-artat="${had.dataset.dyArtat}"]` : had.matches('.pk-bigpack') ? '.pk-bigpack' : had.matches('[data-dy-to]') ? '.pk-car-bk' : '') : '';
+  const had = document.activeElement, fk = had && pane.contains(had) ? (had.matches('[data-dy-art]') ? `[data-dy-art="${had.dataset.dyArt}"]` : had.matches('[data-dy-artat]') ? `[data-dy-artat="${had.dataset.dyArtat}"]` : had.matches('.pk-bigpack') ? '.pk-bigpack' : had.matches('[data-dy-to]') ? '.pk-car-bk' : had.matches('.pk-pack-buy') ? '.pk-pack-buy' : had.closest('.pk-pack-shelf') ? '.pk-pack-shelf' : '') : '';
+  const marketFocus = had && pane.contains(had) && st.tab === 'market' ? (had.matches('[data-market-rarity]') ? '[data-market-rarity]' : had.matches('[data-market-sort]') ? '[data-market-sort]' : had.matches('[data-market-mode]') ? `[data-market-mode="${had.dataset.marketMode}"]` : had.matches('[data-market-more]') ? '[data-market-more]' : '') : '';
+  stopPackShelf(st);
   pane.innerHTML = PANES[st.tab](st);
   ui.hydrate(pane);
+  startPackShelf(st);
+  if (marketFocus) { const again = pane.querySelector(marketFocus) || (marketFocus === '[data-market-more]' ? pane.querySelector('.rm-card:last-child [data-market-card]') : null); if (again) again.focus({preventScroll: true}); }
   if (fk) { const again = pane.querySelector(fk); if (again) try { again.focus({preventScroll: true}); } catch (_) {} }
   if (st.tab === 'cards' && st.f.view !== 'cols') drawGrid(st);
-  if (selection && st.tab === 'cards') {
-    const next = pane.querySelector('input[name="dy-q"]');
+  if (selection && (st.tab === 'cards' || st.tab === 'market')) {
+    const next = pane.querySelector('input[name="dy-q"], [data-market-search]');
     if (next) { next.focus({preventScroll: true}); next.setSelectionRange(...selection); }
   }
   st.renderedTab = st.tab; st.renderedKey = paneKey(st); st.renderedRevision = st.revision; st.renderedAt = Date.now();
 }
 function go(st, tab, {keep = false} = {}) {
-  if (!PANES[tab] || st.dead) return;
+  if (!PANES[tab] || st.dead || (tab === 'home' && !homeOpen())) return;
   clearTimeout(st.qT);
   if (st.refreshFrame) { cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; }
   const pane = st.el.querySelector('[data-dy-pane]'), previous = st.tab;
+  if (previous !== tab) stopPackShelf(st);
   // Detached nodes retain decoded images, hydrated controls and pagination without painting hidden tabs.
   if (previous !== tab && st.renderedTab === previous && st.renderedRevision === st.revision) {
     const fragment = document.createDocumentFragment(), top = pane.scrollTop;
@@ -966,6 +1197,7 @@ function go(st, tab, {keep = false} = {}) {
   st.tab = tab;
   if (tab === 'battle' && !keep) st.bv = '';
   if (previous === tab && st.renderedKey === paneKey(st) && st.renderedRevision === st.revision && paneFresh(tab, st.renderedAt)) return;
+  if (tab === 'packs' && previous !== tab) { st.packPreview = null; st.panes.delete(tab); }
   const cached = st.panes.get(tab);
   st.panes.delete(tab);
   if (cached && cached.key === paneKey(st) && paneFresh(tab, cached.at)) {
@@ -975,6 +1207,7 @@ function go(st, tab, {keep = false} = {}) {
     pane.replaceChildren(cached.fragment); st.shown = cached.shown; st.gridKey = cached.gridKey;
     st.renderedTab = tab; st.renderedKey = cached.key; st.renderedRevision = st.revision; st.renderedAt = cached.at;
     pane.scrollTop = cached.top;
+    startPackShelf(st);
     return;
   }
   refresh(st);
@@ -989,15 +1222,30 @@ export default {
   render() { return shellHTML(); },
 
   mount(el, ctx) {
-    const st = {el, ctx, tab: 'battle', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: '', sort: sortLoad()}, shown: PAGE, dead: false, starting: false, stops: [], panes: new Map(), revision: 0, refreshFrame: 0, hidden: false};
+    const st = {el, ctx, tab: homeOpen() ? 'home' : 'battle', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: '', sort: sortLoad()}, shown: PAGE, dead: false, starting: false, stops: [], panes: new Map(), revision: 0, refreshFrame: 0, hidden: false};
     ST.set(ctx, st);
+    st.music = attachMusic(el, ctx.visible);
+    st.sfx = sfx.attach(el, ctx.visible);
+    el.addEventListener('click', e => {
+      if (e.target.closest('[data-dy-tab], [data-dy-menu], [data-dy-start]')) st.sfx.play('select');
+    });
+    st.stops.push(() => st.sfx.stop());
+    st.stops.push(() => st.music.stop());
     fullScreen(st, ctx.visible);
     ctx.setBackTitle('Rivals');
+    el.addEventListener('change', e => marketEvent(e, st, anyHTML, () => refresh(st)));
     el.addEventListener('input', e => {
+      if (marketEvent(e, st, anyHTML, () => refresh(st))) return;
       if (e.target.name === 'dy-q') { st.f.q = e.target.value; clearTimeout(st.qT); st.qT = setTimeout(() => drawGrid(st), 160); }
     });
     // (the title screen: Enter or Space on it starts, as a tap does)
     el.addEventListener('keydown', e => {
+      const shopTab = e.target.closest('[data-dy-shop-tab]');
+      if (shopTab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+        e.preventDefault();
+        const tab = e.key === 'Home' ? 'packs' : e.key === 'End' ? 'market' : shopTab.dataset.dyShopTab === 'packs' ? 'market' : 'packs';
+        go(st, tab); el.querySelector(`[data-dy-shop-tab="${tab}"]`).focus(); return;
+      }
       const sc = e.target && e.target.closest ? e.target.closest('[data-dy-start]') : null;
       if (sc && e.target === sc && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); startGame(st); }
     });
@@ -1005,10 +1253,18 @@ export default {
       const t = e.target;
       const q = sel => t.closest(sel);
       let b;
+      if (marketEvent(e, st, anyHTML, () => refresh(st))) return;
+      if (rivalsUpdated() && handlePocketShelf(e, () => scheduleRefresh(st), portraitOf)) return;
+      if (!rivalsUpdated() && handleDeckShelf(e, () => scheduleRefresh(st), cardHTML)) return;
+      if (D.tableOpen() && rivalsVersus() && q('[data-rd-friends]')) { st.friendDeck = true; refresh(st); return; }
+      if (D.tableOpen() && q('[data-rd-back]')) { st.friendDeck = false; refresh(st); return; }
+      if (D.tableOpen() && e.target.closest('[data-dy-table-deck]')) { tableDeckSheet(() => scheduleRefresh(st)); return; }
+      if (D.tableOpen() && e.target.closest('[data-dy-table]')) { tableOptions(() => scheduleRefresh(st)); return; }
       if (q('[data-dy-exit]')) { ui.confirmExit({game: 'Gridiron Rivals', cls: 'pk-sheet'}).then(home => { if (home && !st.dead) ctx.back(); }); return; }
       if (q('[data-dy-menu]')) { menuSheet(st); return; }
       if (q('[data-dy-retry]')) { D.load().then(() => refresh(st), () => refresh(st)); refresh(st); return; }
-      if ((b = q('[data-dy-tab]'))) { go(st, b.dataset.dyTab); return; }
+      if (homeOpen() && q('[data-dy-home-versus]')) { st.bv = 'versus'; go(st, 'battle', {keep: true}); return; }
+      if ((b = q('[data-dy-tab]'))) { if (b.dataset.dyTab === 'decks') st.friendDeck = false; go(st, b.dataset.dyTab); return; }
       if ((b = q('[data-dy-goto]'))) { st.f.view = 'cols'; go(st, 'cards'); return; }
       if ((b = q('[data-dy-cv]'))) { st.f.view = b.dataset.dyCv; refresh(st); return; }
       if (q('[data-dy-all]')) { st.f.view = st.f.view === 'all' ? 'mine' : 'all'; ui.haptic('selection'); refresh(st); return; }
@@ -1025,14 +1281,22 @@ export default {
       if (q('[data-dy-earn]')) { earnSheet(); return; }
       if ((b = q('[data-dy-odds]'))) { oddsSheet(b.dataset.dyOdds); return; }
       if ((b = q('[data-dy-bv]'))) { st.bv = b.dataset.dyBv; refresh(st); el.querySelector('[data-dy-pane]').scrollTop = 0; return; }
-      if (q('[data-dy-guide]')) { guideSheet(); return; }
+      if (D.bossLadderOpen() && q('[data-dy-ladder-next]')) {
+        const id = `g${Math.min(SOLO.ladderAt(), SOLO.LADDER)}`, row = el.querySelector(`[data-ladder-stage="${id}"]`);
+        const pane = el.querySelector('[data-dy-pane]');
+        if (row) pane.scrollTo({top: pane.scrollTop + row.getBoundingClientRect().top - pane.getBoundingClientRect().top - Math.max(0, (pane.clientHeight - row.offsetHeight) / 2), behavior: RM() ? 'instant' : 'smooth'});
+        return;
+      }
+      if (q('[data-dy-guide]')) { guideSheet(st); return; }
+      if (q('[data-dy-live]')) { import('./rivals-live-lobby.js').then(m => m.openLobby()).catch(e => console.error(e)); return; }
       if ((b = q('[data-dy-card]'))) { cardSheet(st, b.dataset.dyCard); return; }
       if (q('[data-dy-more]')) { drawGrid(st, true); return; }
       if (q('[data-dy-spares]')) {
         const sp = D.spares();
+        const saleKey = profileKey();
         ui.actionSheet({title: 'Quick sell your spares?', cls: 'pk-sheet', message: `Every copy beyond the ones you keep of ${sp.list.length} card${sp.list.length === 1 ? '' : 's'}, for ${nf(sp.coins)} coins.`,
           actions: [{label: `Sell for ${nf(sp.coins)}`, role: 'destructive', value: 'sell'}]})
-          .then(v => { if (v !== 'sell') return; const c = D.sellSpares(); ui.toast(`Sold for ${nf(c)} coins`, {icon: 'check-circle'}); refresh(st); });
+          .then(v => { if (v !== 'sell' || saleKey !== profileKey() || st.dead || st.hidden) return; const c = D.sellSpares(); ui.toast(`Sold for ${nf(c)} coins`, {icon: 'check-circle'}); refresh(st); });
         return;
       }
       if ((b = q('[data-dy-claim]'))) { claimIt(st, b.dataset.dyClaim); return; }
@@ -1049,6 +1313,7 @@ export default {
       if (q('[data-dy-rename]')) { renameSheet(st); return; }
       const run = (r, then) => { if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; } ui.haptic('success'); if (then) then(r); refresh(st); };
       if ((b = q('[data-dy-solo]'))) { startSolo(st, b.dataset.dySolo); return; }
+      if (!rivalsVersus() && q('[data-dy-challenge], [data-dy-accept], [data-dy-decline], [data-dy-cancel], [data-dy-claimwin]')) return;
       if ((b = q('[data-dy-challenge]'))) { run(MT.challenge(b.dataset.dyChallenge), () => ui.toast('Challenge sent. It’s on their Rivals now.', {icon: 'check-circle'})); return; }
       if ((b = q('[data-dy-accept]'))) { run(MT.accept(b.dataset.dyAccept), r => ctx.nav(`/puzzles/dynasty/battle/${r.mid}`)); return; }
       if ((b = q('[data-dy-decline]'))) { run(MT.decline(b.dataset.dyDecline)); return; }
@@ -1110,8 +1375,9 @@ export default {
     });
     st.stops.push(D.subscribe(why => { invalidatePanes(st, why === 'profile' || why === 'data' || why === 'sync'); if (why !== 'change' && why !== 'open') scheduleRefresh(st); }));
     st.stops.push(MT.subscribe(() => { invalidatePanes(st, true); scheduleRefresh(st); }));
-    st.stops.push(SOLO.subscribe(() => { invalidatePanes(st); if (st.tab === 'battle') scheduleRefresh(st); }));
-    st.stops.push(ctx.on('daily', type => { if (type === 'lb') { invalidatePanes(st, true); if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'battle' || st.tab === 'packs') scheduleRefresh(st); } }));
+    st.stops.push(SOLO.subscribe(() => { invalidatePanes(st); if (st.tab === 'battle' || st.tab === 'home') scheduleRefresh(st); }));
+    st.stops.push(LIVE.subscribe(why => { if (['start', 'accepted', 'outcome', 'profile'].includes(why) && (st.tab === 'battle' || st.tab === 'home')) { invalidatePanes(st); scheduleRefresh(st); } }));
+    st.stops.push(ctx.on('daily', type => { if (type === 'lb') { invalidatePanes(st, true); if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'battle' || st.tab === 'packs' || st.tab === 'home' || st.tab === 'market') scheduleRefresh(st); } }));
     st.stops.push(data.subscribe(type => { if (type === 'me') { invalidatePanes(st, true); refresh(st); } }));
     st.stops.push(ctx.timer(() => { if (!st.hidden && D.status === 'ready' && D.mayPlay()) updateChrome(st); }, 15000));
     try { ui.lsSet('gg-dynasty-seen', '1'); } catch (_) {}
@@ -1121,15 +1387,16 @@ export default {
   },
 
   // (back from a battle: the matches as they stand now; the title screen doesn't come again)
-  onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; invalidatePanes(st, true); fullScreen(st, true); refresh(st); } },
+  onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; st.music.visible(true); st.sfx.visible(true); invalidatePanes(st, true); fullScreen(st, true); refresh(st); } },
 
-  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; clearTimeout(st.qT); cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; fullScreen(st, false); } },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; st.music.visible(false); st.sfx.visible(false); stopPackShelf(st); clearTimeout(st.qT); cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; fullScreen(st, false); } },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);
     if (!st) return;
     fullScreen(st, false);
     st.dead = true;
+    stopPackShelf(st);
     clearTimeout(st.qT); cancelAnimationFrame(st.refreshFrame); st.panes.clear();
     st.stops.forEach(f => { try { f(); } catch (_) {} });
     D.flush(); MT.flush();

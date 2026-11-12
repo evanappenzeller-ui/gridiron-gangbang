@@ -32,23 +32,30 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The games in list order. art: its case's cover (the owner's art, Oct 2026); book, disc: the booklet in its lid and
 // the disc in it (the owner's art too, cut out of his photos: the disc round, its clear middle see-through); badge: the
 // pixel scoreboard badge (tools/seventeen/badges.py); title: the game page's nav title; cd: the countdown's words once
-// it's played; beta: an optional tag for a game still being worked on.
+// it's played; beta: an optional tag for a game still being worked on; fresh: NEW on the case's band until that day
+// (YYYY-MM-DD, the phone's local date), for a game just released.
 export const GAMES = [
+  // (Daily Puzzles leads the shelf and is the case it opens on: Nov 11 2026, Evan: "Make the daily puzzles the first
+  // option when launching the app")
   {id: 'puzzles', name: 'Daily Puzzles', title: 'Daily Puzzles', art: 'img/games/puzzles-cover-v2.webp', book: 'img/games/puzzles-book.webp', disc: 'img/games/puzzles-disc.webp', badge: 'img/puzzles.webp', cd: 'New puzzles in'},
+  // (Gridiron Rivals, NEW on its band until December, released to everyone Nov 10 2026; it led the shelf until Nov 11)
+  {id: 'dynasty', name: 'Gridiron Rivals', title: 'Gridiron Rivals', art: 'img/games/dynasty-cover-v3.webp', book: 'img/games/dynasty-book-v4.webp', disc: 'img/games/dynasty-disc-v4.webp', fresh: '2026-12-01'},
   {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-cover.webp', book: 'img/games/seventeen-book.webp', disc: 'img/games/seventeen-disc.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover-v2.webp', book: 'img/games/drill-book.webp', disc: 'img/games/drill-disc.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover-v3.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
   {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-man-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in'},
-  {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'},
-  {id: 'dynasty', name: 'Gridiron Rivals', title: 'Gridiron Rivals', art: 'img/games/dynasty-cover-v3.webp', book: 'img/games/dynasty-book-v4.webp', disc: 'img/games/dynasty-disc-v4.webp'}
+  {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'}
 ];
 // The games that go on with no day's final, countdown or board (Keepfall, Gridiron Dynasty): a printed back on their
 // case, never IN PROGRESS.
 const LASTING = ['keep', 'dynasty'];
+// Bottom controls stay inside the existing case footprint. Preserve other profiles' shelf.
+const caseControls = g => g.id !== 'dynasty' && data.isOwner();
+// The room under the shelf a case flip button needs (it sits 8px under the case and is 28px tall).
+const CASE_CONTROL_ROOM = 22;
 const byId = id => GAMES.find(g => g.id === id);
-// A game kept to some profiles: id -> whether a profile may have it (who: a member's id, else this phone's app user):
-// its case lists and its page opens only there (nobody else's phone loads it or posts it). Gridiron Dynasty is Evan's
-// and Ryan Stewart's (Oct 28 2026: core/features.js dynastyOpen); the other games are everyone's.
+// Game access and shelf visibility: Rivals is everyone's with a profile (features.js dynastyOpen, Nov 10 2026); a phone
+// that hasn't said who it is gets its case once it has.
 const ONLY = {dynasty: who => features.dynastyOpen(who, who ? null : data.user())};
 /** Whether game id is open on this phone (who: the phone's member). */
 export const gameOpen = (id, who = data.me()) => !ONLY[id] || ONLY[id](who);
@@ -276,7 +283,8 @@ function dynastyWaiting(key = profileKey(), docs = daily.LB.raw || []) {
   return n;
 }
 function dynastyState() {
-  const n = safeN(() => dynastyWaiting());
+  if (!gameOpen('dynasty')) return {kind: 'coming-soon', sticker: 'COMING SOON'};
+  const n = features.rivalsVersus() ? safeN(() => dynastyWaiting()) : 0;
   return {kind: ui.lsGet('gg-dynasty-seen') === '1' ? 'started' : 'new', sticker: n ? 'YOUR MOVE' : ''};
 }
 const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState, keep: keepState, dynasty: dynastyState};
@@ -290,7 +298,11 @@ const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState,
 const ACCENT = {puzzles: '#B5452F', '17-0': '#A0721F', drill: '#D23B2F', kick: '#C9A227', return: '#A31F34', keep: '#AEB9BD', dynasty: '#3FA9F5'};
 // The band: the name in the middle, a BETA tag at its left end for a game still being worked on, a tag or the close
 // button at its right.
-const bandHTML = (end = '', beta = false) => `<span class="gm-band">${beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-band-t">GRIDIRON HUB</span>${end}</span>`;
+/** Whether a game is still just released (its fresh day not yet come). */
+export const isFresh = (g, t = new Date()) => !!(g && g.fresh) && `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}` < g.fresh;
+/** The tag at the band's left end: BETA, or NEW for a game just released. */
+const markHTML = g => (g && g.beta ? '<span class="gm-beta">BETA</span>' : isFresh(g) ? '<span class="gm-beta gm-new">NEW</span>' : '');
+const bandHTML = (end = '', g = null) => `<span class="gm-band">${markHTML(g)}<span class="gm-band-t">GRIDIRON HUB</span>${end}</span>`;
 const tileHTML = (big, small, cls = '') => `<span class="gm-tile ${cls}"><b class="n2">${esc(big)}</b>${small ? `<small>${esc(small)}</small>` : ''}</span>`;
 // A line under each row: what it was today, or over the season.
 const SUB_TODAY = {
@@ -319,7 +331,7 @@ const sidesHTML = g => shellHTML(`<span class="gm-spine"><b>GRIDIRON HUB</b><spa
  *  26 2026: a realm is never finished). up: the case up close (a tap on it opens it, a shine moves over it as it turns). */
 function frontHTML(g, s, up = false) {
   const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.sticker ? sticker('is-go', s.sticker) : s.kind === 'started' && !LASTING.includes(g.id) ? sticker('is-go', 'IN PROGRESS') : '';
-  return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? `<span class="gm-z-foot"><i></i>${ui.icon('football')}</span>${GLOSS}` : ''}</div>`;
+  return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? `<span class="gm-z-foot"><i></i>${ui.icon('football')}</span>${GLOSS}` : ''}</div>`;
 }
 // What a place on today's board pays in Keepfall's Ale (the owner's ask, Oct 25 2026: "+#" by each position), on the
 // ranked games' boards (core/realm-pay.js: Daily Puzzles, 17-0, the Two-Minute Drill). short: "+3.2K" on a case's back.
@@ -369,7 +381,7 @@ function placeText(s) {
 function backHTML(g, s) {
   const place = placeText(s), note = boardNote(s.board, s.rows || []);
   const rows = note || `<div class="gm-scr-rows" role="list" aria-label="Today’s leaderboard">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r, {ale: RANKED.includes(g.id) && 'short'}) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
-  return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : s.tag || 'FINAL'}</span>`, g.beta)}`
+  return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : s.tag || 'FINAL'}</span>`, g)}`
     + `<span class="gm-bk-in">`
     + `<span class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>`
     + `${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}${place ? `<em>${esc(place)}</em>` : ''}</span></span>`
@@ -379,7 +391,7 @@ function backHTML(g, s) {
 /** Gridiron Dynasty's printed back: the owner's full back-cover art (Oct 29 2026, his Gridiron Rivals case: "Every pack.
  *  A new rivalry." with its Open, Collect and Compete panels) under the band, where Keepfall's is composed of parts. */
 function dynastyBackHTML(g, up = false) {
-  return `<div class="gm-face gm-back gm-keep-back gm-dy-back${up ? ' gm-z-back' : ''}">${bandHTML()}
+  return `<div class="gm-face gm-back gm-keep-back gm-dy-back${up ? ' gm-z-back' : ''}">${bandHTML('', g)}
     <span class="gm-keep-print gm-dy-print"><img src="img/games/dynasty-back-v2.webp" alt="Every pack, a new rivalry: three jersey cards bursting from a pack, and the Open, Collect and Compete panels" decoding="async" draggable="false"></span>${up ? GLOSS : ''}
   </div>`;
 }
@@ -399,7 +411,8 @@ function keepBackHTML(g, up = false) {
     </span>${up ? GLOSS : ''}</div>`;
 }
 const caseLabel = (g, s) => {
-  const name = `${g.name}${g.beta ? ' (beta)' : ''}`;
+  const name = `${g.name}${g.beta ? ' (beta)' : isFresh(g) ? ' (new)' : ''}`;
+  if (s.kind === 'coming-soon') return `${name}: Coming Soon`;
   if (s.kind === 'done') return `${name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard`;
   return `${name}${s.kind === 'started' && !LASTING.includes(g.id) ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
 };
@@ -415,9 +428,16 @@ function caseHTML(g, s, i, n, clone) {
   const what = caseLabel(g, s);
   const slot = clone ? 'aria-hidden="true" data-gm-clone' : `role="group" aria-roledescription="slide" aria-label="${i + 1} of ${n}"`;
   return `<div class="gm-slot" ${slot} data-gm-slot="${g.id}">`
-    + `<button type="button" class="gm-case${done ? ' is-done' : s.turns ? ' is-turns' : ''}${isKeepCase(g) ? ' is-swivel' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
+    + `<button type="button" class="gm-case${done ? ' is-done' : s.turns ? ' is-turns' : ''}${isKeepCase(g) ? ' is-swivel' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-disabled="${s.kind === 'coming-soon'}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
     + `<span class="gm-flip">${facesHTML(g, s)}</span><span class="gm-gloss" aria-hidden="true"></span>`
-    + GRIP + `</button></div>`; // (views/game-case.js shelfTurner)
+    + GRIP + `</button>${caseControlHTML(g, s)}</div>`; // (views/game-case.js shelfTurner)
+}
+
+// A sibling button sits just beneath the case, in the shelf's existing bottom padding.
+function caseControlHTML(g, s) {
+  if (!caseControls(g) || !(s.turns || s.kind === 'done' || isKeepCase(g))) return '';
+  const on = s.kind === 'done', label = on ? 'Front cover' : g.id === 'keep' ? 'Back cover' : 'Scoreboard';
+  return `<button type="button" class="gm-case-control" data-gm-case-flip aria-label="${esc(label + ': ' + g.name)}" aria-pressed="${on}">${ui.icon(on || g.id === 'keep' ? 'swap' : 'trophy')}<span>${label}</span></button>`;
 }
 
 // ---------------------------------------------------------------- What's under the shelf: the game you're on
@@ -453,10 +473,15 @@ function selHTML(g, s) {
   // on it brings the whole board up close (with the way into the game's own page).
   return `<h2 class="sr-only">${esc(g.name)}</h2>`
     + (s.kind === 'error' && s.meta ? `<div class="gm-meta">${s.meta}</div>` : '')
-    + (done ? cdHTML(g) + flipHTML(s) : ctaHTML(s));
+    + (done ? (caseControls(g) ? '' : cdHTML(g) + flipHTML(s)) : caseControls(g) && !['loading', 'error'].includes(s.kind) ? '' : ctaHTML(s));
 }
 function stateOf(g) {
-  try { return STATE[g.id](); } catch (e) { console.error(e); return {kind: 'new'}; }
+  try {
+    const s = STATE[g.id]();
+    // Keep unplayed cases on their cover until the first scoreboard entry arrives.
+    if (caseControls(g) && !LASTING.includes(g.id) && s.kind !== 'done' && !s.rows?.length) return {...s, turns: false};
+    return s;
+  } catch (e) { console.error(e); return {kind: 'new'}; }
 }
 /** The shelf as it stands now (the cores that haven't loaded yet show Play). It goes round in a circle (the owner's
  *  ask, Oct 2026): the games three times over, the real ones in the middle and a copy each side (data-gm-clone, hidden
@@ -511,7 +536,9 @@ export function mountList(el, ctx, opts = {}) {
     }));
     st.assets = Promise.all([import('./game-launch.js'), ...css]).then(([mod, ...ready]) => ready.every(Boolean) ? mod : null).catch(() => null);
   }
-  const unprofile = data.subscribe(type => { if (type === 'me' && !st.dead) refresh(false); });
+  const unprofile = data.subscribe(type => {
+    if (type === 'me' && !st.dead) { closeZoom(true); refresh(false); }
+  });
   syncOwner();
   const sig = (g, s) => `${isKeepCase(g) ? keepBackHTML(g) : ''}|${s.kind}|${s.test ? 1 : 0}|${s.again ? 1 : 0}|${s.meta || ''}|${s.kind === 'done' ? backHTML(g, s) : frontHTML(g, s)}${s.turns ? '|' + backHTML(g, s) : ''}`; // (Return Man: its front stays, its line under the shelf and its back move)
   // the case in the middle: bigger and lit, the others smaller and turned a little toward it
@@ -607,6 +634,15 @@ export function mountList(el, ctx, opts = {}) {
   // The flip button under a case that turns (flipHTML) says what it'll do: to the scoreboard, or back to the cover
   // (and a tap on the case, turned round, brings the whole board up close)
   function syncFlip() {
+    if (st.dead) return;
+    slots().forEach(slot => {
+      const b = slot.querySelector('[data-gm-case-flip]'), cs = slot.querySelector('.gm-case'), g = byId(slot.dataset.gmSlot);
+      if (!b || !cs || !g) return;
+      const on = turner.back(cs), label = on ? 'Front cover' : g.id === 'keep' ? 'Back cover' : 'Scoreboard';
+      b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', label + ': ' + g.name);
+      b.querySelector('span').textContent = label;
+      b.querySelector('use')?.setAttribute('href', on || g.id === 'keep' ? '#i-swap' : '#i-trophy');
+    });
     const b = sel.querySelector('[data-gm-flip]');
     if (!b || st.dead) return;
     const g = list()[st.cur % n()], cs = g && curCase(g.id), on = !!cs && turner.back(cs);
@@ -640,6 +676,9 @@ export function mountList(el, ctx, opts = {}) {
     let h = 0;
     for (const html of htmls) { m.innerHTML = html; h = Math.max(h, m.offsetHeight); }
     m.remove();
+    // (the case flip button hangs 36px under the case, past the shelf's own bottom room: keep it clear of the app icons
+    // below, Evan, Nov 9 2026, on an iPhone's home-screen app: "The button to flip the case is behind the lay logo")
+    if (list().some(caseControls)) h = Math.max(h, CASE_CONTROL_ROOM);
     const v = Math.ceil(h) + 'px'; // (just what's there: the case takes the rest, the owner's ask, Oct 31 2026)
     if (el.style.getPropertyValue('--gm-sel') === v) return;
     el.style.setProperty('--gm-sel', v);
@@ -702,7 +741,7 @@ export function mountList(el, ctx, opts = {}) {
     + `${ui.icon('play-fill')}<span class="gm-z-go-word" aria-hidden="true">${goLabel(s)}</span></button>`;
   function caseUpHTML(g, s, play = false) {
     // (the game's name up in the black band, where the cover has GRIDIRON HUB: the owner's ask, Oct 2026)
-    const band = `<span class="gm-band is-z">${g.beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
+    const band = `<span class="gm-band is-z">${markHTML(g)}<span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
       + `<span class="gm-bk-tag">${s.test ? 'TEST' : s.tag || 'FINAL'}</span></span>`;
     const back = isKeepCase(g) ? keepBackHTML(g, true) : play ? '' : `<div class="gm-face gm-back gm-z-back">${band}<div class="gm-bk-in">`
       + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
@@ -778,6 +817,7 @@ export function mountList(el, ctx, opts = {}) {
     const start = async () => {
       const Z = st.zoom;
       if (!Z || Z.el !== z || Z.launching || st.dead || ctx.visible === false) return;
+      if (!gameOpen(id)) { closeZoom(true); return; }
       if (owner && !features.available()) { closeZoom(true); return; }
       ui.haptic('light');
       if (!owner) { closeZoom(true); if (opts.play) opts.play(id); return; }
@@ -788,14 +828,14 @@ export function mountList(el, ctx, opts = {}) {
       lidBtn.disabled = true;
       hint.textContent = `Preparing ${g.name}…`;
       const finish = () => {
-        if (st.zoom !== Z || st.dead || ctx.visible === false || !features.available() || !z.isConnected) return;
+        if (st.zoom !== Z || st.dead || ctx.visible === false || !features.available() || !gameOpen(id) || !z.isConnected) return;
         closeZoom(true);
         if (opts.play) opts.play(id);
       };
       // Artwork/network trouble must never strand the player behind a loading screen.
       const mod = await Promise.race([st.assets, new Promise(resolve => { Z.launchTimer = setTimeout(() => resolve(null), 1500); })]);
       clearTimeout(Z.launchTimer);
-      if (st.zoom !== Z || st.dead || ctx.visible === false || !features.available() || !z.isConnected) return;
+      if (st.zoom !== Z || st.dead || ctx.visible === false || !features.available() || !gameOpen(id) || !z.isConnected) return;
       if (!mod) { finish(); return; }
       try { Z.launch = mod.launchGame({host: z, game: g, reducedMotion: ui.RM, onComplete: finish}); }
       catch (_) { finish(); }
@@ -901,6 +941,13 @@ export function mountList(el, ctx, opts = {}) {
   }
   // ---------------------------------------------------------------- taps, keys
   const onClick = e => {
+    const control = e.target.closest('[data-gm-case-flip]');
+    if (control) {
+      const slot = control.closest('.gm-slot'), cs = slot.querySelector('.gm-case');
+      if (!slot.classList.contains('is-cur')) return;
+      if (turner.flip(cs) != null) { ui.haptic('light'); syncFlip(); }
+      return;
+    }
     if (e.target.closest('[data-gm-flip]')) { // (the case in the middle turns round, and back)
       const g = list()[st.cur % n()], c = g && curCase(g.id);
       if (c && turner.flip(c) != null) { ui.haptic('light'); syncFlip(); }
@@ -940,14 +987,14 @@ export function mountList(el, ctx, opts = {}) {
   };
   addEventListener('popstate', onPop);
   addEventListener('hashchange', onPop);
-  // where you were on the shelf, else the first game you haven't played today
+  // where you were on the shelf this visit, else the first case (Daily Puzzles, Nov 11 2026), played or not
   const start = () => {
     let id = null;
     try { id = sessionStorage.getItem(SHELF_KEY); } catch (_) {}
     room();
     const gs = list();
     let i = gs.findIndex(g => g.id === id);
-    if (i < 0) i = Math.max(0, gs.findIndex(g => stateOf(g).kind !== 'done'));
+    if (i < 0) i = 0;
     center(n() + i, false); // in the middle row
     st.cur = -1;
     layout();
@@ -979,7 +1026,7 @@ export function mountList(el, ctx, opts = {}) {
     list().forEach((g, i) => {
       const css = [...el.querySelectorAll(`.gm-case[data-gm="${g.id}"]`)]; // the game and its copies
       if (!css.length) return;
-      const s = stateOf(g), key = sig(g, s);
+      const s = stateOf(g), key = sig(g, s) + '|' + caseControls(g);
       if (shown.get(g.id) === key) return;
       shown.set(g.id, key);
       css.forEach(cs => {
@@ -987,16 +1034,21 @@ export function mountList(el, ctx, opts = {}) {
         cs.dataset.kind = s.kind;
         const fl = cs.querySelector('.gm-flip');
         fl.innerHTML = facesHTML(g, s);
+        const slot = cs.closest('.gm-slot'), control = slot.querySelector('[data-gm-case-flip]');
+        control?.remove(); slot.insertAdjacentHTML('beforeend', caseControlHTML(g, s));
         cs.classList.toggle('is-swivel', isKeepCase(g));
         ui.hydrate(fl);
         cs.classList.toggle('is-turns', !!s.turns && s.kind !== 'done');
+        if (!s.turns && s.kind !== 'done' && !isKeepCase(g)) turner.home(cs);
         // a game just finished: its case turns round to the leaderboard
         if (flipNow && animate && ctx.visible && !ui.RM) requestAnimationFrame(() => requestAnimationFrame(() => cs.classList.add('is-done')));
         else cs.classList.toggle('is-done', s.kind === 'done');
         cs.setAttribute('aria-label', caseLabel(g, s));
+        cs.setAttribute('aria-disabled', String(s.kind === 'coming-soon'));
       });
       if (i === st.cur % n()) setCur(i, animate);
     });
+    syncFlip();
     room();
     if (st.zoom && !st.zoom.play) {
       const body = st.zoom.el.querySelector('[data-gm-zbody]'), g = byId(st.zoom.id), html = zoomBody(g, st.zoom.mode);

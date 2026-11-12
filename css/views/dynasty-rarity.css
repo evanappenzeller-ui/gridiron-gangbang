@@ -445,3 +445,133 @@ div.pk-open .pk-card.pk-rivals-card {
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card::before,
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card::after { animation: none !important; }
 }
+
+/* Energy is identified by its symbol and illustrated band; its name stays in the card's accessible label.
+   Only the four-profile Rivals renderer emits this band; the portrait remains unobstructed. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card .pk-c-energy {
+  position: relative; z-index: 4; flex: none; display: flex; align-items: center; gap: 2cqw;
+  margin: .4cqw .6cqw 1cqw; padding: 1cqw 2cqw; border-radius: 1.5cqw;
+  border: .45cqw solid var(--energy-color); background: color-mix(in srgb, var(--energy-color) 15%, #fff);
+  color: #172c3a; text-align: left;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card .pk-c-energy > .pk-e {
+  flex: none; font-size: 9cqw; box-shadow: none;
+}
+/* Player paper follows its printed Energy across every rarity. The metal rim, foil and
+   portrait retain their rarity/team artwork; the name and rules use readable colored stock.
+   This class is emitted only for the four-profile Rivals presentation. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) {
+  --energy-paper: color-mix(in srgb, var(--energy-color) 48%, #fff);
+  --energy-panel: color-mix(in srgb, var(--energy-color) 32%, #fff);
+  --energy-deep: color-mix(in srgb, var(--energy-color) 72%, #101e2a);
+  --card-ink: #142632; --card-muted: #293d49;
+  --card-panel: var(--energy-panel); --card-line: color-mix(in srgb, var(--energy-color) 65%, #263744);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) .pk-c-face {
+  background: var(--energy-paper);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) :is(.pk-c-head, .pk-c-body, .pk-c-meta) {
+  background: var(--energy-panel);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) .pk-c-head {
+  min-height: 15cqw; padding: 2.2cqw 1.5cqw 2cqw; gap: 1.6cqw;
+  border-radius: 1.3cqw; box-shadow: inset 0 0 0 .3cqw #ffffff65;
+}
+/* The athlete is the headline. Condensed lettering keeps long names large without ellipses. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) .pk-c-head .pk-c-name {
+  font: 800 10cqw/1.02 'Barlow Condensed', var(--font-text); letter-spacing: -.015em;
+  text-transform: uppercase; overflow-wrap: anywhere;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) .pk-c-head .pk-c-hp {
+  font-size: 6.2cqw; gap: .7cqw;
+}
+/* Leave room for an extra name line if the condensed font cannot load. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) .pk-c-art {
+  min-height: 30cqw;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) .pk-c-body {
+  border-radius: 1.3cqw; box-shadow: inset 0 0 0 .3cqw #ffffff65;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card:not(.pk-trainer) .pk-c-strip {
+  background: var(--energy-paper); color: var(--card-ink);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card .pk-c-energy {
+  isolation: isolate; overflow: hidden; min-height: 17cqw; padding: 1cqw 2.4cqw;
+  margin: 1cqw .6cqw 1.3cqw; border-color: var(--energy-deep); border-radius: .8cqw;
+  background: var(--energy-deep); color: #fff; box-shadow: inset 0 0 0 .3cqw #ffffff50;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card .pk-c-energy-art {
+  position: absolute; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  pointer-events: none; user-select: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card .pk-c-energy::after {
+  content: ''; position: absolute; z-index: -1; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, #08121ca0, #08121c20 35%, #08121c08);
+  box-shadow: inset 0 0 0 .3cqw #ffffff35;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-energy-card .pk-c-energy > .pk-e {
+  font-size: 10.5cqw; background: var(--energy-color);
+  box-shadow: 0 0 0 .45cqw #ffffffe0, 0 .5cqw 1cqw #0005;
+}
+/* Ability/support cards: one solid color, a clear effect, and the play limit.
+   The renderer adds this class only for the four-profile Rivals rollout. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer.pk-ability-card {
+  color: #fff; background: var(--support-color);
+  border-radius: 5% / 3.6%; box-shadow: 0 3px 8px #14263830;
+  animation: none !important;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ability-card { --support-color: #245c75; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ability-card:is(.k-coach, .k-supporter) { --support-color: #514384; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ability-card.k-tool { --support-color: #81531e; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ability-card.k-stadium { --support-color: #27634d; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer.pk-ability-card::before,
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer.pk-ability-card::after { content: none; display: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer.pk-ability-card .pk-c-face {
+  padding: 7cqw; gap: 4cqw; color: #fff; background: var(--support-color);
+  box-shadow: inset 0 0 0 1px #ffffff40; opacity: 1;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card .pk-t-head {
+  flex: none; gap: 2cqw; padding: 0; border-radius: 0; background: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card .pk-t-head b {
+  color: #fff; font: 800 3.7cqw/1 var(--font-text); letter-spacing: .12em;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card .pk-t-head i {
+  padding: 1.5cqw 2cqw; border: 1px solid #ffffff70; border-radius: 1.5cqw; background: none;
+  color: #fff; font: 700 3.5cqw/1.1 var(--font-text);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card .pk-t-art {
+  flex: none; width: 21cqw; height: 21cqw; min-height: 0; margin: 1cqw 0 0;
+  padding: 2.5cqw; border: 1px solid #ffffff70; border-radius: 50%; color: #fff; background: none; box-shadow: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card .pk-t-art svg {
+  position: static; width: 100%; height: 100%; filter: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card .pk-t-name {
+  flex: none; padding: 0; border-radius: 0; background: none; color: #fff;
+  font: 800 8.5cqw/1.04 var(--font-text); letter-spacing: -.035em; overflow-wrap: break-word;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ability-card .pk-t-effect {
+  display: flex; flex-direction: column; gap: 2cqw; padding-top: 4cqw; border-top: 1px solid #ffffff55;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ability-card .pk-t-effect > small {
+  color: #fff; font: 700 3.3cqw/1 var(--font-text); letter-spacing: .13em;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card .pk-t-text {
+  display: block; flex: none; min-height: auto; padding: 0; border-radius: 0; background: none; color: #fff; overflow: visible;
+  font: 550 5.7cqw/1.3 var(--font-text);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card .pk-t-rule {
+  margin-top: auto; padding: 3cqw 0 0; border-top: 1px solid #ffffff55; color: #fff;
+  font: 600 4cqw/1.25 var(--font-text);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card .pk-c-meta {
+  min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card .pk-c-meta .pk-c-rar {
+  color: #fff; font: 700 3.3cqw/1 var(--font-text); letter-spacing: .07em; text-transform: uppercase;
+  -webkit-text-stroke: 0; text-shadow: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card.has-long-effect .pk-t-art { width: 14cqw; height: 14cqw; padding: 1.5cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card.has-long-effect .pk-c-face { gap: 3cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-ability-card.has-long-effect .pk-t-text { font-size: 5.2cqw; line-height: 1.25; }

@@ -5,7 +5,8 @@
 //   than one) · a summary card (when the picks lock, how many you've picked, how many have picked; then your week) ·
 //   the six matchups: each manager a tap target with their team, record and rank, Yahoo's projection when the data
 //   has one, then the final score; your pick ticked, then right or wrong; once locked, how it was picked and by whom ·
-//   the leaderboard (This week / Season).
+//   the leaderboard (This week / Season; Season while the week is open), also a sheet from the summary card's
+//   Leaderboard row (where you stand this season).
 // A tap saves at once (core/lpick.js pick: the whole week on this phone's board doc); a tap on your pick takes it
 // back. Picks lock at the week's first NFL kickoff (week.lockTime, Thursday 8:15 PM ET).
 // Every row and every split is the board as this phone may see it (THE RULE, CLAUDE.md: core/lpick.js reads LB.raw).
@@ -107,18 +108,62 @@ function summaryHTML(W, v) {
     head = me ? (me.right || me.wrong ? `You're ${me.right}–${me.wrong} so far` : `${plural(picked, 'pick')} in`) : 'Locked';
     line = me ? 'Locked. Results land when the week’s finals are in.' : 'Locked. You didn’t get picks in this week.';
   }
-  return `<section class="card lp-sum"><p class="ovl">${v.open ? 'Open' : v.done ? 'Final' : 'Locked'}</p><h2 class="lp-sum-h">${esc(head)}</h2><p class="lp-sum-l">${esc(line)}</p></section>`;
+  return `<section class="card lp-sum"><p class="ovl">${v.open ? 'Open' : v.done ? 'Final' : 'Locked'}</p><h2 class="lp-sum-h">${esc(head)}</h2><p class="lp-sum-l">${esc(line)}</p>${boardLinkHTML(W, v)}</section>`;
+}
+// The leaderboard (This week / Season): inline under the matchups, and as a sheet from the summary card's Leaderboard
+// row. Rank (gold for the top), avatar (a crown on the leader), name, then % right · weeks · weeks won, the record.
+const BOARD_SEGS = [{id: 'week', label: 'This week'}, {id: 'season', label: 'Season'}];
+const ordinal = n => { const t = n % 100, u = n % 10; return n + (t >= 11 && t <= 13 ? 'th' : u === 1 ? 'st' : u === 2 ? 'nd' : u === 3 ? 'rd' : 'th'); };
+function rowsOf(W, v, mode) { return mode === 'season' ? LP.seasonRows(W.year) : v.rows; }
+function rowsHTML(rows, mode) {
+  return `<ol class="lp-rows">${rows.map(r => {
+    const top = r.rank === 1 && r.right > 0, dec = r.right + r.wrong;
+    const sub = [r.pending ? `${r.pending} to play` : '', dec ? `${Math.round(100 * r.right / dec)}% right` : '',
+      mode === 'season' ? plural(r.weeks, 'week') : '', mode === 'season' && r.won ? `${r.won} won` : ''].filter(Boolean).join(' · ');
+    const av = r.managerId ? ui.avatar(r.managerId, {size: 30, you: r.you, crown: top}) : ui.nickAvatar(r.name, {size: 30, you: r.you, crown: top});
+    return `<li class="lp-r${r.you ? ' is-me' : ''}"><span class="lp-r-k n5${top ? ' gold' : ''}">${r.rank}</span>${av}`
+      + `<span class="lp-r-n"><span class="lp-r-t">${esc(r.name)}${r.you ? ' <i class="lp-you">YOU</i>' : r.guest ? ' <i class="lp-you is-g">GUEST</i>' : ''}</span>`
+      + `<span class="lp-r-s">${esc(sub)}</span></span>`
+      + `<span class="lp-r-v n3">${r.right}–${r.wrong}${r.push ? `–${r.push}` : ''}</span></li>`;
+  }).join('')}</ol>`;
+}
+function noneText(W, v, mode) {
+  return mode === 'season' ? 'No picks graded yet this season.' : v.open ? 'This week’s picks show here once they lock.' : 'Nobody picked this week.';
 }
 function boardHTML(W, v, mode) {
-  const rows = mode === 'season' ? LP.seasonRows(W.year) : v.rows;
-  const list = rows.length
-    ? `<ol class="lp-rows">${rows.map(r => `<li class="lp-r${r.you ? ' is-me' : ''}"><span class="lp-r-k n5">${r.rank}</span>${whoAvatar(r, 30)}`
-      + `<span class="lp-r-n"><span class="lp-r-t">${esc(r.name)}${r.you ? ' <i class="lp-you">YOU</i>' : r.guest ? ' <i class="lp-you is-g">GUEST</i>' : ''}</span>`
-      + `<span class="lp-r-s">${esc([r.pending ? `${r.pending} to play` : '', mode === 'season' ? plural(r.weeks, 'week') : ''].filter(Boolean).join(' · '))}</span></span>`
-      + `<span class="lp-r-v n3">${r.right}–${r.wrong}${r.push ? `–${r.push}` : ''}</span></li>`).join('')}</ol>`
-    : `<p class="lp-none">${mode === 'season' ? 'No picks yet this season.' : v.open ? 'Picks show here once the week locks.' : 'Nobody picked this week.'}</p>`;
-  const tog = ui.seg({name: 'lp-board', items: [{id: 'week', label: 'This week'}, {id: 'season', label: 'Season'}], value: mode, small: true, label: 'Leaderboard'});
-  return `<section class="lp-board"><h2 class="pk-sl-h"><span class="ovl">Leaderboard</span></h2>${tog}<div class="card lp-board-c">${list}</div></section>`;
+  const rows = rowsOf(W, v, mode);
+  const list = rows.length ? rowsHTML(rows, mode) : `<p class="lp-none">${noneText(W, v, mode)}</p>`;
+  const tog = ui.seg({name: 'lp-board', items: BOARD_SEGS, value: mode, small: true, label: 'Leaderboard'});
+  return `<section class="lp-board" id="lp-board"><h2 class="pk-sl-h"><span class="ovl">Leaderboard</span></h2>${tog}<div class="card lp-board-c">${list}</div></section>`;
+}
+// The summary card's way in: where you stand this season (or this week, once it's locked).
+function boardLinkHTML(W, v) {
+  const season = LP.seasonRows(W.year), me = season.find(r => r.you), lead = season[0];
+  const line = me && (me.right || me.wrong) ? `You're ${ordinal(me.rank)} of ${season.length}`
+    : lead && lead.right ? `${lead.you ? 'You lead' : `${lead.name} leads`}, ${lead.right}–${lead.wrong}` : '';
+  return `<button type="button" class="pk-final-more lp-sum-more" data-lp-board aria-haspopup="dialog"${line ? ` aria-label="${esc(`Leaderboard: ${line} this season`)}"` : ''}>`
+    + `${ui.icon('list-number')}<span>Leaderboard</span>${line ? `<i class="lp-sum-me">${esc(line)}</i>` : ''}${ui.icon('chevron-right', {cls: 'chev'})}</button>`;
+}
+function boardSheet(st) {
+  const W = weekOf(st);
+  W.games = LP.gamesOf(W.year, W.wk);
+  let mode = modeOf(st, vm(W, st));
+  const body = () => {
+    const v = vm(W, st), rows = rowsOf(W, v, mode);
+    const sub = mode === 'season' ? `${W.year} season, every League pick’em week. A point for every winner called; a tie is a push.` : `Week ${W.wk}. A point for every winner called; a tie is a push.`;
+    return `<p class="pk-sh-sub">${esc(sub)}</p>` + (rows.length ? `<div class="card lp-board-c">${rowsHTML(rows, mode)}</div>`
+      : ui.empty({icon: 'list-number', title: noneText(W, v, mode)}));
+  };
+  const s = ui.openSheet({title: 'League pick’em leaderboard',
+    body: `<div class="pk-bs-seg">${ui.seg({name: 'lp-board-s', items: BOARD_SEGS, value: mode, small: true, label: 'Leaderboard'})}</div><div class="lp-bs-body">${body()}</div>`,
+    cls: 'sh-pk sh-pk-board sh-lp-board', detents: ['medium', 'large']});
+  s.el.addEventListener('ui:change', e => {
+    if (!e.detail || e.detail.name !== 'lp-board-s') return;
+    mode = st.mode = e.detail.value === 'season' ? 'season' : 'week';
+    const b = s.body.querySelector('.lp-bs-body');
+    if (b) { const put = () => { b.innerHTML = body(); ui.hydrate(b); }; if (!ui.RM) ui.crossfade(b, put); else put(); }
+    patch(st);
+  });
 }
 function vm(W, st) {
   const at = week.now(), locked = week.isLocked(W.year, W.wk, at);
@@ -131,6 +176,8 @@ function vm(W, st) {
   const rows = locked ? LP.weekRows(W.year, W.wk) : [];
   return {mine, res, proj, split, rows, open: W.isCur && !locked, done: games.length > 0 && games.every(g => res[g.id]), count: LP.countIn(W.year, W.wk)};
 }
+// The board's table: the one you chose, else Season while this week's picks are still hidden, else This week.
+const modeOf = (st, v) => (st && st.mode) || (v.open ? 'season' : 'week');
 function bodyHTML(st) {
   const W = Object.assign(weekOf(st), {});
   if (!W.wk) return ui.empty({icon: 'football', title: 'No League pick’em this week', body: 'It runs on the league’s weekly matchups, from Week 7.'});
@@ -140,7 +187,7 @@ function bodyHTML(st) {
   return summaryHTML(W, v)
     + `<section class="pk-slot"><h2 class="pk-sl-h"><span class="ovl">Week ${W.wk} matchups</span><span class="pk-sl-r">${esc(v.open ? `Locks ${week.lockText(W.year, W.wk)}` : v.done ? 'Final' : 'Locked')}</span></h2>`
     + `<ul class="lp-list">${W.games.map(g => gameHTML(W, g, v)).join('')}</ul></section>`
-    + boardHTML(W, v, st ? st.mode : 'week')
+    + boardHTML(W, v, modeOf(st, v))
     + `<p class="lp-rules">Pick who wins each of the league’s matchups. Picks lock at the week’s first NFL kickoff, Thursday night; you can change them until then. A tie is a push.</p>`;
 }
 const pageHTML = st => { const W = weekOf(st); return titleHTML(W) + leagueTabsHTML('lg') + chipsHTML(W) + `<div class="pk-main lp-main">${bodyHTML(st)}</div>`; };
@@ -177,8 +224,9 @@ async function tapPick(st, pair, id) {
   ui.announce(next ? `${data.name(next)} picked.` : 'Pick taken back.');
 }
 function onClick(st, e) {
-  const t = e.target.closest && e.target.closest('[data-pk-sport], [data-lp-pair]');
+  const t = e.target.closest && e.target.closest('[data-pk-sport], [data-lp-pair], [data-lp-board]');
   if (!t || !st.el.contains(t)) return;
+  if (t.hasAttribute('data-lp-board')) { ui.haptic('light'); boardSheet(st); return; }
   if (t.hasAttribute('data-pk-sport')) { if (t.dataset.pkSport !== 'lg') goLeague(t.dataset.pkSport); return; }
   if (t.getAttribute('aria-disabled') === 'true') return;
   tapPick(st, t.dataset.lpPair, t.dataset.lpId);
@@ -188,9 +236,9 @@ const VIEW = {
   id: 'pickem',
   title: () => "Pick'em",
   actions: () => [],
-  render(ctx) { return pageHTML(screens.get(ctx) || {mode: 'week', opt: {}}); },
+  render(ctx) { return pageHTML(screens.get(ctx) || {mode: null, opt: {}}); },
   mount(el, ctx) {
-    const st = {el, ctx, mode: 'week', week: null, opt: {}};
+    const st = {el, ctx, mode: null, week: null, opt: {}};
     screens.set(ctx, st);
     st.onClick = e => onClick(st, e);
     el.addEventListener('click', st.onClick);

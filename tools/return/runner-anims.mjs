@@ -1,6 +1,7 @@
 // Return Man's moves from the owner's "Endless Runner Animations" (Nov 1 2026, Evan: "use the attached for the return
 // man game": Mixamo clips on its X Bot, as Blender wrote them; the pack's fbx folder) put into his player
-// (models/return-player.glb) as its clips, in place of the ones there (views/return-3d.js: idle, run, and MOVES).
+// (models/return-runner-v1.glb since Nov 4 2026, made by tools/return/runner-model.mjs) as its clips, in place of the
+// ones there (views/return-3d.js: idle, run, and MOVES).
 // Retargeted as tools/return/mixamo-clip.mjs does (each bone's turn in the world from its rest, put on his rest turned
 // to point the way the clip's rig's bone does; the hips' movement scaled to his height), read by tools/return/fbx-anim.mjs
 // and written by tools/return/glb.mjs: nothing to install. Each clip (PLAN) is one of the pack's or a run of them:
@@ -15,7 +16,7 @@
 //    in it, the same at both ends) is what it does over the run at each moment (each bone's turn from the run's, the
 //    hips' shift), from his hips up: the game lays it over his run wherever his stride is (three's additive blending),
 //    so his legs go on as they were.
-//   node tools/return/runner-anims.mjs "<pack>/fbx" models/return-player.glb [names...]
+//   node tools/return/runner-anims.mjs "<pack>/fbx" models/return-runner-v1.glb [names...]
 import * as T from '../../js/vendor/three/three.module.min.js';
 import {clip} from './fbx-anim.mjs';
 import * as glb from './glb.mjs';
@@ -99,9 +100,10 @@ function source(name, cycle) {
   const drift = cycle ? hipsAt(1).sub(hipsAt(0)).setY(0) : new T.Vector3();
   const frame = u => {
     const ws = {}, wt = {}, q = {};
+    // (every bone of the clip's rig: one of his can hang off a bone he hasn't got, a shoulder, say: runner-model.mjs)
+    src.order.forEach(k => { const s = src.bones[k]; ws[k] = (s.parent ? ws[s.parent] : srcTop).clone().multiply(c.at(k, u)); });
     tgt.order.forEach(k => {
       const s = src.bones[k];
-      if (s) ws[k] = (s.parent ? ws[s.parent] : srcTop).clone().multiply(c.at(k, u));
       wt[k] = s ? ws[k].clone().multiply(src.wq[k].clone().invert()).multiply(G[k]) : (tb[k].parent ? wt[tb[k].parent] : tgtTop).clone().multiply(tb[k].q);
       q[k] = (tb[k].parent ? wt[tb[k].parent] : tgtTop).clone().invert().multiply(wt[k]);
     });

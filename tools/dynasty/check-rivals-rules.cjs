@@ -30,8 +30,8 @@ function loadIsolated(file, deps, names) {
   const src = fs.readFileSync(path.join(root, file), 'utf8').replace(/^import .*;$/gm, '').replace(/^export /gm, '');
   return new Function(...Object.keys(deps), src + '\nreturn {' + names.join(',') + '};')(...Object.values(deps));
 }
-function simulate(B, version, seed) {
-  const G = B.newGame(seed, decks, version), log = [[], []], pending = [[], []];
+function simulate(B, version, seed, roundEnergy = 0) {
+  const G = B.newGame(seed, decks, version, null, roundEnergy), log = [[], []], pending = [[], []];
   const move = (who, m) => {
     const before = G.turn;
     assert.equal(B.play(G, who, m).ok, true);
@@ -59,7 +59,7 @@ function simulate(B, version, seed) {
     move(who, options.find(m => B.check(G, who, m).ok));
   }
   assert.equal(G.phase, 'over', 'simulation reaches an outcome');
-  const replayed = B.replay(seed, decks, log, version);
+  const replayed = B.replay(seed, decks, log, version, roundEnergy);
   assert.equal(replayed.bad, null);
   assert.deepEqual(replayed.G, G, 'saved turns replay exactly');
   return G;
@@ -146,11 +146,100 @@ function board(B, version = 3, attacker = 'pass', defender = 'anchor') {
   }
 
   // Production persistence adapters must retain the rules version through cleaning, storage and reload.
+  for (const v of [5, 6]) {
+    for (let i = 0; i < 12; i++) simulate(B, v, 'round-' + i, 1);
+    const G = B.newGame('round-energy', decks, v, null, 1), first = G.first, next = 1 - first;
+    const me = G.p[first], them = G.p[next];
+    me.hand = ['pass', 'anchor', 'kick', 'I-charge', 'run'];
+    them.hand = ['pass', 'run'];
+    const top = me.deck[0], remaining = me.deck.length;
+    const move = (who, m) => assert.equal(B.play(G, who, m).ok, true);
+    move(first, {a: 'setup', act: 'pass', bench: ['anchor', 'kick']});
+    move(next, {a: 'setup', act: 'pass', bench: ['run']});
+    assert.deepEqual(me.hand, ['I-charge', 'run', top]);
+    assert.equal(me.deck.length, remaining - 1);
+    assert.deepEqual(B.slots(me).map(s => s.en), [['P'], ['R','R'], [me.types[0]]]);
+    assert.deepEqual(B.slots(them).map(s => s.en), [[], []]);
+    assert.equal(B.attackPreview(G, first, 0).ok, true);
+    assert.equal(B.play(G, first, {a:'attack', n:1}).ok, false);
+    assert.equal(B.play(G, first, {a:'energy', on:me.active.u}).ok, false);
+    move(first, {a:'bench', id:'run'});
+    const late = me.bench.at(-1);
+    assert.deepEqual(late.en, [], 'mid-turn recruits wait for their next turn');
+    if (v === 6) {
+      move(first, {a:'item', id:'I-charge', on:late.u});
+      assert.deepEqual(late.en, ['R','R']);
+      assert.equal(late.attachment, 'I-charge');
+      assert.ok(!me.disc.includes('I-charge'));
+    }
+    const nextTop = them.deck[0];
+    move(first, {a:'end'});
+    assert.deepEqual(them.hand, [nextTop]);
+    assert.deepEqual(B.slots(them).map(s => s.en), [['P'], ['R']]);
+    me.deck = [];
+    const hand = me.hand.slice();
+    move(next, {a:'end'});
+    assert.deepEqual(me.hand, hand, 'an empty deck still grants energy');
+    assert.equal(late.en.length, v === 6 ? 4 : 1);
+    assert.equal(me.bench[0].en.length, 4);
+    me.active.dmg = B.hpOf(me.active) - 10; me.active.inj = true;
+    move(first, {a:'end'}); move(next, {a:'end'});
+    assert.ok(me.promote);
+    const en = late.en.slice();
+    move(first, {a:'promote', u:late.u});
+    assert.deepEqual(me.active.en, en, 'promotion does not grant a second turn of energy');
+    if (v === 6) {
+      me.active.dmg = B.hpOf(me.active) - 10; me.active.inj = true;
+      move(first, {a:'end'}); move(next, {a:'end'});
+      assert.ok(me.disc.includes('I-charge'), 'knockout discards the attachment');
+    }
+  }
+  for (const v of [5, 6]) {
+    for (let i = 0; i < 12; i++) simulate(B, v, 'front-' + i, B.FRONT_ENERGY);
+    for (const [starter, energy] of [['pass','P'], ['run','R'], ['sack','B'], ['counter','C'], ['kick','K']]) {
+      const g = B.newGame('front-' + starter, decks, v, null, B.FRONT_ENERGY);
+      const first = g.first, next = 1 - first, me = g.p[first], them = g.p[next];
+      const move = (who, m) => assert.equal(B.play(g, who, m).ok, true);
+      me.hand = [starter, 'anchor', 'run', 'kick', 'I-cleats'];
+      them.hand = ['sack', 'run'];
+      move(first, {a:'setup', act:starter, bench:['anchor','run','kick']});
+      move(next, {a:'setup', act:'sack', bench:['run']});
+      assert.deepEqual(me.bench.map(s => s.en), [[energy,energy],[energy],[energy]]);
+      assert.deepEqual(them.bench[0].en, []);
+      move(first, {a:'item', id:'I-cleats'});
+      assert.equal(me.active.attachment, 'I-cleats');
+      const upgraded = me.active, rb = me.bench[1];
+      move(first, {a:'retreat', to:rb.u});
+      assert.equal(B.attackPreview(g, first, 0).ok, energy === 'R', 'RB requires Run for Off Tackle');
+      const banked = upgraded.en.slice();
+      move(first, {a:'end'});
+      assert.deepEqual(them.bench[0].en, ['B']);
+      move(next, {a:'end'});
+      assert.deepEqual(upgraded.en, [...banked,'R','R'], 'upgrade follows the player to the bench and caps the grant at two');
+      assert.deepEqual(rb.en, [energy,'R'], 'switch changes the next grant, not stored energy');
+      if (v === 6) {
+        me.hand.push('I-charge');
+        move(first, {a:'item', id:'I-charge', on:upgraded.u});
+        assert.equal(upgraded.attachment, 'I-charge');
+        assert.ok(me.disc.includes('I-cleats'));
+        assert.deepEqual(upgraded.en.slice(-2), ['R','R']);
+      }
+      rb.inj = true; rb.dmg = B.hpOf(rb) - 10;
+      move(first, {a:'end'}); move(next, {a:'end'});
+      assert.ok(me.promote);
+      const drawn = me.hand.slice(), before = upgraded.en.slice();
+      assert.equal(g.ev.filter(e => e.k === 'energy' && e.n === g.turn).length, 0);
+      move(first, {a:'promote', u:me.bench.find(s => s.id === 'kick' && s !== upgraded).u});
+      assert.deepEqual(upgraded.en, [...before,'K','K']);
+      assert.deepEqual(me.hand, drawn, 'promotion triggers no extra draw');
+      assert.equal(B.attackPreview(g, first, 0).ok, true, 'kicker can use Kick for a wildcard cost');
+    }
+  }
   const storage = new Map(); let profile = 'm_evan';
   const localStorage = {getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k)};
-  const D = {status: 'ready', mayPlay: () => true, mine: () => ({}), deckOf: () => ({ok: true, ids: decks[0]}), CARDS: cards,
-    FIELD: 'dy1', autoDeck: () => decks[1], rng: () => () => .5, payBattle: () => {}, paySolo: () => null};
-  const shared = {B, D, localStorage, profileKey: () => profile, setTimeout: () => 1, clearTimeout: () => {}};
+  const D = {tableOpen: () => false, status: 'ready', mayPlay: () => true, mine: () => ({}), deckOf: () => ({ok: true, ids: decks[0]}), CARDS: cards,
+    FIELD: 'dy2', autoDeck: () => decks[1], rng: () => () => .5, payBattle: () => {}, paySolo: () => null};
+  const shared = {B, D, localStorage, profileKey: () => profile, rivalsUpdated: () => false, setTimeout: () => 1, clearTimeout: () => {}};
   const S = loadIsolated('js/core/dynasty-solo.js', shared, ['get', 'start', 'nextMove']);
   const cpu = board(B, 3, 'kick', 'juke');
   cpu.p[0].hand = []; cpu.p[0].en = null; cpu.p[0].used.retreat = true;
@@ -159,27 +248,30 @@ function board(B, version = 3, attacker = 'pass', defender = 'anchor') {
   finish.p[0].hand = []; finish.p[0].en = null; finish.p[0].used.retreat = true;
   finish.p[1].active.dmg = B.hpOf(finish.p[1].active) - 5;
   assert.equal(S.nextMove(finish, 0, 'int').n, 0, 'CPU uses a quick knockout without spending signature energy');
-  storage.set('gg-dys-m_evan', JSON.stringify({id: 'cpu-old', opp: 'rookie-camp', seed: 'old', decks, log: [], at: 1}));
+  storage.set('gg-dys2-m_evan', JSON.stringify({id: 'cpu-old', opp: 'rookie-camp', seed: 'old', decks, log: [], at: 1}));
   assert.equal(S.get('cpu-old').G.v, 2, 'unversioned solo saves stay v2');
   assert.equal(S.start('rookie-camp').ok, true);
-  const saved = JSON.parse(storage.get('gg-dys-m_evan'));
+  const saved = JSON.parse(storage.get('gg-dys2-m_evan'));
   assert.equal(saved.v, 5, 'new solo records explicitly save v5');
   profile = 'u_ryan-stewart'; S.get(); profile = 'm_evan';
   assert.equal(S.get(saved.id).G.v, 5, 'solo reload preserves v5');
-  storage.set('gg-dys-m_evan', JSON.stringify({...saved, id: 'cpu-v4', v: 4, log: []}));
+  storage.set('gg-dys2-m_evan', JSON.stringify({...saved, id: 'cpu-v4', v: 4, log: []}));
   profile = 'u_ryan-stewart'; S.get(); profile = 'm_evan';
   assert.equal(S.get('cpu-v4').G.v, 4, 'a v4 solo save keeps v4 (upgrades)');
-  storage.set('gg-dys-m_evan', JSON.stringify({...saved, id: 'cpu-v3', v: 3, log: []}));
+  storage.set('gg-dys2-m_evan', JSON.stringify({...saved, id: 'cpu-v3', v: 3, log: []}));
   profile = 'u_ryan-stewart'; S.get(); profile = 'm_evan';
   assert.equal(S.get('cpu-v3').G.v, 3, 'a v3 solo save keeps v3 (energy by hand)');
   const daily = {LB: {raw: [], all: [], ready: false}};
   const data = {subscribe: () => {}, M: {evan: {}, 'ryan-stewart': {}}, name: id => id};
-  const M = loadIsolated('js/core/dynasty-match.js', {...shared, daily, data, dynastyKey: () => true, visitWho: () => ({name: 'Opponent'})}, ['cleanSide', 'challenge', 'get']);
+  const M = loadIsolated('js/core/dynasty-match.js', {...shared, daily, data, dynastyKey: () => true, rivalsUpdated: () => true, visitWho: () => ({name: 'Opponent'})}, ['cleanSide', 'challenge', 'get']);
   for (const v of [1, 2, 3, 4, 5]) assert.equal(M.cleanSide({o: 'other', v}).v || 1, v, 'cleanSide preserves supported versions');
   const challenge = M.challenge('u_ryan-stewart');
   assert.equal(challenge.ok, true);
   assert.equal(JSON.parse(storage.get('gg-dyb-m_evan'))[challenge.mid].v, 5, 'new multiplayer challenge saves v5');
   daily.LB.raw.push({id: 'opponent', dyb: {'u_ryan-stewart': {[challenge.mid]: {o: 'm_evan', k: decks[1], m: [], ch: 0, c: 1, at: 1}}}});
   assert.equal(M.get(challenge.mid).G.v, 5, 'the accepter inherits the challenger’s version for replay');
-  console.log('PASS Rivals rules: legacy v1/v2 snapshots, v3 energy/Juke, v4 automatic energy, 432 previews, replay, and save-version round trips');
+  assert.equal(M.get(challenge.mid).G.roundEnergy, B.FRONT_ENERGY, 'new challenge replays with front-player energy');
+  assert.equal(M.cleanSide({o:'other', v:5, roundEnergy:1}).roundEnergy, 1, 'previous lineup grants survive cloud cleaning');
+  assert.equal(M.cleanSide({o:'other', v:5}).roundEnergy, undefined, 'existing challenges keep their turn rules');
+  console.log('PASS Rivals rules: legacy v1/v2 snapshots, v3 energy/Juke, v4 automatic energy, 432 previews, turn draws, lineup energy, attachments, replay, and save-version round trips');
 })().catch(e => { console.error(e); process.exitCode = 1; });

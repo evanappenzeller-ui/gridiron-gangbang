@@ -1,1 +1,17 @@
 tools/dynasty/.cache/
+# Screenshots written by tools/dynasty check scripts
+output/rivals-presentation/
+output/rivals-table/
+output/rivals-ladder/
+output/rivals-music/
+output/rivals-jukebox/
+output/rivals-*.png
+output/tutorial/
+# Return Man browser verification artifacts
+output/return-customize/
+output/return-customize-integration/
+output/return-rides/
+output/return-intro/
+output/return-motion/
+output/return-performance/
+output/return-reset/

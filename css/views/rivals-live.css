@@ -1,0 +1,64 @@
+/* Live Rivals battles (Nov 7 2026): the challenge notice over any screen, the lobby sheet, the Rivals entry buttons and
+   the live battle's waiting room and pause. js/core/rivals-live.js, js/views/rivals-live-notice.js, rivals-live-lobby.js. */
+
+/* status dots: green in the app, amber busy (Return Man run, a live battle), grey away */
+.rlv-dot { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: #a3b1ba; box-shadow: 0 0 0 2px #fff; }
+.rlv-dot.is-on { background: #22c55e; }
+.rlv-dot.is-busy { background: #f2a516; }
+.rlv-dot.is-off { background: #a3b1ba; }
+.rlv-btn { font: inherit; font-size: 13px; font-weight: 750; min-height: 40px; padding: 8px 14px; border-radius: 11px; border: 1px solid #b7cad6; background: #f4f9fc; color: #1d4a60; cursor: pointer; white-space: nowrap; }
+.rlv-btn.is-primary { background: #187c9a; border-color: #187c9a; color: #fff; }
+.rlv-btn:disabled { opacity: .45; cursor: default; }
+.rlv-btn:focus-visible { outline: 3px solid #187c9a; outline-offset: 2px; }
+
+/* the notice: drops in from the top like a phone notification */
+.rlv-notice { position: fixed; z-index: 2147483000; top: 0; left: 0; right: 0; display: flex; justify-content: center; padding: calc(env(safe-area-inset-top) + 8px) 12px 0; pointer-events: none; transform: translateY(-120%); transition: transform .32s cubic-bezier(.2, .9, .25, 1.1); }
+.rlv-notice.is-in { transform: none; }
+.rlv-notice.is-out { transform: translateY(-120%); transition-duration: .25s; }
+.rlv-notice-card { pointer-events: auto; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 12px; align-items: center; width: min(100%, 440px); padding: 13px 14px 12px; border-radius: 20px; background: #fffffff2; color: #163646; box-shadow: 0 14px 36px #0b223040, 0 2px 6px #0b223026; border: 1px solid #ffffff; font-family: var(--font-text, system-ui); }
+.rlv-notice-pic { position: relative; display: block; line-height: 0; }
+.rlv-notice-pic .rlv-dot, .rlv-pic .rlv-dot { position: absolute; right: -1px; bottom: -1px; width: 13px; height: 13px; }
+.rlv-notice-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rlv-notice-copy small { font-size: 9px; font-weight: 800; letter-spacing: .14em; color: #4e7c91; }
+.rlv-notice-copy b { font-size: 16px; line-height: 1.25; }
+.rlv-notice-copy span { font-size: 13px; color: #4f6876; }
+.rlv-notice-actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (prefers-reduced-motion: reduce) { .rlv-notice, .rlv-notice.is-out { transition: none; } }
+:root[data-theme="dark"] .rlv-notice-card { background: #18242cf2; color: #eef6fa; border-color: #2c3d48; }
+:root[data-theme="dark"] .rlv-notice-copy span { color: #b3c6d1; }
+
+/* the lobby sheet */
+.pk-sheet .rlv-lobby { color: #173d4c; font-size: 14px; line-height: 1.5; }
+.pk-sheet .rlv-lead { margin: 0 0 14px; color: #48657a; }
+.pk-sheet .rlv-list { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.pk-sheet .rlv-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: #f5fafd; border: 1px solid #e0ebf2; }
+.pk-sheet .rlv-row.is-waiting { background: #eefaf3; border-color: #bfe7cd; }
+.pk-sheet .rlv-pic { position: relative; flex: none; line-height: 0; }
+.pk-sheet .rlv-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.pk-sheet .rlv-copy b { font-size: 15px; }
+.pk-sheet .rlv-copy small { font-size: 12px; font-weight: 650; color: #6f8593; }
+.pk-sheet .rlv-copy small.is-on { color: #15803d; }
+.pk-sheet .rlv-copy small.is-busy { color: #b26b00; }
+.pk-sheet .rlv-copy .rlv-note { font-weight: 500; color: #3f6a55; }
+.pk-sheet .rlv-resume { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 12px 14px; margin: 0 0 12px; border-radius: 14px; border: 1px solid #9fd8b4; background: #ecfbf1; color: #14532d; font: inherit; text-align: left; cursor: pointer; }
+.pk-sheet .rlv-deck { margin: 16px 0 6px; font-size: 13px; color: #36586b; }
+.pk-sheet .rlv-fine { margin: 0; font-size: 12px; color: #6d8392; }
+
+/* entry buttons on the Rivals home and Battle tab */
+.v-dynasty .rlv-entry { display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; }
+.v-dynasty .rlv-entry > span { display: flex; flex: 1; flex-direction: column; gap: 2px; }
+.v-dynasty .rlv-entry b { font-size: 13px; }
+.v-dynasty .rlv-entry small { font-size: 11px; opacity: .85; }
+.v-dynasty .rh-home-notice.rlv-entry { background: #eefaf3; color: #14633a; }
+.v-dynasty .rl-live { width: 100%; min-height: 52px; padding: 10px 13px; margin-top: 12px; border: 1px solid #b9e5c8; border-radius: 13px; background: #f1fcf5; color: #17663d; font: inherit; }
+
+/* the live battle's waiting room and pause */
+.v-dynasty-battle .rp-live-wait { max-width: 360px; margin: 18vh auto 0; padding: 24px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.v-dynasty-battle .rp-live-wait b, .v-dynasty-battle .rp-live-away b { font-size: 17px; }
+.v-dynasty-battle .rp-live-wait p, .v-dynasty-battle .rp-live-away p { margin: 0; font-size: 13px; line-height: 1.45; opacity: .85; }
+.v-dynasty-battle .rp-live-away { position: absolute; z-index: 40; left: 50%; top: 42%; transform: translate(-50%, -50%); width: min(86%, 330px); padding: 18px 16px; border-radius: 18px; background: #0d2230ee; color: #f2f8fb; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; box-shadow: 0 16px 40px #0007; }
+.v-dynasty-battle .rp-live-away .rp-button { color: #0d2230; }
+.v-dynasty-battle .rp-live-pulse { width: 14px; height: 14px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 0 #22c55e88; animation: rlv-pulse 1.6s ease-out infinite; }
+.v-dynasty-battle .rp-live-pulse.is-away { background: #f2a516; box-shadow: 0 0 0 0 #f2a51688; }
+@keyframes rlv-pulse { to { box-shadow: 0 0 0 14px #0000; } }
+@media (prefers-reduced-motion: reduce) { .v-dynasty-battle .rp-live-pulse { animation: none; } }

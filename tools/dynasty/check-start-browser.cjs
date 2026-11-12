@@ -5,7 +5,8 @@
 // counters, the Packs stage (the clock pill, the tags, the round Open), the Play tab (Versus, Solo, Guide,
 // Decks, Rankings, Missions), the Menu sheet and its Title screen item, back from a Solo battle without the title screen
 // again, and every kit check in checks-dynasty.js. For a member who isn't theirs and a visitor: the link lands on the list.
-// Usage: node tools/dynasty/check-start-browser.cjs [--shots=<dir>]   (Playwright's Chromium; screenshots when --shots)
+// Usage: node tools/dynasty/check-start-browser.cjs [--shots=<dir>] [--packs-only | --pack-profiles-only]
+// (Playwright's Chromium; --packs-only checks the shelf with normal/reduced motion and all four pack profiles.)
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
@@ -13,6 +14,8 @@ const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '../..');
 const mime = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webp': 'image/webp', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json'};
 const shots = (process.argv.find(a => a.startsWith('--shots=')) || '').slice(8);
+const packsOnly = process.argv.includes('--packs-only');
+const packProfilesOnly = process.argv.includes('--pack-profiles-only');
 if (shots) fs.mkdirSync(shots, {recursive: true});
 
 function server() {
@@ -22,6 +25,8 @@ function server() {
     try { file = path.resolve(root, '.' + decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname)); }
     catch (_) { res.writeHead(400).end(); return; }
     if (!file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
+    // A sparse test worktree can read shared assets without linking directories into Git's checkout.
+    if (process.env.RIVALS_ASSET_ROOT && !fs.existsSync(file) && ['img','fonts','icons'].includes(path.relative(root,file).split(path.sep)[0])) file = path.join(process.env.RIVALS_ASSET_ROOT,path.relative(root,file));
     fs.readFile(file, (err, bytes) => {
       if (err) { res.writeHead(404).end(); return; }
       // (Firebase stays off: no live reads or writes from a test)
@@ -35,10 +40,81 @@ function server() {
 const PROFILES = [
   {tag: 'evan', me: 'evan', plays: true},
   {tag: 'ryan-stewart', me: 'none', guest: 'Ryan Stewart', plays: true},
-  {tag: 'mason', me: 'mason', plays: false},
+  {tag: 'mason', me: 'mason', plays: true}, // (everyone's since Nov 10 2026)
   {tag: 'visitor', me: 'none', plays: false}
 ];
 const snap = (page, name) => (shots ? page.screenshot({path: path.join(shots, name + '.png')}) : Promise.resolve());
+// These flows exercise returning players; first-time onboarding has its own full UI check.
+const returningPlayer = page => page.evaluate(async () => {
+  const D = await import('/js/core/dynasty.js'); await D.load();
+  D.finishTutorial('skipped', (await import('/js/core/realm-active.js')).profileKey());
+});
+
+async function packPreviews(page) {
+  const result = await page.evaluate(async () => {
+    const D = await import('/js/core/dynasty.js');
+    const {packTopPlayers} = await import('/js/views/dynasty-pack-preview.js');
+    const slots = [...document.querySelectorAll('.pk-pack-slot')];
+    return slots.map(slot => {
+      const kind = slot.dataset.packKind, preview = slot.querySelector('.pk-pack-preview');
+      const expected = packTopPlayers(kind, {limit: 12}).map(c => c.name);
+      const cards = [...(preview?.querySelectorAll('.pk-pack-preview-card') || [])];
+      return {
+        kind, label: preview?.getAttribute('aria-label'), expected,
+        names: cards.map(w => [...w.children].filter(n => !n.matches('.pk-card')).map(n => n.textContent.trim()).join(' ')),
+        cardNames: cards.map(w => w.querySelector('.pk-card')?.getAttribute('aria-label')),
+        passive: cards.length === 4 && cards.every(w => w.querySelectorAll('div.pk-card[role="img"]').length === 1)
+          && !preview.querySelector('button, a, [tabindex]'),
+        cloneHidden: !slot.hasAttribute('data-pack-clone') || slot.getAttribute('aria-hidden') === 'true',
+        teamNote: kind !== 'team' || preview.textContent.includes('Across teams · choose at purchase'),
+        packName: D.PACKS[kind].name
+      };
+    });
+  });
+  assert.ok(result.length >= 9, 'The looping shelf has three copies of every pack option');
+  for (const row of result) {
+    assert.equal(row.label, `Top available players in ${row.packName}`, row.kind + ': accessible preview label');
+    assert.ok(row.expected.length >= 4, row.kind + ': eligible top players');
+    assert.equal(row.passive, true, row.kind + ': previews are noninteractive cards');
+    assert.equal(row.cloneHidden, true, row.kind + ': duplicate previews remain hidden from assistive technology');
+    assert.equal(row.teamNote, true, row.kind + ': team choice is explained');
+    row.names.forEach((name, i) => {
+      assert.ok(row.expected.includes(name), row.kind + ": eligible rotating player");
+      assert.ok(row.names[i]?.includes(name), `${row.kind}: visible caption names ${name}`);
+      assert.ok(row.cardNames[i]?.includes(name), `${row.kind}: card face matches ${name}`);
+    });
+  }
+  assert.equal(await page.locator('.pk-pack-studio[aria-hidden="true"]').count(), 1, 'Studio is decorative');
+  assert.equal(await page.locator('.pk-pack-studio').evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'Studio cannot intercept swipes or purchase');
+}
+
+async function packPreviewFit(page) {
+  return page.evaluate(() => {
+    const pane = document.querySelector('.pk-pane'), nav = document.querySelector('.pk-nav').getBoundingClientRect();
+    const stage = document.querySelector('.pk-pack-stage').getBoundingClientRect();
+    const slot = document.querySelector('.pk-pack-slot.is-cur');
+    const pack = slot.querySelector('.pk-pack').getBoundingClientRect();
+    const preview = slot.querySelector('.pk-pack-preview'), p = preview.getBoundingClientRect();
+    const buy = document.querySelector('.pk-pack-buy').getBoundingClientRect();
+    const visible = node => { const r = node.getBoundingClientRect(), s = getComputedStyle(node); return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden'; };
+    return {
+      fits: pane.scrollHeight <= pane.clientHeight + 1 && pane.scrollWidth <= pane.clientWidth + 1,
+      pack: pack.top >= stage.top - 1 && pack.bottom <= stage.bottom + 1,
+      preview: visible(preview) && p.top >= stage.top - 1 && p.bottom <= stage.bottom + 1
+        && (stage.height <= 300 ? p.right <= pack.left + 1 : p.bottom <= pack.top + 1)
+        && p.left >= stage.left - 1 && p.right <= stage.right + 1,
+      cards: [...preview.querySelectorAll('.pk-card')].every(card => {
+        const r = card.getBoundingClientRect();
+        return visible(card) && r.top >= p.top - 1 && r.bottom <= p.bottom + 1 && r.left >= p.left - 1 && r.right <= p.right + 1;
+      }) && [...preview.querySelectorAll('.pk-pack-preview-card > span')].every(caption => {
+        const r = caption.getBoundingClientRect();
+        return visible(caption) && caption.scrollWidth <= caption.clientWidth + 1 && caption.scrollHeight <= caption.clientHeight + 1
+          && r.top >= p.top - 1 && r.bottom <= p.bottom + 1;
+      }),
+      buy: buy.top >= stage.bottom - 1 && buy.bottom <= nav.top + 1 && buy.height >= 44
+    };
+  });
+}
 
 async function kitChecks(page) {
   return page.evaluate(async () => {
@@ -52,6 +128,133 @@ async function kitChecks(page) {
     }
     return out;
   });
+}
+
+async function homeFlow(page, reduced) {
+  const nav = tab => page.locator(`.pk-nav [data-dy-tab="${tab}"]`).click();
+  await page.waitForFunction(() => document.querySelector('.rh-home-art')?.naturalWidth > 0);
+  const before = await page.evaluate(async () => JSON.stringify((await import('/js/core/dynasty.js')).mine()));
+  for (const [width, height] of [[390, 844], [320, 568], [430, 932], [768, 1024]]) {
+    await page.setViewportSize({width, height});
+    await page.waitForTimeout(120);
+    const layout = await page.evaluate(() => {
+      const pane = document.querySelector('.pk-pane'), hdr = document.querySelector('.pk-hdr').getBoundingClientRect(), nav = document.querySelector('.pk-nav').getBoundingClientRect();
+      const p = pane.getBoundingClientRect();
+      return {fits: pane.scrollWidth <= pane.clientWidth + 1, clear: p.top >= hdr.bottom - 1 && p.bottom <= nav.top + 1,
+        taps: [...document.querySelectorAll('.rh-home button, .pk-nav button')].every(b => b.getBoundingClientRect().height >= 44)};
+    });
+    assert.deepEqual(layout, {fits: true, clear: true, taps: true}, `Home fits ${width} x ${height}`);
+    await snap(page, `evan-home-${width}${reduced ? '-rm' : ''}`);
+  }
+  await page.setViewportSize({width: 390, height: 844});
+  await page.locator('.rh-home-battle').focus(); await page.keyboard.press('Enter');
+  await page.waitForSelector('.rl-ladder');
+  assert.equal(await page.locator('.pk-tab.is-on').getAttribute('data-dy-tab'), 'battle');
+  await page.waitForSelector('.pk-solo');
+  assert.equal(await page.locator('[data-dy-bv="versus"], .rl-switch').count(), 0, 'friend battles are paused: no Versus switch on the ladder');
+  await nav('home');
+  await page.locator('.rh-home .is-packs').click(); await page.waitForSelector('.pk-packs');
+  await nav('home');
+  await page.locator('.rh-home .is-collection').click(); await page.waitForSelector('.pk-binder');
+  await nav('home');
+  await page.locator('.rh-home-tools [data-dy-tab="decks"]').click(); await page.waitForSelector('.pocket-decks');
+  await nav('home');
+  await page.locator('.rh-home [data-dy-guide]').click(); await page.waitForSelector('.sheet.pk-sheet');
+  await page.locator('.sheet.pk-sheet .sheet-close').click();
+  await page.waitForFunction(() => !document.querySelector('.sheet.pk-sheet'));
+  assert.doesNotMatch(await page.locator('.rh-home-ribbon').innerText(), /Versus/, 'friend battles are paused: the banner says Solo ladder');
+  // A saved link to a friend match shows the paused notice, never the match.
+  await page.evaluate(async () => (await import('/js/app.js')).nav('/puzzles/dynasty/battle/paused1'));
+  await page.waitForSelector('.db-msg');
+  assert.match(await page.locator('.db-msg').innerText(), /Friend battles are paused/);
+  await page.evaluate(() => history.back());
+  await page.waitForSelector('.rh-home');
+  const after = await page.evaluate(async () => JSON.stringify((await import('/js/core/dynasty.js')).mine()));
+  assert.equal(after, before, 'Home navigation does not change cards, decks, balances or progress');
+  // A live profile switch must remove the owner chrome and cached Home, including the new artwork.
+  await page.evaluate(async () => { const d = await import('/js/core/data.js'); d.setGuest('Ryan Stewart'); });
+  await page.waitForSelector('.pk-start.is-ready');
+  assert.deepEqual(await page.locator('.pk-tab').allTextContents(), ['Home', 'Battle', 'Packs', 'Collection', 'Decks']);
+  assert.ok(await page.locator('.rh-home-enabled').count(), 'Ryan receives the shared Home after switching');
+  await page.evaluate(async () => (await import('/js/core/data.js')).setMe('evan'));
+  await page.waitForSelector('.rh-home-enabled');
+  // The router remounts the game when the profile changes; its title screen still applies.
+  await page.waitForSelector('.pk-start.is-ready');
+  await page.locator('.pk-start').click({position: {x: 195, y: 640}});
+  await page.waitForFunction(() => !document.querySelector('.pk-start'));
+  await nav('home');
+  assert.equal(await page.locator('.rh-home').count(), 1);
+  console.log('PASS owner Home: responsive layout, keyboard, destinations, saved progress and profile switching');
+}
+
+async function ownerPacksFlow(page, reduced) {
+  const front = () => page.locator('.pk-pack-buy').getAttribute('aria-label');
+  const settle = () => page.waitForTimeout(reduced ? 300 : 650);
+  const save = () => page.evaluate(async () => JSON.stringify((await import('/js/core/dynasty.js')).mine()));
+  const before = await save();
+  assert.equal(await page.locator('.pk-free, .pk-show, .pk-tags, .pk-pts, .pk-actions, .pk-car-dots, .pk-pack-shop .pk-sec').count(), 0, 'The pack shop keeps its compact shelf and checkout');
+  assert.equal(await page.locator('.pk-pack-buy').count(), 1);
+  await packPreviews(page);
+  for (const [width, height] of [[390, 844], [320, 568], [430, 932], [768, 1024], [390, 667], [844, 390]]) {
+    await page.setViewportSize({width, height});
+    await page.evaluate(notch => {
+      document.documentElement.style.setProperty('--sa-t', notch ? '59px' : '0px');
+      document.documentElement.style.setProperty('--sa-b', notch ? '34px' : '0px');
+    }, height === 667);
+    await settle();
+    assert.match(await front(), /Starter Pack/, 'Resizing preserves the selected pack');
+    await snap(page, `evan-packs-${width}-${height}${reduced ? '-rm' : ''}`);
+    const fit = await packPreviewFit(page);
+    if (Object.values(fit).some(v => !v)) console.error('Pack layout diagnostics', await page.locator('.pk-pack-slot.is-cur .pk-pack-preview-card').evaluateAll(cards => cards.map(card => {
+      const caption = card.querySelector(':scope > span');
+      return {name: caption.textContent, width: caption.clientWidth, height: caption.clientHeight, textWidth: caption.scrollWidth, textHeight: caption.scrollHeight,
+        card: card.querySelector('.pk-card').getBoundingClientRect().toJSON(), preview: card.closest('.pk-pack-preview').getBoundingClientRect().toJSON()};
+    })));
+    assert.deepEqual(fit, {fits: true, pack: true, preview: true, cards: true, buy: true}, `Packs and top players fit ${width}x${height}`);
+  }
+  await page.evaluate(() => { document.documentElement.style.removeProperty('--sa-t'); document.documentElement.style.removeProperty('--sa-b'); });
+  await page.setViewportSize({width: 390, height: 844}); await settle();
+  const shelf = page.locator('.pk-pack-shelf');
+  await shelf.focus();
+  for (const name of ['Standard', 'Team', 'Epic', 'Starter', 'Standard']) {
+    await page.keyboard.press('ArrowRight'); await settle();
+    assert.match(await front(), new RegExp(name + ' Pack'), `Right arrow selects ${name}: ` + JSON.stringify(await shelf.evaluate(el => ({left: el.scrollLeft, current: [...el.children].findIndex(s => s.classList.contains('is-cur')), focus: document.activeElement.className}))));
+    assert.deepEqual(await packPreviewFit(page), {fits: true, pack: true, preview: true, cards: true, buy: true}, name + ': preview stays above its own pack after selection');
+  }
+  for (const name of ['Starter', 'Epic', 'Team', 'Standard', 'Starter']) {
+    await page.keyboard.press('ArrowLeft'); await settle();
+    assert.match(await front(), new RegExp(name + ' Pack'), 'Left arrow loops through every pack');
+  }
+  const bb = await shelf.boundingBox();
+  await page.mouse.move(bb.x + bb.width * .65, bb.y + bb.height / 2); await page.mouse.down();
+  await page.mouse.move(bb.x + bb.width * .16, bb.y + bb.height / 2, {steps: 12}); await page.mouse.up(); await settle();
+  assert.match(await front(), /Standard Pack/, 'Mouse drag brings the next pack forward');
+  // A real native touch pan has momentum and pointer cancellation, unlike a scripted scrollLeft change.
+  const cdp = await page.context().newCDPSession(page);
+  const y = bb.y + bb.height / 2;
+  await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 300, y}]});
+  for (let x = 280; x >= 110; x -= 17) {
+    await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y}]});
+    await page.waitForTimeout(25);
+  }
+  await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []}); await settle();
+  assert.match(await front(), /Team Pack/, 'Touch swipe brings the next pack forward');
+  await cdp.detach();
+  await shelf.focus(); await page.keyboard.press('ArrowRight'); await settle();
+  assert.match(await front(), /Epic Pack/);
+  const nav = tab => page.locator(`.pk-nav [data-dy-tab="${tab}"]`).click();
+  await nav('home'); await nav('packs'); await settle();
+  assert.match(await front(), /Epic Pack/, 'Tab restoration keeps the selected pack');
+  assert.equal(await save(), before, 'Browsing packs never changes cards, currency or progress');
+  assert.equal(await page.locator('div.pk-open').count(), 0, 'Swipes and selections open nothing');
+  await page.locator('.pk-pack-buy').click();
+  await page.waitForSelector('div.pk-open');
+  assert.notEqual(await save(), before, 'Purchase opens the selected pack through the existing economy');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('div.pk-open'));
+  await settle();
+  assert.equal(await page.evaluate(() => document.activeElement?.className), 'pk-pack-buy', 'Opening returns focus to Purchase');
+  console.log('PASS owner Packs: responsive layout, both loop directions, mouse/touch, tab restore, purchase and focus');
 }
 
 async function playerFlow(page, p, {reduced}) {
@@ -69,14 +272,17 @@ async function playerFlow(page, p, {reduced}) {
   assert.equal(await page.locator('.pk-start .gg-exit').count(), 1, T + ': the red X on the title screen');
   assert.equal(await page.locator('.pk-start-logo').textContent(), 'GridironTrading Card GameRivals', T + ': the logo');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-title`);
-  // Tap anywhere: Play is the home, with visible labels for every main destination.
+  // Tap anywhere: Evan's new Home, or the deployed Play hub for Ryan Stewart.
+  await returningPlayer(page);
   await page.locator('.pk-start').click({position: {x: 195, y: 640}});
   await page.waitForFunction(() => !document.querySelector('.pk-start'), null, {timeout: 5000});
   assert.equal(await page.locator('.pk.is-start, [inert]').count(), 0, T + ': the shell is live again');
-  assert.equal(await page.locator('.pk-tab').count(), 4, T + ': four tabs at the foot');
-  assert.deepEqual(await page.locator('.pk-tab').allTextContents(), ['Play', 'Cards', 'Decks', 'Packs'], T + ': four readable navigation labels');
-  assert.equal(await page.locator('.pk-tab.is-on').getAttribute('data-dy-tab'), 'battle', T + ': Play is selected on entry');
-  assert.equal(await page.locator('[data-pk-title]').textContent(), 'Play', T + ': Play is the current page');
+  const owner = p.plays;
+  assert.deepEqual(await page.locator('.pk-tab').allTextContents(), owner ? ['Home', 'Battle', 'Packs', 'Collection', 'Decks'] : ['Play', 'Cards', 'Decks', 'Packs'], T + ': profile-scoped navigation');
+  assert.equal(await page.locator('.pk-tab.is-on').getAttribute('data-dy-tab'), owner ? 'home' : 'battle', T + ': the right entry destination');
+  assert.equal(await page.locator('[data-pk-title]').textContent(), owner ? 'Home' : 'Play', T + ': the current page');
+  assert.equal(await page.locator('.rh-home-enabled, .rh-home').count(), owner ? 2 : 0, T + ': Home belongs only to the owner');
+  if (p.tag === 'evan' && !packsOnly) await homeFlow(page, reduced);
   assert.equal(await page.locator('.pk-hdr [data-dy-menu]').count(), 1, T + ': Menu is in the header');
   const labels = await page.locator('.pk-tab span:not(.pk-dot)').evaluateAll(nodes => nodes.map(n => {
     const s = getComputedStyle(n), r = n.getBoundingClientRect();
@@ -84,8 +290,11 @@ async function playerFlow(page, p, {reduced}) {
   }));
   assert.ok(labels.length >= 4 && labels.every(Boolean), T + ': navigation labels are visually readable');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-play`);
-  assert.match((await page.locator('[data-dy-hud]').innerText()).replace(/\s+/g, ' '), /∞ MAX [\d,]+ coins/, T + ': the header’s counters (unlimited packs, coins)');
+  assert.match((await page.locator('[data-dy-hud]').innerText()).replace(/\s+/g, ' '), /^\d+ [\d,]+ coins$/, T + ': the header’s counters (packs held, coins; no unlimited packs since Nov 10 2026)');
   await page.locator('.pk-tab[data-dy-tab="packs"]').click();
+  if (owner) await ownerPacksFlow(page, reduced);
+  else {
+  assert.equal(await page.locator('.pk-pack-shop, .is-pack-shop').count(), 0, T + ': the new Packs screen stays owner-only');
   for (const sel of ['.pk-packs', '.pk-clock', '.pk-show-tip', '.pk-tags > b', '.pk-round[data-dy-goto="cols"]', '.pk-round[data-dy-earn]', 'button.pk-open.is-round', '.pk-actions .pk-pill[data-dy-odds]', '.pk-actions .pk-pill[data-dy-packs]', '.pk-pts'])
     assert.equal(await page.locator(sel).count(), 1, T + ': the Packs stage has ' + sel);
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-packs`);
@@ -153,11 +362,13 @@ async function playerFlow(page, p, {reduced}) {
   assert.equal(await front(), 'Team', T + ': the pack list brings a pack to the front');
   assert.deepEqual(await page.locator('.pk-car-bk').evaluateAll(l => l.map(b => b.dataset.dyTo)), ['prem', 'start'], T + ': the Epic and Starter Packs behind it');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-stack`);
+  }
+  if (packsOnly) return;
   // Play: routes to solo, friend challenges, deck editing, rules and collections.
   await page.locator('.pk-tab[data-dy-tab="battle"]').click();
-  await page.waitForSelector('.pk-mode');
-  assert.equal(await page.locator('.pk-mode[data-dy-bv="versus"]').count(), 1, T + ': friend challenges are directly accessible');
-  assert.equal(await page.locator('.pk-mode[data-dy-bv="solo"]').count(), 1, T + ': solo opponents are directly accessible');
+  await page.waitForSelector(owner ? '.rl-ladder' : '.pk-mode');
+  assert.equal(await page.locator('[data-dy-bv="versus"]').count(), 0, T + ': friend battles are paused (features.rivalsVersus)');
+  assert.equal(await page.locator(owner ? '.rl-ladder' : '.pk-mode[data-dy-bv="solo"]').count(), 1, T + ': solo opponents are directly accessible');
   assert.deepEqual(await page.locator('.pk-mini span:not(.sr-only)').allTextContents(), ['Rules', 'Decks', 'Rankings', 'Collections'], T + ': Guide, Decks, Rankings, Missions');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-battle`);
   // Missions: the collections
@@ -206,7 +417,7 @@ async function playerFlow(page, p, {reduced}) {
   // the Menu
   await page.locator('.pk-hdr [data-dy-menu]').click();
   await page.waitForSelector('.pk-menu');
-  assert.deepEqual(await page.locator('.pk-menu b').allTextContents(), ['Guide', 'Coins', 'Rankings', 'Offering Rates', 'Title screen', 'Exit Gridiron Rivals'], T + ': the Menu’s items');
+  assert.deepEqual(await page.locator('.pk-menu b').allTextContents(), [...(p.plays ? ['Jukebox', 'Sound'] : []), 'Marketplace', 'Guide', 'Coins', 'Rankings', 'Offering Rates', 'Title screen', 'Exit Gridiron Rivals'], T + ': the Menu’s items');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-menu`);
   await page.locator('[data-dy-m="title"]').click();
   await page.waitForSelector('.pk-start.is-ready', {timeout: 5000});
@@ -231,7 +442,8 @@ async function playerFlow(page, p, {reduced}) {
     return r.mid;
   });
   assert.match(String(mid), /^cpu/, T + ': a Solo battle started: ' + mid);
-  await page.waitForSelector('.db', {timeout: 10000});
+  await page.waitForSelector('.rp-battle', {timeout: 10000});
+  assert.equal(await page.evaluate(async () => (await import('/js/core/dynasty-solo.js')).current().G.v), 7, T + ': new solo matches use v7');
   assert.equal(await page.locator('.pk-start').count(), 0, T + ': no title screen under a battle');
   await page.goBack();
   await page.waitForSelector('.pk-pane', {timeout: 10000});
@@ -247,11 +459,74 @@ async function playerFlow(page, p, {reduced}) {
   assert.equal(failed.length, 0, T + ': Dynasty kit checks failed');
 }
 
+async function packProfileFlow(browser, url) {
+  const profiles = [
+    {tag: 'evan', me: 'evan', owner: true, packs: false, coins: false}, // (no unlimited packs since Nov 10 2026)
+    {tag: 'jayton', me: 'jayton', owner: false, packs: false, coins: true},
+    {tag: 'ryan-stewart', me: 'none', guest: 'Ryan Stewart', owner: false, packs: false, coins: false},
+    {tag: 'ryan-younggreen', me: 'none', guest: 'Ryan Younggreen', owner: false, packs: false, coins: false}
+  ];
+  for (const p of profiles) {
+    const context = await browser.newContext({viewport: {width: 390, height: 844}, serviceWorkers: 'block', reducedMotion: 'reduce'});
+    await context.route('**/*', route => route.request().url().startsWith(url) ? route.continue() : route.abort());
+    await context.addInitScript(p => {
+      localStorage.setItem('gg-me', p.me);
+      if (p.guest) localStorage.setItem('gg-guest', p.guest);
+      localStorage.setItem('gg-welcome', '1'); sessionStorage.setItem('gg-skip-title', '1');
+      ['evan', 'jayton', 'mason', 'user%3Aryan-stewart', 'user%3Aryan-younggreen'].forEach(k => localStorage.setItem('gg-release-3.0:' + k, '1'));
+    }, p);
+    try {
+      const page = await context.newPage(), errors = [];
+      page.on('pageerror', e => errors.push(String(e)));
+      await page.goto(url + '/#/puzzles');
+      await page.waitForFunction(() => window.__ggBooted);
+      assert.equal(await page.evaluate(async () => (await import('/js/core/fire.js')).canWrite()), false, 'Profile checks cannot write live data');
+      await page.evaluate(async () => (await import('/js/app.js')).nav('/puzzles/dynasty'));
+      await returningPlayer(page);
+      await page.waitForSelector('.pk-start.is-ready'); await page.locator('.pk-start').click();
+      await page.waitForFunction(() => !document.querySelector('.pk-start'));
+      const state = () => page.evaluate(async () => {
+        const D = await import('/js/core/dynasty.js'), data = await import('/js/core/data.js');
+        return {save: JSON.stringify(D.mine()), owner: data.isOwner(), packs: D.unlimited(), coins: D.unlimitedCoins()};
+      });
+      const before = await state();
+      assert.deepEqual({owner: before.owner, packs: before.packs, coins: before.coins}, {owner: p.owner, packs: p.packs, coins: p.coins}, p.tag + ': individual privileges stay intact');
+      await page.locator('.pk-tab[data-dy-tab="packs"]').click();
+      await page.waitForSelector('.pk-pack-slot.is-cur .pk-pack-preview'); await page.waitForTimeout(300);
+      await packPreviews(page);
+      const shelf = page.locator('.pk-pack-shelf'); await shelf.focus();
+      for (const name of ['Starter', 'Standard', 'Team', 'Epic']) {
+        assert.match(await page.locator('.pk-pack-buy').getAttribute('aria-label'), new RegExp(name + ' Pack'), p.tag + ': correct selected pack');
+        assert.deepEqual(await packPreviewFit(page), {fits: true, pack: true, preview: true, cards: true, buy: true}, p.tag + ': ' + name + ' preview fits');
+        await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
+      }
+      const names = () => page.locator('.pk-pack-slot.is-cur .pk-pack-preview-card > span').allTextContents();
+      const first = await names();
+      await page.locator('.pk-tab[data-dy-tab="home"]').click();
+      await page.locator('.pk-tab[data-dy-tab="packs"]').click();
+      await page.waitForTimeout(300);
+      assert.notDeepEqual(await names(), first, 'Revisiting Packs rotates the featured players');
+      await packPreviews(page);
+      assert.deepEqual(await state(), before, p.tag + ': browsing top players preserves progress and privileges');
+      assert.equal(await page.locator('div.pk-open').count(), 0, p.tag + ': browsing never opens packs');
+      await snap(page, p.tag + '-pack-preview');
+      await page.evaluate(async () => { const data = await import('/js/core/data.js'); data.setGuest(null); data.setMe('none'); });
+      await page.waitForFunction(() => location.hash === '#/puzzles' && !document.querySelector('.pk, .pk-start, .pk-pack-shop, .pk-pack-studio, .pk-pack-preview'));
+      assert.equal(await page.locator('.pk, .pk-start').count(), 0, p.tag + ': switching to no profile removes the pack screen');
+      assert.deepEqual(errors, [], p.tag + ': preview browser exceptions');
+    } finally { await context.close(); }
+  }
+  console.log('PASS pack previews: four authorized profiles, all pack options, unchanged saves/privileges and live profile switching');
+}
+
 async function run(url) {
-  const {chromium} = require('playwright');
-  const browser = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || undefined});
+  let pw;
+  try { pw = require('playwright'); }
+  catch (_) { pw = require(path.join(process.env.USERPROFILE, '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright')); }
+  const {chromium} = pw;
+  const browser = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--no-sandbox']});
   try {
-    for (const p of PROFILES) for (const reduced of (p.plays && p.tag === 'evan' ? [false, true] : [false])) {
+    for (const p of PROFILES.filter(p => !packProfilesOnly && (!packsOnly || p.tag === 'evan'))) for (const reduced of (p.plays && p.tag === 'evan' ? [false, true] : [false])) {
       const context = await browser.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2, serviceWorkers: 'block', reducedMotion: reduced ? 'reduce' : 'no-preference'});
       await context.route('https://**/*', route => route.abort());
       await context.addInitScript(p => {
@@ -281,8 +556,9 @@ async function run(url) {
       assert.deepEqual(errors, [], p.tag + ': unexpected browser exceptions');
       await context.close();
     }
+    await packProfileFlow(browser, url);
   } finally { await browser.close(); }
-  console.log('PASS: Rivals title screen, play-first navigation, collections and access boundaries');
+  console.log(packProfilesOnly ? 'PASS: player previews and access boundaries for all four profiles' : packsOnly ? 'PASS: Packs shelf and player previews in normal/reduced motion and all four profiles' : 'PASS: Rivals title screen, navigation, collections, pack previews and access boundaries');
 }
 
 (async () => {

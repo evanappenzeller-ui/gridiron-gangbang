@@ -1,3 +1,4 @@
+import {rivalsUpdated} from '../core/features.js';
 // Gridiron Dynasty's booster packs (views/dynasty.js shows them, views/dynasty-open.js opens them): Pocket's foil packs:
 // the brand bar across the top (where it tears), the pack's art full-bleed behind it, its name in a plate below.
 // Each pack comes in several artworks, swiped through on the Packs home as in Pocket, more detailed the rarer the pack
@@ -26,6 +27,7 @@ import PREM from './dynasty-art-prem.js';
 import GDAY from './dynasty-art-gday.js';
 import LEG from './dynasty-art-leg.js';
 import {FOIL_VIEW} from './dynasty-art-foil.js';
+import {PRINTED, PRINTED_VIEW} from './dynasty-art-printed.js';
 
 const esc = data.esc;
 /** How much each pack's art and frame carry: 1 (Starter, Standard) to 5 (Legends), by rarity and price. */
@@ -94,6 +96,7 @@ const plain = (u, k) => `<radialGradient id="${u}bg" cx="50%" cy="46%" r="70%"><
   + `<rect width="100" height="160" fill="url(#${u}bg)"/>${k.burst()}${k.fan()}${k.emblem()}`;
 /** A pack's art designs: [{id, name, svg}] (the art module's, or the plain emblem). */
 export function designsOf(kind) {
+  if (rivalsUpdated() && PRINTED[kind]) return PRINTED[kind];
   const a = (Array.isArray(ART[kind]) ? ART[kind] : []).filter(d => d && typeof d.svg === 'function' && d.id);
   return a.length ? a : [{id: kind, name: D.PACKS[kind] ? D.PACKS[kind].name : kind, svg: plain}];
 }
@@ -125,6 +128,17 @@ export function packHTML(kind, {count, big, design = 0} = {}) {
   const P = D.PACKS[kind], t = TIER[kind] || 1, list = designsOf(kind), n = list.length;
   const d = list[((Math.floor(+design) || 0) % n + n) % n], u = `pa${(++uid).toString(36)}_`;
   const name = esc(P.name.replace(' Pack', '').toUpperCase()), art = artOf(kind, d, list, u, kit(kind, u));
+  // The same renderer serves the carousel, reflection, picker, rewards and all three tear pieces.
+  // Re-evaluate the stable owner profile on each render; Epic and other profiles keep their original art.
+  if (rivalsUpdated() && PRINTED[kind]) {
+    const cards = P.slots.reduce((n, slot) => n + slot.n, 0);
+    return `<span class="pk-pack is-printed${big ? ' is-big' : ''} k-${kind} tier-${t}" style="--pc:${P.color}${d.paper ? `;--pack-paper:${d.paper}` : ''}" data-art="${esc(d.id)}"${art.by !== d.id ? ` data-art-fallback="${esc(art.by)}"` : ''} aria-hidden="true">`
+      + '<span class="pk-print-card"><span class="pk-print-brand"><small>GRIDIRON</small><b>RIVALS</b><em>TRADING CARD GAME</em></span>'
+      + `<span class="pk-pack-art"><svg viewBox="${PRINTED_VIEW}" preserveAspectRatio="xMidYMid slice" focusable="false">${art.svg}</svg></span>`
+      + `<span class="pk-print-label"><b>${name}</b><small>${kind === 'team' ? 'CLUB SERIES' : kind === 'start' ? 'FIRST SQUAD' : 'BASE SERIES'}</small></span>`
+      + `<span class="pk-print-details"><span>${cards} CARDS</span><span>BOOSTER PACK</span></span></span>`
+      + `<span class="pk-pack-crimp"></span>${count > 1 ? `<span class="pk-pack-n">×${count}</span>` : ''}</span>`;
+  }
   const head = `<span class="pk-pack${big ? ' is-big' : ''} k-${kind} tier-${t}${FOIL[kind] ? ' is-foil' : ''}" style="--pc:${P.color}" data-art="${esc(d.id)}"${art.by !== d.id ? ` data-art-fallback="${esc(art.by)}"` : ''} aria-hidden="true">`;
   const tail = `<span class="pk-pack-crimp"></span>${count > 1 ? `<span class="pk-pack-n">×${count}</span>` : ''}</span>`;
   if (FOIL[kind]) {

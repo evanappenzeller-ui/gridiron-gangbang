@@ -12,7 +12,7 @@ const THEMES = {
   tailgate: {base: '#798F9C', road: '#607C8D', alt: '#6F8997', edge: '#FFD151', sky: '#FFBC80', haze: '#FFE3B1', accent: '#EF6445', far: '#B48288'},
   city: {base: '#E7C39C', road: '#6C8C99', alt: '#7696A2', edge: '#FFF0CE', sky: '#80D1E8', haze: '#C4ECE6', accent: '#EE683C', far: '#70B4BD'},
   tundra: {base: '#EBF6F4', road: '#A9DAE7', alt: '#BFE8EE', edge: '#F9FFFF', sky: '#75BDDF', haze: '#D1EFF2', accent: '#FF9247', far: '#94C9DD'},
-  desert: {base: '#F1C276', road: '#DEAA63', alt: '#E7B76D', edge: '#F9DF9E', sky: '#83CCE1', haze: '#F1DDB0', accent: '#DD5B36', far: '#D49460'},
+  desert: {base: '#F5BA79', road: '#D89F68', alt: '#E7AD74', edge: '#F9DF9E', sky: '#BDB0D5', haze: '#F4BD95', accent: '#DD5B36', far: '#C77668'},
   market: {base: '#EACD99', road: '#DDB578', alt: '#E9C58F', edge: '#FFF1C7', sky: '#81D2E4', haze: '#D5E9CE', accent: '#E96744', far: '#9DBDB1'},
   beach: {base: '#FFE1A0', road: '#DBAA6B', alt: '#E6B87B', edge: '#FFF1C7', sky: '#63D2EA', haze: '#C1EFE9', accent: '#F66F9B', far: '#41B9C6'},
   space: {base: '#8B6EB1', road: '#514D7B', alt: '#615B8E', edge: '#73F3EA', sky: '#30265F', haze: '#A384C9', accent: '#F39ED4', far: '#655099'},
@@ -147,7 +147,7 @@ function skyImage(id, width, height) {
 }
 export function sky(st, c, t, z) {
   if (!enabled()) return false;
-  const zone = R.zoneAt(st.co,z), next = R.zoneAt(st.co,zone.z0+R.ZONE), k = Math.max(0,Math.min(1,(z-zone.z0-R.ZONE+28)/28));
+  const zone = R.zoneAt(st.co,z), end = zone.z0+R.zoneLength(st.co), next = R.zoneAt(st.co,end), k = Math.max(0,Math.min(1,(z-end+28)/28));
   const w = Math.min(1536,Math.ceil(st.W)), h = Math.max(1,Math.ceil(st.y0+2));
   const draw = (id,alpha) => {
     const cv = skyImage(id,w,h); c.globalAlpha=alpha; c.drawImage(cv,0,0,st.W,st.y0+2);

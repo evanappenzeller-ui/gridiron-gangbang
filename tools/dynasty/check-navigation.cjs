@@ -118,7 +118,7 @@ async function run(url) {
         if (!r.ok) throw Error(r.why);
         await app.nav('/puzzles/dynasty/battle/' + r.mid);
       });
-      await page.waitForSelector('.db');
+      await page.waitForSelector('.rp-battle');
       await settle(page);
       await page.evaluate(async () => {
         window.hiddenNavChanges = 0;

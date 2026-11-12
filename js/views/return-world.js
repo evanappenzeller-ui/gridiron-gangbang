@@ -1,4 +1,5 @@
 import * as features from '../core/features.js';
+import {jetpackIcon} from './return-jetpack.js';
 // Return Man's world (views/return.js draws with it): the places a return runs through (core/return.js THEMES), drawn
 // on its canvas from behind the returner. Each place has its sky and far skyline (drawn once into a canvas of its own
 // and copied in each frame; the next place's fades in as you come to its gate), its ground (the field; a parking lot;
@@ -13,8 +14,8 @@ import * as features from '../core/features.js';
 // dressList, LOOKS, OBS, GOODS_COL, HOLE_COL, coneFly, coneAhead, CONE_MS (for the 3D world).
 // Owner: RETURN.
 import * as R from '../core/return.js';
-import * as data from '../core/data.js';
 import * as fieldLogo from './return-field-logo.js';
+import * as neighborhoods from './return-neighborhoods.js';
 import {backdrop, bowl, seeded, sparkle} from './stadium.js';
 
 export const NEAR = .9, FAR = 150;
@@ -282,12 +283,12 @@ function skyOf(st, id) {
 /** Readies the skies of the place z yards is in and the next (so a gate never waits on one being drawn). */
 export function warm(st, z) {
   const zone = R.zoneAt(st.co, z);
-  skyOf(st, zone.theme.id); skyOf(st, R.zoneAt(st.co, zone.z0 + R.ZONE).theme.id);
+  skyOf(st, zone.theme.id); skyOf(st, R.zoneAt(st.co, zone.z0 + R.zoneLength(st.co)).theme.id);
 }
 /** How far into the next place's sky we are (0..1), and the two places. */
 export function blendAt(st, z) {
-  const zone = R.zoneAt(st.co, z), next = R.zoneAt(st.co, zone.z0 + R.ZONE);
-  return {now: zone.theme, next: next.theme, k: clamp((z - (zone.z0 + R.ZONE - FADE)) / FADE, 0, 1)};
+  const zone = R.zoneAt(st.co, z), end = zone.z0 + R.zoneLength(st.co), next = R.zoneAt(st.co, end);
+  return {now: zone.theme, next: next.theme, k: clamp((z - (end - FADE)) / FADE, 0, 1)};
 }
 function skyOne(st, c, id, t, a) {
   const S = skyOf(st, id);
@@ -539,7 +540,6 @@ const DRESS = new Map();
 const CARS = ['#C8102E', '#1D3F8F', '#E8E8EC', '#2A2D33', '#7B8794', '#B98A2F', '#2E6B4F', '#5E2A84'];
 const BRICK = ['#B5654A', '#D8C3A0', '#8FA5BA', '#5E7A91', '#C9B79C', '#9E4F3E', '#E3DCCF', '#6E7F8F'];
 const SIGNS = ['SALOON', 'TRADING POST', 'GENERAL STORE', 'SHERIFF', 'BANK', 'HOTEL', 'BARBER', 'SALOON'];
-const WOOD = ['#9A5B34', '#B06D3E', '#8A4F2E', '#C27D48'];
 const DRESSERS = {
   stadium() {},
   tailgate(list, z0, z1, r) {
@@ -566,14 +566,17 @@ const DRESSERS = {
   },
   desert(list, z0, z1, r) {
     [-1, 1].forEach(s => {
-      for (let z = z0 + 10 + r() * 10; z < z1 - 14;) {
-        if (r() < .55) { const len = 7 + r() * 5; list.push({k: 'facade', s, x: 9.6 + r() * 1.2, z0: z, z1: z + len, h: 4.2 + r() * 2.2, col: WOOD[Math.floor(r() * WOOD.length)], name: SIGNS[Math.floor(r() * SIGNS.length)]}); z += len + 4 + r() * 8; }
-        else z += 10 + r() * 10;
+      let storefront = s > 0 ? 0 : 2;
+      for (let z = z0 + 5 + (s > 0 ? 2 : 0); z < z1 - 12;) {
+        const len = 9 + r() * 3, bright = ['#B86449', '#4D9E8B', '#D48F56', '#BB765C'];
+        list.push({k: 'facade', s, x: 9.6, z0: z, z1: z + len, h: 4.2 + r() * 1.8, col: bright[storefront % bright.length], name: SIGNS[storefront++ % SIGNS.length]});
+        z += len + 1.8;
       }
     });
-    for (let z = z0 + 6; z < z1 - 5; z += 5.5) [-1, 1].forEach(s => { const u = r(); if (u < .4) list.push({k: 'cactus', s, x: 7 + r() * 18, z0: z + r() * 3, z1: z, h: 2.4 + r() * 2.8, flip: r() < .5}); else if (u < .55) list.push({k: 'rock', s, x: 7 + r() * 20, z0: z, z1: z, h: .6 + r() * 1.4}); });
+    for (let z = z0 + 6; z < z1 - 5; z += 5.5) [-1, 1].forEach(s => { const u = r(); if (u < .65) list.push({k: 'cactus', s, x: u < .28 ? 7.9 : 21 + r() * 6, z0: z + r() * 3, z1: z, h: 2.4 + r() * 2.8, flip: r() < .5}); else if (u < .9) list.push({k: 'rock', s, x: 20 + r() * 9, z0: z, z1: z, h: .6 + r() * 1.4}); });
     for (let z = z0 + 8; z < z1 - 4; z += 28) list.push({k: 'post', s: 1, x: 6.6, z0: z, z1: z});
-    list.push({k: 'tower', s: r() < .5 ? -1 : 1, x: 15 + r() * 4, z0: z0 + 20 + r() * (R.ZONE - 40), z1: 0});
+    // The water tower stands behind the new continuous storefronts.
+    list.push({k: 'tower', s: r() < .5 ? -1 : 1, x: 20.5 + r() * 1.5, z0: z0 + 20 + r() * (R.ZONE - 40), z1: 0});
     for (let z = z0 + 9; z < z1 - 6; z += 16) list.push({k: 'pennant', s: (Math.round(z / 16) % 2) ? 1 : -1, x: 6.5, z0: z, z1: z, col: '#C8102E'});
     for (let z = z0 + 5; z < z1 - 5; z += 7) [-1, 1].forEach(s => { const u = r(); if (u < .18) list.push({k: 'wheel', s, x: 7.4 + r() * 2, z0: z + r() * 4, z1: 0}); else if (u < .36) list.push({k: 'barrel', s, x: 7.2 + r() * 2.5, z0: z + r() * 4, z1: 0}); });
   },
@@ -624,15 +627,17 @@ const DRESSERS = {
 };
 const GOODS_COL = {oranges: ['#F28C28', '#FFB255'], apples: ['#D63B2E', '#F06A55'], greens: ['#4FA845', '#7CCB5E'], corn: ['#F2C94C', '#FFE08A'], flowers: ['#E85AA0', '#FFD23F']};
 function dressOf(st, i) {
-  const key = `${st.co.n}|${st.co.k}|${i}`;
-  if (DRESS.has(key)) return DRESS.get(key);
+  // Dressing stays in 100-yard tiles, even inside the owner's longer 500-yard places.
+  const key = `${st.co.n}|${st.co.k}|${i}`, cacheKey = key + (st.co.enhanced ? '|one-field' : '');
+  if (DRESS.has(cacheKey)) return DRESS.get(cacheKey);
   const th = R.zoneAt(st.co, i * R.ZONE).theme, list = [];
   DRESSERS[th.id](list, i * R.ZONE, (i + 1) * R.ZONE, rnd('dress', key));
+  if (features.returnManUpdated()) neighborhoods.populate(list, th.id, i * R.ZONE, (i + 1) * R.ZONE, rnd('neighborhood', key));
   list.forEach(o => { if (!o.z1) o.z1 = o.z0; o.zi = i; });
   list.sort((a, b) => b.z0 - a.z0);
   if (DRESS.size > 10) DRESS.clear();
   const v = {th, list};
-  DRESS.set(key, v);
+  DRESS.set(cacheKey, v);
   return v;
 }
 // The props: each drawn at its spot (s: the side, -1 left, 1 right; x: its distance out from the middle).
@@ -1150,7 +1155,8 @@ export function sides(st, c) {
     const a = o.zi * R.ZONE <= at ? 1 : clamp(1 - (o.zi * R.ZONE - at - 25) / 35, 0, 1);
     if (a <= 0) return;
     c.globalAlpha = a;
-    PROPS[o.k](st, c, o);
+    if (o.k === 'neighborhood') neighborhoods.draw2(st, c, o, P);
+    else PROPS[o.k](st, c, o);
   });
   c.globalAlpha = 1;
   marks(zn + 1, zf, R.TD).forEach(z => {
@@ -1829,6 +1835,22 @@ export function vehicle(st, c, p) {
   const zn = nearOf(st, p.z0 - (p.ramp || 0), p.z1);
   if (zn == null) return;
   if (!p.b) fill(c, gnd(st, b.x0 - .25, b.x1 + .35, Math.max(zn, p.z0 - .2), p.z1 + .9), 'rgba(0,0,0,.26)');
+  if (p.kind === 'express') {
+    box(st, c, b, {front: '#F5C143', side: '#153B59', top: '#FFF0C9',
+      sideDeco: (sx, za, zb) => {
+        fill(c, sideQ(st, sx, .7, 1.65, za, zb), '#F5C143');
+        windows(st, c, sx, 2, 2.95, p.z0 + 2, p.z1 - 1, 2.2, .7, za, zb, '#9EE6E8');
+        wheels(st, c, sx, [p.z0 + 1.8, p.z0 + 8.2, p.z1 - 7.5, p.z1 - 1.8], .44, za, zb);
+      },
+      frontDeco: (w, h) => {
+        c.fillStyle = '#0C2237'; c.fillRect(-w / 2 + .16, -h + .5, w - .32, 1.25);
+        c.fillStyle = '#FFF0C9'; c.fillRect(-w / 2, -h, w, .25);
+        c.fillStyle = '#153B59'; c.fillRect(-w / 2, -.7, w, .7);
+        lights(w, h, 1.1, '#D9FFFF')(c);
+        c.fillStyle = '#0C2237'; c.font = `800 .25px ${DISPLAY}`; c.textAlign = 'center'; c.fillText('EXPRESS', 0, -1.5);
+      }});
+    return;
+  }
   const draw = KIND_DRAW[p.kind] || VEHICLES[th.id][p.hi ? 'hi' : 'lo'];
   draw(st, c, b, p);
   if (p.ramp) ramp(st, c, p, RAMP_OF[p.kind] || RAMPS[th.id]);
@@ -2031,9 +2053,11 @@ const OWNER_ICONS = {
   }
 };
 export const ICONS = Object.fromEntries(Object.keys(LEGACY_ICONS).map(kind => [kind, (c, t) => (features.available() ? OWNER_ICONS : LEGACY_ICONS)[kind](c, t)]));
+ICONS.jetpack = jetpackIcon;
+OWNER_ICONS.jetpack = jetpackIcon;
 const HALO = {salts: '150,225,255', pills: '255,165,60', booze: '255,214,90'};
 // (the hard course's, the owner's: bigger, and each its own colour: return-3dworld.js HALO_BIG)
-const HALO_BIG = {salts: '92,225,255', pills: '255,64,64', booze: '110,240,90'};
+const HALO_BIG = {salts: '92,225,255', pills: '255,64,64', booze: '110,240,90', jetpack: '101,238,255'};
 function ownerItem(st, c, it, t, X, g) {
   const bob = Math.sin(t * 3 + it.i) * .16, p = P(st, X, g + 1.65 + bob, it.z), base = P(st, X, g + .025, it.z), s = p.s;
   if (s < 1.2) return;

@@ -141,14 +141,21 @@ export function weekRows(year, wk, list) {
   }).filter(o => o.picked);
   return rank(rows);
 }
-/** The season so far: the weeks summed, plus weeks (how many they picked in). */
+/** Every matchup of a week has its final. */
+export function weekDone(year, wk) {
+  const games = gamesOf(year, wk);
+  return games.length > 0 && games.every(g => resultOf(year, wk, g.a, g.b));
+}
+/** The season so far: the weeks summed, plus weeks (how many they picked in) and won (weeks they topped, ties
+ *  included, once that week's finals were in). */
 export function seasonRows(year, list, at = now()) {
   const all = new Map();
   weeksOf(year, at).forEach(wk => weekRows(year, wk, list).forEach(r => {
     let o = all.get(r.key);
-    if (!o) all.set(r.key, o = {key: r.key, name: r.name, managerId: r.managerId, guest: r.guest, you: r.you, right: 0, wrong: 0, push: 0, pending: 0, picked: 0, weeks: 0});
+    if (!o) all.set(r.key, o = {key: r.key, name: r.name, managerId: r.managerId, guest: r.guest, you: r.you, right: 0, wrong: 0, push: 0, pending: 0, picked: 0, weeks: 0, won: 0});
     ['right', 'wrong', 'push', 'pending', 'picked'].forEach(f => { o[f] += r[f]; });
     o.weeks++;
+    if (r.rank === 1 && r.right > 0 && weekDone(year, wk)) o.won++; // the week's top (ties share it), once its finals are in
     o.name = r.name;
   }));
   return rank([...all.values()]);

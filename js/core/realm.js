@@ -16,7 +16,8 @@
 //
 // Where it lives: the owner's board doc (players/{uid}, daily.js) as fr1 (its name from when this was the Franchise;
 // the football names of then are taken up as this realm's: clean()), so his realm is the same on every phone of his.
-// It raids only the computer's realms; other players' realms can be visited, looking only (visitable, at the bottom).
+// It raids the computer's realms and, from Nov 5 2026, other players' realms (raided, at the bottom); any player's realm
+// can be visited, looking only (visitable, at the bottom).
 // Everything here is plain data and pure functions of it and the clock, except the sync at the bottom.
 import * as daily from './daily.js';
 import * as data from './data.js';
@@ -712,7 +713,7 @@ export function clean(s) {
   // (the lots the replays were played on, kept once: {key: packed lot}; only what a replay points at stays, gcLots)
   if (o.lots && typeof o.lots === 'object' && !Array.isArray(o.lots)) o.lots = Object.fromEntries(Object.entries(o.lots).filter(([, t]) => typeof t === 'string' && t.length <= LOT_MAX && RP_TEXT.test(t)));
   else delete o.lots;
-  o.rd = keepReplays(Array.isArray(o.rd) ? o.rd.filter(r => r && typeof r.id === 'string' && String(r.vs).startsWith('bot:')).slice(-40) : [], o);
+  o.rd = keepReplays(Array.isArray(o.rd) ? o.rd.filter(r => r && typeof r.id === 'string' && (String(r.vs).startsWith('bot:') || isPvp(r.vs))).slice(-40) : [], o);
   o.df = keepReplays(Array.isArray(o.df) ? o.df.filter(r => r && Number(r.at)).slice(-20) : [], o);
   // (the example raids, each with its replay, and whether they've been made: exampleRaids; none, nothing saved)
   const ex = Array.isArray(o.ex) ? o.ex.filter(r => r && r.ex === true && typeof r.id === 'string' && Number(r.at) && rpWhole(r.rp, o)).slice(-EX_MAX) : [];
@@ -721,6 +722,11 @@ export function clean(s) {
   if (o.exdv !== 1) delete o.exdv;
   gcLots(o);
   o.bt = o.bt && typeof o.bt === 'object' ? o.bt : {};
+  // (the newest raid by each other player already taken off this realm: {their profile key: at}, raidsOn)
+  if (o.pw && typeof o.pw === 'object' && !Array.isArray(o.pw)) {
+    o.pw = Object.fromEntries(Object.entries(o.pw).filter(([k, v]) => /^[mug]_/.test(k) && Number(v) > 0).map(([k, v]) => [k, Number(v)]));
+    if (!Object.keys(o.pw).length) delete o.pw;
+  } else delete o.pw;
   // (the Ale places already paid, frozen: incomeOf's paid, freezePaid)
   const pd = o.pd && typeof o.pd === 'object' ? o.pd : {};
   o.pd = {};
@@ -1007,7 +1013,7 @@ export function finishRaid(s, rec, used, now = Date.now(), B = null) {
   });
   Object.entries(used || {}).forEach(([t, n]) => { if (!TROOP_ORDER.includes(t)) return; s.ar[t] = Math.max(0, (s.ar[t] || 0) - n); if (!s.ar[t]) delete s.ar[t]; });
   s.tp = Math.max(0, s.tp + (rec.ta || 0));
-  s.bt[rec.vs] = dayKey(now);
+  s.bt[rec.vs] = dayKey(B?.attackAt || now);
   s.rd.push(rec);
   s.rd = keepReplays(s.rd.slice(-40), s);
   gcLots(s);
@@ -1028,11 +1034,47 @@ export function takeRaid(s, rec) {
     if (took > 0 && rate > 0) b.c = Math.max(b.c, at - st.hold / rate * HOUR) + took / rate * HOUR;
   });
   s.tp = Math.max(0, s.tp + (Number(rec.td) || 0));
+  if (rec.pk && typeof rec.pk === 'string') { s.pw = s.pw && typeof s.pw === 'object' ? s.pw : {}; s.pw[rec.pk] = Math.max(Number(s.pw[rec.pk]) || 0, at); }
   s.df.push(rec);
   s.df = keepReplays(s.df.slice(-20), s);
   gcLots(s);
 }
 export const dayKey = (t = Date.now()) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+// One attack across all targets per local calendar day. Reuse the existing saved raid days;
+// no migration or reset, and attacks made earlier on release day already count.
+export const dailyAttackLimited = () => data.isOwner();
+export const DAILY_ATTACK_USED = 'Daily attack used. Attack again tomorrow.';
+export const dailyAttackWhy = (s, now = Date.now()) => dailyAttackLimited()
+  && Object.values(s?.bt || {}).includes(dayKey(now)) ? DAILY_ATTACK_USED : '';
+/** Deploy through the live attack rules. Invalid placements and scouting never spend the day.
+ * Replays and demonstrations use the simulation's deploy directly and spend nothing. */
+export function deployRaid(s, key, B, troop, x, y, now = Date.now()) {
+  if (!dailyAttackLimited()) return B.deploy(troop, x, y);
+  const first = !B.drops.length;
+  if (first && attackWhy(s, key, {now})) return null;
+  const unit = B.deploy(troop, x, y);
+  if (unit && first) {
+    B.attackAt = now;
+    s.bt[key] = dayKey(now);
+  }
+  return unit;
+}
+/** Keep attack days even when another phone's newer save wins the rest of the realm. */
+function keepAttackDays(into, from) {
+  if (!dailyAttackLimited() || !into || !from) return false;
+  const stamp = day => {
+    if (typeof day !== 'string' || !/^\d{4}-\d{1,2}-\d{1,2}$/.test(day)) return 0;
+    const [y, m, d] = day.split('-').map(Number);
+    return m >= 1 && m <= 12 && d >= 1 && d <= 31 ? y * 10000 + m * 100 + d : 0;
+  };
+  let changed = false;
+  for (const [key, day] of Object.entries(from.bt || {})) {
+    if ((botOf(key) || isPvp(key)) && stamp(day) > stamp(into.bt?.[key])) {
+      (into.bt ||= {})[key] = day; changed = true;
+    }
+  }
+  return changed;
+}
 
 // ---- the computer's realms: one at each Castle level, the same lot every day, full again every morning
 export const BOTS = [
@@ -1098,15 +1140,17 @@ const botOf = bot => (typeof bot === 'string' ? BOTS.find(b => b.k === bot) : bo
 /** Whether realm s can attack (and scout) at all: its Castle at ATTACK_AT or higher. */
 export const attackOpen = s => !!(s && Array.isArray(s.b)) && keepOf(s) >= ATTACK_AT;
 /** The Castle level a computer realm (a BOTS entry or its key) can be attacked from: ATTACK_AT, or a level below its own. */
-export const targetAt = bot => { const b = botOf(bot); return b ? Math.max(ATTACK_AT, b.th - 1) : Infinity; };
+export const targetAt = bot => { const b = isPvp(bot) ? visitOf(bot.slice(PVP.length)) : botOf(bot); return b ? Math.max(ATTACK_AT, b.th - 1) : Infinity; };
 /** Whether realm s may attack that computer realm now: attacks open, and its level no more than one above s's Castle. */
 export const canTarget = (s, bot) => { const b = botOf(bot); return !!b && attackOpen(s) && b.th <= keepOf(s) + 1; };
 /** Why s can't attack that realm ('' when it can): "Raids open at Castle level 3" before then, "Castle level N" for a
  *  realm too strong yet (N: targetAt), or that it isn't there. For scouting (scout: true), only the first. */
-export function attackWhy(s, bot, {scout = false} = {}) {
+export function attackWhy(s, bot, {scout = false, now = Date.now()} = {}) {
+  if (isPvp(bot)) { const T = playerRealm(bot, s, now, {scout}); return T.why || ''; }
   const b = botOf(bot);
   if (!b) return 'That realm isn’t there.';
   if (!attackOpen(s)) return `Raids open at Castle level ${ATTACK_AT}`;
+  if (!scout && dailyAttackWhy(s, now)) return DAILY_ATTACK_USED;
   if (!scout && !canTarget(s, b)) return `Castle level ${targetAt(b)}`;
   return '';
 }
@@ -1116,9 +1160,10 @@ export function attackWhy(s, bot, {scout = false} = {}) {
  *  ATTACK_AT's rule holds (attackWhy: refused with locked: true before Castle 3 and, unless scout, for a realm out of
  *  reach); without it (null: the checks, a look at a lot), any realm. */
 export function realmOf(key, mine, now = Date.now(), {scout = false} = {}) {
+  if (isPvp(key)) return playerRealm(key, mine, now, {scout});
   const bot = BOTS.find(b => b.k === key);
   if (!bot) return {why: 'That realm isn’t there.'};
-  if (mine && Array.isArray(mine.b)) { const why = attackWhy(mine, bot, {scout}); if (why) return {why, locked: true}; }
+  if (mine && Array.isArray(mine.b)) { const why = attackWhy(mine, bot, {scout, now}); if (why) return {why, locked: true}; }
   const base = botBase(bot.th);
   return {key, name: bot.name, th: bot.th, base, loot: botLoot(bot, base, mine, now)};
 }
@@ -1522,12 +1567,16 @@ const current = state => state && state.rs === TEST_RESET ? state : null;
 const allDocs = () => daily.LB.all || daily.LB.raw || [];
 function currentRemote() {
   let best = null;
+  const copies = [];
   for (const p of allDocs()) {
     if (PROFILE.startsWith('g_') && p.id !== daily.LB.uid) continue;
     const state = current(p && p.fr3 && p.fr3[PROFILE]);
+    if (state) copies.push(state);
     if (state && (!best || Number(state.at) > Number(best.at))) best = state;
   }
-  return clean(best);
+  const remote = clean(best);
+  copies.forEach(state => keepAttackDays(remote, state));
+  return remote;
 }
 function legacyRemote() {
   if (!PROFILE || data.isOwner()) return null; // Evan explicitly requested a complete restart.
@@ -1548,12 +1597,14 @@ export function mine(now = Date.now()) {
     PROVISIONAL = !!(MINE && MINE._provisional);
     if (MINE === local && local && (!remote || local.at > remote.at)) dirty = true;
     if (MINE === remote && local && !local._provisional && keepMine(remote, local)) dirty = true;
+    if (keepAttackDays(MINE, MINE === local ? remote : local)) dirty = true;
     if (!MINE) {
       MINE = legacyRemote() || testRealm(null, now);
       PROVISIONAL = !boardKnown(); dirty = !!PROFILE;
       if (PROVISIONAL) MINE._provisional = true;
     }
     writeLocal(MINE);
+    takeMine();
   }
   if (tick(MINE, now)) { writeLocal(MINE); emit('change'); }
   return MINE;
@@ -1561,8 +1612,11 @@ export function mine(now = Date.now()) {
 export function sync(now = Date.now()) {
   const state = mine(now), remote = currentRemote();
   let changed = false, kept = false;
+  const localDaysKept = keepAttackDays(state, readLocal());
+  const daysKept = keepAttackDays(state, remote) || localDaysKept;
   if (remote && (PROVISIONAL || remote.at > state.at + 1000)) {
     kept = !PROVISIONAL && keepMine(remote, state);
+    kept = keepAttackDays(remote, state) || kept;
     MINE = remote; tick(MINE, now); changed = true; writeLocal(MINE);
   }
   if (boardKnown()) {
@@ -1571,7 +1625,8 @@ export function sync(now = Date.now()) {
     if (MINE._provisional) { delete MINE._provisional; writeLocal(MINE); }
   }
   if (changed) emit('sync');
-  if (kept) touch();
+  takeMine();
+  if (kept || daysKept) touch();
   else if (dirty && !PROVISIONAL) { clearTimeout(saveT); saveT = setTimeout(flush, 1500); }
   return changed;
 }
@@ -1605,7 +1660,7 @@ export function _set(state) { clearTimeout(saveT); PROFILE = profileKey(); MINE 
 
 // ---------------------------------------------------------------------------------------------------- other players' realms
 // Visiting (the owner's ask, Oct 23 2026: "Users should be able to view other players bases. Add a visit button").
-// Looking only: nothing here changes a realm, and no player's realm can be raided (realmOf takes only the computer's).
+// Looking only: nothing here changes a realm (raiding a player's realm is the Attack list's: raided, below).
 // Who shows follows the scoreboards' rule (CLAUDE.md, daily.js boardShows) for each saved profile on its own: everyone's
 // realm to everyone (Oct 24 2026), the members', every app user's and every guest's. Never your own.
 // (visitWho, who a profile key belongs to: core/realm-active.js, which the Daily Games shelf reads too)
@@ -1633,3 +1688,136 @@ export function visitable(now = Date.now(), docs = allDocs(), only = null) {
 }
 /** One player's realm to visit (visitable's), or null when it isn't there or isn't to show here. */
 export const visitOf = (key, now = Date.now(), docs) => visitable(now, docs, key).find(x => x.key === key) || null;
+
+// ---------------------------------------------------------------------------------------------------- raiding other players
+// (the owner, Nov 5 2026: "Players should have the option to attack other player's bases in Keepfall, not just cpu
+// bases"; everyone's, members, app users and guests.) A phone writes only its own board doc, so a raid on a player is
+// posted, not delivered: the raider's record (rd, vs: PVP + the raided profile key) rides on the raider's own save, with
+// what it took from each of their buildings (ls: storage, lb: the mines' and breweries' piles; finishPlayerRaid) and
+// its replay. The raided realm takes it off itself the next time its owner's phone syncs (takeIncoming, into df: the
+// Chronicle's "Raids on your realm", replay and all); pw[raider] is the newest raid by each raider taken, so none is
+// taken twice. Until then a raider sees the realm with the raids posted on it already taken off (playerRealm).
+// Rules: both Castles at ATTACK_AT or higher; their Castle no more than a level above yours nor more than PVP_BELOW
+// below; one raid a day on each realm by each raider (bt); a realm that lost a star has a truce for PVP_TRUCE_H hours.
+// What's taken is lootOf's, as the computer's raids took (a tenth of storage, capped by Castle level, and a quarter of
+// the piles); the coffers are never raided.
+export const PVP = 'p:', PVP_TRUCE_H = 12, PVP_BELOW = 2;
+/** Whether a realm's key (a raid's vs, a route's) is another player's: PVP and their profile key. */
+export function isPvp(key) { return typeof key === 'string' && key.startsWith(PVP) && /^[mug]_./.test(key.slice(PVP.length)); }
+/** Every raid posted on profile's realm by another player, oldest first: [{from (their profile key), rec, lots}]. */
+export function raidsOn(profile, docs = allDocs()) {
+  const want = PVP + profile, out = new Map();
+  for (const p of docs) {
+    const all = p && p.fr3;
+    if (!profile || !all || typeof all !== 'object') continue;
+    for (const from of Object.keys(all)) {
+      if (!from || from === profile || !visitWho(from, p)) continue;
+      const s = current(all[from]);
+      if (!s || !Array.isArray(s.rd)) continue;
+      for (const r of s.rd) {
+        if (!r || r.vs !== want || typeof r.id !== 'string' || !(Number(r.at) > 0)) continue;
+        const k = from + '/' + r.id;
+        if (!out.has(k)) out.set(k, {from, rec: r, lots: s.lots && typeof s.lots === 'object' && !Array.isArray(s.lots) ? s.lots : null});
+      }
+    }
+  }
+  return [...out.values()].sort((a, b) => Number(a.rec.at) - Number(b.rec.at));
+}
+/** The raids posted on realm s (profile's) it hasn't taken yet. */
+export const pendingOn = (s, profile, docs = allDocs()) => raidsOn(profile, docs)
+  .filter(x => Number(x.rec.at) > ((s.pw && Number(s.pw[x.from])) || 0) && Number(x.rec.at) >= (Number(s.born) || 0));
+/** A posted raid as the raided realm s keeps it (df): what it took, no more than s's Castle allows, off buildings that
+ *  are s's; its replay with the lot it was played on copied into s's lots. */
+function incomingRec(s, x) {
+  const r = x.rec, th = keepOf(s), cap = LOOT_CAP[th - 1] || 0, n = v => Math.max(0, Math.floor(Number(v) || 0));
+  const lb = {};
+  Object.entries(r.lb && typeof r.lb === 'object' ? r.lb : {}).forEach(([id, v]) => {
+    const b = s.b.find(q => q.i === Number(id));
+    if (b && KINDS[b.t].role === 'make' && Array.isArray(v)) lb[id] = [n(v[0]), n(v[1])];
+  });
+  const st = Math.min(3, n(r.st)), lt = Array.isArray(r.lt) ? r.lt : [];
+  const rec = {id: `p.${x.from}.${r.id}`.slice(0, 80), at: Number(r.at), pk: x.from, by: String(r.by || 'A raider').slice(0, 40),
+    ...(typeof r.bw === 'string' && r.bw ? {bw: r.bw.slice(0, 24)} : {}), th: Math.max(1, Math.min(MAX_KEEP, n(r.ath) || 1)), st, pc: Math.min(100, n(r.pc)),
+    lt: [n(lt[0]), n(lt[1])], ls: [0, 1].map(i => Math.min(n((r.ls || [])[i]), cap)), lb, td: st ? -st * th * 3 : th * 3};
+  if (r.rp && typeof r.rp === 'object' && !Array.isArray(r.rp)) {
+    const rp = copy(r.rp);
+    let ok = true;
+    if (typeof rp.L === 'string' && !isBotRef(rp.L)) {
+      const t = x.lots && x.lots[rp.L], k = typeof t === 'string' ? putLot(s, t) : '';
+      if (k) rp.L = k; else ok = false;
+    }
+    if (ok && rpWhole(rp, s)) rec.rp = rp;
+  }
+  return rec;
+}
+/** Takes the raids posted on realm s (profile's) off it, each once (takeRaid: storage, piles, glory, the Chronicle).
+ *  Mutates s; returns the records taken. */
+export function takeIncoming(s, profile, docs = allDocs()) {
+  if (!s || !Array.isArray(s.b) || !profile) return [];
+  return pendingOn(s, profile, docs).map(x => { const rec = incomingRec(s, x); takeRaid(s, rec); return rec; });
+}
+/** When realm s (with the raids posted on it taken) is in a truce: the end of the one after the last raid that took a
+ *  star, or 0. */
+export const truceOf = s => Math.max(0, ...(Array.isArray(s.df) ? s.df : []).filter(r => r && r.pk && r.st > 0).map(r => Number(r.at) + PVP_TRUCE_H * HOUR));
+/** Why mine can't attack (scout: look round) player realm T ('' when it can). */
+function playerWhy(mine, T, now, scout) {
+  if (!attackOpen(mine)) return `Raids open at Castle level ${ATTACK_AT}`;
+  if (scout) return '';
+  if (dailyAttackWhy(mine, now)) return DAILY_ATTACK_USED;
+  const th = keepOf(mine);
+  if (T.th < ATTACK_AT) return `Safe till their Castle reaches level ${ATTACK_AT}`;
+  if (T.th > th + 1) return `Castle level ${T.th - 1}`;
+  if (T.th < th - PVP_BELOW) return 'Too far below your Castle';
+  if (mine.bt && mine.bt[T.key] === dayKey(now)) return 'Raided today: again tomorrow';
+  const tr = truceOf(T.base);
+  if (tr > now) return `Truce for ${dur(tr - now)}`;
+  return '';
+}
+const dur = ms => { const m = Math.max(1, Math.ceil(ms / 60000)); return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}`; };
+/** Another player's realm to scout or attack, as realmOf gives it: {key, name, th, base (their realm, the raids posted on
+ *  it taken), loot, sc, who (visitable's), pvp: true}, or {why, locked} (mine given: playerWhy), or {why}. */
+export function playerRealm(key, mine, now = Date.now(), {scout = false} = {}, docs = allDocs()) {
+  const profile = isPvp(key) ? key.slice(PVP.length) : '';
+  const v = profile && profile !== profileKey() ? visitOf(profile, now, docs) : null;
+  if (!v) return {why: 'That realm isn’t there.'};
+  const base = v.state;
+  takeIncoming(base, profile, docs);
+  const T = {key, name: base.nm || v.name, th: keepOf(base), base, loot: lootOf(base, now), sc: sceneryOf(base), who: v, pvp: true};
+  if (mine && Array.isArray(mine.b)) { const why = playerWhy(mine, T, now, scout); if (why) return {why, locked: true, T}; }
+  return T;
+}
+/** The other players' realms, each as the Attack list shows it: [{key, profile, name, who, th, loot, why}], the highest
+ *  Castle first. */
+export function playerTargets(mine, now = Date.now(), docs = allDocs()) {
+  return visitable(now, docs).map(v => {
+    const R = playerRealm(PVP + v.key, mine, now, {}, docs), T = R.T || R;
+    return T.base ? {key: T.key, profile: v.key, name: T.name, who: v, state: T.base, th: T.th, loot: T.loot.total, why: R.why || ''} : null;
+  }).filter(Boolean);
+}
+/** A raid on another player's realm (T: playerRealm's), its end on yours: finishRaid, the record keeping what it took
+ *  from each of their buildings (for them to take off theirs: takeIncoming) and your Castle level. Returns the record. */
+export function finishPlayerRaid(s, T, B, rec, used, now = Date.now()) {
+  const r = B.result(), ls = [0, 0], lb = {};
+  Object.entries(r.gotBy || {}).forEach(([bid, v]) => {
+    const b = T.base.b.find(x => x.i === Number(bid)), g = Math.floor(v.gold || 0), a = Math.floor(v.grain || 0);
+    if (!g && !a) return;
+    if (b && KINDS[b.t].role === 'make') lb[bid] = [g, a];
+    else { ls[0] += g; ls[1] += a; }
+  });
+  Object.assign(rec, {ls, lb, ath: keepOf(s)});
+  if (!rec.rp) { const rp = snapOf(B, {into: s, sc: T.sc}); if (rp) rec.rp = rp; }
+  return finishRaid(s, rec, used, now, B);
+}
+// (the raids taken off your realm since Keepfall last showed them: views/realm.js says who raided you)
+let TAKEN = [];
+export const takenRaids = () => { const t = TAKEN; TAKEN = []; return t; };
+function takeMine() {
+  if (!MINE || PROVISIONAL || !PROFILE || PROFILE !== profileKey() || !boardKnown() || !mayPlay()) return false;
+  const got = takeIncoming(MINE, PROFILE);
+  if (!got.length) return false;
+  TAKEN.push(...got);
+  MINE.at = Date.now(); writeLocal(MINE); dirty = true;
+  clearTimeout(saveT); saveT = setTimeout(flush, 1500);
+  emit('raided');
+  return true;
+}

@@ -4,7 +4,7 @@
 // finished work counted; views/realm-3d.js draws it in their scenery, their heroes and keeper about it): drag to look
 // round, pinch (or the wheel) to zoom, All to see the whole of it again. Their house, name and Castle level at
 // the top, what defends it under them; tap a building for what it is and does. Back goes home. Looking only: nothing
-// here changes anything, and players' realms are never raided. Who can be visited follows the scoreboards' rule
+// here changes anything (raiding a player's realm is Attack's: views/realm-raid.js, Nov 5 2026). Who can be visited follows the scoreboards' rule
 // (CLAUDE.md): checked again whenever the board or this phone's profile changes.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';

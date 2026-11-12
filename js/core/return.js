@@ -1,7 +1,8 @@
 import * as features from './features.js';
+import {RETURN_REPLAY} from './score-release.js';
 // Return Man core: the Daily Games' endless runner, after Subway Surfers (the owner's ask, Oct 2026). You field a
 // kickoff in the stadium and run it back as far as you can, and the run goes on out of the stadium into a new place
-// every 100 yards (ZONE: each one a field, a touchdown at its far end): the tailgate, the city, the frozen tundra, the
+// every 500 yards on the shared enhanced course, otherwise 100 in legacy fixtures (zoneLength): the tailgate, city, frozen tundra,
 // desert, the farmers market, the beach, outer space and the farm, in an order of the kickoff's own, and round again.
 // Three lanes, and in them, a row at a time, the things to get past (OBST; the owner's ask, Oct 2026: no coverage men
 // running at you, more to jump and slide): a barricade to jump, a banner to slide under. Swipe left or right to juke
@@ -13,8 +14,8 @@ import * as features from './features.js';
 // into, a juke off the edge of the road: the owner's ask, Oct 2026) slows you and puts him right on your back; run on
 // clean and he drops away. A hit while he's on you (at the
 // catch he starts there too) and he tackles you: that's the return.
-// On Evan's hard course a stumble keeps him on your heels until a tackle or a salts revival: the next distinct,
-// unprotected collision catches you even after a long clean stretch. Other profiles keep the timed recovery.
+// The shared enhanced course lets you outrun the chaser after four clean seconds and his visible retreat; legacy hard-course fixtures
+// retain their earlier persistent stumble rule.
 // On the way, three power-ups: smelling salts (a burst of speed, BURST: the owner's ask, Oct 2026; and an extra life:
 // the next time he'd catch you, you shake him off, and away you burst again; on Evan's course, never an obstacle shield),
 // prescription painkillers (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You
@@ -30,10 +31,10 @@ import * as features from './features.js';
 //                                               (sets: [{i, zs, ze, plats: [{lane, kind, part, z0 (the front), z1, h, b,
 //                                               ramp, hi}]}]: KINDS)
 //                                               and its power-ups [{i, z, lane, top, kind}]
-//   THEMES, ZONE, zoneAt(course, z)             the places, and which one z yards is in ({i, theme, z0})
+//   THEMES, ZONE, zoneLength(co), zoneAt(co,z)  the places, their length, and which one z yards is in ({i, theme, z0})
 //   groundAt(course, lane, z, y), blockAt(...)  how high the ground is there for him at height y (a ramp, a roof, a
 //                                               pad; 0 on the road); what's in his way there
-//   speedAt(z, hard), tdsAt(z), LANE            your speed (yards a second) at z yards; touchdowns by z yards; the
+//   speedAt(z, hard, enhanced), tdsAt(z), LANE your speed (yards a second) at z yards; touchdowns by z yards; the
 //                                               lanes' spacing (yards)
 //   startRun(n, k, hard), move(run, dir), step(run, dt), stop(run)   a return, played (hard: the hard course, the
 //                                               owner's for now): move takes a swipe ('left' 'right' 'up' 'down'),
@@ -54,7 +55,7 @@ import * as features from './features.js';
 //   dayCoins(docs, n), coinsWithin(n, y)        what a person's day's coins are on the board (for The Keep's pay),
 //                                               never more than the course lays out within their yards
 //   payOf(c)                                    what a day pays Keepfall: the base and the first run's coins (capped)
-//   dayState(n, real), record(n, k, yards, dist, coins), score(list), totals()   localStorage 'gg-v3-ret1'
+//   dayState(n, real), record(n, k, yards, dist, coins), score(list), totals()   localStorage RETURN_REPLAY.key
 //   keepLive(n, k, yards, dist, coins), settle(n), live(n)   a return under way: kept as it goes, counted if it's left
 //                                               behind
 //   setTest(on, n), testing()                   test play (the owner's sandbox; his way to play it again)
@@ -65,7 +66,6 @@ import * as features from './features.js';
 // Ryan D for everyone; a guest (or Ryan S) only on their own phones.
 import {lsGet, lsSet} from './ui.js';
 import * as daily from './daily.js';
-import * as data from './data.js';
 
 // ---------------------------------------------------------------------------------------------- days
 export const START = '2026-10-20';
@@ -91,11 +91,14 @@ export const SPEED = {start: 9.5, top: 19, ramp: 360};
 // for now, features.available(), so the league's course and board stay as they were): off quicker, to a sprint sooner, and
 // never done speeding up: climb more a yard on top, to max.
 export const HARD_SPEED = {start: 11, top: 20, ramp: 220, climb: .0045, max: 36};
-/** Your speed (yards a second) z yards into a return: on the hard course (hard) HARD_SPEED's. */
-export function speedAt(z, hard = false) {
+// The shared game runs faster while course spacing retains its original pace, reducing reaction time.
+// The optional flag leaves legacy course/reward fixtures at their original speed.
+export const ENHANCED_PACE = 1.22;
+/** Your speed (yards a second); enhanced gameplay is 22% faster than the original course pace. */
+export function speedAt(z, hard = false, enhanced = false) {
   const S = hard ? HARD_SPEED : SPEED, d = Math.max(0, z);
   const v = S.start + (S.top - S.start) * (1 - Math.exp(-d / S.ramp)) + (S.climb || 0) * d;
-  return S.max ? Math.min(S.max, v) : v;
+  return (S.max ? Math.min(S.max, v) : v) * (enhanced ? ENHANCED_PACE : 1);
 }
 export const TD = 100;
 /** Touchdowns in a return of z yards. */
@@ -107,6 +110,35 @@ export const tdsAt = z => Math.max(0, Math.floor(z / TD));
 export const GRAV = 30, JUMP_V = 9, DROP_V = -18, BUFFER = .25, STEP = .45;
 // (his stride, run.steps: a yard a yard run up to STRIDE_V yards a second, the regular course's top speed)
 export const STRIDE_V = 19;
+// Evan's longer, springier stride: distance per cycle grows as the run accelerates.
+export const strideRate = v => Math.min(v * .58, 10.5);
+export const JETPACK = {s: 8, height: 6.2, rise: .65, descend: 1.2, landing: .9};
+export const AIR = {roll: .36, lead: 1.9, gap: 1.4, y: 7.1, coinGap: 2.8};
+export function airRollOf(run) {
+  const u = clamp((run.t - (run.airRollAt ?? -99)) / AIR.roll, 0, 1);
+  return (run.airRollFrom || 0) + ((run.airRollTo || 0) - (run.airRollFrom || 0)) * u * u * (3 - 2 * u);
+}
+export const airPoseOf = run => Math.min(1, run.jetAge / .45, run.jetpack / .65,
+  run.jetpack < JETPACK.descend ? Math.max(0, (run.y - surfaceAt(run, laneOf(run), run.z, run.y)) / 1.8) : 1);
+export const TRAFFIC = {lead: 76, length: 20, speed: 12, height: 3.6, first: 155};
+export const flying = run => !!(run?.co.enhanced && features.returnManUpdated() && run.jetpack > 0);
+// Rides share the same rules; choosing one is cosmetic. Their clock advances only with the run.
+export const RIDE = Object.freeze({s: 12, cooldown: 20, kinds: Object.freeze(['scooter', 'hoverboard'])});
+export const riding = run => !!(run?.co.enhanced && features.returnManUpdated() && !run.over && run.ride?.left > 0 && !flying(run));
+export function summonRide(run, kind = 'scooter') {
+  if (!run || !run.co.enhanced || !features.returnManUpdated() || run.over || flying(run)
+    || run.ride || run.rideCooldown > 0 || !RIDE.kinds.includes(kind)) return false;
+  run.ride = {kind, left: RIDE.s, age: 0};
+  return true;
+}
+function endRide(run, out, reason) {
+  if (!run.ride) return;
+  const kind = run.ride.kind;
+  run.ride = null; run.rideCooldown = RIDE.cooldown;
+  out.push({type: 'rideEnd', kind, reason, z: run.z});
+}
+/** Active boosts share a single 2x multiplier; overlapping power-ups never multiply it again. */
+export const multiplierOf = run => run && (run.booze > 0 || (run.co.enhanced && features.returnManUpdated() && (run.burst > 0 || run.pills > 0 || flying(run)))) ? 2 : 1;
 // The moves, seconds: a juke takes you a lane over (eased out: most of the way at once, settling in; snappier, the
 // owner's ask, Oct 2026); a slide keeps you low (SLIDE_BODY yards, not BODY) for slide s.
 export const MOVE = {juke: .13, slide: .7};
@@ -145,10 +177,13 @@ export const fallsIn = e => !!e && e.ob === 'hole' && FALL_IN.includes(e.type);
 // its front or not. You stand on a part you're up level with (STEP); you pass under one whose bottom is over your head
 // (BODY); anything else in your way is a crash, and a pad you jump up into from below stops you short.
 export const HIGH_H = 3, LOW_H = .95, RAMP = 8, BODY = 2, SLIDE_BODY = .9;
-// The places, one after another, ZONE yards each (a field each: you score as you go into the next): the stadium first,
+// The places, one after another, zoneLength(co) yards each: the stadium first,
 // then the other eight in the kickoff's own order, and round again. A vehicle never sits across the line between two
 // (its gate stands on it).
 export const ZONE = 100;
+// ZONE also stays the size of a scenery/field-marking tile; extending a place does not enlarge render batches.
+// course() enables the updated course through the shared Return Man feature flag.
+export const zoneLength = co => co.enhanced ? 500 : ZONE;
 export const THEMES = [
   {id: 'stadium', name: 'The Stadium', kinds: [['teambus', 1], ['bench', 1.2]]},
   {id: 'tailgate', name: 'The Tailgate', kinds: [['rv', 1], ['pong', 1.2]]},
@@ -168,6 +203,7 @@ export const THEMES = [
 const tall = (r, L, rampP) => [{at: RAMP, len: 12 + r() * (9 + 13 * L), h: HIGH_H, ramp: r() < rampP ? RAMP : 0}];
 const low = (r, len, h = LOW_H) => [{at: 0, len, h}];
 export const KINDS = {
+  express: {name: 'oncoming train'},
   teambus: {name: 'team bus', build: (r, L) => tall(r, L, .65)},
   bench: {name: 'bench', build: r => low(r, 6 + r() * 5)},
   rv: {name: 'RV', build: (r, L) => tall(r, L, .65)},
@@ -217,7 +253,8 @@ function pickKind(th, r, hard = false) {
 export const POWER = {
   salts: {name: 'Smelling salts', says: 'A burst of speed and an extra life', is: 'One sniff and you’re wide awake', does: 'A 4-second burst of speed, and an extra life: shake off the next tackle'},
   pills: {name: 'Painkillers', says: 'Nothing can stop you', s: 6, is: 'You can’t feel a thing', does: 'For 6 seconds, run straight through whatever’s in your way'},
-  booze: {name: 'Booze', says: 'Double yards', s: 8, is: 'Liquid courage (the world gets wobbly)', does: 'For 8 seconds, every yard counts double'}
+  booze: {name: 'Booze', says: 'Double yards', s: 8, is: 'Liquid courage (the world gets wobbly)', does: 'For 8 seconds, every yard counts double'},
+  jetpack: {name: 'Jetpack', says: 'Fly above the traffic', s: JETPACK.s, is: 'Cleared for takeoff', does: 'Fly headfirst for 8 seconds. Swipe sideways to barrel roll, collect coins and dodge sky hazards; a hit brings you down'}
 };
 // On the hard course (the owner's, for now) the power-ups as he asked for them (Oct 2026): the salts' burst lasts
 // HARD_BURST_S seconds; their words (HARD_POWER over POWER's: powerOf).
@@ -228,7 +265,13 @@ export const HARD_POWER = {
 };
 export const HARD_BURST_S = 10;
 /** A power-up's words on the course (hard: the hard course's). */
-export const powerOf = (kind, hard) => (hard ? Object.assign({}, POWER[kind], HARD_POWER[kind]) : POWER[kind]);
+export const powerOf = (kind, hard, enhanced = false) => {
+  const power = hard ? Object.assign({}, POWER[kind], HARD_POWER[kind]) : POWER[kind];
+  return kind === 'salts' && enhanced ? {...power,
+    says: 'Speed boost + temporary extra life',
+    does: `A ${hard ? HARD_BURST_S : BURST.s}-second speed burst. Unused extra lives expire when the speed boost ends`
+  } : power;
+};
 export const SALTS_MAX = 2, SHIELD = 1.2; // Revival protection is only for the regular course.
 // The salts' burst (picked up, and again when they shake the linebacker off): k faster for s seconds, easing back to
 // your own speed over the last ease of them.
@@ -261,7 +304,7 @@ export const FALL = {end: CHASE.grace, clear: .3, min: .16, lag: 1.8, drop: .23,
 /** A fall's plan, for a run that's just stepped in a pothole (row): {z (the hole's middle), D (seconds the fall
  *  lasts), cap (yards it may hold the picture back), drop, hold, climb (seconds from the hit each part ends)}. */
 export function fallPlan(run, row) {
-  const co = run.co, z0 = row.z, v = speedAt(z0, co.hard) * (1 + burstOf(run)); // (unslowed: the soonest he could be there)
+  const co = run.co, z0 = row.z, v = speedAt(z0, co.hard, co.enhanced) * (1 + burstOf(run)); // (unslowed: the soonest he could be there)
   if (co.done < z0 + 60) fill(co, z0 + 60);
   let next = Infinity;
   co.rows.forEach(r => { if (r.z > z0 + .01 && r.z < next && r.lanes.some(Boolean)) next = r.z; });
@@ -331,22 +374,28 @@ export const GAP = {first: 22, cars: 45, max: 1.3, min: .62, by: 1000, jitter: .
 export const HARD_GAP = {first: 20, cars: 35, max: 1.1, min: .32, by: 650, late: [.06, 3000], jitter: .2, in: .6, after: [.25, .1], mix: 700, sets: [.22, .38], two: .6, hole: 120, sled: 220};
 const COURSES = new Map();
 /** Day n's kickoff k: the same on every phone. It's worked out as it's needed (fill). */
-export function course(n, k, hard = false) {
+export function course(n, k, hard = false, enhanced = false) {
   hard = !!hard;
-  const key = `${n}|${k}|${hard ? 'h' : ''}`;
+  enhanced = !!enhanced && features.returnManUpdated();
+  const key = `${n}|${k}|${hard ? 'h' : ''}${enhanced ? '|flight' : ''}`;
   if (COURSES.has(key)) return COURSES.get(key);
   // the places after the stadium: the day's order, each kickoff starting one further on
   const others = shuffle(THEMES.map((_, i) => i).slice(1), rng(hashStr(`return-man-places-${n}`))), m = others.length;
   const order = [0, ...others.slice(k % m), ...others.slice(0, k % m)];
   const c = {n, k, hard, order, rows: [], sets: [], items: [], r: rng(hashStr(`return-man-${n}-${k}${hard ? '-hard' : ''}`)), z: (hard ? HARD_GAP : GAP).first, itemAt: 100, done: 0, first: {}};
+  if (enhanced) Object.assign(c, {enhanced: true, traffic: [], trafficAt: TRAFFIC.first});
   if (COURSES.size > 12) COURSES.clear();
   COURSES.set(key, c);
   return c;
 }
 /** The place z yards is in: {i (the how-many-th), theme, z0 (where it starts)}. */
 export function zoneAt(co, z) {
-  const i = Math.max(0, Math.floor(z / ZONE));
-  return {i, theme: THEMES[co.order[i % co.order.length]], z0: i * ZONE};
+  const length = zoneLength(co), i = Math.max(0, Math.floor(z / length));
+  if (co.enhanced && i > 0) {
+    const onward = co.order.filter(n => n !== 0);
+    return {i, theme: THEMES[onward[(i - 1) % onward.length] ?? 1], z0: i * length};
+  }
+  return {i, theme: THEMES[co.order[i % co.order.length]], z0: i * length};
 }
 /** Seconds to the next beat at z yards (L: how far into the course, 0 to 1). */
 function gapAt(co, L, z) {
@@ -354,9 +403,16 @@ function gapAt(co, L, z) {
   const H = HARD_GAP, d = Math.max(0, z), [lk, lby] = H.late;
   return H.min + lk * Math.exp(-d / lby) + (H.max - H.min - lk) * Math.exp(-d / H.by) + co.r() * H.jitter * (1 - .5 * Math.min(1, d / 2000));
 }
+// Keep obstacle spacing at the old course pace: the faster shared runner has less time to react.
 const speedOn = (co, z) => speedAt(z, co.hard);
 function addItem(co, z, lane, top) {
-  const u = co.r(), kind = u < .25 ? 'salts' : u < .6 ? 'pills' : 'booze';
+  const u = co.r(), kind = co.enhanced && co.items.length % 3 === 0 ? 'jetpack' : u < .25 ? 'salts' : u < .6 ? 'pills' : 'booze';
+  if (kind === 'jetpack' && top) {
+    // Put the pack in the open lane at the start of the set, never on an unreachable roof.
+    const set = co.sets[co.sets.length - 1];
+    lane = [1, 0, 2].find(l => !set.plats.some(p => p.lane === l));
+    z = set.zs + 1.8; top = false;
+  }
   co.items.push({i: co.items.length, z: round2(z), lane, top: !!top, kind});
   co.itemAt = z + 180 + co.r() * 180;
 }
@@ -392,13 +448,16 @@ function addSet(co, z, L) {
   const r = co.r, th = zoneAt(co, z).theme, lanes = shuffle([0, 1, 2], r), two = co.hard ? L > .1 && r() < HARD_GAP.two : L > .2 && r() < .45;
   const plats = [];
   lanes.slice(0, two ? 2 : 1).forEach(lane => {
-    const kind = pickKind(th, r, co.hard), parts = KINDS[kind].build(r, L, speedOn(co, z) / 10), from = Math.min(...parts.map(q => q.at - (q.ramp || 0)));
+    const picked = pickKind(th, r, co.hard);
+    // The long team buses look like train cars on the turf. Keep the shared football field to training benches.
+    const kind = co.enhanced && th.id === 'stadium' && picked === 'teambus' ? 'bench' : picked;
+    const parts = KINDS[kind].build(r, L, speedOn(co, z) / 10), from = Math.min(...parts.map(q => q.at - (q.ramp || 0)));
     parts.forEach((q, i) => {
       const z0 = z + q.at - from;
       plats.push({lane, kind, part: i, z0: round2(z0), z1: round2(z0 + q.len), h: q.h, b: q.b || 0, ramp: q.ramp || 0, hi: q.h >= 2});
     });
   });
-  const ze = Math.max(...plats.map(p => p.z1)), edge = (Math.floor(z / ZONE) + 1) * ZONE;
+  const ze = Math.max(...plats.map(p => p.z1)), edge = zoneAt(co, z).z0 + zoneLength(co);
   if (ze > edge - 10) return false;
   const set = {i: co.sets.length, zs: round2(z), ze, plats};
   co.sets.push(set);
@@ -419,6 +478,14 @@ function addSet(co, z, L) {
 export function fill(co, z) {
   while (co.z <= z + 2) {
     const r = co.r, at = co.z, H = HARD_GAP, L = Math.min(1, at / (co.hard ? H.mix : GAP.by));
+    if (co.enhanced && at >= co.trafficAt && zoneAt(co, at).theme.id !== 'stadium') {
+      // Reserve the whole encounter: no stationary obstacles can close its escape lane.
+      const lanes = shuffle([0, 1, 2], r), count = co.traffic.length > 1 ? 2 : 1;
+      co.traffic.push({i: co.traffic.length, trigger: at, lanes: lanes.slice(0, count)});
+      co.z = at + TRAFFIC.lead + TRAFFIC.length + 12;
+      co.trafficAt = co.z + 175 + r() * 75;
+      continue;
+    }
     if (at > (co.hard ? H.cars : GAP.cars) && r() < (co.hard ? H.sets[0] + (H.sets[1] - H.sets[0]) * L : .2 + .18 * L) && addSet(co, at, L)) continue;
     addRow(co, at, [0, 1, 2]);
     const next = at + gapAt(co, L, at) * speedOn(co, at);
@@ -500,7 +567,7 @@ function coinLine(co, at) {
         for (let i = rowFrom(co, at + 4); i < co.rows.length && co.rows[i].z <= at + 45; i++) {
           const w = co.rows[i], t = w.lanes[lane];
           if (t !== 'hurdle' && t !== 'hole') continue;
-          vj = speedAt(w.z, true);
+          vj = speedAt(w.z, true, co.enhanced);
           if (w.z - vj * JUMP_S / 2 >= at) { over = w; break; }
         }
         if (!over) continue;
@@ -527,13 +594,13 @@ function coinLine(co, at) {
  *  by them; over a pothole, well over its cone. */
 function coinsFit(co, lane, coins, over, land) {
   const za = coins[0].z - COIN.clear, last = coins[coins.length - 1].z, zEnd = Math.max(last, land || 0);
-  const zb = zEnd + COIN.react * speedAt(zEnd, true);
+  const zb = zEnd + COIN.react * speedAt(zEnd, true, co.enhanced);
   if (co.done < zb + 10) fill(co, zb + 10);
   // (where a sled was drawn, sl, counts as it did before the sleds went: the coins stay where they were)
   const sledIn = (w, l) => !!(w.sl && w.sl.includes(l));
   for (let i = rowFrom(co, za); i < co.rows.length && co.rows[i].z <= zb; i++) { const w = co.rows[i]; if ((w.lanes[lane] || sledIn(w, lane)) && w !== over) return false; }
   // (and just before that, no banner to hide the line or sled to juke round as it starts: COIN.look seconds clear)
-  const zl = coins[0].z - COIN.look * speedAt(coins[0].z, true);
+  const zl = coins[0].z - COIN.look * speedAt(coins[0].z, true, co.enhanced);
   for (let i = rowFrom(co, zl); i < co.rows.length && co.rows[i].z < za; i++) { const w = co.rows[i], t = w.lanes[lane]; if (t === 'bar' || t === 'sled' || sledIn(w, lane)) return false; }
   if (co.sets.some(s => s.zs <= zb && s.ze >= za && s.plats.some(p => p.lane === lane && p.z0 - p.ramp <= zb && p.z1 >= za))) return false;
   if (co.items.some(it => it.lane === lane && it.z > za - COIN.item && it.z < last + COIN.item)) return false;
@@ -566,6 +633,14 @@ export function groundAt(co, lane, z, y = Infinity) {
   partsAt(co, lane, z).forEach(p => { const h = heightOf(p, z); if (h <= y + STEP && h > g) g = h; });
   return g;
 }
+/** Feet support includes the current positions of incoming vehicles, even after their one collision was resolved. */
+export function surfaceAt(run, lane = laneOf(run), z = run.z, y = Infinity) {
+  let h = groundAt(run.co, lane, z, y);
+  if (run.co.enhanced) for (const p of run.trains || []) {
+    if (p.lane === lane && z >= p.z0 && z <= p.z1 && p.h <= y + STEP) h = Math.max(h, p.h);
+  }
+  return h;
+}
 /** What's in the way of someone at height y in a lane at z yards (a part over his step and under his head: body
  *  yards tall, less in a slide), or null. */
 export function blockAt(co, lane, z, y, body = BODY) {
@@ -578,12 +653,16 @@ export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
 /** A new return: day n's run k (on the day's course: every run the same), you in the middle lane where you field it.
  *  coins: the run has the coins (COIN: only on the hard course; views/return.js asks coinsOpen, the day's first run);
  *  run.c counts the ones he's run through. */
-export function startRun(n, k, hard = false, coins = false) {
-  return {n, k, co: course(n, 0, hard), t: 0, steps: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
+export function startRun(n, k, hard = false, coins = false, enhanced = false) {
+  const co = course(n, 0, hard, enhanced);
+  return {n, k, co, t: 0, steps: 0, chaseSteps: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
+    jetpack: 0, jetAge: 0, jetFrom: 0, landing: 0, trains: [], nextTrain: 0,
+    ride: null, rideCooldown: 0,
+    sky: null, jetSerial: 0, airC: 0, airHits: 0, airRollAt: -99, airRollFrom: 0, airRollTo: 0,
     slide: 0, lastJuke: -9, bump: -9, next: 0, nextCone: 0, nextItem: 0, zone: 0, tds: 0,
     salts: 0, pills: 0, booze: 0, shield: 0, burst: 0, over: false, why: null, by: null,
-    hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null,
-    stumblePending: false, lastHit: null, // (the linebacker starts on you, at the catch)
+    hits: 0, hitAt: co.enhanced ? -10 : 0, slow: 0, grace: 0, knock: 0, sideHit: null,
+    stumblePending: false, lastHit: null, // The enhanced course starts clear; legacy fixtures start with the linebacker close.
     coins: !!(coins && hard), c: 0, nextCoin: 0};
 }
 /** Takes a run's coins away (it isn't the day's first after all: the board shows another of his phones ran it,
@@ -595,20 +674,28 @@ export function dropCoins(run) {
 export const xOf = (run, lane) => (lane - 1) * LANE;
 /** The lane you're in now (the nearest to you, mid-juke). */
 export const laneOf = run => clamp(Math.round(run.x / LANE) + 1, 0, LANES - 1);
-const grounded = run => run.vy <= 0 && run.y <= groundAt(run.co, laneOf(run), run.z, run.y) + 1e-3;
+const grounded = run => run.vy <= 0 && run.y <= surfaceAt(run, laneOf(run), run.z, run.y) + 1e-3;
 /** A swipe: 'left' and 'right' juke a lane over, 'up' jumps (out of a slide too), 'down' slides (and drops you, in the
  *  air). False when it can't: off the edge of the road or into the side of a vehicle (a hit, both: run.bump notes when,
  *  step counts it), the return's over. */
 export function move(run, dir) {
   if (run.over) return false;
+  if (run.co.enhanced && !features.returnManUpdated()) return false;
   if (dir === 'left' || dir === 'right') {
     const to = run.lane + (dir === 'left' ? -1 : 1);
-    if (to < 0 || to >= LANES) { run.bump = run.t; run.sideHit = {edge: dir, lane: run.lane, side: true}; return false; } // (a hit: step counts it)
-    const side = blockAt(run.co, to, run.z, run.y);
+    if (to < 0 || to >= LANES) { if (!flying(run)) { run.bump = run.t; run.sideHit = {edge: dir, lane: run.lane, side: true}; } return false; } // (a hit: step counts it)
+    const side = flying(run) ? null : blockAt(run.co, to, run.z, run.y) || trainAt(run, to);
     if (side) { run.bump = run.t; run.sideHit = {plat: side, lane: to, side: true}; return false; } // (a hit: step counts it)
+    if (flying(run)) {
+      run.airRollFrom = airRollOf(run);
+      const turns = run.airRollFrom / (Math.PI * 2);
+      run.airRollTo = (dir === 'right' ? Math.floor(turns + 1e-6) + 1 : Math.ceil(turns - 1e-6) - 1) * Math.PI * 2;
+      run.airRollAt = run.t;
+    }
     run.jFrom = run.x; run.lane = to; run.jt = 0; run.lastJuke = run.t;
     return true;
   }
+  if (flying(run)) return false; // Automatic altitude; swipes still steer left and right.
   if (dir === 'up') {
     if (grounded(run)) { run.vy = JUMP_V; run.slide = 0; run.jumpQ = -9; } else run.jumpQ = run.t;
     return true;
@@ -622,12 +709,12 @@ export function move(run, dir) {
 }
 /** How far behind you the linebacker is now, in yards (CHASE): near at the catch, running up on you from where he was
  *  just after a hit (near runUp s on), falling back to edge while he's on you, then out of sight (far) once he's lost.
- *  A hard-course stumble keeps him at edge until a salts revival; on top of you once he's tackled you. */
+ *  Legacy hard-course fixtures keep him near until a revival; the shared enhanced course gives four seconds of pursuit followed by a visible retreat. */
 export function gapOf(run) {
   if (!run) return CHASE.far;
   if (run.over && run.why === 'caught') return .6;
   const elapsed = run.t - run.hitAt;
-  const s = run.co.hard && run.stumblePending ? Math.min(elapsed, CHASE.window) : elapsed;
+  const s = run.co.hard && !run.co.enhanced && run.stumblePending ? Math.min(elapsed, CHASE.window) : elapsed;
   if (s < CHASE.runUp && run.fromGap > CHASE.near) { const k = 1 - s / CHASE.runUp; return CHASE.near + (run.fromGap - CHASE.near) * k * k; }
   if (s < CHASE.window) return CHASE.near + (CHASE.edge - CHASE.near) * clamp((s - CHASE.slow) / (CHASE.window - CHASE.slow), 0, 1);
   return CHASE.edge + (CHASE.far - CHASE.edge) * clamp((s - CHASE.window) / CHASE.drop, 0, 1);
@@ -650,12 +737,22 @@ function clearStumble(run) {
 // On the hard course, head on into a tall one's front (what.wall: more than a man's height over you) is the end of the
 // return whether he's on you or not (the owner's ask, Oct 2026: Subway Surfers' train); the salts shake that off too.
 function hit(run, out, what) {
+  if (run.co.enhanced && (flying(run) || run.landing > 0)) return 'pass';
   if (run.pills > 0 || (!run.co.hard && run.shield > 0)) { if (!what.side) out.push(Object.assign({type: what.ob ? 'trucked' : 'vaulted', z: run.z}, what)); return 'pass'; }
   if (run.grace > 0 && (!run.co.hard || sameCollision(run.lastHit, what))) {
     out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass';
   }
+  if (riding(run)) {
+    const kind = run.ride.kind;
+    endRide(run, out, 'hit');
+    // Only this contact is absorbed. The existing pursuit and the next distinct obstacle still count.
+    run.lastHit = what; run.grace = CHASE.grace;
+    out.push(Object.assign({type: 'rideHit', kind, z: run.z}, what));
+    return 'pass';
+  }
+  const salts = run.salts > 0 && (!run.co.enhanced || run.burst > 0);
   if (what.wall && run.co.hard) {
-    if (run.salts > 0) {
+    if (salts) {
       run.salts--; run.shield = run.co.hard ? 0 : SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = burstSecs(run);
       clearStumble(run);
       out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
@@ -666,7 +763,7 @@ function hit(run, out, what) {
     return false;
   }
   if (chasing(run)) {
-    if (run.salts > 0) {
+    if (salts) {
       run.salts--; run.shield = run.co.hard ? 0 : SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = burstSecs(run);
       clearStumble(run);
       out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
@@ -692,17 +789,35 @@ export function hitLine(what) {
   return `${what.side ? 'Bounced off' : 'Ran into'} the ${name}`;
 }
 function sub(run, dt, out) {
-  const co = run.co, v0 = speedAt(run.z, co.hard), v = v0 * (1 - CHASE.slowBy * run.slow / CHASE.slow) * (1 + burstOf(run));
-  run.t += dt; run.z += v * dt; run.yards += v * dt * (run.booze > 0 ? 2 : 1);
+  const co = run.co, v0 = speedAt(run.z, co.hard, co.enhanced), v = v0 * (1 - CHASE.slowBy * run.slow / CHASE.slow) * (1 + burstOf(run));
+  run.rideCooldown = Math.max(0, (run.rideCooldown || 0) - dt);
+  if (run.ride) {
+    run.ride.age += dt; run.ride.left = Math.max(0, run.ride.left - dt);
+    if (run.ride.left <= 1e-9) endRide(run, out, 'expired');
+  }
+  run.t += dt; run.z += v * dt; run.yards += v * dt * multiplierOf(run);
+  if (co.enhanced && run.stumblePending && !chasing(run)) clearStumble(run);
   // (his strides: a yard a yard up to STRIDE_V, longer past it, so his legs never spin faster than they do at a sprint)
-  run.steps += v * dt * Math.min(1, STRIDE_V / v0);
-  if (run.jt < 1) { run.jt = Math.min(1, run.jt + dt / MOVE.juke); const e = 1 - (1 - run.jt) ** 3; run.x = run.jFrom + (xOf(run, run.lane) - run.jFrom) * e; }
+  run.steps += run.co.enhanced ? (flying(run) ? 0 : strideRate(v) * dt) : v * dt * Math.min(1, STRIDE_V / v0);
+  if (co.enhanced) run.chaseSteps += strideRate(v) * dt;
+  if (co.enhanced) advanceTrains(run, dt, out);
+  if (run.jt < 1) { run.jt = Math.min(1, run.jt + dt / (flying(run) ? AIR.roll : MOVE.juke)); const e = 1 - (1 - run.jt) ** 3; run.x = run.jFrom + (xOf(run, run.lane) - run.jFrom) * e; }
   else run.x = xOf(run, run.lane);
   // a juke into a vehicle's side or off the edge of the road (refused by move) is a hit
   if (run.sideHit) { const w = run.sideHit; run.sideHit = null; if (!hit(run, out, w)) return; }
   // (knocked off a vehicle's front, you're in the lane you're headed for)
   const body = run.slide > 0 ? SLIDE_BODY : BODY;
   const lane = run.knock > 0 ? run.lane : laneOf(run), blk = blockAt(co, lane, run.z, run.y, body);
+  const train = co.enhanced && trainAt(run, lane);
+  if (train) {
+    // The landing buffer resolves a late-arriving roof as solid support, never a pass through its body.
+    if (run.landing > 0 && !flying(run)) { run.y = train.h; run.vy = 0; }
+    else {
+      const result = hit(run, out, {plat: train, lane, wall: true});
+      if (!result) return;
+      if (!flying(run)) train.cleared = true; // Flying over a vehicle must not remove its future collisions.
+    }
+  }
   // something in your way: a pad you've jumped up into from under stops you; a front (or a side, mid-juke) is a hit
   if (blk && blk.b > run.y + .8 && run.vy > 0) { run.vy = 0; run.y = Math.max(0, blk.b - BODY - 1e-3); }
   else if (blk) {
@@ -715,15 +830,25 @@ function sub(run, dt, out) {
     if (to != null) { run.jFrom = run.x; run.lane = to; run.jt = 0; run.knock = MOVE.juke; }
     else { run.y = heightOf(blk, run.z); run.vy = Math.max(run.vy, 3); }
   }
-  const g = groundAt(co, lane, run.z, run.y);
+  const g = surfaceAt(run, lane, run.z, run.y);
   let landed = false;
-  if (run.vy > 0 || run.y > g + 1e-3) {
+  if (flying(run)) {
+    run.jetAge += dt;
+    const ease = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+    const floor = surfaceAt(run, lane, run.z, run.y), rise = ease(run.jetAge / JETPACK.rise);
+    const high = Math.max(JETPACK.height, run.jetFrom);
+    const descending = run.jetpack < JETPACK.descend;
+    const nextY = descending ? high * ease(run.jetpack / JETPACK.descend) : run.jetFrom + (high - run.jetFrom) * rise;
+    run.y = Math.max(floor, nextY);
+    if (descending && nextY <= floor) finishFlight(run, out);
+    run.vy = 0; run.slide = 0; run.jumpQ = -9;
+  } else if (run.vy > 0 || run.y > g + 1e-3) {
     run.vy -= GRAV * dt; run.y += run.vy * dt;
     if (run.y <= g) { landed = run.vy < -1; run.y = g; run.vy = 0; if (landed) out.push({type: 'landed', z: run.z, on: g > 0}); }
   } else { run.y = g; run.vy = 0; }
   if (run.y <= g + 1e-3 && run.vy === 0 && run.t - run.jumpQ < BUFFER) { run.vy = JUMP_V; run.slide = 0; run.jumpQ = -9; }
   // the place, the touchdowns
-  const zone = Math.floor(run.z / ZONE);
+  const zone = zoneAt(co, run.z).i;
   if (zone > run.zone) { run.zone = zone; out.push({type: 'zone', z: run.z, theme: zoneAt(co, run.z).theme}); }
   const tds = tdsAt(run.z);
   if (tds > run.tds) { run.tds = tds; out.push({type: 'td', z: run.z, n: tds}); }
@@ -750,7 +875,14 @@ function sub(run, dt, out) {
   while (run.nextItem < items.length && items[run.nextItem].z <= run.z) {
     const it = items[run.nextItem++];
     if (it.lane !== lane || Math.abs(run.y - groundAt(co, it.lane, it.z)) > 1.4) continue;
-    if (it.kind === 'salts') { run.salts = Math.min(SALTS_MAX, run.salts + 1); run.burst = burstSecs(run); }
+    if (it.kind === 'jetpack') {
+      if (!co.enhanced || !features.returnManUpdated()) continue;
+      endRide(run, out, 'jetpack');
+      run.jetpack = JETPACK.s; run.jetAge = 0; run.jetFrom = run.y; run.slide = 0; run.vy = 0; run.jumpQ = -9; run.sideHit = null;
+      run.airRollAt = -99; run.airRollFrom = run.airRollTo = 0;
+      run.sky = skyCourse(run, it.i);
+    }
+    else if (it.kind === 'salts') { run.salts = Math.min(SALTS_MAX, run.salts + 1); run.burst = burstSecs(run); }
     else run[it.kind] = POWER[it.kind].s;
     out.push({type: 'pickup', kind: it.kind, item: it, z: run.z});
   }
@@ -767,14 +899,81 @@ function sub(run, dt, out) {
       out.push({type: 'coin', coin: cn, c: run.c, add, z: run.z});
     }
   }
+  if (flying(run)) advanceSky(run, out);
   run.slide = Math.max(0, run.slide - dt);
   run.pills = Math.max(0, run.pills - dt);
   run.booze = Math.max(0, run.booze - dt);
   run.shield = Math.max(0, run.shield - dt);
   run.burst = Math.max(0, (run.burst || 0) - dt);
+  // Salts are usable only during their speed boost, never banked for a later hit.
+  if (co.enhanced && !run.burst) run.salts = 0;
   run.slow = Math.max(0, run.slow - dt);
   run.grace = Math.max(0, run.grace - dt);
   run.knock = Math.max(0, run.knock - dt);
+  run.landing = Math.max(0, run.landing - dt);
+  if (run.jetpack > 0) {
+    run.jetpack = Math.max(0, run.jetpack - dt);
+    if (!run.jetpack) finishFlight(run, out);
+  }
+}
+function finishFlight(run, out) {
+  run.jetpack = 0; run.landing = JETPACK.landing; run.sky = null;
+  out.push({type: 'jetlanded', z: run.z, on: run.y});
+}
+// A fresh, deterministic sky course on every pickup, independent of ground-course RNG and coin eligibility.
+function skyCourse(run, item) {
+  const serial = ++run.jetSerial, r = rng(hashStr(`return-air-${run.n}-${item}-${serial}`));
+  const v = speedAt(run.z, run.co.hard, run.co.enhanced) * (1 + burstOf(run)), hazards = [], coins = [];
+  let safe = run.lane, ci = 0;
+  for (let j = 0, t = AIR.lead; t < JETPACK.s - JETPACK.descend - .35; j++, t += AIR.gap) {
+    if (j) safe = safe === 0 ? 1 : safe === 2 ? 1 : r() < .5 ? 0 : 2;
+    const z = run.z + v * t, theme = zoneAt(run.co, z).theme.id;
+    const kinds = theme === 'space' ? ['debris', 'drone'] : ['birds', 'balloon', 'drone', 'birds'];
+    const lanes = [0, 1, 2].filter(l => l !== safe);
+    lanes.slice(0, j > 1 ? 2 : 1).forEach((lane, k) => hazards.push({i: `sky:${serial}:${j}:${k}`, kind: kinds[j % kinds.length], lane, z, y: AIR.y, passed: false}));
+    // The coins mark the safe line, leaving time between lines for a complete roll.
+    for (let at = z - v * .75; at <= z + v * .18; at += AIR.coinGap) {
+      coins.push({i: -(serial * 1000 + ++ci), lane: safe, z: at, y: AIR.y, air: true, taken: false});
+    }
+  }
+  return {serial, hazards, coins};
+}
+function advanceSky(run, out) {
+  if (!run.sky) return;
+  const lane = laneOf(run), cruise = run.jetAge > JETPACK.rise && run.jetpack > JETPACK.descend;
+  for (const h of run.sky.hazards) {
+    if (h.passed || h.z > run.z + .9) continue;
+    h.passed = true;
+    if (!cruise || h.lane !== lane || Math.abs(run.y + .9 - h.y) > 1.3) continue;
+    if (run.pills > 0) { out.push({type: 'airpassed', hazard: h, z: run.z}); continue; }
+    // A strike cuts the flight short; controlled descent avoids dropping into a ground obstacle.
+    run.airHits++; run.jetpack = JETPACK.descend; run.airHitAt = run.t;
+    out.push({type: 'airhit', hazard: h, z: run.z});
+  }
+  for (const coin of run.sky.coins) {
+    if (coin.taken || coin.z > run.z) continue;
+    coin.taken = true;
+    if (coin.lane !== lane || Math.abs(run.y + .9 - coin.y) > 1.2) continue;
+    const add = run.c < COIN.most ? 1 : 0;
+    run.c += add; run.airC += add;
+    out.push({type: 'coin', coin, c: run.c, add, air: true, z: run.z});
+  }
+}
+// Mutable traffic belongs to the run, never the cached daily course. Pausing stops it too.
+function advanceTrains(run, dt, out) {
+  const defs = run.co.traffic || [];
+  while (run.nextTrain < defs.length && defs[run.nextTrain].trigger <= run.z) {
+    const def = defs[run.nextTrain++];
+    def.lanes.forEach(lane => run.trains.push({i: `${def.i}:${lane}`, lane, kind: 'express', part: 0,
+      z0: def.trigger + TRAFFIC.lead, z1: def.trigger + TRAFFIC.lead + TRAFFIC.length,
+      h: TRAFFIC.height, b: 0, ramp: 0, hi: true, cleared: false}));
+    out.push({type: 'traffic', lanes: def.lanes, z: run.z});
+  }
+  for (const p of run.trains) { p.z0 -= TRAFFIC.speed * dt; p.z1 -= TRAFFIC.speed * dt; }
+  run.trains = run.trains.filter(p => p.z1 > run.z - 30);
+}
+function trainAt(run, lane) {
+  return run.trains?.find(p => !p.cleared && p.lane === lane && p.z0 <= run.z + .35 && p.z1 >= run.z - .35 && run.y + STEP < p.h);
 }
 /** Moves a return on dt seconds. Returns what happened: [{type: 'td' | 'zone' | 'juked' | 'hurdled' | 'slid' | 'over' |
  *  'passed' | 'landed' | 'pickup' | 'coin' | 'coned' | 'trucked' | 'vaulted' | 'stumbled' | 'shoved' | 'revived' | 'tackled' | 'crashed', z, ...}]
@@ -786,6 +985,7 @@ function sub(run, dt, out) {
  *  he ran you down; 'crashed': head on into a tall one's front, on the hard course). */
 export function step(run, dt) {
   if (run.over || !(dt > 0)) return [];
+  if (run.co.enhanced && !features.returnManUpdated()) { stop(run); return []; }
   const out = [];
   fill(run.co, run.z + 120);
   if (run.coins) coinsTo(run.co, run.z + 120);
@@ -837,15 +1037,19 @@ export function ahead(run, dist = 90, behind = 6) {
     if (d > dist) break;
     if (d >= -behind) items.push({item: co.items[i], d});
   }
+  if (flying(run) && run.sky) run.sky.coins.forEach(coin => {
+    const d = coin.z - z;
+    if (!coin.taken && d >= -behind && d <= dist) coins.push({coin, d});
+  });
   return {rows, sets, items, coins};
 }
 
 // ---------------------------------------------------------------------------------------------- memory
-// 'gg-v3-ret1': {days: {n: {r: [{y (yards), d (how far you ran)}, ...] (every run that day, in order), at (when the best
+// RETURN_REPLAY.key: {days: {n: {r: [{y (yards), d (how far you ran)}, ...] (every run that day, in order), at (when the best
 // one ended)}}, played (runs, all time)}. (A return kept as a plain number, before power-ups, is its yards and its
 // distance.) The day's first run, when it had the coins (COIN: the owner's), keeps them too: c (how many he ran
 // through); no other run ever has a c, and nobody else's runs do.
-const KEY = 'gg-v3-ret1', KEEP = 60, MAX_YARDS = 99999;
+const KEY = RETURN_REPLAY.key, KEEP = 60, MAX_YARDS = 99999;
 // Test play (the owner's: views/testplay.js): the day's game again in a sandbox, whenever he needs to test it. While
 // it's on, play reads and writes a store of its own (KEY + '-test', the day started fresh each time), never posted and
 // never counted; the posts and the all-time totals read the real one (real), and ending it brings the real day back as
@@ -859,10 +1063,17 @@ export function setTest(on, n = todayNumber()) {
 }
 const keyOf = real => (TEST && !real ? KEY + '-test' : KEY);
 function read(real) {
+  const saved = lsGet(keyOf(real)), migrate = saved == null;
   let v = null;
-  try { v = JSON.parse(lsGet(keyOf(real)) || 'null'); } catch (_) { v = null; }
-  if (!v || typeof v !== 'object' || !v.days || typeof v.days !== 'object') v = {days: {}};
+  try { v = JSON.parse((migrate ? lsGet(RETURN_REPLAY.previousKey + (TEST && !real ? '-test' : '')) : saved) || 'null'); } catch (_) { v = null; }
+  if (!v || typeof v !== 'object' || !v.days || typeof v.days !== 'object' || Array.isArray(v.days)) v = {days: {}};
   if (!Number.isInteger(v.played)) v.played = 0;
+  if (migrate) {
+    // Copy every other day unchanged. Retain the old store as an archive; never read it again once this exists.
+    v.played = Math.max(0, v.played - cleanList(v.days[RETURN_REPLAY.day]?.r).length);
+    delete v.days[RETURN_REPLAY.day];
+    lsSet(keyOf(real), JSON.stringify(v));
+  }
   return v;
 }
 function write(v, real) {

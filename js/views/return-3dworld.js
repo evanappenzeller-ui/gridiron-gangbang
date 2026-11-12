@@ -1,4 +1,7 @@
 import * as features from '../core/features.js';
+import {makeJetpack, animateJetpack} from './return-jetpack.js';
+import * as life from './return-life.js';
+import {makeHazard, animateHazard} from './return-air-world.js';
 // Return Man's world in real 3D (the owner's ask, Oct 2026): the places a return runs through (core/return.js THEMES),
 // built in three.js around the players (views/return-3d.js, the same scene): each place's ground (the field with its
 // yard lines and numbers; a parking lot; a city street; packed snow; the desert's rails; cobbles; a boardwalk by the
@@ -26,6 +29,7 @@ import * as fieldLogo from './return-field-logo.js';
 import * as data from '../core/data.js';
 import * as style from './return-style.js';
 import {decorate} from './return-scenery.js';
+import * as neighborhoods from './return-neighborhoods.js';
 import * as models from './return-models.js';
 
 let T = null, U = null, SCENE = null, ROOT = null;
@@ -44,10 +48,12 @@ function bendShader(sh) {
 export function bend(obj) {
   obj.traverse(o => {
     if (!o.material) return;
-    (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+    [...(Array.isArray(o.material) ? o.material : [o.material]), ...(o.customDepthMaterial ? [o.customDepthMaterial] : [])].forEach(m => {
       if (BENT.has(m)) return;
       BENT.add(m);
-      m.onBeforeCompile = bendShader;
+      const before = m.onBeforeCompile, key = m.customProgramCacheKey();
+      m.onBeforeCompile = function(sh, renderer) { before.call(this, sh, renderer); bendShader(sh); };
+      m.customProgramCacheKey = () => key + '|return-bend';
       m.needsUpdate = true;
     });
   });
@@ -68,6 +74,7 @@ export function init(three, scene, utils) {
   cityBus.init(T, refreshCityBuses);
   fieldLogo.subscribe(refreshFieldLogos);
   styleMode = style.enabled();
+  lifeUpdated = features.returnManUpdated();
   if (!styleSubscribed) {
     styleSubscribed = true;
     data.subscribe(type => { if (type === 'me' || type === 'data') syncStyle(); });
@@ -365,6 +372,7 @@ function chunk(st, i) {
   D.list.forEach(o => {
     const at = Math.max(o.z0, o.z1 || o.z0);
     if (at < z0 || at >= z1) return;
+    if (o.k === 'neighborhood') { neighborhoods.draw3(b, lit, o, g, sign); return; }
     if (models.prop(b, lit, o, id)) return;
     const f = PROPS[o.k];
     if (f) f(b, lit, o, g, st);
@@ -374,8 +382,9 @@ function chunk(st, i) {
   models.extras(b, lit, id, z0, z1, D.list, `${st.co.n}|${st.co.k}`);
   g.userData.theme = id; g.userData.models = withModels;
   const m = b.mesh(mats().vc), l = lit.mesh(mats().glow);
-  if (m) g.add(m);
+  if (m) { life.swayFoliage(T, m, id); g.add(m); }
   if (l) g.add(l);
+  life.build(T, Batch, g, id, z0, z1, D.list);
   g.userData.z0 = z0;
   return g;
 }
@@ -389,7 +398,7 @@ const GROUND_EXTRA = {
     if (z0 < 0 || (z0 >= 100 && fy(z0) < 10)) g.add(plane(endzoneMat(), -26.67, 26.67, z0, Math.min(z1, z0 < 0 ? 0 : z0 - fy(z0) + 10), .004));
     // the numbers along each side, the logo at midfield
     for (let yd = 10; yd <= 90; yd += 10) {
-      const z = zone.z0 + yd;
+      const z = Math.floor(z0 / R.TD) * R.TD + yd;
       if (z < z0 || z >= z1 || z <= 0) continue;
       const n = yd <= 50 ? yd : 100 - yd;
       // (read from the sideline, the tops toward it)
@@ -807,20 +816,46 @@ function sign(text, bg, ink, x, y, z, w, h, s) {
 // ============================================================================ In the lanes
 // Each a group of its own, built when it comes up, kept while it's in view (by its key).
 const LIVE = new Map(); // key -> {obj, seen}
-let styleMode = null, styleSubscribed = false;
+let styleMode = null, lifeUpdated = null, styleSubscribed = false;
 function syncStyle() {
-  const next = style.enabled();
-  if (styleMode === next) return;
-  styleMode = next;
+  const next = style.enabled(), owner = features.returnManUpdated();
+  if (styleMode === next && lifeUpdated === owner) return;
+  const styleChanged = styleMode !== next;
+  styleMode = next; lifeUpdated = owner;
   for (const [key, entry] of LIVE) {
+    // Only the roadside and sky course differ in this pilot; preserve the shared bus/art objects on profile changes.
+    if (!styleChanged && !key.startsWith('c:') && !key.startsWith('a:')) continue;
     ROOT.remove(entry.obj);
     if (key.startsWith('c:') || key.startsWith('v:')) entry.obj.traverse(o => { if (o.isMesh && o.geometry && !o.userData.shared) o.geometry.dispose(); });
     else if (key.startsWith('g:')) entry.obj.traverse(o => { if (o.userData.own) o.geometry.dispose(); });
+    else if (key.startsWith('a:')) disposeAir(entry.obj);
+    LIVE.delete(key);
   }
-  LIVE.clear();
-  if (FAR_GROUND) FAR_GROUND.visible = false;
-  style.clear();
+  if (styleChanged) { if (FAR_GROUND) FAR_GROUND.visible = false; style.clear(); }
 }
+function disposeAir(obj) {
+  // Templates own geometry/materials; each flock owns only its instance buffers.
+  obj.traverse(o => { if (o.isInstancedMesh) o.dispose(); });
+}
+const AIR_MODELS = new Map();
+function airOf(kind) {
+  if (!AIR_MODELS.has(kind)) AIR_MODELS.set(kind, bend(makeHazard(T, kind)));
+  return AIR_MODELS.get(kind).clone();
+}
+/** Built and uploaded under the start screen, before a pickup or collision can interrupt play. */
+export function warmObjects() {
+  const g = new T.Group();
+  for (const [i, kind] of ['salts', 'pills', 'booze', 'jetpack'].entries()) {
+    const o = itemOf(kind, true).clone(); o.position.set((i - 1.5) * 1.5, 0, -10); g.add(o);
+  }
+  for (const [i, kind] of ['birds', 'balloon', 'drone', 'debris'].entries()) {
+    const o = airOf(kind); o.position.set((i - 1.5) * 1.5, 3, -12); animateHazard(T, o, 0); g.add(o);
+  }
+  const coins = coinsMesh().clone(); coins.count = 1; coins.visible = true;
+  coins.setMatrixAt(0, new T.Matrix4().makeTranslation(0, 2, -8)); g.add(coins);
+  return bend(g);
+}
+export const releaseWarmObjects = disposeAir;
 // Readiness and profile changes must replace cached vehicles, even with the game view hidden.
 function refreshCityBuses() {
   for (const [key, entry] of LIVE) {
@@ -966,7 +1001,7 @@ function itemOf(kind, big = false) {
 }
 // Evan's floating collectibles: modelled at their display size, with readable fronts and a warm runner-game burst.
 // These procedural textures are created only after the profile gate above; no new artwork is fetched or precached.
-const PICKUP_COLOR = {salts: 0x54E8FF, pills: 0xFF8740, booze: 0x8AE53F};
+const PICKUP_COLOR = {salts: 0x54E8FF, pills: 0xFF8740, booze: 0x8AE53F, jetpack: 0x65EEFF};
 function pickupLabel(kind) {
   return texOf('arcade-pickup-label:' + kind, () => canvasTex(512, 512, (c, w, h) => {
     c.fillStyle = '#FFF9DF'; c.fillRect(0, 0, w, h);
@@ -1025,7 +1060,10 @@ function arcadeItemOf(kind) {
     mesh.castShadow = true; model.add(mesh); return mesh;
   };
   const label = new T.MeshBasicMaterial({map: pickupLabel(kind), toneMapped: false});
-  if (kind === 'booze') {
+  if (kind === 'jetpack') {
+    const pack = makeJetpack(T); pack.scale.setScalar(1.35); model.add(pack);
+    trim.add('box', '#F4BE36', 0, .3, 0, .05, .05, .05);
+  } else if (kind === 'booze') {
     lathe([[0, -.92], [.23, -.92], [.31, -.88], [.34, -.79], [.34, .15], [.32, .27], [.23, .4], [.13, .49], [.12, .78], [.14, .81], [.14, .87], [0, .87]], solid(0x32932F, .24));
     trim.cyl('#255C25', 0, -.91, -.83, 0, .305); trim.cyl('#FFDA54', 0, .84, .96, 0, .16);
     trim.cyl('#FFED98', 0, .94, .98, 0, .15); trim.cyl('#F6D966', 0, .61, .74, 0, .123);
@@ -1075,6 +1113,8 @@ function arcadeItemOf(kind) {
   OBJ.set(key, g); return g;
 }
 function animateArcadeItem(o, t, phase, camX, distance) {
+  const pack = o.children[0]?.getObjectByName('jetpack');
+  if (pack) animateJetpack(pack, t);
   const bob = Math.sin(t * 3 + phase) * .16, pulse = .5 + .5 * Math.sin(t * 4 + phase), y = 1.65 + bob;
   const [model, glow, ring, burst, sparks] = o.children;
   model.position.y = y;
@@ -1124,7 +1164,7 @@ function coinsMesh() {
 }
 /** The coins in view (A: core ahead's, or null with no coin run), spinning and bobbing a little; none off his profile. */
 function coinsUpdate(st, A, t) {
-  if (!(A && st.run && st.run.coins && features.available())) { if (COINS) { COINS.count = 0; COINS.visible = false; } return; }
+  if (!(A && st.run && features.available() && (st.run.coins || R.flying(st.run)))) { if (COINS) { COINS.count = 0; COINS.visible = false; } return; }
   const m = coinsMesh(), M = tm();
   let n = 0;
   for (const {coin} of A.coins) {
@@ -1198,6 +1238,22 @@ function vehicleOf(p, th) {
     g.add(painted);
     // Keep the original wheel geometry, placement, ramp and collision footprint.
     [z0 + 1.8, z1 - 2.2].forEach(z => [x0 + .1, x1 - .1].forEach(x => wheel(b, x, z, .55, .35)));
+  }
+  else if (p.kind === 'express') {
+    // A bright cab, dark windscreen, headlamps and a second carriage: readable head-on.
+    b.box('#153B59', x0, x1, .35, y1 - .25, z0, z1);
+    b.box('#F5C143', x0, x1, .7, 1.65, z0 - .01, z1);
+    b.box('#FFF0C9', x0 + .08, x1 - .08, y1 - .25, y1, z0, z1);
+    b.box('#F5C143', x0, x1, .6, y1 - .3, z0, z0 + .3);
+    b.box('#0C2237', x0 + .16, x1 - .16, 1.85, y1 - .5, z0 - .04, z0);
+    b.box('#153B59', X - .04, X + .04, 1.85, y1 - .5, z0 - .06, z0);
+    [-.78, .78].forEach(dx => lit.box('#D9FFFF', X + dx - .16, X + dx + .16, 1, 1.23, z0 - .08, z0));
+    for (let z = z0 + 2; z < z1 - 1; z += 2.2) {
+      [x0, x1].forEach(x => b.box('#9EE6E8', x - .015, x + .015, 2, 2.95, z, z + 1.5));
+    }
+    b.box('#071623', x0 - .02, x1 + .02, .45, y1 - .15, z0 + 10, z0 + 10.5);
+    [z0 + 1.8, z0 + 8.2, z1 - 7.5, z1 - 1.8].forEach(z => [x0 + .1, x1 - .1].forEach(x => wheel(b, x, z, .44, .3)));
+    g.add(frontSign('EXPRESS', X, 1.54, z0 - .06, 1.65));
   }
   else if (models.vehicle(b, lit, {x0, x1, y0, y1, z0, z1, X, w}, p, th.id)) { /* (the place's models, in its box) */ }
   else if (f) f(b, lit, {x0, x1, y0, y1, z0, z1, X, w}, p, g);
@@ -1293,7 +1349,7 @@ const LIGHT = {
 const hazeOf = id => { if (style.enabled()) return new T.Color(style.haze(id)); const [r, g, b] = (LOOKS[id] || LOOKS.stadium).haze.split(',').map(Number); return new T.Color(r / 255, g / 255, b / 255); };
 /** The light and haze at z (blending into the next place's as you come to its gate). */
 export function look(st, z) {
-  const zone = R.zoneAt(st.co, z), next = R.zoneAt(st.co, zone.z0 + R.ZONE), k = clamp((z - (zone.z0 + R.ZONE - 28)) / 28, 0, 1);
+  const zone = R.zoneAt(st.co, z), end = zone.z0 + R.zoneLength(st.co), next = R.zoneAt(st.co, end), k = clamp((z - (end - 28)) / 28, 0, 1);
   const a = style.light(zone.theme.id, LIGHT[zone.theme.id]), b = style.light(next.theme.id, LIGHT[next.theme.id]);
   const c = (x, y) => new T.Color(x).lerp(new T.Color(y), k);
   return {sky: c(a.sky, b.sky), ground: c(a.ground, b.ground), hemi: a.hemi + (b.hemi - a.hemi) * k, sun: c(a.sun, b.sun), sunI: a.sunI + (b.sunI - a.sunI) * k,
@@ -1307,10 +1363,13 @@ export function update(st, now) {
   cityBus.sync();
   fieldLogo.sync();
   FRAME++;
-  const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}${st.co.hard ? 'h' : ''}`;
+  const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}${st.co.hard ? 'h' : ''}${st.co.enhanced ? '|flight' : ''}`;
+  const lifeTime = st.lifeTime ?? run?.t ?? t;
+  life.TIME.value = st.reducedMotion ? 0 : lifeTime;
   // the places' models (return-models.js): this one's and the next two's asked for in time; what was built before its
   // place's came in, built again with them while it's still off in the haze
-  for (let z = cz; z <= cz + 2 * R.ZONE; z += R.ZONE) models.want(R.zoneAt(st.co, z).theme.id);
+  const length = R.zoneLength(st.co);
+  for (let z = cz; z <= cz + 2 * length; z += length) models.want(R.zoneAt(st.co, z).theme.id);
   if (models.version() !== MODELS_SEEN) { MODELS_SEEN = models.version(); renew(cz + 75); }
   // the ground beyond the last chunk, out to the horizon (all haze by then)
   if (!FAR_GROUND) { FAR_GROUND = new T.Mesh(new T.PlaneGeometry(4000, 3000).rotateX(-Math.PI / 2), new T.MeshLambertMaterial({color: 0x808080})); ROOT.add(bend(FAR_GROUND)); }
@@ -1326,19 +1385,24 @@ export function update(st, now) {
     const ck = key + '|' + i, have = LIVE.has('c:' + ck);
     const e = keep('c:' + ck, () => chunk(st, i), have || built === 0 || i * CHUNK < cz + 45);
     if (!have && e) built++;
-    if (e) e.traverse(o => { if (o.userData.spin) o.rotation.z = t * o.userData.spin; });
+    if (e) {
+      e.traverse(o => { if (o.userData.spin) o.rotation.z = (features.returnManUpdated() ? life.TIME.value : t) * o.userData.spin; });
+      life.animate(e, lifeTime, st.reducedMotion);
+    }
   }
   // the gates (and their goal lines' pylons)
-  for (let z = Math.ceil((cz - 4) / R.ZONE) * R.ZONE; z < cz + AHEAD; z += R.ZONE) {
+  for (let z = Math.ceil((cz - 4) / length) * length; z < cz + AHEAD; z += length) {
     if (z <= 0) continue;
     const th = R.zoneAt(st.co, z + .01).theme;
-    keep(`g:${key}|${z}`, () => {
+    const gate = keep(`g:${key}|${z}`, () => {
       const g = gateOf(th).clone(); g.position.set(0, 0, -z);
       const b = new Batch(); pylons(b, z, th.id);
       const m = b.mesh(mats().vcs);
       if (m) { m.userData.own = true; g.add(m); } // (the pylons are this gate's own: the gate itself is shared)
       return g;
     });
+    // At flying height the welcome board would cover the runner and the road.
+    if (gate) gate.visible = !(R.flying(run) && Math.abs(z - run.z) < 16);
   }
   if (run) {
     const A = R.ahead(run, 120, 4 + (st.lag || 0)); // (and further back while he's held back in a pothole: views/return.js)
@@ -1368,8 +1432,13 @@ export function update(st, now) {
     }));
     // the vehicles
     A.sets.forEach(({set}) => set.plats.forEach((p, j) => keep(`v:${key}|${set.i}|${j}`, () => vehicleOf(p, R.zoneAt(st.co, p.z0).theme))));
+    if (st.co.enhanced && features.returnManUpdated()) (run.trains || []).forEach(p => {
+      const o = keep(`v:traffic:${key}|${p.i}`, () => vehicleOf({...p, z0: 0, z1: R.TRAFFIC.length}, {id: 'city'}));
+      if (o) o.position.z = -p.z0;
+    });
     // the power-ups (gone once picked up)
     A.items.forEach(({item}) => {
+      if (item.kind === 'jetpack' && !features.returnManUpdated()) return;
       const big = !!st.co.hard, k = big ? BIG : 1, o = keep(`i:${key}|${item.i}`, () => itemOf(item.kind, big).clone());
       if (!o) return;
       const g = R.groundAt(st.co, item.lane, item.z), bob = Math.sin(t * 3 + item.i) * .12, pulse = .5 + .5 * Math.sin(t * 5 + item.i);
@@ -1381,7 +1450,12 @@ export function update(st, now) {
       const glow = o.children[1]; glow.position.y = y + bob; glow.scale.setScalar(k * (1.9 + .5 * pulse));
       const ring = o.children[2]; ring.position.y = .03; ring.scale.setScalar(k * (1 + .15 * pulse));
     });
-    // the coins (the owner's first run of the day): one instanced mesh
+    if (R.flying(run)) for (const h of run.sky?.hazards || []) {
+      if (h.z < cz || h.z > cz + AHEAD) continue;
+      const o = keep(`a:${key}|${h.i}`, () => airOf(h.kind));
+      if (o) { o.position.set(R.xOf(run, h.lane), h.y, -h.z); animateHazard(T, o, lifeTime, st.reducedMotion); }
+    }
+    // Ground rewards and the coin trail made by every jetpack share one instanced mesh.
     coinsUpdate(st, A, t);
   } else coinsUpdate(st, null, t);
   // let go of whatever's out of view
@@ -1390,6 +1464,7 @@ export function update(st, now) {
     ROOT.remove(e.obj);
     if (k.startsWith('c:') || k.startsWith('v:')) e.obj.traverse(o => { if (o.isMesh && o.geometry && !o.userData.shared) o.geometry.dispose(); });
     else if (k.startsWith('g:')) e.obj.traverse(o => { if (o.userData.own) o.geometry.dispose(); });
+    else if (k.startsWith('a:')) disposeAir(e.obj);
     LIVE.delete(k);
   }
 }

@@ -1242,9 +1242,18 @@ export function openSheet(o = {}) {
     const dt = b[0] - a[0];
     return dt > 0 ? (b[1] - a[1]) / dt : 0;
   };
-  const dStart = (cx, cy, fromBody) => {
+  const dStart = (cx, cy, fromBody, target) => {
     if (rec.state !== 'open') return;
-    drag = {sx: cx, sy: cy, y0: y, s: [[performance.now(), cy]], locked: false, active: false, fromBody};
+    drag = {sx: cx, sy: cy, y0: y, s: [[performance.now(), cy]], locked: false, active: false, fromBody, target};
+  };
+  // A list scrolling inside the body (the Rivals jukebox's songs) keeps its own swipes until it is back at its top:
+  // only then does a downward swipe move the sheet (Nov 10 2026, Evan: "When I try to scroll on the jukebox, it moves
+  // the whole screen").
+  const innerScrolled = t => {
+    for (let el = t instanceof Element ? t : null; el && el !== bodyEl && bodyEl.contains(el); el = el.parentElement) {
+      if (el.scrollTop > 0 && el.scrollHeight > el.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(el).overflowY)) return true;
+    }
+    return false;
   };
   const dMove = (cx, cy, ev) => {
     if (!drag) return;
@@ -1253,7 +1262,7 @@ export function openSheet(o = {}) {
       if (Math.abs(dy) < 8 && Math.abs(dx) < 8) return;
       drag.locked = true;
       const vertical = Math.abs(dy) > Math.abs(dx);
-      const atTop = bodyEl.scrollTop <= 0;
+      const atTop = bodyEl.scrollTop <= 0 && !(drag.fromBody && innerScrolled(drag.target));
       const ok = vertical && (!drag.fromBody || (atTop && (dy > 0 || y > minY() + 1)));
       if (!ok) { drag = null; return; }
       stopAnim();
@@ -1304,7 +1313,7 @@ export function openSheet(o = {}) {
     h.addEventListener('lostpointercapture', dEnd);
   });
   // Content: touch events; drags only from the top (down, or up while below the top detent), after the axis lock.
-  bodyEl.addEventListener('touchstart', e => { if (e.touches.length === 1) dStart(e.touches[0].clientX, e.touches[0].clientY, true); }, {passive: true});
+  bodyEl.addEventListener('touchstart', e => { if (e.touches.length === 1) dStart(e.touches[0].clientX, e.touches[0].clientY, true, e.target); }, {passive: true});
   bodyEl.addEventListener('touchmove', e => { if (drag && drag.fromBody && e.touches.length === 1) dMove(e.touches[0].clientX, e.touches[0].clientY, e); }, {passive: false});
   bodyEl.addEventListener('touchend', () => { if (drag && drag.fromBody) dEnd(); }, {passive: true});
   bodyEl.addEventListener('touchcancel', () => { if (drag && drag.fromBody) dEnd(); }, {passive: true});

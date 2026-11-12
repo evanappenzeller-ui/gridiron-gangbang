@@ -1,4 +1,5 @@
-// An attack on one of the computer's realms (core/realm-battle.js plays it; views/realm-3d.js draws it), over The
+// An attack on one of the computer's realms or, from Nov 5 2026, another player's (#/realm/raid/p:<profile>: core/realm.js
+// playerRealm, finishPlayerRaid posts what it took for their realm to take off itself) (core/realm-battle.js plays it; views/realm-3d.js draws it), over The
 // Keep (a cover over Daily Games), the owner's alone: the realm you're attacking fills the screen, your army along the bottom. Pick a kind
 // of soldier and tap round the edge of the lot to send one (hold to keep sending); red shows where you can't. The
 // clock (three minutes) starts with the first. It ends when the clock does, when everything's down, or when no one's
@@ -9,7 +10,7 @@ import * as daily from '../core/daily.js';
 import * as data from '../core/data.js';
 import * as F from '../core/realm.js';
 import {makeBattle} from '../core/realm-battle.js';
-import {houseOf, MY_HOUSE, dur, picOf, curHTML, starsHTML} from './realm.js';
+import {houseOf, houseName, MY_HOUSE, dur, picOf, curHTML, starsHTML} from './realm.js';
 import {heroIcon} from './realm-heroes.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -31,6 +32,9 @@ function speedBtn(st) {
  *  2026), and a realm more than a level above your Castle waits for it. */
 export function lockedWhy(s, key) {
   if (!F.attackOpen(s)) return `Raids open at Castle level ${F.ATTACK_AT}.`;
+  if (F.dailyAttackWhy(s)) return F.DAILY_ATTACK_USED;
+  // (another player's realm: in reach, not raided by you today, not in a truce: core/realm.js playerRealm)
+  if (F.isPvp(key)) { const why = F.attackWhy(s, key); return why ? (/[.!]$/.test(why) ? why : `${why}.`) : ''; }
   const bot = F.BOTS.find(b => b.k === key);
   return bot && !F.canTarget(s, bot) ? `${bot.name} opens at Castle level ${F.targetAt(bot)}.` : '';
 }
@@ -98,15 +102,23 @@ export function floatText(st, x, y, text, c) {
 
 function send(st, tile) {
   const B = st.B;
-  if (!F.mayPlay() || st.dead || !tile || B.over || st.done) return false;
+  if (!F.mayPlay() || st.profile !== F.profileKey() || st.dead || !tile || B.over || st.done) return false;
   if (!B.left[st.pick]) {
     const next = DEPLOY_ORDER.find(t => B.left[t] > 0);
     if (!next) return false;
     st.pick = next;
   }
-  const u = B.deploy(st.pick, tile.x, tile.y);
+  if (!st.t0 && F.dailyAttackLimited()) {
+    F.sync();
+    const why = F.attackWhy(F.mine(), st.key);
+    if (why) { ui.toast(why, {icon: 'lock'}); return false; }
+  }
+  const u = F.deployRaid(F.mine(), st.key, B, st.pick, tile.x, tile.y);
   if (!u) { st.v.showZone(true); return false; }
-  if (!st.t0) { st.t0 = performance.now(); st.el.querySelector('[data-rlr-quit]').textContent = 'End'; }
+  if (!st.t0) {
+    st.t0 = performance.now(); st.el.querySelector('[data-rlr-quit]').textContent = 'End';
+    if (F.dailyAttackLimited()) { F.touch(); F.flush(); }
+  }
   ui.haptic('selection');
   st.el.querySelector('[data-rlr-troops]').innerHTML = troopsHTML(st);
   return true;
@@ -120,7 +132,11 @@ function finish(st, quiet = false) {
   if (!B.drops.length) return;
   const ta = F.gloryFor(r.stars, st.T.th);
   // (the battle goes with it, for its replay: core/realm.js snapOf keeps the lot, the drops and where it ended)
-  F.finishRaid(s, {id: `a${now.toString(36)}`, vs: st.T.key, nm: st.T.name, at: now, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ta, hr: r.heroes}, r.used, now, B);
+  const rec = {id: `a${now.toString(36)}`, vs: st.T.key, nm: st.T.name, at: now, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ta, hr: r.heroes};
+  // (another player's realm: what it took from each of their buildings goes on the record, for their realm to take off
+  // itself, and who raided them: your house and name)
+  if (st.T.pvp) F.finishPlayerRaid(s, st.T, B, Object.assign(rec, {by: houseName(s), bw: data.me() ? data.name(data.me()) : (data.user()?.board || data.user()?.name || data.guest() || '')}), r.used, now);
+  else F.finishRaid(s, rec, r.used, now, B);
   F.touch();
   F.flush();
   if (quiet) return;
@@ -187,9 +203,10 @@ export default {
       if (!F.roomOf(army) && !Object.keys(F.heroArmy(s)).length) { msg.hidden = false; msg.textContent = 'Recruit the Knight Hero, choose a dragon and build its hatchery, or train troops first (Army, in your realm).'; return; }
       msg.hidden = true;
       st.T = T;
+      if (T.pvp) T.name = houseName(T.base, T.who);
       st.B = makeBattle(T.base, T.loot, army, {heroes: st.heroLevels, dragons: st.heroDragons});
       st.pick = DEPLOY_ORDER.find(t => st.B.left[t] > 0);
-      el.querySelector('[data-rlr-who]').innerHTML = `<span class="rl-tg-lv">${T.th}</span><span><b>${esc(T.name)}</b><small>${T.loot.total.gold || T.loot.total.grain ? `To take ${curHTML('gold', T.loot.total.gold)} ${curHTML('grain', T.loot.total.grain)}` : 'Sacked today: nothing left to take'}</small></span>`;
+      el.querySelector('[data-rlr-who]').innerHTML = `<span class="rl-tg-lv">${T.th}</span><span><b>${esc(T.name)}</b><small>${T.loot.total.gold || T.loot.total.grain ? `To take ${curHTML('gold', T.loot.total.gold)} ${curHTML('grain', T.loot.total.grain)}` : T.pvp ? 'Nothing stored to take' : 'Sacked today: nothing left to take'}</small></span>`;
       el.querySelector('[data-rlr-troops]').innerHTML = troopsHTML(st);
       score(st);
       start3d(st);
@@ -218,7 +235,7 @@ async function start3d(st) {
   if (!ok) { host.innerHTML = '<div class="rl-loading">This phone can’t show the attack in 3D.</div>'; return; }
   host.innerHTML = '';
   const house = houseOf(st.T.key);
-  st.v = D3.create(host, {house, zoom: 60, onTap: hit => { if (hit.tile) send(st, hit.tile); }, onCamera: () => bars(st)});
+  st.v = D3.create(host, {house, zoom: 60, ...(st.T.pvp ? {scenery: st.T.sc} : {}), onTap: hit => { if (hit.tile) send(st, hit.tile); }, onCamera: () => bars(st)});
   st.v.setLot(st.T.base, {now: Date.now(), house});
   { const bx = F.boxOf(st.T.base); st.v.frame(bx.x0 - 3, bx.y0 - 3, bx.x1 + 3, bx.y1 + 3, 1); }
   st.el.querySelector('.rlr').__rl = st; // (for the checks' and tests' hands)

@@ -1,3 +1,6 @@
+import * as TABLE from './dynasty-table.js';
+import * as POCKET from './dynasty-pocket.js';
+import * as PC from './dynasty-pocket-cards.js';
 // Gridiron Rivals' Solo battles against the computer. Since Oct 30 2026 (the owner: "This game mode should be focused on
 // games against the cpu getting increasingly difficult. The beginning stage should be very easily with very little
 // challenge. And around 15-20 games in there is a noticeable difference, where strategy must be applied to win") they are
@@ -14,6 +17,7 @@
 import * as D from './dynasty.js';
 import * as B from './dynasty-battle.js';
 import {profileKey} from './realm-active.js';
+import {rivalsUpdated} from './features.js';
 
 export const LEVELS = [
   {id: 'beg', name: 'Beginner', blurb: 'Common and Rare players, and a computer that keeps it simple.'},
@@ -38,12 +42,12 @@ export const OPPONENTS = [
 // ---------------------------------------------------------------------------------------------------- the ladder
 export const LADDER = 30;
 export const TIERS = [
-  {id: 'peewee', name: 'Pee Wee', from: 1, blurb: 'Warm-up games. Their players are weak to yours.'},
+  {id: 'peewee', name: 'Pee Wee', from: 1, blurb: 'Learn Energy attachments, attacks and preparing your Bench.'},
   {id: 'hs', name: 'High School', from: 6, blurb: 'A little tougher, still forgiving.'},
-  {id: 'college', name: 'College', from: 11, blurb: 'Fuller benches, Trainer cards and better players.'},
-  {id: 'pro', name: 'Pro', from: 16, blurb: 'They counter your main type, upgrade players and switch out. Plan ahead.'},
-  {id: 'allpro', name: 'All-Pro', from: 21, blurb: 'Legends join their lineups. Every energy counts.'},
-  {id: 'hof', name: 'Hall of Fame', from: 26, blurb: 'The best decks the computer can build.'}
+  {id: 'college', name: 'College', from: 11, blurb: 'Manage support cards and the risk of two-point ex knockouts.'},
+  {id: 'pro', name: 'Pro', from: 16, blurb: 'Face development decks and prepared replacements. Plan ahead.'},
+  {id: 'allpro', name: 'All-Pro', from: 21, blurb: 'Prepare for Prime players. Every Energy attachment counts.'},
+  {id: 'hof', name: 'Hall of Fame', from: 26, blurb: 'Take on the final development decks and featured bosses.'}
 ];
 const NAMES = ['Pee Wee Pups', 'Backyard Ballers', 'Flag Football Club', 'Pop Warner Panthers', 'Junior Varsity',
   'Homecoming Hopefuls', 'Friday Night Lights', 'Small-Town Stallions', 'County Champs', 'State Finalists',
@@ -94,8 +98,9 @@ function ladderTypes(n, yours) {
 const ovrOf = n => (n <= 15 ? [48 + Math.round((n - 1) * 1.2), 56 + Math.round((n - 1) * 1.2)]
   : n <= 20 ? [70 + (n - 16), 82 + (n - 16)] : [76 + (n - 21), Math.min(99, 88 + (n - 21))]);
 const kitOf = n => (n <= 8 ? {'I-water': 1} : n <= 15 ? KIT.beg : n <= 23 ? KIT.adv : KIT.exp);
-function ladderDeck(n, yours) {
-  const types = ladderTypes(n, yours), [lo, hi] = ovrOf(n), R = D.rng(`ladder|${n}|${types.join('')}`), owned = {...kitOf(n)};
+function ladderDeck(n, yours, focus = null) {
+  const types = focus ? [focus, ...ladderTypes(n, yours).filter(t => t !== focus).slice(0, 1)] : ladderTypes(n, yours);
+  const [lo, hi] = ovrOf(n), R = D.rng(`ladder|${n}|${types.join('')}`), owned = {...kitOf(n)};
   if (n >= 16) owned[STADIUM[types[0]]] = 1;
   // (the range widened, a step at a time, until each type has seven players in it: the low ratings are thin)
   const basics = D.CARDS.filter(c => c.s !== 'X' && B.isBasic(c.id) && c.pos !== 'K' && types.includes(B.POS_TYPE[c.pos]));
@@ -144,13 +149,28 @@ export function deckFor(id, yours = 'A') {
   return deck.slice();
 }
 
+/** The owner boss's 40-card deck. Legacy deckFor stays identical for other profiles and existing matches. */
+export function bossDeckFor(id, yours = 'A') {
+  const boss = D.soloBoss(id), n = ladderN(id);
+  if (!boss || !n || D.status !== 'ready') return [];
+  const base = ladderDeck(n, yours, B.POS_TYPE[boss.pos]);
+  const deck = TABLE.cpuDeck(base, D.CARDS.map(c => c.id));
+  // Replace the weakest reserves; never enlarge a deck or allow more than two of one card.
+  while (deck.filter(cid => cid === boss.id).length < 2) {
+    const slots = deck.map((cid, i) => ({i, c: D.card(cid)})).filter(x => x.c && x.c.id !== boss.id)
+      .sort((a, b) => a.c.o - b.c.o || b.i - a.i);
+    if (!slots.length) return [];
+    deck[slots[0].i] = boss.id;
+  }
+  return deck;
+}
 // ---------------------------------------------------------------------------------------------------- how it plays
 // One move at a time for side who, by its skill (skillOf): set up, then each turn Items (Recruit while the bench has room,
 // Water Bottle on a hurt player), Basics to the bench (up to its bench), evolutions, the energy where an attack needs it
 // (rules before v4), a Coach card that helps now, its Stadium, a switch-out when the active player is about to fall, and
 // an attack. A low ladder game keeps it simple and slips (now and then it ends its turn without attacking); the Pro games
 // and up play everything they hold and hunt knockouts.
-const atkOf = id => (B.stats(id) ? B.stats(id).attacks : []);
+const atkOf = (id, v) => B.attacksOf(id, v);
 const best = id => Math.max(0, ...atkOf(id).map(a => a.dmg));
 const left = s => B.hpOf(s) - s.dmg;
 const needsEnergy = s => { const a = atkOf(s.id); return a.length && !B.canPay(a[a.length - 1].cost, s.en); };
@@ -181,6 +201,15 @@ export function nextMove(G, who, lv = 'int') {
   const tryAll = list => list.find(ok) || null;
   // Items
   let m;
+  if (G.roundEnergy === B.FRONT_ENERGY && K.items && act && !act.attachment && !B.stats(act.id).ability && me.hand.includes('I-cleats')) {
+    return {a: 'item', id: 'I-cleats'};
+  }
+  if (G.v >= 6 && act) {
+    if (me.hand.includes('I-charge') && needsEnergy(act)) return {a: 'item', id: 'I-charge', on: act.u};
+    if (me.hand.includes('I-draw') && me.hand.length < 7 && me.deck.length) return {a: 'item', id: 'I-draw'};
+    if (K.items && me.hand.includes('I-recover') && act.dmg >= 30) return {a: 'item', id: 'I-recover', on: act.u};
+    if (K.items && me.hand.includes('I-focus') && atkOf(act.id, G.v).some((a,n) => ok({a:'attack',n}))) return {a: 'item', id: 'I-focus'};
+  }
   if (K.items && me.hand.includes('I-recruit') && me.bench.length < K.bench && me.deck.some(basic) && (m = tryAll([{a: 'item', id: 'I-recruit'}]))) return m;
   const hurt = all.filter(s => s.dmg >= 20).sort((x, y) => (y === act) - (x === act) || y.dmg - x.dmg);
   if (K.items && me.hand.includes('I-water') && hurt.length && (m = tryAll([{a: 'item', id: 'I-water', on: hurt[0].u}]))) return m;
@@ -227,7 +256,7 @@ export function nextMove(G, who, lv = 'int') {
   // an attack: the first it can pay (the lowest games, which now and then let the turn go by), the hardest-hitting, or
   // (smart) a knockout first, else the best value for the energy
   if (act) {
-    const opts = atkOf(act.id).map((a, n) => {
+    const opts = atkOf(act.id, G.v).map((a, n) => {
       if (G.v < 3) return {n, dmg: a.dmg};
       const p = B.attackPreview(G, who, n);
       return {n, dmg: p.min, score: (p.min + p.max) / 2 - p.energySpent * 15};
@@ -244,7 +273,8 @@ export function nextMove(G, who, lv = 'int') {
 }
 
 // ---------------------------------------------------------------------------------------------------- the battle
-const KEY = () => `gg-dys-${profileKey()}`;
+// (gg-dys2 since the launch reset, Nov 10 2026: a battle begun in the preview, under gg-dys, stays there unplayed)
+const KEY = () => `gg-dys2-${profileKey()}`;
 const subs = new Set();
 export function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
 const emit = why => subs.forEach(fn => { try { fn(why); } catch (e) { console.error(e); } });
@@ -263,24 +293,32 @@ function write() { try { if (REC) localStorage.setItem(KEY(), JSON.stringify(REC
 /** The game from the battle's log (the same one each time: kept while the log is). */
 function game(r) {
   if (CACHE && CACHE.id === r.id && CACHE.n === r.log.length) return CACHE.G;
+  if (r.v === 7) {
+    // A v7 record without a printed revision began before Sleep attacks (revision 1).
+    const G = POCKET.replay(r.seed, r.decks, r.log, {energy: r.energy, rev: r.rev || 1});
+    CACHE = {id: r.id, n: r.log.length, G};
+    return G;
+  }
   // Older solo saves had no version and always used v2. Never reinterpret their recorded moves.
-  const G = B.newGame(r.seed, r.decks, r.v >= 5 ? 5 : r.v >= 4 ? 4 : r.v >= 3 ? 3 : 2);
+  const G = B.newGame(r.seed, r.decks, r.v >= 6 ? 6 : r.v >= 5 ? 5 : r.v >= 4 ? 4 : r.v >= 3 ? 3 : 2, r.chemistry, r.roundEnergy);
   for (const [w, m] of r.log) { if (!B.play(G, w, m).ok) break; }
   CACHE = {id: r.id, n: r.log.length, G};
   return G;
 }
 function matchOf(r) {
   const o = opponent(r.opp), G = game(r);
-  const base = {mid: r.id, solo: true, opp: {key: 'cpu', name: o.name, member: null, guest: false, cpu: o}, you: 0, G, at: r.at};
+  const boss = [1, 2].includes(r.boss?.v) && D.soloBoss(r.opp)?.id === r.boss.card
+    && r.decks[1].includes(r.boss.card) && r.log.some(([w, m]) => w === 1 && m.a === 'setup' && m.act === r.boss.card) ? D.card(r.boss.card) : null;
+  const base = {mid: r.id, solo: true, opp: {key: 'cpu', name: boss ? `${boss.name} · Boss` : o.name, member: null, guest: false, cpu: o}, boss: boss?.id || null, you: 0, G, at: r.at};
   let result = null, why = G.over && G.over.why;
   if (r.z === 'resign') { result = 'l'; why = 'resign'; }
-  else if (G.phase === 'over') result = G.over.win === -1 ? 'd' : G.over.win === 0 ? 'w' : 'l';
+  else if (G.phase === 'over') result = G.v === 7 ? (G.winner === 'draw' ? 'd' : G.winner === 0 ? 'w' : 'l') : G.over.win === -1 ? 'd' : G.over.win === 0 ? 'w' : 'l';
   if (result) {
     // (paid once: core/dynasty.js paySolo)
-    if (!r.paid && D.status === 'ready' && D.mayPlay()) { r.pay = D.paySolo(r.id, o.id, o.lv, result) || null; r.paid = 1; write(); }
+    if (!r.paid && D.status === 'ready' && D.mayPlay()) { r.pay = D.paySolo(r.id, o.id, o.lv, result, D.mine(), boss?.id || null, r.boss?.v) || null; r.paid = 1; write(); }
     return {...base, state: 'over', result, why, pay: r.pay || null};
   }
-  const state = G.phase === 'setup' ? (G.p[0].set ? 'theirs' : 'setup') : B.toMove(G) === 0 ? 'yours' : 'theirs';
+  const state = G.phase === 'setup' ? ((G.v === 7 ? G.p[0].ready : G.p[0].set) ? 'theirs' : 'setup') : (G.v === 7 ? POCKET.toMove(G) : B.toMove(G)) === 0 ? 'yours' : 'theirs';
   if (state === 'theirs') kick();
   return {...base, state};
 }
@@ -298,14 +336,36 @@ export function start(id) {
   const o = opponent(id);
   if (!o || !D.mayPlay() || D.status !== 'ready') return {ok: false, why: 'Solo battles aren’t open here.'};
   if (ladderN(id) && !unlocked(id)) return {ok: false, why: `Win game ${ladderAt()} first.`};
-  const dk = D.deckOf();
+  if (D.pocketOpen?.()) return startPocket(o);
+  const table = D.tableOpen(), dk = table ? D.tableDeck() : D.deckOf();
   if (!dk.ok) return {ok: false, why: `Your deck isn’t ready: ${dk.why}`};
   rec();
   const mid = 'cpu' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
-  REC = {id: mid, opp: o.id, seed: mid, v: B.RULES_VERSION, decks: [dk.ids.slice(), deckFor(o.id, mainType(dk.ids))], log: [], at: Date.now(), z: '', paid: 0, pay: null};
+  const boss = table ? D.soloBoss(id) : null, theirs = boss ? bossDeckFor(id, mainType(dk.ids))
+    : table ? TABLE.cpuDeck(deckFor(o.id, mainType(dk.ids)), D.CARDS.map(c => c.id)) : deckFor(o.id, mainType(dk.ids));
+  if (!theirs.length) return {ok: false, why: 'This opponent’s cards aren’t ready. Try again.'};
+  const candidate = {id: mid, opp: o.id, seed: mid, v: table ? TABLE.VERSION : B.RULES_VERSION, decks: [dk.ids.slice(), theirs], log: [], at: Date.now(), z: '', paid: 0, pay: null};
+  const chemistry = table && B.teamChemistry(dk.ids);
+  if (table) candidate.roundEnergy = B.FRONT_ENERGY;
+  if (chemistry) candidate.chemistry = {v: 1, team: chemistry};
+  if (boss) {
+    candidate.boss = {v: 2, card: boss.id};
+    // Pick an opening shuffle that deals the boss. The stored seed replays using the unchanged rules engine.
+    let ready = false;
+    for (let i = 0; i < 256; i++) {
+      candidate.seed = `${mid}|boss|${i}`;
+      if (B.newGame(candidate.seed, candidate.decks, candidate.v).p[1].hand.includes(boss.id)) { ready = true; break; }
+    }
+    if (!ready) return {ok: false, why: 'The boss couldn’t set its lineup. Try again.'};
+  }
+  REC = candidate;
   CACHE = null; clearTimeout(timer); timer = 0;
   // (the computer sets up at once)
   const G = game(REC), m = nextMove(G, 1, o.lv);
+  if (boss) {
+    const rest = G.p[1].hand.slice(); rest.splice(rest.indexOf(boss.id), 1);
+    m.act = boss.id; m.bench = rest.filter(cid => B.basicIn(cid, G.v)).slice(0, Math.min(B.BENCH_MAX, skillOf(o.lv).bench));
+  }
   if (B.play(G, 1, m).ok) { REC.log.push([1, m]); CACHE.n = REC.log.length; }
   write(); emit('start');
   return {ok: true, mid};
@@ -314,7 +374,7 @@ export function start(id) {
 export function move(mid, m) {
   const x = get(mid);
   if (!x || !['setup', 'yours'].includes(x.state)) return {ok: false, why: 'It isn’t your move.'};
-  const r = B.play(x.G, 0, m);
+  const r = x.G.v === 7 ? POCKET.apply(x.G, 0, m) : B.play(x.G, 0, m);
   if (!r.ok) return r;
   REC.log.push([0, m]); REC.at = Date.now(); CACHE.n = REC.log.length;
   write(); emit('move'); kick();
@@ -326,19 +386,80 @@ export function resign(mid) {
   REC.z = 'resign'; REC.at = Date.now(); clearTimeout(timer); timer = 0; write(); emit('resign');
   return {ok: true};
 }
-// (the computer's turn: a move every so often, so you see it play)
-const STEP_MS = 750;
-function kick() { if (!timer) timer = setTimeout(step, STEP_MS); }
+// Give each resolved play time on the table. The view only controls when the CPU may
+// continue; decisions, RNG and saved moves still belong to the unchanged rules engine.
+export const CPU_STEP_MS = 2000;
+let playback = null;
+export function watchPlayback(mid, ready) {
+  const lease = {mid, profile: profileKey(), ready};
+  playback = lease; clearTimeout(timer); timer = 0; kick();
+  return () => {
+    if (playback !== lease) return;
+    playback = null; clearTimeout(timer); timer = 0;
+  };
+}
+const watching = r => playback?.mid === r.id && playback.profile === profileKey();
+function kick() {
+  if (timer || !D.mayPlay() || D.status !== 'ready') return;
+  const r = rec();
+  if (!r || r.z) return;
+  const G = game(r), engine = G.v === 7 ? POCKET : B;
+  if (G.phase === 'over' || engine.toMove(G) !== 1) return;
+  const updated = rivalsUpdated();
+  // Reading the hub or a saved game must not play an unseen CPU turn.
+  if (updated && !watching(r)) return;
+  const waiting = updated && !playback.ready(), profile = profileKey(), mid = r.id;
+  const pending = setTimeout(() => {
+    if (timer !== pending) return;
+    timer = 0;
+    if (profileKey() !== profile || REC?.id !== mid) return;
+    // After a scene/inspection closes, allow a full beat before the next move.
+    if (waiting) kick(); else step();
+  }, waiting ? 100 : updated ? CPU_STEP_MS : 750);
+  timer = pending;
+}
 function step() {
-  timer = 0;
   const r = rec();
   if (!r || r.z || !D.mayPlay()) return;
+  if (rivalsUpdated() && (!watching(r) || !playback.ready())) { kick(); return; }
   const G = game(r);
-  if (G.phase === 'over' || B.toMove(G) !== 1) { emit('cpu'); return; }
+  const engine = G.v === 7 ? POCKET : B;
+  const play = G.v === 7 ? POCKET.apply : B.play;
+  if (G.phase === 'over' || engine.toMove(G) !== 1) { emit('cpu'); return; }
   const o = opponent(r.opp);
-  let m = nextMove(G, 1, o.lv);
-  if (!B.play(G, 1, m).ok) { m = {a: 'end'}; if (!B.play(G, 1, m).ok) return; }
+  let m = G.v === 7 ? POCKET.nextMove(G, 1, o.lv) : nextMove(G, 1, o.lv);
+  if (!play(G, 1, m).ok) { m = {a: 'end'}; if (!play(G, 1, m).ok) return; }
   r.log.push([1, m]); r.at = Date.now(); CACHE.n = r.log.length;
   write(); emit('cpu');
-  if (G.phase !== 'over' && B.toMove(G) === 1) kick();
+  if (G.phase !== 'over' && engine.toMove(G) === 1) kick();
+}
+
+function startPocket(o) {
+  const dk = D.pocketDeck();
+  if (!dk.ok) return {ok: false, why: `Your deck isn’t ready: ${dk.why}`};
+  rec();
+  const boss = D.soloBoss(o.id), theirs = PC.cpuDeck(o.lv, boss?.id);
+  const legal = PC.checkDeck(theirs.ids, null, theirs.energy);
+  if (!legal.ok) return {ok: false, why: 'This opponent’s deck is not ready.'};
+  const mid = 'cpu' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
+  const candidate = {id: mid, opp: o.id, seed: mid, v: 7, rev: POCKET.REVISION, decks: [dk.ids.slice(), theirs.ids.slice()],
+    energy: [dk.energy.slice(), theirs.energy.slice()], rental: !!dk.rental, log: [], at: Date.now(), z: '', paid: 0, pay: null};
+  if (boss && candidate.decks[1].includes(boss.id)) {
+    candidate.boss = {v: 2, card: boss.id};
+    let ready = false;
+    for (let i = 0; i < 256; i++) {
+      candidate.seed = `${mid}|boss|${i}`;
+      if (POCKET.newGame(candidate.seed, candidate.decks, {energy: candidate.energy, rev: candidate.rev}).p[1].hand.includes(boss.id)) { ready = true; break; }
+    }
+    if (!ready) return {ok: false, why: 'The boss couldn’t set its lineup. Try again.'};
+  }
+  REC = candidate; CACHE = null; clearTimeout(timer); timer = 0;
+  const G = game(REC), m = POCKET.nextMove(G, 1, o.lv);
+  if (candidate.boss) {
+    const rest = G.p[1].hand.slice(); rest.splice(rest.indexOf(boss.id), 1);
+    m.act = boss.id; m.bench = rest.filter(cid => PC.card(cid)?.kind === 'player' && PC.card(cid).stage === 'Base').slice(0, 3);
+  }
+  if (POCKET.apply(G, 1, m).ok) { REC.log.push([1, m]); CACHE.n = REC.log.length; }
+  write(); emit('start');
+  return {ok: true, mid};
 }

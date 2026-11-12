@@ -36,8 +36,11 @@ export const TYPES = {
   C: {name: 'Coverage', e: 'C', color: '#A970FF'},
   S: {name: 'Special Teams', e: '*', color: '#C9A227'}
 };
-export const ENERGY = {P: 'Pass', R: 'Run', B: 'Blitz', C: 'Coverage', '*': 'Any'};
-export const ENERGY_TYPE = {P: 'A', R: 'G', B: 'B', C: 'C'};
+export const ENERGY = {P: 'Pass', R: 'Run', B: 'Blitz', C: 'Coverage', K: 'Kick', '*': 'Any'};
+export const FRONT_ENERGY = 2;
+// Special Teams generates Kick energy. Its wildcard attack costs still accept any type.
+export const typeEnergy = (type, roundEnergy) => type === 'S' && roundEnergy === FRONT_ENERGY ? 'K' : TYPES[type].e;
+export const ENERGY_TYPE = {P: 'A', R: 'G', B: 'B', C: 'C', K: 'S'};
 export const POS_TYPE = {QB: 'A', WR: 'A', TE: 'A', RB: 'G', OL: 'G', DL: 'B', LB: 'B', CB: 'C', S: 'C', K: 'S'};
 /** What each type is weak to (takes +20 from). */
 export const WEAK = {A: 'C', G: 'B', B: 'A', C: 'G'};
@@ -49,6 +52,10 @@ export const RULES_VERSION = 5;
 // (C-: Coach cards, one a turn, Pokémon's Supporters; I-: Items, any number a turn; S-: Stadiums, in play for both sides
 // till another replaces them)
 export const TRAINERS = {
+  'I-charge': {kind: 'item', vmin: 6, name: 'Energy Surge', r: 'epic', target: 'mine', text: 'Attach 2 matching energy to one of your players. Play immediately.'},
+  'I-draw': {kind: 'item', vmin: 6, name: 'Fresh Playbook', r: 'epic', text: 'Draw 2 cards. Play immediately.'},
+  'I-recover': {kind: 'item', vmin: 6, name: 'Second Wind', r: 'epic', target: 'mine', text: 'Heal 30 damage and clear conditions from one of your players.'},
+  'I-focus': {kind: 'item', vmin: 6, name: 'Extra Effort', r: 'epic', text: 'Your active player’s attacks do 20 more damage this turn.'},
   'I-recruit': {kind: 'item', name: 'Recruit', r: 'epic', text: 'Put a random Basic player from your deck into your hand.'},
   'I-water': {kind: 'item', name: 'Water Bottle', r: 'epic', text: 'Heal 20 damage from one of your players.', target: 'mine'},
   'I-cleats': {kind: 'item', name: 'Speed Cleats', r: 'epic', text: 'During this turn, your active player’s switch-out costs 1 less energy.'},
@@ -70,6 +77,15 @@ export const TRAINERS = {
   'S-lucasoil': {kind: 'stadium', name: 'Lucas Oil Stadium', team: 'IND', r: 'legendary', text: 'Fresh legs: at the start of each turn, heal 10 damage from that player’s active player.', heal: 10}
 };
 export const isTrainer = id => !!TRAINERS[id];
+export function trainerText(t, roundEnergy) {
+  if (roundEnergy === FRONT_ENERGY) {
+    if (t.id === 'I-charge') return 'Give one player 2 energy of your active player’s type now. Attach this card to double that player’s turn energy.';
+    if (t.id === 'I-cleats') return 'Your active player switches out for 1 less energy this turn. Attach Speed Cleats to that player to double their turn energy.';
+  }
+  return roundEnergy && t.id === 'I-charge'
+    ? 'Give one player 2 matching energy now. Keep this card attached so the player gets 2 energy each turn.'
+    : t.text;
+}
 
 // ---------------------------------------------------------------------------------------------------- abilities
 export const ABILITY = {
@@ -149,11 +165,18 @@ export function stats(id) {
   STATS.set(id, st);
   return st;
 }
+// v6 is the owner solo table pilot. Existing stats and v1-v5 replays remain unchanged.
+export function attacksOf(id, v = RULES_VERSION) {
+  const st = stats(id);
+  if (!st) return [];
+  return v < 6 ? st.attacks : [...st.attacks, {name: 'All or Nothing', cost: [TYPES[st.type].e, '*'], dmg: st.attacks[1].dmg + 40, fx: 'risk', v: 0}];
+}
 /** Words for an attack's trick. */
 export function fxText(a) {
   const v = a.v;
   switch (a.fx) {
     case 'coin': return `Flip a coin. Heads: ${v} more damage.`;
+    case 'risk': return 'Flip a coin. Heads: full damage. Tails: the attack fails.';
     case 'draw': return 'Draw a card.';
     case 'heal': return `Heal ${v} damage from this player.`;
     case 'shield': return `This player takes ${v} less damage during your opponent’s next turn.`;
@@ -182,6 +205,7 @@ export function checkDeck(ids, owned = null, v = RULES_VERSION) {
   const per = {}, have = {};
   for (const id of ids) {
     const st = stats(id), tr = TRAINERS[id];
+    if (tr?.vmin > RULES_VERSION) return {ok: false, why: 'That card belongs to the solo table playbook.', types: []};
     if (!st && !tr) return {ok: false, why: 'A card in it isn’t a game card.', types: []};
     const k = st ? 'p:' + st.from : id;
     per[k] = (per[k] || 0) + 1;
@@ -226,8 +250,10 @@ function shuffle(G, a) { for (let i = a.length - 1; i > 0; i--) { const j = Math
 // slot: {u (id), id (the card on top), under (what it evolved from), dmg, en [energy], stun, inj, shield, at (the turn it
 //  came into play)}
 /** A new game: seed (the match id), decks [[ids], [ids]]. */
-export function newGame(seed, decks, v = 1) {
-  const G = {seed: String(seed), v: v >= 5 ? 5 : v >= 4 ? 4 : v >= 3 ? 3 : v >= 2 ? 2 : 1, rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
+export function newGame(seed, decks, v = 1, chemistry = null, roundEnergy = 0) {
+  const G = {seed: String(seed), v: v >= 6 ? 6 : v >= 5 ? 5 : v >= 4 ? 4 : v >= 3 ? 3 : v >= 2 ? 2 : 1, rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
+  // Snapshot the turn rule separately: friend and solo matches use different decks and knockout rules.
+  if (roundEnergy === 1 || roundEnergy === FRONT_ENERGY) G.roundEnergy = roundEnergy;
   G.first = coin(G) ? 0 : 1; G.cur = G.first;
   for (let i = 0; i < 2; i++) {
     const deck = shuffle(G, (decks[i] || []).slice());
@@ -239,6 +265,8 @@ export function newGame(seed, decks, v = 1) {
     }
     G.p.push({deck, hand: deck.splice(0, HAND_START), disc: [], active: null, bench: [], pts: 0, types: deckTypes(decks[i]), en: null, next: null, n: 0, set: false,
       used: {}, promote: false, plan: 0, cleats: 0});
+    // Optional owner solo rule, captured at match creation. Old matches and friend matches omit it.
+    if (G.v === 6 && chemistry?.v === 1 && i === 0 && chemistry.team === teamChemistry(decks[i])) G.p[i].chemistry = chemistry.team;
   }
   return G;
 }
@@ -247,6 +275,17 @@ const other = who => 1 - who;
 export const hpOf = slot => (stats(slot.id) ? stats(slot.id).hp : 0);
 export const slots = side => [side.active, ...side.bench].filter(Boolean);
 const findSlot = (side, u) => slots(side).find(s => s.u === u) || null;
+/** One team, at least twelve player cards and six different players. Trainers are neutral. */
+export function teamChemistry(ids) {
+  const players = (ids || []).map(CARD).filter(Boolean), team = players[0]?.team;
+  return team && players.length >= 12 && players.every(c => c.team === team)
+    && new Set(players.map(c => c.p || c.id)).size >= 6 ? team : null;
+}
+export function chemistryBonus(G, who) {
+  const me = G.p[who], active = me?.active && CARD(me.active.id), team = me?.chemistry;
+  return G.v === 6 && team && me.n >= 2 && active?.team === team
+    && me.bench.some(s => { const c = CARD(s.id); return c?.team === team && (c.p || c.id) !== (active.p || active.id); }) ? 5 : 0;
+}
 const takeFromHand = (side, id) => { const i = side.hand.indexOf(id); if (i < 0) return false; side.hand.splice(i, 1); return true; };
 function newSlot(G, id) { return {u: G.uid++, id, under: [], dmg: 0, en: [], stun: false, inj: false, shield: 0, at: G.turn}; }
 /** Whether an attack's cost is paid by the energy on a slot. */
@@ -284,11 +323,33 @@ function startTurn(G) {
     if (G.phase === 'over') return;
   }
   if (me.deck.length) { const c = me.deck.shift(); me.hand.push(c); say(G, who, 'draw', {id: c}); }
+  if (G.roundEnergy) {
+    grantLineupEnergy(G, who);
+    return;
+  }
   if (G.v >= 2) {
     me.en = G.turn === 0 && who === G.first ? null : energyFor(G, who, me.n);
     me.next = energyFor(G, who, me.n + 1);
   } else me.en = G.turn === 0 && who === G.first ? null : me.types[Math.floor(rand(G) * me.types.length)];
   autoEnergy(G, who);
+}
+function matchingEnergy(side, slot) {
+  const e = TYPES[stats(slot.id).type].e;
+  return e === '*' ? side.types[0] : e;
+}
+function grantLineupEnergy(G, who) {
+  const me = G.p[who], front = G.roundEnergy === FRONT_ENERGY;
+  // After a knockout, the promotion supplies the type for the pending turn.
+  if (front && (!me.active || me.used.energy)) return;
+  const generated = front && typeEnergy(stats(me.active.id).type, G.roundEnergy);
+  for (const slot of slots(me)) {
+    const e = generated || matchingEnergy(me, slot);
+    const count = stats(slot.id).ability || slot.attachment ? 2 : 1;
+    slot.en.push(e);
+    if (count === 2) slot.en.push(e);
+    say(G, who, 'energy', {u: slot.u, id: slot.id, e, count, auto: true});
+  }
+  if (front) me.used.energy = true;
 }
 /** How many of a cost's energy en still leaves unpaid. */
 export function unpaid(cost, en) {
@@ -314,9 +375,9 @@ function endTurn(G) {
   slots(G.p[other(who)]).forEach(s => { s.shield = 0; }); // (the other side's shields lasted through this turn)
   me.en = null; me.plan = 0; me.cleats = 0;
   G.turn++;
-  if (G.turn >= TURN_CAP) {
+  if (G.turn >= (G.v >= 6 ? 100 : TURN_CAP)) {
     const [a, b] = [G.p[0].pts, G.p[1].pts];
-    finish(G, a === b ? -1 : a > b ? 0 : 1, 'time');
+    finish(G, G.v >= 6 ? -1 : a === b ? -1 : a > b ? 0 : 1, 'time');
     return;
   }
   G.cur = other(who);
@@ -325,12 +386,19 @@ function endTurn(G) {
 function finish(G, win, why) { G.phase = 'over'; G.over = {win, why}; say(G, win, 'over', {why}); }
 /** His active player is knocked out: the touchdown to the other side, the cards to his discard. */
 function knockOut(G, who) {
-  const me = G.p[who], s = me.active, st = stats(s.id), pts = st && st.ex ? 2 : 1;
+  const me = G.p[who], s = me.active, st = stats(s.id), pts = G.v >= 6 ? 1 : st && st.ex ? 2 : 1;
   me.disc.push(...s.under, s.id); me.active = null;
+  if (s.attachment) me.disc.push(s.attachment);
   G.p[other(who)].pts += pts;
-  say(G, who, 'ko', {id: s.id, u: s.u, pts});
+  say(G, who, 'ko', {id: s.id, u: s.u, pts, ...(G.v >= 6 ? {players: true} : {})});
   if (G.p[other(who)].pts >= WIN_POINTS) { finish(G, other(who), 'points'); return; }
-  if (!me.bench.length) { finish(G, other(who), 'empty'); return; }
+  if (!me.bench.length && G.v >= 6) {
+    // An empty bench is not another knockout: bring a reserve into play.
+    const source = me.hand.some(id => basicIn(id, G.v)) ? me.hand : me.deck;
+    const i = source.findIndex(id => basicIn(id, G.v));
+    if (i >= 0) { const id = source.splice(i, 1)[0]; me.bench.push(newSlot(G, id)); say(G, who, 'reinforce', {id}); }
+  }
+  if (!me.bench.length) { finish(G, G.v >= 6 ? -1 : other(who), G.v >= 6 ? 'time' : 'empty'); return; }
   me.promote = true;
 }
 
@@ -382,7 +450,7 @@ export function check(G, who, m) {
     }
     case 'item': {
       const T = TRAINERS[m.id];
-      if (G.v < 2 || !T || T.kind !== 'item' || !me.hand.includes(m.id)) return no('Not an Item card in your hand.');
+      if (G.v < 2 || (T?.vmin || 1) > G.v || !T || T.kind !== 'item' || !me.hand.includes(m.id)) return no('Not an Item card in your hand.');
       if (T.target === 'mine' && !findSlot(me, m.on)) return no('Pick one of your players.');
       if (m.id === 'I-cleats' && !me.active) return no('No active player.');
       return {ok: true};
@@ -402,7 +470,7 @@ export function check(G, who, m) {
       return {ok: true};
     }
     case 'attack': {
-      const a = me.active && stats(me.active.id) && stats(me.active.id).attacks[m.n];
+      const a = me.active && stats(me.active.id) && attacksOf(me.active.id, G.v)[m.n];
       if (!a) return no('No such attack.');
       if (me.active.stun) return no('He’s Stunned this turn.');
       if (!canPay(a.cost, me.active.en)) return no('Not enough energy.');
@@ -426,7 +494,10 @@ function doMove(G, who, m) {
     case 'promote': {
       const i = me.bench.findIndex(s => s.u === m.u);
       me.active = me.bench.splice(i, 1)[0]; me.promote = false;
-      say(G, who, 'promote', {u: m.u, id: me.active.id}); autoEnergy(G, who); return;
+      say(G, who, 'promote', {u: m.u, id: me.active.id});
+      if (G.roundEnergy === FRONT_ENERGY) grantLineupEnergy(G, who);
+      else autoEnergy(G, who);
+      return;
     }
     case 'bench': takeFromHand(me, m.id); me.bench.push(newSlot(G, m.id)); say(G, who, 'bench', {id: m.id}); return;
     case 'evolve': {
@@ -449,16 +520,30 @@ function doMove(G, who, m) {
         say(G, who, 'coach', o);
         if (opp.active.dmg >= hpOf(opp.active)) knockOut(G, other(who));
         return;
-      } else if (m.id === 'C-plan') me.plan = 30;
+      } else if (m.id === 'C-plan') me.plan = G.v >= 6 ? me.plan + 30 : 30;
       else if (m.id === 'C-count') { o.heads = coin(G); if (o.heads) opp.active.stun = true; }
       else if (m.id === 'C-room') slots(me).forEach(s => { s.dmg = Math.max(0, s.dmg - 20); s.stun = false; s.inj = false; });
       else if (m.id === 'C-fourth') { const s = me.bench.find(x => x.u === m.on); if (me.active) { o.n = s.en.length; me.active.en.push(...s.en); s.en = []; } }
       say(G, who, 'coach', o); return;
     }
     case 'item': {
-      takeFromHand(me, m.id); me.disc.push(m.id);
+      takeFromHand(me, m.id);
+      const attachmentTarget = G.roundEnergy && m.id === 'I-charge' ? findSlot(me, m.on)
+        : G.roundEnergy === FRONT_ENERGY && m.id === 'I-cleats' ? me.active : null;
+      if (attachmentTarget) {
+        if (attachmentTarget.attachment) me.disc.push(attachmentTarget.attachment);
+        attachmentTarget.attachment = m.id;
+      } else me.disc.push(m.id);
       const o = {id: m.id};
-      if (m.id === 'I-recruit') { const b = me.deck.filter(id => basicIn(id, G.v)); if (b.length) { const id = b[Math.floor(rand(G) * b.length)]; me.deck.splice(me.deck.indexOf(id), 1); me.hand.push(id); o.got = id; } }
+      if (m.id === 'I-charge') {
+        const s = findSlot(me, m.on);
+        const e = G.roundEnergy === FRONT_ENERGY ? typeEnergy(stats(me.active.id).type, G.roundEnergy) : matchingEnergy(me, s);
+        s.en.push(e, e); o.u = s.u; o.energy = 2;
+      }
+      else if (m.id === 'I-draw') { o.n = 0; while (o.n < 2 && me.deck.length) { me.hand.push(me.deck.shift()); o.n++; } }
+      else if (m.id === 'I-recover') { const s = findSlot(me, m.on); o.heal = Math.min(30, s.dmg); s.dmg -= o.heal; s.stun = false; s.inj = false; o.u = s.u; }
+      else if (m.id === 'I-focus') me.plan += 20;
+      else if (m.id === 'I-recruit') { const b = me.deck.filter(id => basicIn(id, G.v)); if (b.length) { const id = b[Math.floor(rand(G) * b.length)]; me.deck.splice(me.deck.indexOf(id), 1); me.hand.push(id); o.got = id; } }
       else if (m.id === 'I-water') { const s = findSlot(me, m.on); o.heal = Math.min(20, s.dmg); s.dmg -= o.heal; o.u = s.u; }
       else if (m.id === 'I-cleats') me.cleats = 1;
       say(G, who, 'item', o); return;
@@ -481,7 +566,8 @@ function doMove(G, who, m) {
 // Shared by previews and resolution. No randomness or mutations: heads is the attack's already rolled coin.
 function attackDamage(G, who, n, heads = false) {
   const me = G.p[who], opp = G.p[other(who)], A = me.active, D = opp.active;
-  const sa = stats(A.id), sd = stats(D.id), a = sa.attacks[n];
+  const sa = stats(A.id), sd = stats(D.id), a = attacksOf(A.id, G.v)[n];
+  if (a.fx === 'risk' && !heads) return {dmg: 0, weak: false, jukeReduced: 0};
   let dmg = a.dmg;
   if (a.fx === 'coin' && heads) dmg += a.v;
   if (a.fx === 'plus') dmg += a.v;
@@ -492,21 +578,22 @@ function attackDamage(G, who, n, heads = false) {
   if (a.flat && G.stadium && TRAINERS[G.stadium.id].boost && TRAINERS[G.stadium.id].boost.S) dmg += TRAINERS[G.stadium.id].boost.S;
   if (sa.type === 'A' && slots(me).some(s => s !== A && stats(s.id).ability === 'boost')) dmg += 10;
   if (sa.ability === 'clutch') dmg += 30;
-  dmg += me.plan;
+  const chemistry = chemistryBonus(G, who);
+  dmg += me.plan + chemistry;
   const weak = !a.flat && sd.weak === sa.type;
   if (weak) dmg += WEAK_BONUS;
   if (sd.ability === 'tough') dmg -= 20;
   dmg -= D.shield;
   const jukeReduced = G.v >= 3 && sd.ability === 'juke' && n === 1 ? Math.min(30, Math.max(0, dmg)) : 0;
   dmg -= jukeReduced;
-  return {dmg: Math.max(0, dmg), weak, jukeReduced};
+  return {dmg: Math.max(0, dmg), weak, jukeReduced, chemistry};
 }
 
 /** Public, non-mutating damage range. It includes board modifiers, never reveals the seeded coin result. */
 export function attackPreview(G, who, n) {
   const legal = check(G, who, {a: 'attack', n});
   const A = G.p[who] && G.p[who].active, D = G.p[other(who)] && G.p[other(who)].active;
-  const a = A && stats(A.id) && stats(A.id).attacks[n];
+  const a = A && stats(A.id) && attacksOf(A.id, G.v)[n];
   const energySpent = G.v >= 3 && n === 1 ? 1 : 0;
   const notes = [];
   if (!a || !D) return {ok: legal.ok, why: legal.why || '', min: 0, max: 0, damageText: '—', energySpent, notes, text: signatureText(G, n)};
@@ -514,6 +601,7 @@ export function attackPreview(G, who, n) {
   const juke = stats(D.id).ability === 'juke';
   const min = G.v < 3 && juke ? 0 : low.dmg, max = high.dmg;
   if (low.weak) notes.push(`Weakness +${WEAK_BONUS}`);
+  if (high.chemistry) notes.push(`Team chemistry +${high.chemistry} on a successful attack`);
   if (G.v >= 3 && juke && n === 1) notes.push('Juke reduces signature damage by 30');
   if (G.v < 3 && juke) notes.push('Juke may cancel this attack');
   if (a.fx === 'coin') notes.push('Damage range includes the coin flip');
@@ -524,13 +612,15 @@ export function attackPreview(G, who, n) {
 /** An attack: board damage, then its trick, Lockdown, energy spent, and a knockout. */
 function attack(G, who, n) {
   const me = G.p[who], opp = G.p[other(who)], A = me.active, D = opp.active;
-  const sa = stats(A.id), sd = stats(D.id), a = sa.attacks[n];
+  const sa = stats(A.id), sd = stats(D.id), a = attacksOf(A.id, G.v)[n];
   const o = {u: A.u, id: A.id, n, name: a.name, target: D.id, tu: D.u};
-  if (a.fx === 'coin') o.heads = coin(G);
+  if (a.fx === 'coin' || a.fx === 'risk') o.heads = coin(G);
+  if (a.fx === 'risk' && !o.heads) o.failed = true;
   const hit = attackDamage(G, who, n, o.heads);
   let dmg = hit.dmg;
   if (hit.weak) o.weak = true;
   if (hit.jukeReduced) o.jukeReduced = hit.jukeReduced;
+  if (hit.chemistry) o.chemistry = hit.chemistry;
   if (G.v < 3 && sd.ability === 'juke') { o.juke = coin(G); if (o.juke) { dmg = 0; o.missed = true; } }
   dmg = Math.max(0, dmg);
   D.dmg += dmg; o.dmg = dmg;
@@ -556,8 +646,8 @@ function attack(G, who, n) {
 /** A match's game from its moves: seed, decks [[ids], [ids]], moves [[move lists of side 0's turns], [side 1's]] (each
  *  side's list: its setup first, then one list a turn), v (the rules' version: newGame's). Replays them in order (a
  *  turn's moves until it ends) and stops at the first bad move. Returns {G, bad: null | {who, i, why}}. */
-export function replay(seed, decks, moves, v = 1) {
-  const G = newGame(seed, decks, v);
+export function replay(seed, decks, moves, v = 1, roundEnergy = 0) {
+  const G = newGame(seed, decks, v, null, roundEnergy);
   const at = [0, 0]; // (each side's next turn in its list)
   const run = (who, list) => {
     for (const m of list || []) { const r = play(G, who, m); if (!r.ok) return r.why; }

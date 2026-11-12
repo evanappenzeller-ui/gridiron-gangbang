@@ -12,10 +12,10 @@ import * as daily from './daily.js';
 
 export const BET_MAX = 80;
 
-// Who may change which leg. The Lay admin (Evan) may enter, change or remove anyone's leg, before or after legs
+// Who may change which leg. The Lay admins (Evan and Jayton) may enter, change or remove anyone's leg, before or after legs
 // close; everyone else only their own, until legs close. An app rule: "Which one are you?" is a claim, so the
 // database rules can't tell who is who.
-export const ADMINS = ['evan'];
+export const ADMINS = ['evan', 'jayton'];
 export const isAdmin = (id = data.me()) => !!id && ADMINS.includes(id);
 export const canEdit = (by, id = data.me()) => !!id && (by === id || isAdmin(id));
 const STORE = 'gg-dev-lay';

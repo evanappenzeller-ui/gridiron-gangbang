@@ -20,7 +20,9 @@ function source(url) {
   assert.ok(relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative), 'fixture path stays inside app');
   const file = fs.realpathSync(candidate), realRelative = path.relative(fs.realpathSync(root), file);
   assert.ok(realRelative !== '..' && !realRelative.startsWith('..' + path.sep) && !path.isAbsolute(realRelative), 'resolved fixture path stays inside app');
-  return {contentType: mime[path.extname(file)] || 'application/octet-stream', body: fs.readFileSync(file)};
+  // Source-inspection checks should not depend on Windows checkout line endings.
+  const body = path.extname(file) === '.js' ? fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n') : fs.readFileSync(file);
+  return {contentType: mime[path.extname(file)] || 'application/octet-stream', body};
 }
 async function launch() {
   const options = {headless: true};
@@ -45,7 +47,7 @@ async function main() {
       if (!url.startsWith(origin + '/')) { external.push(url); return route.abort(); }
       const pathname = new URL(url).pathname;
       if (pathname === '/__stumble_check__') return route.fulfill({contentType: 'text/html', body: '<!doctype html><title>Return Man offline checks</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/css/views/return.css">'});
-      if (pathname === '/js/app.js') return route.fulfill({contentType: 'text/javascript', body: 'export const APP_VERSION="offline-check", installEvent=null; export async function promptInstall(){return false;}'});
+      if (pathname === '/js/app.js') return route.fulfill({contentType: 'text/javascript', body: 'export const APP_VERSION="offline-check", installEvent=null, TABS=[]; export async function promptInstall(){return false;}'});
       try { return await route.fulfill(source(url)); }
       catch (error) { errors.push(`${pathname}: ${error.message}`); return route.fulfill({status: 404, body: error.message}); }
     });

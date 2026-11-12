@@ -458,6 +458,12 @@ html.rm .v-puzzles .gm-case.is-hint .gm-grip-cue, html.rm .v-puzzles .gm-case.is
   right: auto; left: 2.4cqw; padding: .8cqw 1.5cqw .7cqw; border: max(1px, .3cqw) solid #F2C230; border-radius: 1cqw;
   background: rgba(242,194,48,.14); color: #F2C230; font: 800 2.6cqw/1 var(--font-text); letter-spacing: .14em;
 }
+/* a game just released (Gridiron Rivals, Nov 10 2026): NEW, filled, in the BETA tag's place */
+.gm-band > .gm-beta.gm-new {
+  padding: 1.1cqw 2.3cqw 1cqw; border-color: #FFB0A8; border-radius: 1.2cqw; background: linear-gradient(#FF6A5C, #E3261B); color: #FFFFFF;
+  font: 900 3.9cqw/1 var(--font-text); letter-spacing: .16em;
+  box-shadow: 0 0 2.4cqw rgba(255,80,64,.7), 0 .4cqw .8cqw rgba(0,0,0,.35); text-shadow: 0 .2cqw .4cqw rgba(90,0,0,.45);
+}
 .gm-art { position: relative; flex: 1 1 auto; min-height: 0; display: block; overflow: hidden; background: #1A1A1D; }
 .gm-img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
 /* a sticker on the shrink wrap, bottom right of the cover (clear of its title), while a game's under way (or a test play) */
@@ -764,3 +770,13 @@ button.gm-r:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 
 /* A game's own page (pushed over the list): Daily Puzzles' card and leaderboard start under the nav bar. */
 .v-puzzles .c-pz-pane > .c-hero-wrap { margin-top: 8px; }
+
+/* The compact control uses the space beneath the case without covering its artwork. */
+.v-puzzles .gm-case-control {position:absolute;z-index:15;left:50%;top:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:76%;height:28px;min-height:28px;display:flex;align-items:center;justify-content:center;gap:5px;padding:4px 10px;border:1px solid #d9f4e240;border-radius:9px;background:#0a271c55;color:#f3f7e9e6;font:700 11px/1.2 var(--font-text);cursor:pointer;}
+.v-puzzles .gm-case-control::before {content:"";position:absolute;inset:-8px -6px;}
+.v-puzzles .gm-case-control .ic {width:12px;height:12px;}
+.v-puzzles .gm-slot:not(.is-cur)>.gm-case-control {visibility:hidden;pointer-events:none;}
+.v-puzzles .gm-case-control:focus-visible {outline:3px solid #fff;outline-offset:2px;}
+@media (max-height:650px) {
+  .v-puzzles .gm-list:has(.gm-case-control) .gm-shelf {top:-16px;}
+}

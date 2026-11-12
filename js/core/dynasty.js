@@ -1,8 +1,10 @@
+import * as TABLE from './dynasty-table.js';
+import * as POCKET from './dynasty-pocket-cards.js';
 // Gridiron Dynasty (the owner's ask, Oct 27 2026: "most comparable to Ultimate Team in Madden. Players can earn points to
 // open packs to unlock players. Players are based on real life [players]... inspiration [from] how MLB The Show does
-// their player cards with different types and collections"). A persistent game on Daily Games, Evan's and Ryan
-// Stewart's alone (Oct 28 2026: "Make available to Evan and Ryan Stewart's profiles only"; core/features.js
-// dynastyOpen): no one else's phone plays it or posts to it, and only their Dynasties show (others()).
+// their player cards with different types and collections"). A persistent game on Daily Games for Evan, Ryan
+// Stewart and Jayton at first; everyone's since Nov 10 2026 (core/features.js dynastyOpen), each profile's Dynasty showing
+// to everyone (others()).
 //
 // The cards (data/dynasty.json, tools/dynasty/build.py): real NFL players from nflverse, in six series after The Show's
 // card types: Live Series (every active player, OVR from his 2025 and 2026 play), Rookie, Prime, Gameday (a week's best
@@ -11,7 +13,7 @@
 // "the common cards should use the images we have now with the player headshots. use the new cards for the rare and
 // above. create a new player ranking scale using this"). One card a player (Nov 2 2026, the owner: "There should be no
 // two cards for the same player. A player needs to fall into one of the following categories: common (79 overall or
-// less. Use the current card design), epic (80-89), legendary (90-95), mythic (96+)"): each player keeps his best card
+// less. Use the current card design), epic (80-89), legendary (90-95), mythic (96+)"; Nov 7 2026: Epic 85-89): each player keeps his best card
 // (highest OVR; his other cards are aliases of it: ALIAS, and a save's copies fold onto it: fold()), its rarity by OVR
 // alone (rarityOf, SCALE). Rare is retired. And the battles' Coach and Stadium cards (core/dynasty-battle.js
 // TRAINERS: Pokémon's Trainer and Stadium cards).
@@ -23,26 +25,31 @@
 // rewards claimed once: cl), your battle deck (dk: 20 cards, core/dynasty-battle.js checkDeck) and what battles paid
 // (bt, tr: trophies, rec). The battles themselves: core/dynasty-match.js.
 //
-// Where it lives: this phone's board doc (players/{uid}, daily.js) as dy1 under the profile's own key (profileKey: m_<member>,
-// u_<app user>, g_<guest>), so a player's Dynasty is the same on every phone of theirs; locally under gg-dy1-<key>. Other
+// Where it lives: this phone's board doc (players/{uid}, daily.js) as dy2 under the profile's own key (profileKey: m_<member>,
+// u_<app user>, g_<guest>), so a player's Dynasty is the same on every phone of theirs; locally under gg-dy2-<key>. Other
 // players' Dynasties and the Dynasty board follow the scoreboards' rule (CLAUDE.md): everyone to everyone, read from
 // daily.LB.raw (never LB.all, except for finding your own saved copy, as Keepfall does).
 import * as daily from './daily.js';
 import * as data from './data.js';
 import {profileKey, visitWho} from './realm-active.js';
 import * as B from './dynasty-battle.js';
-import {dynastyOpen, dynastyKey, packsUnlimited} from './features.js';
+import {dynastyOpen, dynastyKey, packsUnlimited, coinsUnlimited, rivalsUpdated} from './features.js';
 import {REAL} from './dynasty-real.js';
 import {ACTION} from './dynasty-action.js';
 
-export const FIELD = 'dy1';
+// The launch reset (Nov 10 2026, Evan: "Make the gridiron rivals game mode available to everyone and reset the progress
+// that Jayton, Ryan, and I have made so far"): saves moved from dy1 (the preview's, kept untouched on the board docs and
+// in gg-dy1-<key> on each phone as the archive) to dy2, so every Rivals player starts a fresh save at launch. Old clients
+// still write only dy1, which nothing reads any more.
+export const FIELD = 'dy2';
+export const PREVIEW_FIELD = 'dy1';
 export const VERSION = 1;
 export const SEASON_MARK = 'gridiron-hub-v3';
 export const STARTER_COINS = 2500;
 export const DAILY_PACK = 'std';
-const LOCAL = key => `gg-dy1-${key}`;
+const LOCAL = key => `gg-dy2-${key}`;
 
-/** Whether this phone can play: Evan's profile or Ryan Stewart's (core/features.js dynastyOpen, Oct 28 2026). */
+/** Whether this phone's selected profile can play (core/features.js dynastyOpen). */
 export const mayPlay = () => dynastyOpen();
 
 // ---------------------------------------------------------------------------------------------------- the cards
@@ -57,9 +64,11 @@ export const SERIES = {
 export const SERIES_ORDER = ['X', 'P', 'A', 'G', 'R', 'L'];
 export const RARITY = ['common', 'epic', 'legendary', 'mythic'];
 export const RARITY_NAME = {common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary', mythic: 'Mythic'};
-/** The lowest OVR of each rarity above Common (the owner, Nov 2 2026: Common 79 or less, Epic 80-89, Legendary 90-95,
- *  Mythic 96+). */
-export const SCALE = Object.freeze({mythic: 96, legendary: 90, epic: 80});
+/** The lowest OVR of each rarity above Common (the owner, Nov 7 2026: "Epic is players with ratings 85-89. Legendary is
+ *  90-95. Mythic is 96-99"; Common is 84 or less. It was Epic 80-89 from Nov 2). */
+export const SCALE = Object.freeze({mythic: 96, legendary: 90, epic: 85});
+/** Whether a rarity's cards wear action photos (Legendary and Mythic; Common and Epic wear headshots). */
+export const actionRarity = r => r === 'legendary' || r === 'mythic';
 /** A card's rarity, by its OVR alone. */
 export const rarityOf = ovr => (ovr >= SCALE.mythic ? 'mythic' : ovr >= SCALE.legendary ? 'legendary' : ovr >= SCALE.epic ? 'epic' : 'common');
 export const POS_NAME = {QB: 'Quarterback', RB: 'Running back', WR: 'Wide receiver', TE: 'Tight end', OL: 'Offensive line', DL: 'Defensive line',
@@ -96,7 +105,7 @@ export function setData(d) {
   const every = (d.cards || []).map(c => {
     const pl = d.players[c[2]] || ['?', '', 'QB', 0, '', 0, '', 0];
     const card = {id: c[0], s: c[1], p: c[2], o: c[3], a: c[4] || [], ln: c[5] || [], t: c[6] || '', tm: c[7] || pl[1], w: c[8] || 0,
-      name: pl[0], team: c[7] || pl[1], pos: pl[2], num: pl[3], head: pl[4] || '', exp: pl[5], college: pl[6], draft: pl[7], real: null};
+      name: pl[0], team: c[7] || pl[1], pos: pl[2], num: pl[3], head: pl[4] || '', alt: pl[8] || '', exp: pl[5], college: pl[6], draft: pl[7], real: null};
     BY_ID.set(card.id, card);
     return card;
   });
@@ -116,19 +125,21 @@ export function setData(d) {
   });
   CARDS = every.filter(c => best.get(c.p) === c);
   every.forEach(c => { if (best.get(c.p) !== c) ALIAS.set(c.id, best.get(c.p).id); });
-  // (an Epic or better card wears its player's action photo, cut out on its team's colours; a Common keeps its headshot; a
-  // Legend never wears a headshot or portrait, only his action photo, else his number: the owner, Oct 31 2026,
-  // core/dynasty-action.js)
-  every.forEach(c => { if (ACTION[c.p] && (c.r !== 'common' || c.s === 'X')) c.head = 'a:' + c.p; });
+  // (a Legendary or Mythic card wears its player's action photo, cut out on its team's colours; Common and Epic cards wear
+  // his official NFL headshot (the owner, Nov 7 2026: "Use the players official nfl headshots for common and epic cards";
+  // tools/dynasty/nfl_heads.py, ESPN's as the fallback: alt); a Legend never wears a headshot or portrait, only his action
+  // photo, else his number: the owner, Oct 31 2026, core/dynasty-action.js)
+  every.forEach(c => { if (ACTION[c.p] && (actionRarity(c.r) || c.s === 'X')) c.head = 'a:' + c.p; });
   POOLS.clear();
   B.setCards(card);
+  POCKET.setCards(CARDS);
   COLLECTIONS = buildCollections();
 }
 /** A player card (null for anything else: a Coach or Stadium card is trainer()'s). */
 export const card = id => BY_ID.get(id) || null;
 /** A Coach or Stadium card: {id, kind, name, r, text, ...}. */
 export const trainer = id => (B.TRAINERS[id] ? {id, ...B.TRAINERS[id]} : null);
-export const TRAINER_IDS = Object.keys(B.TRAINERS);
+export const TRAINER_IDS = Object.keys(B.TRAINERS).filter(id => !B.TRAINERS[id].vmin);
 /** Whether id is a card of the game, a player or a Coach or Stadium card. */
 export const isCard = id => !!(card(id) || B.TRAINERS[id]);
 export const attrKeys = pos => (DATA && DATA.attrs && DATA.attrs[pos]) || [];
@@ -183,10 +194,10 @@ const pickW = (items, weight, R = luck) => {
 // are retired: kept only so a pack already held turns into Epic Packs (clean(): RETIRED), never sold or opened. No pack
 // holds the same card, or the same player, twice (drawPack).
 export const PACKS = {
-  std: {name: 'Standard Pack', price: 1000, blurb: 'Four player cards and a Trainer card.', color: '#2F6FDE',
-    slots: [{n: 4, pool: 'live', odds: {common: 62, epic: 26, legendary: 10, mythic: 2}}, {n: 1, pool: 'trainer', odds: {epic: 70, legendary: 30}}]},
-  team: {name: 'Team Pack', price: 1200, blurb: 'Three player cards, all from the team you pick.', color: '#1E9E6A', team: true,
-    slots: [{n: 3, pool: 'live', odds: {common: 52, epic: 33, legendary: 12, mythic: 3}}]},
+  std: {maxRarity: 'epic', name: 'Standard Pack', price: 1000, blurb: 'Four player cards and a Trainer card. Common and Epic only.', color: '#2F6FDE',
+    slots: [{n: 4, pool: 'live', odds: {common: 62, epic: 38}}, {n: 1, pool: 'trainer', odds: {epic: 100}}]},
+  team: {maxRarity: 'legendary', name: 'Team Pack', price: 1200, blurb: 'Three player cards from your team, up to Legendary.', color: '#1E9E6A', team: true,
+    slots: [{n: 3, pool: 'live', odds: {common: 52, epic: 33, legendary: 15}}]},
   prem: {name: 'Epic Pack', price: 5000, blurb: 'Five cards, every one Epic or better, the last Legendary or better. Rookies and specials inside. Earned in Solo and from rewards, or bought.', color: '#8B3FD9',
     slots: [{n: 3, pool: 'all', odds: {epic: 65, legendary: 27, mythic: 8}}, {n: 1, pool: 'trainer', odds: {epic: 50, legendary: 50}},
       {n: 1, pool: 'all', odds: {legendary: 75, mythic: 25}}]},
@@ -197,8 +208,8 @@ export const PACKS = {
   // (the owner, Oct 29 2026: "Players will get a starter pack when they open the game with 15 common players 4 rare
   // players and one epic or better player": given once (fresh, and kit3 for a Dynasty begun before it), never sold,
   // twenty different players; with Rare retired, Nov 2 2026, the four are Epic)
-  start: {name: 'Starter Pack', price: 0, starter: true, unique: true, blurb: '15 Common players, 4 Epic and one Epic or better.', color: '#D6453D',
-    slots: [{n: 15, pool: 'live', odds: {common: 100}}, {n: 4, pool: 'live', odds: {epic: 100}}, {n: 1, pool: 'live', odds: {epic: 75, legendary: 20, mythic: 5}}]}
+  start: {maxRarity: 'epic', name: 'Starter Pack', price: 0, starter: true, unique: true, blurb: '15 Common players and 5 Epic players.', color: '#D6453D',
+    slots: [{n: 15, pool: 'live', odds: {common: 100}}, {n: 4, pool: 'live', odds: {epic: 100}}, {n: 1, pool: 'live', odds: {epic: 100}}]}
 };
 export const PACK_ORDER = ['std', 'team', 'prem'];
 /** A retired pack still held: the Epic Packs it becomes (clean()). */
@@ -219,14 +230,15 @@ function poolOf(pool, team, rarity) {
   return list;
 }
 /** One card for a slot of a pack: R the randomness (luck by default). {id, ...} (a Coach or Stadium card: trainer()'s). */
-export function drawCard(slot, {team = null, R = luck, avoid = null} = {}) {
+export function drawCard(slot, {team = null, R = luck, avoid = null, maxRarity = 'mythic'} = {}) {
   // (avoid: the cards and players a pack holds already: none of them comes again; their key is keyOf's)
-  const ok = c => !avoid || !avoid.has(keyOf(c));
+  const allowed = c => RARITY.indexOf(c.r) <= RARITY.indexOf(maxRarity);
+  const ok = c => allowed(c) && (!avoid || !avoid.has(keyOf(c)));
   const rar = pickW(Object.keys(slot.odds), r => slot.odds[r], R);
   if (slot.pool === 'trainer') {
     let ids = TRAINER_IDS.filter(id => B.TRAINERS[id].r === rar && ok(trainer(id)));
     if (!ids.length) ids = TRAINER_IDS.filter(id => ok(trainer(id)));
-    if (!ids.length) ids = TRAINER_IDS;
+    if (!ids.length) ids = TRAINER_IDS.filter(id => allowed(trainer(id)));
     return trainer(ids[Math.floor(R() * ids.length)]);
   }
   let list = [];
@@ -257,7 +269,7 @@ export function drawCard(slot, {team = null, R = luck, avoid = null} = {}) {
   }
   if (!list.length) list = CARDS.filter(c => c.s !== 'X' && (!team || c.team === team) && ok(c));
   if (!list.length) list = CARDS.filter(c => c.s !== 'X' && ok(c));
-  if (!list.length) list = CARDS.filter(c => c.s !== 'X');
+  if (!list.length) list = CARDS.filter(c => c.s !== 'X' && allowed(c));
   return list[Math.floor(R() * list.length)];
 }
 /** What makes two cards in a pack the same: the player (any of his cards), else the card. */
@@ -270,7 +282,7 @@ export function drawPack(kind, {team = null, R = luck} = {}) {
   // (every pack: no card, and no player, twice)
   P.slots.forEach(sl => {
     for (let i = 0; i < sl.n; i++) {
-      const c = drawCard(sl, {team, R, avoid: seen});
+      const c = drawCard(sl, {team, R, avoid: seen, maxRarity: P.maxRarity});
       seen.add(keyOf(c)); out.push(c.id);
     }
   });
@@ -282,13 +294,34 @@ export const packOdds = kind => (PACKS[kind] ? PACKS[kind].slots.map(sl => {
   return {n: sl.n, pool: sl.pool, odds: RARITY.filter(r => sl.odds[r]).map(r => ({r, pct: Math.round(sl.odds[r] / tot * 1000) / 10}))};
 }) : []);
 
-// ---------------------------------------------------------------------------------------------------- quick sell
-const SELL = {common: 10, rare: 40, epic: 150, legendary: 500, mythic: 1500}; // (rare: a Trainer card has none, kept for old words)
-const SELL_SPECIAL = {R: 1.5, G: 2, A: 2.5, P: 2.5, X: 4};
-/** What a card quick-sells for, in coins (c: a player card or a Coach or Stadium card). */
-export const sellValue = c => (c ? Math.round((SELL[c.r] || 0) * (c.s === 'L' || !c.s ? 1 : SELL_SPECIAL[c.s] || 1)) : 0);
 /** A card of either kind by id. */
 export const anyCard = id => card(id) || trainer(id);
+
+// ---------------------------------------------------------------------------------------------------- marketplace
+// Fixed game quotes: choosing a specific player costs much more than a random pack. Only canonical collectibles
+// trade; retired aliases, development forms and the reusable match playbook never become a source of coins.
+const MARKET_PRICES = {
+  common: {buy: 600, sell: 40, buyStep: 0, sellStep: 0, min: 0, steps: 0},
+  epic: {buy: 12000, sell: 300, buyStep: 1000, sellStep: 25, min: 85, steps: 4},
+  legendary: {buy: 60000, sell: 900, buyStep: 6000, sellStep: 75, min: 90, steps: 5},
+  mythic: {buy: 450000, sell: 3000, buyStep: 100000, sellStep: 500, min: 96, steps: 3}
+};
+function marketCard(id) {
+  if (typeof id !== 'string' || ALIAS.has(id)) return null;
+  return card(id) || (TRAINER_IDS.includes(id) ? trainer(id) : null);
+}
+/** A collectible's current coin quote, or null if it cannot trade. Catalog data controls the price. */
+export function marketQuote(c) {
+  const item = marketCard(typeof c === 'string' ? c : c?.id);
+  if (!item) return null;
+  const prices = MARKET_PRICES[item.r];
+  if (!prices) return null;
+  const steps = item.s ? Math.max(0, Math.min(prices.steps, Math.floor(item.o) - prices.min)) : 0;
+  const buy = prices.buy + prices.buyStep * steps, sell = prices.sell + prices.sellStep * steps;
+  return {buy, sell, quick: Math.floor(sell * 70 / 100)};
+}
+/** All quick-sell entry points pay 70% of the current market offer. */
+export const sellValue = c => marketQuote(c)?.quick || 0;
 
 // ---------------------------------------------------------------------------------------------------- Pocket's marks
 // Rarity marked as Pokémon TCG Pocket marks it (the owner, Oct 28 2026: "match the Pokémon app"): ◆ to ◆◆◆◆ for Common
@@ -526,6 +559,16 @@ export function clean(s) {
   // (the battles paid: the latest 200)
   Object.entries(obj(s.bt)).slice(-200).forEach(([k, v]) => { if (['w', 'l', 'd'].includes(v)) out.bt[k] = v; });
   Object.entries(obj(s.so)).slice(0, 80).forEach(([k, v]) => { if (n(v) > 0) out.so[k] = Math.min(9999, n(v)); });
+  if (s.table) out.table = TABLE.clean(s.table);
+  if (s.pocket) out.pocket = cleanPocket(s.pocket);
+  if (s.tutorial?.v === 1 && ['completed', 'skipped'].includes(s.tutorial.result)) out.tutorial = {v: 1, result: s.tutorial.result};
+  // Optional, permanent receipts for the owner boss ladder. Old saves keep all progress and receive no free cards.
+  if (s.bossRewards && typeof s.bossRewards === 'object') {
+    out.bossRewards = {};
+    Object.entries(s.bossRewards).forEach(([id, reward]) => {
+      if (SOLO_BOSSES[id] && typeof reward === 'string') out.bossRewards[id] = reward;
+    });
+  }
   fold(out);
   return out;
 }
@@ -552,7 +595,7 @@ export function fold(s) {
 /** Whether a stored save still holds a retired card (so its original is kept before folding: keepOriginal). */
 const holdsRetired = raw => !!(raw && typeof raw === 'object' && ALIAS.size
   && (Object.keys(raw.o || {}).some(id => ALIAS.has(id)) || (Array.isArray(raw.dk) && raw.dk.some(id => ALIAS.has(id)))));
-/** The save as it was before one card a player, kept once on this phone (gg-dy1-<key>-premerge). */
+/** The save as it was before one card a player, kept once on this phone (gg-dy2-<key>-premerge). */
 function keepOriginal(raw) {
   if (!PROFILE || !holdsRetired(raw)) return;
   try { const k = LOCAL(PROFILE) + '-premerge'; if (!localStorage.getItem(k)) localStorage.setItem(k, JSON.stringify(raw)); } catch (_) {}
@@ -743,13 +786,17 @@ export function earned(s = mine(), force = false) {
   }
   return EARNED;
 }
-export const balance = (s = mine()) => Math.max(0, STARTER_COINS + earned(s).total + s.cr - s.sp);
-const spend = (s, n) => { if (balance(s) < n) return false; s.sp += n; return true; };
+/** Unlimited coins follow the selected profile, never a saved balance or display name. */
+export const unlimitedCoins = () => coinsUnlimited(profileKey());
+// Infinity is computed only; saved credits/spending remain finite and retain existing progress.
+export const balance = (s = mine()) => unlimitedCoins() ? Infinity : Math.max(0, STARTER_COINS + earned(s).total + s.cr - s.sp);
+const spend = (s, n) => { if (unlimitedCoins()) return true; if (balance(s) < n) return false; s.sp += n; return true; };
 const credit = (s, n) => { s.cr += Math.max(0, Math.round(n)); };
 const addCard = (s, id) => { s.o[id] = (s.o[id] || 0) + 1; };
 const addPacks = (s, packs) => Object.entries(packs || {}).forEach(([k, n]) => { if (RETIRED[k]) { n *= RETIRED[k]; k = 'prem'; } if (PACKS[k]) s.pk[k] = (s.pk[k] || 0) + n; });
 
-/** Whether this Dynasty opens packs without end (Evan's and Ryan Stewart's: core/features.js packsUnlimited, Oct 29 2026). */
+/** Whether this Dynasty opens packs without end (Evan's and Ryan Stewart's from Oct 29 2026; no one's since Nov 10 2026:
+ *  core/features.js packsUnlimited). */
 export const unlimited = (key = PROFILE) => packsUnlimited(key);
 /** Whether today's free pack is waiting. */
 export const dailyReady = (s = mine(), t = new Date()) => s.dd !== dayKey(t);
@@ -781,6 +828,7 @@ export function open(kind, {team = null, free = unlimited()} = {}, s = mine()) {
   s.lp = [...ids.slice().reverse(), ...s.lp].slice(0, 24);
   // (the Starter Pack's players make a deck that isn't ready: a new Dynasty's first)
   if (PACKS[kind].starter && !B.checkDeck(s.dk, s.o).ok) s.dk = autoDeck(s.o);
+  if (rivalsUpdated()) { s.table = TABLE.clean(s.table); s.table.packs++; }
   touch('open');
   return {ok: true, cards: ids, dup};
 }
@@ -804,19 +852,53 @@ export function buyOpen(kind, {team = null} = {}, s = mine()) {
   const r = buy(kind, s);
   return r.ok ? open(kind, {team}, s) : r;
 }
+// touch() persists MINE. Reject an obsolete or detached save before a marketplace transaction, including a
+// confirmation left open while another profile was selected or a newer cloud copy replaced this save.
+const marketSaveCurrent = s => !!profileKey() && mayPlay() && s === mine();
+/** Buy one canonical collectible with coins. Balances, inventory and persistence update together. */
+export function buyCard(id, s = mine()) {
+  if (!marketSaveCurrent(s)) return {ok: false, coins: 0, why: 'Your profile changed. Open the marketplace again.'};
+  const quote = marketQuote(id);
+  if (!quote) return {ok: false, coins: 0, why: 'That card is not available in the marketplace.'};
+  if ((s.o[id] || 0) >= 99) return {ok: false, coins: 0, why: 'You already hold the maximum 99 copies of this card.'};
+  // The wallet normally caches income briefly; a trade must use this profile's current earnings.
+  earned(s, true);
+  if (!spend(s, quote.buy)) return {ok: false, coins: 0, why: `You need ${data.nf(quote.buy - balance(s))} more coins.`};
+  if (!(s.o[id] > 0) && !s.nw.includes(id)) s.nw = [id, ...s.nw].slice(0, 60);
+  addCard(s, id); s.lp = [id, ...s.lp].slice(0, 24);
+  touch('market'); return {ok: true, coins: quote.buy};
+}
+/** Owned copies not needed by any saved legacy, table or Pocket deck (including development dependencies). */
+export function sellableCount(id, s = mine()) {
+  if (!marketCard(id) || !s?.o) return 0;
+  return Math.max(0, Math.floor(Number(s.o[id]) || 0) - deckCopies(id, s));
+}
+function removeCopies(id, n, s) {
+  s.o[id] -= n;
+  if (!s.o[id]) { delete s.o[id]; s.nw = s.nw.filter(x => x !== id); }
+}
+/** Sell one eligible collectible for the displayed market offer. */
+export function sellCard(id, s = mine()) {
+  if (!marketSaveCurrent(s)) return {ok: false, coins: 0, why: 'Your profile changed. Open the marketplace again.'};
+  const quote = marketQuote(id);
+  if (!quote) return {ok: false, coins: 0, why: 'That card is not available in the marketplace.'};
+  if (!sellableCount(id, s)) return {ok: false, coins: 0, why: s.o[id] > 0
+    ? 'These copies are protected by your saved decks. Remove one from those decks to sell it.' : 'You do not own this card.'};
+  removeCopies(id, 1, s); credit(s, quote.sell); touch('market'); return {ok: true, coins: quote.sell};
+}
 /** Quick-sells copies of a card (the copies in your deck are kept). {ok, coins}. */
 export function sell(id, n = 1, s = mine()) {
-  const c = anyCard(id), have = s.o[id] || 0;
-  const keep = s.dk.filter(x => x === id).length;
-  n = Math.min(n, have - keep);
-  if (!c || n <= 0) return {ok: false, coins: 0};
-  s.o[id] = have - n; if (!s.o[id]) { delete s.o[id]; s.nw = s.nw.filter(x => x !== id); }
-  const coins = sellValue(c) * n; credit(s, coins); touch(); return {ok: true, coins};
+  const quote = marketQuote(id);
+  if (!quote || !Number.isSafeInteger(n) || n <= 0) return {ok: false, coins: 0};
+  n = Math.min(n, sellableCount(id, s));
+  if (n <= 0) return {ok: false, coins: 0};
+  removeCopies(id, n, s);
+  const coins = quote.quick * n; credit(s, coins); touch(); return {ok: true, coins};
 }
 /** Every spare copy (beyond the first) of every card: [{id, n, coins}] and the total. */
 export function spares(s = mine()) {
   // (spares: beyond the first, or beyond as many as your deck uses)
-  const list = Object.entries(s.o).map(([id, n]) => ({id, n: n - Math.max(1, s.dk.filter(x => x === id).length)})).filter(x => x.n > 0 && anyCard(x.id))
+  const list = Object.entries(s.o).map(([id, n]) => ({id, n: Math.min(n - 1, sellableCount(id, s))})).filter(x => x.n > 0)
     .map(x => ({...x, coins: sellValue(anyCard(x.id)) * x.n}));
   return {list, coins: list.reduce((t, x) => t + x.coins, 0)};
 }
@@ -868,15 +950,45 @@ export const SOLO_PAY = {beg: {coins: 150, first: {std: 1}}, int: {coins: 250, f
 // fifth game's first win packs too)
 const LADDER_PACKS = {5: {std: 1}, 10: {std: 2}, 15: {prem: 1}, 20: {prem: 1, std: 1}, 25: {prem: 2}, 30: {prem: 3}};
 export const ladderPay = n => ({coins: 100 + 10 * n, first: LADDER_PACKS[n] || null});
+// Stable featured players: every fifth battle fields an Epic-or-better boss.
+export const SOLO_BOSSES = Object.freeze({g5: 'L0036322', g10: 'G1-0032764', g15: 'L0036900',
+  g20: 'Xjjwatt', g25: 'Xbarrysanders', g30: 'Xtombrady'});
+export const bossLadderOpen = () => rivalsUpdated();
+export function soloBoss(id) {
+  if (!bossLadderOpen()) return null;
+  const cid = SOLO_BOSSES[id], c = card(ALIAS.get(cid) || cid);
+  return c && c.o >= SCALE.epic ? c : null;
+}
+/** New boss rewards alternate one pack / featured player. v1 saved battles keep their original card reward. */
+export function soloBossReward(id, version = 2) {
+  const c = soloBoss(id);
+  if (!c || ![1, 2].includes(version)) return null;
+  if (version === 2 && Number(id.slice(1)) % 10 === 5) return {pack: id === 'g5' ? 'std' : 'prem'};
+  return {card: c.id};
+}
 /** Pays Solo battle gid (opponent opp at level lv: a ladder game's number, or an earlier opponent's level) its result:
- *  once. {coins, packs, first} or null when already paid. */
-export function paySolo(gid, opp, lv, res, s = mine()) {
+ *  once. A new boss match also supplies its featured card, validated by dynasty-solo.js against its saved lineup.
+ *  Old fifth-stage matches keep their original rewards. {coins, packs, first, card?, bossPack?} or null when already paid. */
+export function paySolo(gid, opp, lv, res, s = mine(), boss = null, bossVersion = 1) {
   const P = typeof lv === 'number' ? ladderPay(lv) : SOLO_PAY[lv];
   if (!P || !['w', 'l', 'd'].includes(res) || s.sl.includes(gid)) return null;
   s.sl = [gid, ...s.sl].slice(0, 20);
   const first = res === 'w' && !s.so[opp];
-  const pay = {coins: res === 'w' ? P.coins * (first && typeof lv === 'number' ? 2 : 1) : res === 'd' ? 50 : 0, packs: first ? P.first : null, first};
+  const prize = soloBoss(opp), reward = prize && boss === prize.id ? soloBossReward(opp, bossVersion) : null;
+  // v2 has one boss prize, not the old pack bonus plus a card. Previously earned prizes stay claimed.
+  const pay = {coins: res === 'w' ? P.coins * (first && typeof lv === 'number' ? 2 : 1) : res === 'd' ? 50 : 0,
+    packs: first && !(reward && bossVersion === 2) ? P.first : null, first};
   if (res === 'w') s.so[opp] = (s.so[opp] || 0) + 1;
+  if (res === 'w' && reward && !s.bossRewards?.[opp]) {
+    s.bossRewards = {...s.bossRewards, [opp]: reward.card || `pack:${reward.pack}`};
+    if (reward.card) {
+      if (!s.o[prize.id] && !s.nw.includes(prize.id)) s.nw = [prize.id, ...s.nw].slice(0, 60);
+      addCard(s, prize.id); s.lp = [prize.id, ...s.lp].slice(0, 24);
+      pay.card = prize.id;
+    } else {
+      pay.packs = {[reward.pack]: 1}; pay.bossPack = reward.pack;
+    }
+  }
   credit(s, pay.coins); if (pay.packs) addPacks(s, pay.packs);
   touch('battle'); return pay;
 }
@@ -908,4 +1020,165 @@ export function others(docs = daily.LB.raw || [], {withMe = false} = {}) {
       tr: s.tr, cards: Object.keys(s.o).filter(isCard).length, cols: Object.keys(s.cl).length, rec: s.rec, at: s.at, deck: B.checkDeck(s.dk, s.o).ok});
   });
   return out.sort((a, b) => b.tr - a.tr || b.cards - a.cards || a.name.localeCompare(b.name));
+}
+
+// Shared Rivals solo table loadout and cosmetics. Collection and friend deck stay intact.
+export const tableOpen = () => rivalsUpdated();
+export const pocketOpen = () => rivalsUpdated();
+// Optional onboarding receipt rides on this profile's existing local/cloud save.
+export const tutorialDue = () => rivalsUpdated() && !mine().tutorial;
+export function finishTutorial(result, key) {
+  if (!rivalsUpdated() || key !== profileKey() || !['completed', 'skipped'].includes(result)) return false;
+  const s = mine();
+  if (s.tutorial?.result === 'completed' || s.tutorial?.result === result) return true;
+  s.tutorial = {v: 1, result}; touch('tutorial'); return true;
+}
+// v7 loadouts are additive. Reading a profile never rewrites its collection or legacy decks.
+export function cleanPocket(raw = {}) {
+  if (!raw || typeof raw !== 'object') raw = {};
+  const seen = new Set();
+  const decks = (Array.isArray(raw.decks) ? raw.decks : []).filter(d => d && typeof d.id === 'string'
+    && /^[a-z0-9-]{1,64}$/.test(d.id) && d.id !== 'rental' && !seen.has(d.id) && seen.add(d.id)).slice(0, 30)
+    .map(d => ({id: d.id, name: String(d.name || 'My deck').trim().slice(0, 32),
+      ids: (Array.isArray(d.ids) ? d.ids : []).filter(id => typeof id === 'string').slice(0, 20),
+      energy: (Array.isArray(d.energy) ? d.energy : []).filter(e => typeof e === 'string').slice(0, 3), rental: false}));
+  return {v: 1, decks, active: raw.active === 'rental' || decks.some(d => d.id === raw.active) ? raw.active : ''};
+}
+export function pocketLoadouts(s = mine()) {
+  const saved = cleanPocket(s.pocket).decks;
+  if (saved.length) return saved;
+  const built = POCKET.defaultDeck(s.o);
+  return built.rental ? [] : [{...built, id: 'original', name: 'My collection deck', rental: false}];
+}
+export function pocketDeck(s = mine()) {
+  const active = cleanPocket(s.pocket).active, decks = pocketLoadouts(s);
+  const selected = active === 'rental' ? null : decks.find(d => d.id === active) || decks[0];
+  const d = selected || {...POCKET.rentalDeck(), id: 'rental', rental: true};
+  return {...d, ...POCKET.checkDeck(d.ids, d.rental ? null : s.o, d.energy)};
+}
+export function savePocketDeck({id, name, ids, energy, rental = false}, s = mine()) {
+  if (!rivalsUpdated()) return {ok: false, why: 'Rivals decks are not available on this profile.'};
+  if (rental) return {ok: false, why: 'The rental deck is a fixed recipe. Build a deck from your collection to edit it.'};
+  const decks = pocketLoadouts(s), found = decks.find(d => d.id === id), counts = {};
+  if (!found && decks.length >= 30) return {ok: false, why: 'All 30 deck slots are filled.'};
+  if (!Array.isArray(ids) || ids.length > 20 || ids.some(cid => {
+    const c = POCKET.card(cid), k = c?.canonicalName;
+    return !c || (counts[k] = (counts[k] || 0) + 1) > 2 || ids.filter(x => x === cid).length > POCKET.availableCopies(s.o, cid);
+  })) return {ok: false, why: 'Choose up to two copies per canonical name from your collection and development playbook.'};
+  const allowed = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal'];
+  if (!Array.isArray(energy) || energy.length < 1 || energy.length > 3 || new Set(energy).size !== energy.length || energy.some(e => !allowed.includes(e)))
+    return {ok: false, why: 'Choose one to three different Energy types.'};
+  const slot = {id: found?.id || 'p-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+    name: String(name || 'My deck').trim().slice(0, 32) || 'My deck', ids: ids.slice(), energy: energy.slice(), rental: false};
+  const active = cleanPocket(s.pocket).active || pocketDeck(s).id;
+  s.pocket = {v: 1, decks: found ? decks.map(d => d.id === id ? slot : d) : [...decks, slot], active};
+  touch('pocket-decks'); return {ok: true, id: slot.id};
+}
+export function usePocketDeck(id, s = mine()) {
+  if (!rivalsUpdated()) return {ok: false, why: 'Rivals decks are not available on this profile.'};
+  const decks = pocketLoadouts(s), slot = id === 'rental' ? {...POCKET.rentalDeck(), rental: true} : decks.find(d => d.id === id);
+  const result = slot ? POCKET.checkDeck(slot.ids, slot.rental ? null : s.o, slot.energy) : {ok: false, why: 'That deck is no longer saved.'};
+  if (result.ok) { s.pocket = {v: 1, decks, active: id}; touch('pocket-decks'); }
+  return result;
+}
+export function deletePocketDeck(id, s = mine()) {
+  if (!rivalsUpdated() || id === 'rental' || pocketDeck(s).id === id) return false;
+  s.pocket = {...cleanPocket(s.pocket), decks: pocketLoadouts(s).filter(d => d.id !== id)};
+  touch('pocket-decks'); return true;
+}
+export const tableDeck = (s = mine()) => TABLE.deck(s);
+export const savedDecks = (s = mine()) => tableOpen() ? TABLE.loadouts(s) : [];
+export const activeDeckId = (s = mine()) => TABLE.activeId(s);
+function deckCopies(id, s) {
+  return Math.max(s.dk.filter(x => x === id).length, ...(tableOpen() ? TABLE.loadouts(s).map(d => d.ids.filter(x => x === id).length) : [0]),
+    ...(rivalsUpdated() ? pocketLoadouts(s).filter(d => !d.rental).map(d => Math.max(d.ids.filter(x => x === id).length,
+      d.ids.some(x => POCKET.card(x)?.development && POCKET.card(x)?.collectionId === id) ? 1 : 0)) : [0]));
+}
+export function saveDeckSlot({id, name, ids}, s = mine()) {
+  if (!tableOpen()) return {ok: false, why: 'Deck slots are not available on this profile.'};
+  const decks = TABLE.loadouts(s), found = decks.find(d => d.id === id);
+  if (!found && decks.length >= TABLE.DECK_LIMIT) return {ok: false, why: 'All 30 deck slots are filled.'};
+  const pool = TABLE.available(s), counts = {};
+  if (!Array.isArray(ids) || ids.length > TABLE.SIZE || ids.some(cid => !anyCard(cid) || (counts[cid] = (counts[cid] || 0) + 1) > Math.min(2, pool[cid] || 0)))
+    return {ok: false, why: 'Use up to two copies of cards in your collection or match playbook.'};
+  const slot = {id: found?.id || 'd-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8), name: String(name || 'My deck').trim().slice(0, 32) || 'My deck', ids: ids.slice()};
+  const active = TABLE.activeId(s);
+  s.table = {...TABLE.clean(s.table), decks: found ? decks.map(d => d.id === id ? slot : d) : [...decks, slot], active};
+  if (slot.id === active) s.table.deck = slot.ids.slice();
+  touch('decks'); return {ok: true, id: slot.id};
+}
+export function useDeckSlot(id, s = mine()) {
+  if (!tableOpen()) return {ok: false, why: 'Deck slots are not available on this profile.'};
+  const decks = TABLE.loadouts(s), slot = decks.find(d => d.id === id);
+  const result = slot ? TABLE.check(slot.ids, s) : {ok: false, why: 'That deck is no longer saved.'};
+  if (result.ok) { s.table = {...TABLE.clean(s.table), decks, active: id, deck: slot.ids.slice()}; touch('decks'); }
+  return result;
+}
+export function deleteDeckSlot(id, s = mine()) {
+  if (!tableOpen() || TABLE.activeId(s) === id) return false;
+  s.table = {...TABLE.clean(s.table), decks: TABLE.loadouts(s).filter(d => d.id !== id), active: TABLE.activeId(s)};
+  touch('decks'); return true;
+}
+// Recipes use the attributes printed on the card, never overall rating as a substitute.
+const DECK_THEMES = [
+  {id: 'gunslingers', name: 'Gunslinger QBs', group: 'style', positions: ['QB'], attrs: {ARM: 85}, tag: 'Arm 85+', color: '#bb7444'},
+  {id: 'dual-threat', name: 'Dual Threat QBs', group: 'style', positions: ['QB'], attrs: {RUN: 80}, tag: 'Rushing 80+', color: '#558d7c',
+    // Legacy legends have generic OVR-derived ratings; only mobile legends belong in this recipe.
+    legends: ['xsteveyoung', 'xfrantarkenton', 'xrogerstaubach', 'xjohnelway']},
+  {id: 'bell-cows', name: 'Bell Cow RBs', group: 'style', positions: ['RB'], attrs: {RUN: 85, TD: 75}, tag: 'Rushing 85+ · Scoring 75+', color: '#b38b42'},
+  {id: 'deep-threats', name: 'Deep Threats', group: 'style', positions: ['WR', 'TE'], attrs: {DEEP: 85}, tag: 'Deep threat 85+', color: '#627fb7'},
+  {id: 'route-technicians', name: 'Route Technicians', group: 'style', positions: ['WR', 'TE'], attrs: {RTE: 85}, tag: 'Routes 85+', color: '#9676b5'},
+  {id: 'yac-specialists', name: 'YAC Specialists', group: 'style', positions: ['WR', 'TE'], attrs: {YAC: 85}, tag: 'After catch 85+', color: '#b46c80'},
+  {id: 'lockdown', name: 'Lockdown Defenders', group: 'style', positions: ['CB', 'S'], attrs: {COV: 85}, tag: 'Coverage 85+', color: '#477f99'},
+  {id: 'sack-attack', name: 'Sack Attack', group: 'style', positions: ['DL', 'LB'], attrs: {PRS: 85}, tag: 'Pass rush 85+', color: '#a16759'},
+  {id: 'quarterbacks', name: 'Quarterback Club', group: 'position', positions: ['QB'], tag: 'Quarterbacks', color: '#627fb7'},
+  {id: 'running-backs', name: 'Running Back Room', group: 'position', positions: ['RB'], tag: 'Running backs', color: '#b38b42'},
+  {id: 'wide-receivers', name: 'Wide Receiver Room', group: 'position', positions: ['WR'], tag: 'Wide receivers', color: '#9676b5'},
+  {id: 'tight-ends', name: 'Tight End U', group: 'position', positions: ['TE'], tag: 'Tight ends', color: '#558d7c'},
+  {id: 'offensive-line', name: 'The O-Line', group: 'position', positions: ['OL'], tag: 'Offensive linemen', color: '#a16759'},
+  {id: 'defensive-line', name: 'Defensive Front', group: 'position', positions: ['DL'], tag: 'Defensive linemen', color: '#477f99'},
+  {id: 'linebackers', name: 'Linebacker Corps', group: 'position', positions: ['LB'], tag: 'Linebackers', color: '#b46c80'},
+  {id: 'secondary', name: 'The Secondary', group: 'position', positions: ['CB', 'S'], tag: 'Cornerbacks & safeties', color: '#63847c'}
+];
+export const deckThemes = () => tableOpen() ? DECK_THEMES.map(t => ({...t, positions: [...t.positions], attrs: {...t.attrs}, legends: t.legends?.slice()})) : [];
+const themeRating = (c, key) => Number(c.a[attrKeys(c.pos).indexOf(key)]) || 0;
+const fitsTheme = (c, t) => t.positions.includes(c.pos) && (!t.legends || c.s !== 'X' || t.legends.includes(c.p))
+  && Object.entries(t.attrs || {}).every(([key, minimum]) => themeRating(c, key) >= minimum);
+/** Team, position and attribute recipes use owned cards plus the playbook; never grant missing cards. */
+export function themedDeck(team, s = mine()) {
+  const theme = deckThemes().find(t => t.id === team);
+  if (!theme && !TEAMS[team]) return {ids: [], ok: false, why: 'That theme is not available on this profile.'};
+  const pool = TABLE.available(s), ids = [];
+  const rank = (a, b) => (theme ? Object.keys(theme.attrs).reduce((n, key) => n + themeRating(b, key) - themeRating(a, key), 0) : 0)
+    || b.o - a.o || a.id.localeCompare(b.id);
+  const candidates = theme ? CARDS.filter(c => fitsTheme(c, theme)).sort(rank) : [];
+  const players = (theme ? candidates : Object.keys(pool).map(card).filter(c => c?.team === team)).filter(c => pool[c.id] > 0).sort(rank);
+  const add = id => { for (let n = 0; n < Math.min(2, pool[id] || 0) && ids.length < TABLE.SIZE; n++) ids.push(id); };
+  // Up to 24 players first, then support; remaining teammates fill any empty spaces.
+  const first = players.slice(0, 12); first.forEach(c => add(c.id));
+  Object.keys(pool).filter(id => B.TRAINERS[id]).sort((a, b) => (TABLE.PLAYBOOK[b] || 0) - (TABLE.PLAYBOOK[a] || 0) || a.localeCompare(b)).forEach(add);
+  players.slice(12).forEach(c => add(c.id));
+  const check = TABLE.check(ids, s), chemistry = B.teamChemistry(ids);
+  if (theme) {
+    const matching = ids.filter(card), distinct = new Set(matching.map(id => card(id).p)).size;
+    const enough = matching.length >= 12 && distinct >= 6;
+    return {...theme, ids, team: null, cover: players[0]?.id || candidates[0]?.id, matching: matching.length, distinct,
+      ok: check.ok && enough, why: enough ? check.why : `Collect 12 matching player cards from at least 6 different players (${matching.length}/12 cards · ${distinct}/6 players).`};
+  }
+  return {ids, team, ok: check.ok && chemistry === team, why: chemistry !== team ? 'Collect at least 12 team player cards, including 6 different players.' : check.why};
+}
+export function setTableDeck(ids, s = mine()) {
+  if (!tableOpen()) return {ok: false, why: 'This table is not available on this profile.'};
+  const result = TABLE.check(ids, s);
+  if (result.ok) {
+    if (s.table?.decks?.length) return saveDeckSlot({id: TABLE.activeId(s), name: TABLE.loadouts(s).find(d => d.id === TABLE.activeId(s)).name, ids}, s);
+    s.table = {...TABLE.clean(s.table), deck: ids.slice()}; touch('table');
+  }
+  return result;
+}
+export const tableFinishes = (s = mine()) => TABLE.finishes(s);
+export function tableFinish(s = mine()) { return tableFinishes(s).find(f => f.id === s.table?.finish && f.unlocked) || TABLE.FINISHES[0]; }
+export function setTableFinish(id, s = mine()) {
+  if (!tableOpen() || !tableFinishes(s).some(f => f.id === id && f.unlocked)) return false;
+  s.table = {...TABLE.clean(s.table), finish: id}; touch('table'); return true;
 }

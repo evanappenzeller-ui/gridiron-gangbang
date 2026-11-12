@@ -580,6 +580,11 @@ export async function runChecks() {
     const stew = daily.boardKey(s1) === 'user:ryan-stewart' && daily.boardKey(s2) === 'user:ryan-stewart' && srows.length === 1 && !srows[0].guest;
     daily.LB.raw = all;
     const snames = ['Ryan Stewart', 'ryan s', 'RYSTEW'].map(n => (daily.guestNameProblem(n) ? 'no' : 'ok')).join(' ');
+    // Ryan Younggreen (Nov 5 2026): an app user like the others, by his board name Ryan Y, his names kept for him.
+    const y1 = {id: 'fake-y1', nick: 'ryan  younggreen', g: true, days: {}, total: 0, played: 0, last: 0};
+    const yrows = daily.boardRows('today', players.concat([y1]), P).filter(r => r.name === 'Ryan Y');
+    const young = daily.boardKey(y1) === 'user:ryan-younggreen' && (data.userNamed('Ryan Younggreen') || {}).id === 'ryan-younggreen'
+      && ['Ryan Younggreen', 'ryan y'].every(n => daily.guestNameProblem(n)) && yrows.length <= 1 && yrows.every(r => !r.guest) && daily.boardShows(y1);
     // THE RULE (CLAUDE.md, Oct 24 2026): everyone shows on every phone, the league's or the owner's alike: Ryan S, Ryan D,
     // a guest, a member. A row that is no one's (an old test row) only on the phone that posted it.
     const isRyanS = (data.user() || {}).id === 'ryan-stewart';
@@ -593,8 +598,8 @@ export async function runChecks() {
     daily.LB.raw = raw;
     const pass = once.every(x => x.length === 1) && !!row && !row.guest && row.managerId === null && keys
       && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no ok no' && stew && snames === 'no no no'
-      && solo && owner;
-    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}; Ryan S shown here ${daily.boardShows(s1)} (this phone is him: ${isRyanS}, the owner's: ${data.isOwner()}); everyone on every phone ${solo}, no app user set apart ${owner}`};
+      && young && solo && owner;
+    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}; Ryan Y ${young}; Ryan S shown here ${daily.boardShows(s1)} (this phone is him: ${isRyanS}, the owner's: ${data.isOwner()}); everyone on every phone ${solo}, no app user set apart ${owner}`};
   });
 
   check('pictures: your own picture in place of your initials, for a person on all their phones (the newest counts), and only from a doc that is that person\'s; everyone\'s shows to everyone, a member\'s, an app user\'s, a guest\'s (THE RULE, CLAUDE.md, Oct 24 2026); taking it away brings the initials back; an avatar with a picture draws it, and gets it (or loses it) in place', () => {
@@ -1200,6 +1205,36 @@ export async function runChecks() {
   });
 
   // Day 3 (Wed Sep 30) is the one v3 day: from day 4 (Thu Oct 1) on the file is v4 (checked below).
+  check('Grid re-grading: Earl Campbell fits Titans x Texas (Nov 4), a wrong square that now fits turns right and its posted entry gains the points', () => {
+    needDaily();
+    const PZ = daily.PZ, PP = daily.PP, bad = [];
+    const ec = PP.findIndex(p => p[0] === 'Earl Campbell' && p[4] === 1978);
+    const day = daily.dayFor(38), sq = k => daily.gridSquare(k, day);
+    if (ec < 0) bad.push('Earl Campbell missing');
+    else {
+      const k = [0, 1].find(i => sq(i) && /Texas/.test(daily.critLabel(sq(i).col)));
+      if (k == null || daily.critLabel(sq(k).row) !== 'Titans') bad.push('Nov 4 grid is not Titans x Texas');
+      else {
+        if (!(daily.critOk(sq(k).row, PP[ec]) && daily.critOk(sq(k).col, PP[ec]))) bad.push('Earl Campbell does not fit');
+        const ds = {v: 4, grid: {cells: k ? [null, {p: ec, ok: false}] : [{p: ec, ok: false}, null], over: true}};
+        if (daily.regradeDS(ds, day) !== 1 || !ds.grid.cells[k].ok) bad.push('not re-graded');
+        if (daily.regradeDS(ds, day) !== 0) bad.push('re-graded twice');
+        // the test progress has one right square: an entry that already has one gains nothing
+        if (daily.regradedEntry({v: 4, p: 400, c: 2, s: 1, g: 1, t: 1}, ds, day)) bad.push('entry changed with nothing new');
+        const e2 = daily.regradedEntry({v: 4, p: 300, c: 2, s: 1, g: 0, t: 1}, ds, day);
+        if (!e2 || e2.g !== 1 || e2.p !== 400 || e2.c !== 2 || e2.t !== 1) bad.push('entry not raised by one square');
+        // a square whose answer still doesn't fit stays wrong
+        const no = PP.findIndex(p => p[0] === 'Tom Brady');
+        const ds2 = {v: 4, grid: {cells: [{p: no, ok: false}, {p: no, ok: false}], over: true}};
+        if (daily.regradeDS(ds2, day)) bad.push('a wrong answer turned right');
+      }
+    }
+    // the backfilled colleges (nflverse) kept every college already in the file
+    const n = PP.filter(p => p[4] < 1985 && p[6]).length;
+    if (n < 900) bad.push(`only ${n} pre-1985 players have a college`);
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `Earl Campbell fits; ${n} pre-1985 players have a college; re-grading adds only`};
+  });
+
   check('puzzles-v4.json: day 3 is v3 and well-formed', () => {
     needDaily();
     const PZ = daily.PZ, bad = [];

@@ -7,18 +7,35 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v578';
-const CORE = ['ui', 'home-navigation', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'fantasy-live', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-layout', 'realm-battle', 'checks-realm', 'dynasty', 'dynasty-battle', 'dynasty-match', 'dynasty-solo', 'dynasty-real', 'dynasty-legends', 'dynasty-action', 'checks-dynasty'];
+const CACHE = 'gg-press-drive-20261111';
+const CORE = ['ui', 'home-navigation', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'fantasy-live', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-layout', 'realm-battle', 'checks-realm', 'dynasty', 'dynasty-battle', 'dynasty-match', 'dynasty-table', 'dynasty-solo', 'busy', 'rivals-live', 'rivals-live-match', 'dynasty-real', 'dynasty-legends', 'dynasty-action', 'checks-dynasty'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and live (Live). Keepfall opens from Daily Games.
-const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
-  'league', 'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame',
-  'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-3dworld', 'return-field-logo', 'return-style', 'return-scenery', 'return-models', 'return-city-bus', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'realm', 'realm-3d', 'realm-world', 'realm-materials', 'realm-buildings', 'realm-lowlevel', 'realm-routines', 'realm-models', 'realm-walls', 'realm-wildlife', 'realm-heroes', 'realm-lore', 'realm-npcs', 'realm-characters', 'realm-dragon', 'realm-dragon-assets', 'realm-dragon-picker', 'realm-raid', 'realm-scout', 'realm-replay', 'realm-visit', 'dynasty', 'dynasty-foil', 'dynasty-stats', 'dynasty-team-scenes', 'dynasty-packs', 'dynasty-art-foil', 'dynasty-art-start', 'dynasty-art-std', 'dynasty-art-team', 'dynasty-art-prem', 'dynasty-art-gday', 'dynasty-art-leg', 'dynasty-open', 'dynasty-battle', '_kit'];
+const VIEWS = ['dynasty-energy', 'dynasty-pack-shelf', 'welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
+  'league', 'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame', 'return-life', 'return-air-world', 'return-intro',
+  'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-jetpack', 'return-3dworld', 'return-field-logo', 'return-style', 'return-scenery', 'return-models', 'return-city-bus', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'realm', 'realm-3d', 'realm-world', 'realm-materials', 'realm-buildings', 'realm-lowlevel', 'realm-routines', 'realm-models', 'realm-walls', 'realm-wildlife', 'realm-heroes', 'realm-lore', 'realm-npcs', 'realm-characters', 'realm-dragon', 'realm-dragon-assets', 'realm-dragon-picker', 'realm-raid', 'realm-scout', 'realm-replay', 'realm-visit', 'dynasty', 'dynasty-foil', 'dynasty-table-touch', 'dynasty-table-options', 'dynasty-stats', 'dynasty-team-scenes', 'dynasty-packs', 'dynasty-art-foil', 'dynasty-art-start', 'dynasty-art-std', 'dynasty-art-team', 'dynasty-art-prem', 'dynasty-art-gday', 'dynasty-art-leg', 'dynasty-open', 'dynasty-battle', 'rivals-live-notice', 'rivals-live-lobby', '_kit'];
 const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'kick', 'return', 'realm', 'dynasty', 'dynasty-packs', 'dynasty-open', 'dynasty-rivals', 'dynasty-rivals-hub', 'dynasty-rivals-battle', 'dynasty-rarity', '_kit'];
 const SHELL = [
+  'js/views/dynasty-market.js', 'css/views/dynasty-market.css',
+  'js/core/dynasty-tutorial.js',
+  'js/views/dynasty-pack-preview.js', 'img/rivals/pack-studio-v1.svg',
+  'js/core/return-customize.js', 'js/core/return-team-kits.js', 'js/views/return-customize.js', 'css/views/return-customize.css',
+  'js/views/return-jersey-art.js',
+  'js/views/return-rides.js', 'js/views/return-neighborhoods.js',
+  'js/core/dynasty-pocket.js', 'js/core/dynasty-pocket-cards.js',
+  'js/views/dynasty-pocket-battle.js', 'js/views/dynasty-pocket-decks.js',
+  'js/views/dynasty-battle-athlete.js', 'js/views/dynasty-pocket-presentation.js',
+  'js/views/dynasty-pocket-card.js', 'js/views/dynasty-pocket-hand.js', 'js/views/dynasty-pocket-preview.js',
+  'css/views/dynasty-pocket.css', 'css/views/dynasty-pocket-decks.css',
+  'js/core/dynasty-music.js', 'js/core/dynasty-sfx.js', 'js/views/dynasty-music.js',
+  'js/views/dynasty-art-printed.js',
+  'css/views/dynasty-home.css',
+  'css/views/dynasty-ladder.css',
+  'css/views/rivals-live.css',
+  'css/views/dynasty-decks.css', 'js/views/dynasty-decks.js',
   './', 'index.html', 'manifest.webmanifest',
   'js/core/features.js', 'js/core/release.js', 'js/core/score-release.js', 'js/core/owner-motion.js', 'css/owner-motion.css', 'css/release.css',
-  'js/views/game-launch.js', 'js/views/return-player-style.js', 'js/views/return-player-bulk.js',
+  'js/views/game-launch.js',
   'css/views/game-case-owner.css', 'css/views/game-case-controls.css', 'css/views/game-launch.css',
   'css/tokens.css', 'css/base.css', 'css/components.css', 'css/themes.css', 'css/finish.css', 'js/themes.js', 'js/lock.js',
   ...VIEW_CSS.map(v => `css/views/${v}.css`),
@@ -98,7 +115,8 @@ self.addEventListener('activate', e => {
 });
 
 // (jpg: Keepfall's land and building textures, models/realm/world-v1/textures, which its models load beside them)
-const isCacheFirst = url => /\.(woff2|png|webp|jpe?g|ico|glb)$/.test(url.pathname);
+const isRivalsMusic = url => /\/audio\/rivals\/[^/]+\.mp3$/.test(url.pathname);
+const isCacheFirst = url => /\.(woff2|png|webp|jpe?g|ico|glb)$/.test(url.pathname) || isRivalsMusic(url);
 const isVendor = url => url.origin === self.location.origin && url.pathname.includes('/js/vendor/');
 const isNetworkFirst = (req, url) => req.mode === 'navigate' || url.pathname.endsWith('/') || /\.(html|json|js|css|webmanifest)$/.test(url.pathname);
 
@@ -143,11 +161,39 @@ async function cacheFirst(req) {
   return res;
 }
 
+// Cache a full track only on first use. Media players (especially Safari) request byte ranges;
+// a cached 200 must be sliced into a proper 206, never cache a partial response as the song.
+async function musicFirst(req, event) {
+  const url = new URL(req.url), key = url.origin + url.pathname;
+  let res = await caches.match(key);
+  if (!res) {
+    res = await fetch(key, {credentials: 'same-origin'});
+    if (res.status === 200) {
+      const copy = res.clone();
+      event.waitUntil(caches.open(CACHE).then(c => c.put(key, copy)).catch(() => {}));
+    }
+  }
+  const range = req.headers.get('range');
+  if (!range || res.status !== 200) return res;
+  const bytes = await res.arrayBuffer(), size = bytes.byteLength;
+  const parts = /^bytes=(\d*)-(\d*)$/.exec(range);
+  let start = parts?.[1] ? Number(parts[1]) : 0, end = parts?.[2] ? Number(parts[2]) : size - 1;
+  if (parts && !parts[1] && parts[2]) { start = Math.max(0, size - Number(parts[2])); end = size - 1; }
+  if (!parts || (!parts[1] && !parts[2]) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start >= size || start > end || (!parts[1] && Number(parts[2]) === 0))
+    return new Response(null, {status: 416, headers: {'Content-Range': `bytes */${size}`}});
+  end = Math.min(end, size - 1);
+  return new Response(bytes.slice(start, end + 1), {status: 206, headers: {
+    'Content-Type': 'audio/mpeg', 'Accept-Ranges': 'bytes',
+    'Content-Length': String(end - start + 1), 'Content-Range': `bytes ${start}-${end}/${size}`
+  }});
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  if (isRivalsMusic(url)) { e.respondWith(musicFirst(req, e)); return; }
   // v3 artwork is available to everyone and cached after its first use.
   if (isCacheFirst(url)) { e.respondWith(cacheFirst(req)); return; }
   if (isNetworkFirst(req, url)) e.respondWith(networkFirst(req, url));

@@ -1,15 +1,19 @@
 import * as features from '../core/features.js';
+import {makeJetpack, animateJetpack} from './return-jetpack.js';
+import {makeRide, animateRide} from './return-rides.js';
+import {riding} from '../core/return.js';
+import {paintJersey, paintHelmetBadge} from './return-jersey-art.js';
 // Return Man's players in real 3D (the owner's ask, Oct 2026: smooth, at the screen's frame rate, not pictures): a
-// rigged, animated football player (models/return-player.glb: "American Football Player" by blakeallen25 on Sketchfab,
-// CC-BY-4.0, https://sketchfab.com/3d-models/american-football-player-10bf41a1c05a4c9cb74676b7dd8cb18e; slimmed by
-// tools/return/player-model.mjs; his idle, run, jump, slide, side-steps' lean and a hit's flinch from the owner's
+// rigged, animated cartoon football player (Evan, Nov 4 2026: Subway Surfers' style, chunky, big-headed, bright flat
+// colours): models/return-runner-v1.glb, KayKit's Adventurers (Kay Lousberg, CC0, https://kaylousberg.itch.io/kaykit-adventurers:
+// the Barbarian's body, the Knight's head for the returner and the Barbarian's for the linebacker) made into one by
+// tools/return/runner-model.mjs; his idle, run, jump, slide, side-steps' lean and a hit's flinch from the owner's
 // "Endless Runner Animations" (Mixamo's, Nov 1 2026), retargeted in by tools/return/runner-anims.mjs, in place: the
-// ground moves under him; three.js itself in js/vendor/three, MIT) in each
-// side's colours (his jersey, pants and helmet repainted, his number on his back and his chest; for the returner the
-// ball), lit, in the 3D world (views/return-3dworld.js: the ground, the roadside, the
-// lane things, built in the same scene): the whole of it rendered on a WebGL canvas off the page through a camera that
-// matches the 2D scene's (views/return-world.js P), each frame, and laid over the sky (views/return.js), with the
-// place's light, its haze as fog, and the sun's shadows.
+// ground moves under him; three.js itself in js/vendor/three, MIT) in each side's colours (his kit painted, a helmet,
+// shoulder pads and his number on his chest and his back built on him; for the returner the ball), lit, in the 3D
+// world (views/return-3dworld.js: the ground, the roadside, the lane things, built in the same scene): the whole of it
+// rendered on a WebGL canvas off the page through a camera that matches the 2D scene's (views/return-world.js P), each
+// frame, and laid over the sky (views/return.js), with the place's light, its haze as fog, and the sun's shadows.
 // A pose (views/return.js says which: pose specs) is a move's clip, cross-faded from the one before (the idle; the
 // run, at the stride the yards say; the jump, the slide, a side-step, going down: MOVES), the model's layers added
 // over the run (LAYERS: a side-step's lean, a hit's flinch), and the moment's own pose laid over it bone by bone
@@ -18,30 +22,97 @@ import * as features from '../core/features.js';
 // Everything's bent with the world (return-3dworld.js bend()).
 // Exports: load(), ready(), render(st, now, who), leans(), STRIDE, MOVES.
 import * as W3 from './return-3dworld.js';
-import * as data from '../core/data.js';
+import * as intro from './return-intro.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
-const MODEL = new URL('../../models/return-player.glb', import.meta.url).href;
-/** Yards a full run cycle (two strides) covers: the clip's legs keep pace with the ground. (The pack's run plants 4.45
- *  a cycle on him, tools/return/runner-anims.mjs says; at his 13-19 yards a second that spins the legs near three
- *  times a second, too fast to read, so a longer stride: his feet slide a little, out of sight from behind him.) */
+const MODEL = new URL('../../models/return-runner-v1.glb', import.meta.url).href;
+/** Yards a full run cycle (two strides) covers: the clip's legs keep pace with the ground. (The pack's run plants
+ *  0.75 a cycle on his short legs, tools/return/runner-anims.mjs says; at his 13-19 yards a second that would spin
+ *  them far too fast to read, so the old player's stride and pace: his feet slide, out of sight from behind him.) */
 export const STRIDE = 5;
-const SCALE = 1.12; // the model's metres to yards, a little big (a man is about 2 yards with his helmet on)
+const SCALE = 1.12; // the model's metres to yards (he stands 1.85 with his helmet on: about 2 yards)
+// Each side's kit: the model's kit swatches (tools/return/runner-model.mjs: jersey, pads, belt, pants, socks, cleats,
+// gloves, bands: the belt's swatches are his kilt's, so the pants' colour), the helmet's shell, its stripe and face
+// mask, the number (fill, edge), and which head he has. The returner's is Evan's reviewed navy 22 (Oct 2026): navy,
+// cream and an amber edge.
 const KITS = {
-  us: {jersey: 0x1D3F8F, numFill: 0xFFFFFF, numEdge: 0x0C1A44, pants: 0xD9DDE5, stripe: 0x1D3F8F, helmet: 0x1D3F8F, mask: 0xC4CAD4, cup: 0x0C1A44,
-    visor: 0x14181F, num: 22, ball: true, size: 1},
-  them: {jersey: 0xC8102E, numFill: 0xFFFFFF, numEdge: 0x6E0E10, pants: 0xF3F3F5, stripe: 0xC8102E, helmet: 0xF2F3F5, mask: 0x4E535C, cup: 0x6E0E10,
-    visor: 0x14181F, num: 52, ball: false, size: 1.06}
+  us: {jersey: 0x173B6C, pads: 0x1D4782, belt: 0xDCE2DC, pants: 0xDCE2DC, socks: 0x173B6C, cleats: 0x102744, gloves: 0xF0F2E8, bands: 0xF0F2E8,
+    helmet: 0x173B6C, stripe: 0xF0F2E8, edge: 0xE89C43, mask: 0xC4D1D8, numFill: 0xF0F2E8, numEdge: 0x102744, num: '22', pattern: 'home', wordmark: 'RETURN MAN', team: '', head: 'HeadReturner', ball: true, size: 1},
+  them: {jersey: 0xC8102E, pads: 0xD3263F, belt: 0xF3F3F5, pants: 0xF3F3F5, socks: 0xC8102E, cleats: 0x1B1B1F, gloves: 0x6E0E10, bands: 0xF3F3F5,
+    helmet: 0xF2F3F5, stripe: 0xC8102E, edge: 0x6E0E10, mask: 0x4E535C, numFill: 0xFFFFFF, numEdge: 0x6E0E10, num: 52, head: 'HeadLinebacker', ball: false, size: 1.06}
 };
 let T = null, GL = null, GL_UTILS = null, LOADING = null, DEAD = false;
-let ownerStyle = null, styleAttempt = null, styleTried = false, styleSubscribed = false;
+let SELECTED_KIT = KITS.us;
+const SKIN_VARIANTS = new Map();
+const PREPARING_SKINS = new Map();
+const kitKey = ({num, ...look}) => JSON.stringify(look);
+const JERSEY_PRINTS = new WeakMap(), MAX_SKIN_PAIRS = 5;
+const PATTERNS = new Set(['home', 'outlaw', 'neon', 'arctic', 'beach', 'cosmic', 'ember', 'team']);
+/** A selected wardrobe uniform, never the linebacker's kit. Numbers repaint an existing pair. */
+export function setSkin(colors = null) {
+  const kit = {...KITS.us};
+  if (colors) for (const role of Object.keys(kit)) {
+    if (role === 'size' || role === 'num' || typeof kit[role] !== 'number') continue;
+    const value = colors[role];
+    if (Number.isInteger(value) && value >= 0 && value <= 0xFFFFFF) kit[role] = value;
+  }
+  if (colors) {
+    if (/^(?:\d|[1-9]\d|00)$/.test(String(colors.num))) kit.num = String(colors.num);
+    if (PATTERNS.has(colors.pattern)) kit.pattern = colors.pattern;
+    if (typeof colors.wordmark === 'string' && /^[a-zA-Z0-9 .'-]{1,20}$/.test(colors.wordmark)) kit.wordmark = colors.wordmark.toUpperCase();
+    if (typeof colors.team === 'string' && /^[A-Z]{2,4}$/.test(colors.team)) kit.team = colors.team;
+  }
+  SELECTED_KIT = kit;
+  if (!GL) return;
+  const key = kitKey(kit);
+  if (GL.skinKey === key && GL.skinNumber === kit.num) return;
+  let pair = SKIN_VARIANTS.get(key);
+  if (!pair) {
+    const us = dress(GL.gltf, GL.SK, kit), ghost = dress(GL.gltf, GL.SK, kit);
+    [us, ghost].forEach(P => { arm(P, GL.clips); rideGear(P); });
+    const materials = ghostMaterials(ghost);
+    us.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    W3.bend(us.root); W3.bend(ghost.root);
+    pair = {us, ghost, materials, kit};
+  }
+  if (pair.kit.num !== kit.num) {
+    pair.kit.num = kit.num;
+    for (const print of JERSEY_PRINTS.get(pair.kit) || []) { paintJersey(print.canvas, pair.kit, print.side); print.texture.needsUpdate = true; }
+  }
+  SKIN_VARIANTS.delete(key); SKIN_VARIANTS.set(key, pair);
+  GL.scene.remove(GL.players.us.root, GL.players.ghost.root);
+  GL.players.us = pair.us; GL.players.ghost = pair.ghost; GL.ghost = pair.materials;
+  GL.scene.add(pair.us.root, pair.ghost.root); GL.skinKey = key; GL.skinNumber = kit.num;
+  trimSkins();
+  PREPARED = null;
+}
+
+function trimSkins() {
+  // A pending shader warm-up still holds its visibility snapshot and gear references.
+  // Keep those pairs alive until its finally block has restored them.
+  for (const [oldKey, old] of SKIN_VARIANTS) {
+    if (SKIN_VARIANTS.size <= MAX_SKIN_PAIRS) break;
+    if (oldKey === GL.skinKey || oldKey === kitKey(KITS.us) || PREPARING_SKINS.has(old)) continue;
+    releaseSkin(old); SKIN_VARIANTS.delete(oldKey);
+  }
+}
+
+function releaseSkin(pair) {
+  const sourceGeo = new Set(), sourceMat = new Set(), sourceTex = new Set();
+  GL.gltf.scene.traverse(o => { if (!o.isMesh) return; sourceGeo.add(o.geometry); for (const m of Array.isArray(o.material) ? o.material : [o.material]) { sourceMat.add(m); for(const value of Object.values(m)) if(value?.isTexture) sourceTex.add(value); } });
+  const geometries = new Set(), materials = new Set(), textures = new Set(), skeletons = new Set();
+  for (const P of [pair.us, pair.ghost]) {
+    P.mixer.stopAllAction(); P.mixer.uncacheRoot(P.model);
+    P.root.traverse(o => { if (!o.isMesh) return; if (!sourceGeo.has(o.geometry)) geometries.add(o.geometry); if(o.skeleton) skeletons.add(o.skeleton);
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (!sourceMat.has(m)) { materials.add(m); for (const value of Object.values(m)) if(value?.isTexture && !sourceTex.has(value)) textures.add(value); }
+    });
+  }
+  geometries.forEach(g=>g.dispose()); materials.forEach(m=>m.dispose()); textures.forEach(t=>t.dispose()); skeletons.forEach(s=>s.dispose());
+  KIT_MATS.delete(pair.kit);
+}
 
 /** Loads three.js and the model, and dresses both players (once). Resolves true when they're in; false if this phone
  *  can't (no WebGL, a load failed): the sprite players stay. */
 export function load() {
-  if (!styleSubscribed) {
-    styleSubscribed = true;
-    data.subscribe(type => { if (type === 'me' || type === 'data') syncPlayerStyle(); });
-  }
   if (!LOADING) {
     LOADING = (async () => {
       try {
@@ -54,7 +125,7 @@ export function load() {
         const gltf = await new GLTFLoader().loadAsync(MODEL);
         try { await document.fonts.load('800 100px "Barlow Condensed"'); } catch (_) {}
         GL = build(gltf, SK, RoomEnvironment);
-        syncPlayerStyle();
+        setSkin(SELECTED_KIT);
         return true;
       } catch (e) {
         console.warn('Return Man: no 3D players', e);
@@ -70,9 +141,53 @@ export const ready = () => !!GL && !DEAD;
 export const settled = () => !!GL || DEAD;
 /** The canvas render() draws on (one for the session), for the stage to show as a layer of its own. */
 export const canvas = () => (GL ? GL.canvas : null);
+let PREPARED = null;
+function flightGear(P) {
+  if (!P.jetpack) { P.jetpack = W3.bend(makeJetpack(T)); P.jetpack.scale.setScalar(.7); P.root.add(P.jetpack); }
+  return P.jetpack;
+}
+function rideGear(P) {
+  if (!P.rides) P.rides = Object.fromEntries(['scooter', 'hoverboard'].map(kind => {
+    const ride = makeRide(T, kind); ride.visible = false; P.root.add(ride); return [kind, ride];
+  }));
+  return P.rides;
+}
+/** Compile shaders and upload both players, flight gear and pickups before Play. */
+export function prepare(st) {
+  if (!GL || !features.returnManUpdated()) return Promise.resolve();
+  if (PREPARED) return PREPARED;
+  PREPARED = (async () => {
+    await new Promise(requestAnimationFrame);
+    const {renderer, scene, players} = GL, warm = W3.warmObjects(), target = new T.WebGLRenderTarget(64, 64);
+    const visibility = Object.values(players).map(P => [P, P.root.visible, P.root.position.clone()]);
+    const gear = flightGear(players.us), wasGear = gear.visible;
+    const rides = [players.us, players.ghost].flatMap(P => Object.values(rideGear(P))).map(o => [o, o.visible]);
+    rides.forEach(([o]) => { o.visible = true; });
+    GL.punt.visible = true; GL.punt.position.set(0, 2, -(st.camZ + 8));
+    warm.position.z = -st.camZ;
+    scene.add(warm); visibility.forEach(([P], i) => { P.root.visible = true; P.root.position.set((i - 1) * 1.4, 0, -(st.camZ + 8)); }); gear.visible = true;
+    const preparing = SKIN_VARIANTS.get(GL.skinKey);
+    if (preparing) PREPARING_SKINS.set(preparing, (PREPARING_SKINS.get(preparing) || 0) + 1);
+    try {
+      camera(st);
+      if (renderer.compileAsync) await renderer.compileAsync(scene, GL.camera); else renderer.compile(scene, GL.camera);
+      renderer.setRenderTarget(target); renderer.render(scene, GL.camera);
+    } finally {
+      renderer.setRenderTarget(null); target.dispose(); scene.remove(warm); W3.releaseWarmObjects(warm);
+      visibility.forEach(([P, visible, position]) => { P.root.visible = visible; P.root.position.copy(position); }); gear.visible = wasGear;
+      GL.punt.visible = false;
+      rides.forEach(([o, visible]) => { o.visible = visible; });
+      if (preparing) {
+        const n = PREPARING_SKINS.get(preparing) - 1;
+        if (n) PREPARING_SKINS.set(preparing, n); else PREPARING_SKINS.delete(preparing);
+      }
+      trimSkins();
+    }
+  })().catch(e => { PREPARED = null; console.warn('Return Man preparation:', e); });
+  return PREPARED;
+}
 
-// The reviewed kit is only loaded for Evan's selected profile. Keep the original players intact:
-// fresh clones give accessories their bind-pose attachment points, even after a mid-run profile switch.
+/** The ghost's materials: his own, see-through (views/return.js sets how much). */
 function ghostMaterials(P) {
   const materials = [];
   P.root.traverse(o => {
@@ -86,126 +201,45 @@ function ghostMaterials(P) {
   });
   return materials;
 }
-function releaseStyledPlayer(entry) {
-  const {player: P, style, ghost, ballGeometry, ballMaterials} = entry;
-  P.root.removeFromParent();
-  style?.dispose();
-  ghost.forEach(m => m.dispose());
-  ballGeometry.forEach(g => g.dispose()); ballMaterials.forEach(m => m.dispose());
-  const skeletons = new Set();
-  P.model.traverse(o => { if (o.skeleton) skeletons.add(o.skeleton); });
-  skeletons.forEach(s => s.dispose());
-  P.mixer.stopAllAction(); P.mixer.uncacheRoot(P.model);
-}
-function styledPlayer(restyle, isGhost) {
-  const P = dress(GL.gltf, GL.SK, KITS.us);
-  const entry = {player: P, style: null, ghost: [], ballGeometry: new Set(), ballMaterials: new Set()};
-  P.ball.traverse(o => {
-    if (!o.isMesh) return;
-    entry.ballGeometry.add(o.geometry);
-    (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => entry.ballMaterials.add(m));
-  });
-  try {
-    entry.style = restyle(P, T, GL_UTILS);
-    arm(P, GL.clips);
-    if (isGhost) entry.ghost = ghostMaterials(P);
-    else P.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
-    W3.bend(P.root);
-    return entry;
-  } catch (error) { releaseStyledPlayer(entry); throw error; }
-}
-function revokePlayerStyle() {
-  styleAttempt = null; styleTried = false;
-  if (!ownerStyle) return;
-  const old = ownerStyle; ownerStyle = null;
-  GL.players = GL.basePlayers; GL.ghost = GL.baseGhost;
-  old.forEach(releaseStyledPlayer);
-}
-function syncPlayerStyle() {
-  if (!features.available()) { revokePlayerStyle(); return; }
-  if (!GL || styleTried) return;
-  styleTried = true;
-  const attempt = {}; styleAttempt = attempt;
-  import('./return-player-style.js').then(({restyleFootball}) => {
-    if (styleAttempt !== attempt || !features.available()) return;
-    const entries = [];
-    try {
-      entries.push(styledPlayer(restyleFootball, false));
-      entries.push(styledPlayer(restyleFootball, true));
-      GL.basePlayers.us.root.visible = GL.basePlayers.ghost.root.visible = false;
-      entries.forEach(e => { e.player.root.visible = false; GL.scene.add(e.player.root); });
-      GL.players = {...GL.basePlayers, us: entries[0].player, ghost: entries[1].player};
-      GL.ghost = entries[1].ghost; ownerStyle = entries;
-    } catch (error) {
-      entries.forEach(releaseStyledPlayer);
-      throw error;
-    }
-  }).catch(error => {
-    // Failed/offline styling leaves the complete original player available; no retry every frame.
-    if (styleAttempt === attempt) console.warn('Return Man: original player kit retained', error);
-  });
-}
 
 // ---------------------------------------------------------------------------- Dressing him
-// The player as he comes (models/return-player.glb: his own jersey, pants, helmet and cleats) in each side's colours:
-// the jersey's and the pants' pictures painted over (their white to the kit's colour, their maroon to the number's
-// and the stripes', their gold to the edge; the cloth's light and shade kept), his number painted on front and back
-// where the model's own were; the helmet's shell, its face mask, the chin cup (and his belt) and the visor tinted.
+// He comes from tools/return/runner-model.mjs: one body and two heads (HeadReturner, HeadLinebacker: the kit's head is
+// the one he keeps), his colours a small atlas of vertical gradient swatches, the kit's named in the material's extras
+// (userData.kit: each its swatch). A side's kit is those swatches painted in its colours (light at the top, darker at
+// the foot, as KayKit's are), and built on him here, to his own measure (his head's box, his chest's width and depth,
+// taken from the model at rest): the helmet (a shell open at the face, a stripe over the crown edged both sides, a
+// stud each side, the face mask's bars), rounded shoulder pads on his chest (his arms swing under them), his number on
+// his chest and his back (curved round him); for the returner the ball.
 const bare = name => name.replace(/^mixamorig:?/, '');
-const smooth = (a, b, v) => { const u = Math.max(0, Math.min(1, (v - a) / (b - a))); return u * u * (3 - 2 * u); };
-const rgb = h => [(h >> 16 & 255) / 255, (h >> 8 & 255) / 255, (h & 255) / 255];
-/** Where the jersey's numbers are in its picture (fractions of it; the picture's upside down): each one's middle, its
- *  height, and the box round the model's own (its 1 on the front, its 2 on the back), painted out. */
-const NUMS = [{x: .5786, y: .4697, h: .213, box: [.552, .606, .356, .586]}, {x: .856, y: .49, h: .244, box: [.828, .885, .361, .62]}];
-/** A picture of his kit (map: the model's texture) painted over: white to base, maroon to accent, gold to edge; with
- *  num, the number painted on (accent, edged in edge). */
-function repaint(map, base, accent, edge, num = null) {
-  const img = map.image, cv = document.createElement('canvas');
-  cv.width = img.width; cv.height = img.height;
-  const g = cv.getContext('2d', {willReadFrequently: true});
-  g.drawImage(img, 0, 0);
-  const W = cv.width, H = cv.height, data = g.getImageData(0, 0, W, H), p = data.data;
-  const [B, A, E] = [base, accent, edge].map(rgb);
-  const boxes = num ? NUMS.map(n => [n.box[0] * W, n.box[1] * W, n.box[2] * H, n.box[3] * H]) : [];
-  for (let y = 0, i = 0; y < H; y++) for (let x = 0; x < W; x++, i += 4) {
-    const r = p[i] / 255, gr = p[i + 1] / 255, b = p[i + 2] / 255, v = Math.max(r, gr, b), c = v - Math.min(r, gr, b);
-    const hue = c === 0 ? 0 : v === r ? 60 * (((gr - b) / c + 6) % 6) : v === gr ? 60 * ((b - r) / c + 2) : 60 * ((r - gr) / c + 4);
-    let col = smooth(.22, .42, v > 0 ? c / v : 0), sw = Math.min(1.08, v / .94);
-    if (boxes.some(q => x >= q[0] && x <= q[1] && y >= q[2] && y <= q[3])) { sw = col * .97 + (1 - col) * sw; col = 0; } // (the old number: cloth)
-    const gold = col * smooth(18, 30, hue) * (1 - smooth(70, 85, hue)), red = col - gold, sr = Math.min(1.25, v / .5), sg = Math.min(1.15, v / .85);
-    for (let k = 0; k < 3; k++) p[i + k] = 255 * Math.min(1, (1 - col) * B[k] * sw + red * A[k] * sr + gold * E[k] * sg);
-  }
-  g.putImageData(data, 0, 0);
-  if (num) NUMS.forEach(n => {
-    const h = n.h * H, s = String(num);
-    g.save();
-    g.translate(n.x * W, n.y * H); g.scale(1, -1);
-    g.font = `800 ${Math.round(h / .7)}px "Barlow Condensed", "Arial Narrow", sans-serif`; g.textAlign = 'center';
-    const m = g.measureText(s), dy = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
-    g.lineJoin = 'round'; g.lineWidth = h * .1; g.strokeStyle = '#' + edge.toString(16).padStart(6, '0'); g.strokeText(s, 0, dy);
-    g.fillStyle = '#' + accent.toString(16).padStart(6, '0'); g.fillText(s, 0, dy);
-    g.restore();
-  });
-  const t = new T.CanvasTexture(cv);
-  Object.assign(t, {flipY: map.flipY, colorSpace: map.colorSpace, wrapS: map.wrapS, wrapT: map.wrapT, channel: map.channel, anisotropy: 4});
-  return t;
-}
-/** The model's materials in kit k (by the model's own names for them), once a kit. */
+const hex = c => '#' + c.toString(16).padStart(6, '0');
+/** A swatch's colour f of the way down it: KayKit's light-to-dark gradient. */
+const shadeOf = (col, f) => { const k = f < .5 ? 1.12 - f * .24 : 1 - (f - .5) * .7; return `rgb(${[col >> 16 & 255, col >> 8 & 255, col & 255].map(x => Math.round(Math.min(255, x * k))).join(',')})`; };
+/** The model's materials in kit k (its kit swatches painted), once a kit. */
 const KIT_MATS = new Map();
 function kitMaterials(gltf, k) {
   if (KIT_MATS.has(k)) return KIT_MATS.get(k);
-  const out = new Map(), tint = (m, hex, o = {}) => { const c = m.clone(); c.color = new T.Color(hex); Object.assign(c, o); return c; };
+  const out = new Map();
   gltf.scene.traverse(o => {
     if (!o.isMesh || out.has(o.material)) return;
-    const m = o.material;
-    const cloth = {roughnessMap: null, metalnessMap: null, roughness: .82, metalness: 0}; // (the model's has them shine like plastic)
-    out.set(m, m.name === 'shirt_0' ? Object.assign(m.clone(), cloth, {map: repaint(m.map, k.jersey, k.numFill, k.numEdge, k.num)})
-      : m.name === 'pants' ? Object.assign(m.clone(), cloth, {map: repaint(m.map, k.pants, k.stripe, k.numEdge)})
-      : m.name === 'Mat.3' ? tint(m, k.helmet)
-      : m.name === 'Mat.8_1' ? tint(m, k.mask, {metalness: .55, roughness: .3})
-      : m.name === 'Mat.2_2mat' ? tint(m, k.cup)
-      : m.name === 'frosted_glass' ? tint(m, k.visor, {metalness: .6, roughness: .12})
-      : m);
+    const m = o.material, kit = m.userData && m.userData.kit;
+    if (!kit || !m.map || !m.map.image) { out.set(m, m); return; }
+    const img = m.map.image, cv = document.createElement('canvas'), n = m.userData.slots || 16;
+    cv.width = img.width; cv.height = img.height;
+    const g = cv.getContext('2d');
+    g.drawImage(img, 0, 0);
+    const w = cv.width / n, grad = col => { const gr = g.createLinearGradient(0, 0, 0, cv.height); for (let i = 0; i <= 8; i++) gr.addColorStop(i / 8, shadeOf(col, i / 8)); return gr; };
+    Object.entries(kit).forEach(([role, slot]) => { if (k[role] != null) {
+      g.fillStyle = grad(k[role]); g.fillRect(slot * w, 0, w, cv.height);
+      if (k.ball && ['jersey', 'pads', 'pants'].includes(role)) {
+        // Very fine horizontal knit: the source atlas maps each face into one narrow swatch.
+        g.fillStyle = 'rgba(255,255,255,.07)'; for(let y=1;y<cv.height;y+=4) g.fillRect(slot*w,y,w,1);
+      }
+    } });
+    const t = new T.CanvasTexture(cv);
+    // (no mipmaps: a swatch is a few pixels wide, and its neighbours mustn't bleed in)
+    Object.assign(t, {flipY: m.map.flipY, colorSpace: m.map.colorSpace, channel: m.map.channel, wrapS: T.ClampToEdgeWrapping, wrapT: T.ClampToEdgeWrapping,
+      magFilter: T.LinearFilter, minFilter: T.LinearFilter, generateMipmaps: false});
+    out.set(m, Object.assign(m.clone(), {map: t}));
   });
   KIT_MATS.set(k, out);
   return out;
@@ -218,16 +252,137 @@ function hang(bone, obj, at, rot = null) {
   m.decompose(obj.position, obj.quaternion, obj.scale);
   bone.add(obj);
 }
+const plastic = (color, o = {}) => new T.MeshStandardMaterial({color, roughness: .38, metalness: .05, ...o});
+/** A tube through points (each [x, y, z]). */
+const tube = (pts, r, mat, closed = false) => new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts.map(p => new T.Vector3(...p)), closed, 'centripetal'), pts.length * 6, r, 6, closed), mat);
+/** The helmet for his head (the mesh, at rest; its bone B.Head at his neck): its measure from the head's top down to
+ *  the neck and across its upper half (a beard or a chin left out); the shell a dome down to an edge that's high at the
+ *  face (over the brow) and low at the sides and back (over the ears), rimmed. */
+function helmet(head, B, k) {
+  const pp = head.geometry.attributes.position, v = new T.Vector3(), neck = B.Head.getWorldPosition(new T.Vector3()).y;
+  let top = -Infinity;
+  for (let i = 0; i < pp.count; i++) top = Math.max(top, v.fromBufferAttribute(pp, i).applyMatrix4(head.matrixWorld).y);
+  const h = top - neck, box = new T.Box3();
+  for (let i = 0; i < pp.count; i++) { v.fromBufferAttribute(pp, i).applyMatrix4(head.matrixWorld); if (v.y > neck + h * .45) box.expandByPoint(v); }
+  const c = box.getCenter(new T.Vector3()), s = box.getSize(new T.Vector3());
+  c.y = neck + h * .56;
+  const r = new T.Vector3(s.x * .64, h * .53, s.z * .64), g = new T.Group();
+  // (phi round him from ahead, theta down from the crown)
+  const at = (phi, th, out = 1) => [Math.sin(th) * Math.sin(phi) * r.x * out, Math.cos(th) * r.y * out, Math.sin(th) * Math.cos(phi) * r.z * out];
+  const edge = phi => 2.25 - Math.pow(Math.max(0, Math.cos(phi)), 2.5);
+  const rows = 18, cols = 48, pos = [], nor = [], idx = [];
+  for (let i = 0; i <= rows; i++) for (let j = 0; j <= cols; j++) {
+    const phi = j / cols * Math.PI * 2, p = at(phi, i / rows * edge(phi));
+    pos.push(...p);
+    const n = new T.Vector3(p[0] / (r.x * r.x), p[1] / (r.y * r.y), p[2] / (r.z * r.z)).normalize(); nor.push(n.x, n.y, n.z);
+    if (i < rows && j < cols) { const a = i * (cols + 1) + j, b = a + cols + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  }
+  const shell = new T.BufferGeometry();
+  shell.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); shell.setAttribute('normal', new T.Float32BufferAttribute(nor, 3)); shell.setIndex(idx);
+  const shellMat = plastic(k.helmet, {side: T.DoubleSide, roughness: .3});
+  g.add(new T.Mesh(shell, shellMat));
+  g.add(tube(Array.from({length: 48}, (_, j) => { const phi = j / 48 * Math.PI * 2; return at(phi, edge(phi)); }), r.x * .035, shellMat, true));
+  // the stripe over the crown, front to back, edged each side
+  const arc = x => Array.from({length: 13}, (_, i) => { const a = 1.12 - 3.1 * i / 12, q = Math.sqrt(1 - x * x); return [x * r.x * 1.015, Math.cos(a) * q * r.y * 1.015, Math.sin(a) * q * r.z * 1.015]; });
+  g.add(tube(arc(0), r.x * .06, plastic(k.stripe)));
+  [-1, 1].forEach(sd => g.add(tube(arc(sd * .13), r.x * .022, plastic(k.edge))));
+  // the face mask: two bars round the mouth and the chin from side to side, one up the middle, a stud each end
+  const mask = plastic(k.mask, {metalness: .45, roughness: .3}), bar = r.x * .05;
+  const across = y => { const q = Math.sqrt(1 - y * y), th = Math.acos(y); return Array.from({length: 11}, (_, i) => { const phi = (-1.3 + 2.6 * i / 10); return at(phi, th, 1.13 / Math.max(.6, q) * q + (1 - q) * .3); }); };
+  [-.5, -.82].forEach(y => g.add(tube(across(y), bar, mask)));
+  g.add(tube([at(0, Math.acos(-.3), 1.08), at(0, Math.acos(-.5), 1.13), at(0, Math.acos(-.82), 1.13)], bar, mask));
+  [-1, 1].forEach(sd => { const d = new T.Mesh(new T.SphereGeometry(r.x * .11, 12, 8), plastic(k.stripe)); d.position.set(...at(sd * 1.3, Math.acos(-.5), 1.02)); d.scale.set(1, 1, .6); g.add(d); });
+  if (k.ball) {
+    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 96; paintHelmetBadge(cv,k);
+    const map = new T.CanvasTexture(cv); map.colorSpace = T.SRGBColorSpace;
+    const material = new T.MeshStandardMaterial({map, alphaTest:.5, roughness:.5, polygonOffset:true, polygonOffsetFactor:-2});
+    for(const sd of [-1,1]) {
+      const badge = new T.Mesh(new T.PlaneGeometry(r.z*.92,r.y*.57),material);
+      badge.position.set(sd*r.x*1.012,r.y*.13,-r.z*.1); badge.rotation.y=sd*Math.PI/2; g.add(badge);
+    }
+  }
+  return {group: g, at: c};
+}
+/** His number on a curved patch (width w, height h, curved round a radius of rad), facing +z. */
+function number(k, w, h, rad, side = 'front') {
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = Math.round(256 * h / w);
+  const g = cv.getContext('2d'), s = String(k.num);
+  if(k.ball) paintJersey(cv,k,side);
+  else {
+    g.font = `800 ${Math.round(cv.height * .98)}px "Barlow Condensed", "Arial Narrow", sans-serif`; g.textAlign = 'center'; g.lineJoin = 'round';
+    const m = g.measureText(s), y = cv.height / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+    g.lineWidth = cv.height * .12; g.strokeStyle = hex(k.numEdge); g.strokeText(s, cv.width / 2, y);
+    g.fillStyle = hex(k.numFill); g.fillText(s, cv.width / 2, y);
+  }
+  const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4;
+  if(k.ball){if(!JERSEY_PRINTS.has(k))JERSEY_PRINTS.set(k,[]);JERSEY_PRINTS.get(k).push({canvas:cv,texture:t,side});}
+  const geo = new T.PlaneGeometry(w, h, 10, 1), p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setZ(i, -(rad - Math.sqrt(Math.max(0, rad * rad - x * x)))); }
+  geo.computeVertexNormals();
+  return new T.Mesh(geo, new T.MeshStandardMaterial({map: t, alphaTest: .5, roughness: .8, polygonOffset: true, polygonOffsetFactor: -2}));
+}
 /** One player: the model cloned and dressed in kit k. */
 function dress(gltf, SK, k) {
   const model = SK.clone(gltf.scene), mats = kitMaterials(gltf, k);
   model.updateMatrixWorld(true);
-  const B = {};
+  const B = {}, gone = [];
+  let head = null, body = null;
   model.traverse(o => {
     if (o.isBone) B[bare(o.name)] = o;
-    if (o.isMesh) { o.material = mats.get(o.material) || o.material; o.frustumCulled = false; }
+    if (!o.isMesh) return;
+    o.material = mats.get(o.material) || o.material; o.frustumCulled = false;
+    if (/^Head/.test(o.name)) { if (o.name === k.head) head = o; else gone.push(o); }
+    if (o.name === 'Body') body = o;
   });
+  gone.forEach(o => o.removeFromParent());
   const at = n => B[n].getWorldPosition(new T.Vector3());
+  // the helmet, on his head
+  const hm = helmet(head, B, k);
+  hang(B.Head, hm.group, hm.at);
+  // his chest's measure, at rest: across at the shoulders, and its front and back at the chest bone's height
+  const chestY = at('Spine2').y, sh = at('LeftArm'), pp = body.geometry.attributes.position, v = new T.Vector3();
+  let front = -Infinity, back = Infinity, wide = 0;
+  for (let i = 0; i < pp.count; i++) {
+    v.fromBufferAttribute(pp, i).applyMatrix4(body.matrixWorld);
+    if (Math.abs(v.y - chestY) < .05 && Math.abs(v.x) < .06) { front = Math.max(front, v.z); back = Math.min(back, v.z); }
+    if (Math.abs(v.y - sh.y) < .06) wide = Math.max(wide, Math.abs(v.x));
+  }
+  // the shoulder pads: rounded, over each shoulder, a stripe round each
+  const padMat = plastic(k.jersey, {roughness: k.ball ? .82 : .55}), stripeMat = plastic(k.stripe, {roughness: .6}), edgeMat = k.ball ? plastic(k.edge,{roughness:.7}) : null;
+  [-1, 1].forEach(sd => {
+    const pad = new T.Group(), dome = new T.Mesh(new T.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI * .6), padMat);
+    dome.scale.set(wide * .5, wide * .34, (front - back) * .5); pad.add(dome);
+    const ring = new T.Mesh(new T.TorusGeometry(1, .06, 6, 24, Math.PI), stripeMat);
+    ring.scale.set(wide * .38, wide * .3, 1); ring.rotation.y = Math.PI / 2; ring.position.y = wide * .02; pad.add(ring);
+    if(k.ball) {
+      const trim = new T.Mesh(new T.TorusGeometry(1,.035,6,24,Math.PI),edgeMat);
+      trim.scale.set(wide*.46,wide*.33,1);trim.rotation.y=Math.PI/2;trim.position.y=wide*.055;pad.add(trim);
+    }
+    pad.rotation.z = -sd * .32;
+    hang(B.Spine2, pad, new T.Vector3(sd * wide * .62, sh.y + wide * .02, (front + back) / 2), pad.quaternion.clone());
+  });
+  if(k.ball) {
+    // V-neck and shoulder yoke follow the torso; arm and leg animation stays untouched.
+    const collar = new T.Group(), neckY=at('Neck').y, centerZ=(front+back)/2;
+    const collarPoints=[[-wide*.2,0,front-centerZ],[0,-wide*.17,front-centerZ+.01],[wide*.2,0,front-centerZ]];
+    collar.add(tube(collarPoints,wide*.035,stripeMat));
+    hang(B.Spine2,collar,new T.Vector3(0,Math.min(neckY,sh.y)+.015,centerZ));
+    for(const sd of [-1,1]) {
+      const yoke = tube([[sd*wide*.23,sh.y,front+.005],[sd*wide*.5,sh.y-wide*.12,front*.92],[sd*wide*.82,sh.y-wide*.06,centerZ]],wide*.022,edgeMat);
+      hang(B.Spine2,yoke,new T.Vector3());
+      const bone=B[sd<0?'RightUpLeg':'LeftUpLeg'], hip=bone.getWorldPosition(new T.Vector3()), knee=at(sd<0?'RightLeg':'LeftLeg');
+      const stripe = new T.Group(), length=hip.distanceTo(knee)*.72, width=wide*.06;
+      const outer=new T.Mesh(new T.BoxGeometry(width,length,width*.3),stripeMat);outer.position.y=-length/2;stripe.add(outer);
+      const inner=new T.Mesh(new T.BoxGeometry(width*.36,length,width*.5),edgeMat);inner.position.y=-length/2;stripe.add(inner);
+      hang(bone,stripe,new T.Vector3(hip.x+sd*wide*.22,hip.y-.025,hip.z+.025));
+    }
+  }
+  // his number, chest and back
+  const nw = wide * (k.ball ? 1.2 : .9), nh = ((sh.y - chestY) * 1.1 + .06) * (k.ball ? 1.3 : 1), rad = wide * .95;
+  const fn = number(k, nw, nh, rad), bn = number(k, nw * 1.1, nh * 1.15, rad, 'back');
+  hang(B.Spine2, fn, new T.Vector3(0, chestY + nh * (k.ball ? -.03 : .1), front + .004));
+  bn.rotation.y = Math.PI;
+  hang(B.Spine2, bn, new T.Vector3(0, chestY + nh * (k.ball ? .08 : .25), back - .004), bn.quaternion.clone());
   // the ball, tucked along his right forearm, its nose in his hand
   let ball = null;
   if (k.ball) {
@@ -239,8 +394,11 @@ function dress(gltf, SK, k) {
     ball.add(egg);
     const lace = new T.Mesh(new T.BoxGeometry(.11, .012, .02), white); lace.position.set(0, 0, .085); ball.add(lace);
     [-1, 1].forEach(s => { const ring = new T.Mesh(new T.TorusGeometry(.07, .008, 6, 20), white); ring.rotation.y = Math.PI / 2; ring.position.x = s * .085; ball.add(ring); });
+    ball.scale.setScalar(BALL);
+    // (in his right glove, its nose out past his fingers: his forearm's too short to tuck it along, and from behind
+    // him it shows at his side)
     const hand = at('RightHand'), fore = at('RightForeArm'), along = hand.clone().sub(fore).normalize();
-    hang(B.RightForeArm, ball, hand.clone().lerp(fore, .3).add(new T.Vector3(0, -.02, .07)), new T.Quaternion().setFromUnitVectors(new T.Vector3(-1, 0, 0), along));
+    hang(B.RightHand, ball, hand.clone().addScaledVector(along, .1), new T.Quaternion().setFromUnitVectors(new T.Vector3(1, 0, 0), along));
   }
   const root = new T.Group(), wrap = new T.Group();
   root.rotation.order = 'YXZ';
@@ -257,9 +415,15 @@ function dress(gltf, SK, k) {
     a.play(); a.setEffectiveWeight(0);
     layer[c.name] = {a, w: 0, u: 0};
   });
+  // where a jetpack goes (return-jetpack.js, made in yards, facing as his root does): on his back, moving with it
+  const pack = new T.Group();
+  pack.scale.setScalar(1 / (SCALE * k.size));
+  hang(B.Spine2, pack, new T.Vector3(0, chestY + (sh.y - chestY) * .15, back), new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), Math.PI));
   return {root, wrap, model, B, mixer, run, idle, ball, hipsY: B.Hips.position.y, q: new T.Quaternion(),
-    act: {run, idle}, w: {run: 0, idle: 1}, u: {}, slot: {}, layer, last: 0};
+    act: {run, idle}, w: {run: 0, idle: 1}, u: {}, slot: {}, layer, last: 0, pack,
+    flightRest: Object.values(B).map(b => ({b, q: b.quaternion.clone(), p: b.position.clone()}))};
 }
+const BALL = 1.25; // (the ball a little big for his size: his hands are)
 /** Gives a player the moves' clips (two takes of each: a move started again while the last is still fading out takes
  *  the other, so neither jumps). */
 function arm(P, clips) {
@@ -292,16 +456,21 @@ function build(gltf, SK, RoomEnvironment) {
   scene.fog = new T.Fog(0x8899AA, 70, 150);
   W3.init(T, scene, GL_UTILS);
   // the returner, the linebacker, and the returner seen double (booze): see-through
-  const players = {us: dress(gltf, SK, KITS.us), them: dress(gltf, SK, KITS.them), ghost: dress(gltf, SK, KITS.us)};
+  const defaultKit = {...KITS.us};
+  const players = {us: dress(gltf, SK, defaultKit), them: dress(gltf, SK, KITS.them), ghost: dress(gltf, SK, defaultKit)};
+  [players.us, players.ghost].forEach(rideGear);
   const clips = bake(players.us, gltf);
   Object.values(players).forEach(P => arm(P, clips));
   const ghost = ghostMaterials(players.ghost);
+  SKIN_VARIANTS.set(kitKey(KITS.us), {us: players.us, ghost: players.ghost, materials: ghost, kit:defaultKit});
   [players.us, players.them].forEach(P => P.root.traverse(o => { if (o.isMesh) o.castShadow = true; }));
   scene.add(W3.bend(players.us.root), W3.bend(players.them.root), W3.bend(players.ghost.root));
+  // Reuse the existing football geometry/materials. The opening ball follows both gloves,
+  // then disappears before the run so both arms keep their free running stride.
+  const punt = players.us.ball.clone(); punt.visible = false; punt.rotation.set(0, 0, 0); scene.add(punt);
   const camera = new T.PerspectiveCamera();
   camera.matrixAutoUpdate = true;
-  return {renderer, canvas, scene, camera, players, ghost, basePlayers: players, baseGhost: ghost,
-    gltf, SK, clips, hemi, sun, rim, w: 0, h: 0};
+  return {renderer, canvas, scene, camera, players, ghost, punt, gltf, SK, clips, hemi, sun, rim, skinKey: kitKey(KITS.us), skinNumber:KITS.us.num, w: 0, h: 0};
 }
 
 // ---------------------------------------------------------------------------- Posing him
@@ -464,12 +633,49 @@ function pose(P, s, dt) {
     a.time = k === 'run' ? ((s.phase || 0) % 1 + 1) % 1 * d : k === 'idle' ? (s.t || 0) % d : (P.u[k] ?? 0) * d;
   }
   P.mixer.update(0);
+  // Flight has its own neutral torso. Imported running clips carry a twist and lean that would turn the pack under him.
+  if (s.jetpack || (s.ride && s.move !== 'slide')) P.flightRest.forEach(({b, q, p}) => { b.quaternion.copy(q); b.position.copy(p); });
   // the whole of him: turned, leaned, pitched forward about his feet
+  P.root.rotation.order = s.jetpack ? 'ZXY' : 'YXZ';
   P.root.rotation.set(-(s.pitch || 0), -(s.turn || 0), -(s.roll || 0));
+  // Roll around the torso in flight, not around the feet. Restore the standing pivot on landing.
+  P.wrap.position.y = s.jetpack ? -.85 * (s.flight || 0) : s.ride ? .35 : 0;
+  if (s.jetpack) P.root.position.y += .85 * (s.flight || 0);
   P.root.updateMatrixWorld(true);
   P.wrap.getWorldQuaternion(P.q);
   P.model.updateMatrixWorld(true);
   const t = s.t || 0;
+  if (s.jetpack && features.returnManUpdated()) {
+    flightGear(P);
+    // Streamlined, belly down, arms reaching ahead and legs trailing behind the pack.
+    trunk(P, [0, 1, 0]); aim(P, 'Neck', 'Head', [0, 1, 0]);
+    leg(P, 'Left', [.12, -1, .05], [.03, -1, -.06]);
+    leg(P, 'Right', [-.12, -1, .05], [-.03, -1, -.06]);
+    limb(P, 'Left', [.34, .9, .18], [.08, .95, .2]);
+    limb(P, 'Right', [-.34, .9, .18], [-.08, .95, .2]);
+    // Anchor in the flight frame: the cartoon mesh's baked chest bounds don't match its animated bone frame.
+    P.B.Spine2.getWorldPosition(tmp().a); P.root.worldToLocal(tmp().a);
+    P.jetpack.position.copy(tmp().a); P.jetpack.position.z += .28;
+    animateJetpack(P.jetpack, t);
+  }
+  if (P.jetpack) P.jetpack.visible = !!s.jetpack && features.returnManUpdated();
+  if (P.rides) for (const [kind, ride] of Object.entries(P.rides)) {
+    ride.visible = !!s.ride && s.ride.kind === kind && !s.jetpack;
+    if (ride.visible) animateRide(ride, s.ride, s.move === 'slide', s.reduced);
+  }
+  if (s.ride && s.move !== 'slide') {
+    const scooter = s.ride.kind === 'scooter', crouch = s.move === 'jump' ? .36 : .16;
+    trunk(P, [0, 1, .12]);
+    leg(P, 'Left', [.12, -1, crouch], [.04, -1, -crouch]);
+    leg(P, 'Right', [-.12, -1, -.08], [-.03, -1, .08]);
+    if (scooter) {
+      limb(P, 'Left', [.24, -.7, .7], [-.08, -.25, 1]);
+      limb(P, 'Right', [-.24, -.7, .7], [.08, -.25, 1]);
+    } else {
+      limb(P, 'Left', [.65, -.6, .2], [.5, -.5, .2]);
+      limb(P, 'Right', [-.65, -.6, -.15], [-.5, -.5, .15]);
+    }
+  }
   // a stumble: the trunk forward (not down in a slide), his free arm flailing
   if (s.stumble > 0) {
     if (want !== 'slide') trunk(P, [0, .78, .62], s.stumble * .8);
@@ -477,30 +683,44 @@ function pose(P, s, dt) {
     limb(P, 'Left', [.92, .25 + .35 * w, .22], [.62, .72 + .2 * w, .25], s.stumble);
   }
   // the catch: both hands up; the ball tucked in his right
-  if (s.catch > 0) { limb(P, 'Left', [.3, .85, .42], [.06, .9, .45], s.catch); limb(P, 'Right', [-.3, .85, .42], [-.06, .9, .45], s.catch); }
-  if (s.carry > 0) { const sw = .12 * Math.sin((s.phase || 0) * Math.PI * 2); limb(P, 'Right', [-.22, -.86, -.42 + sw], [.42, .3 + sw * .5, .86], s.carry); }
+  if (s.catch > 0) {
+    if (s.punt) {
+      // The cartoon helmet is large: reach ahead of it so the gloves and caught ball stay visible.
+      limb(P, 'Left', [.12, -.35, 1], [-.55, -.2, 1], s.catch);
+      limb(P, 'Right', [-.12, -.35, 1], [.55, -.2, 1], s.catch);
+      aim(P, 'Neck', 'Head', [0, 1, -.2], s.catch * .5);
+    } else { limb(P, 'Left', [.3, .85, .42], [.06, .9, .45], s.catch); limb(P, 'Right', [-.3, .85, .42], [-.06, .9, .45], s.catch); }
+  }
+  // the carry: the ball out at his right side, his forearm ahead (a short arm can't tuck it across him), swinging a little
+  if (s.carry > 0) { const sw = .12 * Math.sin((s.phase || 0) * Math.PI * 2); limb(P, 'Right', [-.38, -.88, -.12 + sw], [-.28, -.12 + sw * .5, .95], s.carry); }
   if (P.ball) P.ball.visible = !!s.ball;
 }
 
 // ---------------------------------------------------------------------------- Drawing it all
 /** The camera, matched to the scene's (views/return-world.js P: a pinhole at (camX, camH, camZ) looking ahead, f px
  *  to the screen, its middle at (W / 2, y0)); and the canvas, the stage's size (at most twice its CSS pixels). */
-function camera(st) {
+function camera(st, now = performance.now()) {
   const k = Math.min(2, st.dpr || 1), cw = Math.round(st.W * k), ch = Math.round(st.H * k);
   if (GL.w !== cw || GL.h !== ch) { GL.renderer.setSize(cw, ch, false); GL.w = cw; GL.h = ch; }
   const cam = GL.camera, n = .1, f = 400;
   cam.position.set(st.camX, st.camH, -st.camZ);
   cam.rotation.set(0, 0, 0);
+  const shot = intro.shot(st, now), q = shot ? shot.orbit : 1;
+  if (q < 1) {
+    const angle = Math.PI * .88 * (1 - q), radius = mix(4.4, st.back, q);
+    cam.position.set(mix(st.run.x, st.camX, q) + Math.sin(angle) * radius, mix(2.55, st.camH, q), -st.run.z + Math.cos(angle) * radius);
+    cam.lookAt(mix(st.run.x, st.camX, q), mix(1.3, st.camH, q), -st.run.z);
+  }
   cam.updateMatrixWorld(true);
-  cam.projectionMatrix.makePerspective(-st.W / 2 / st.f * n, st.W / 2 / st.f * n, st.y0 / st.f * n, -(st.H - st.y0) / st.f * n, n, f);
+  const y0 = mix(st.H * .5, st.y0, q);
+  cam.projectionMatrix.makePerspective(-st.W / 2 / st.f * n, st.W / 2 / st.f * n, y0 / st.f * n, -(st.H - y0) / st.f * n, n, f);
   cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
-  W3.BEND_U.value = st.bend || 0;
+  W3.BEND_U.value = (st.bend || 0) * q;
 }
 /** Renders the world and the players as they are now; who: {us, them, ghost} (each {spec (pose's), x, y, z (his
  *  feet), show} or null: not there). Returns the canvas it's on (transparent where the sky shows through). */
 export function render(st, now, who) {
-  syncPlayerStyle();
-  camera(st);
+  camera(st, now);
   W3.update(st, now);
   // the place's light where he is (the next place's coming in at its gate)
   const L = W3.look(st, st.camZ + st.back);
@@ -514,11 +734,27 @@ export function render(st, now, who) {
     const P = GL.players[k], w = who[k];
     P.root.visible = !!(w && w.show !== false);
     if (!P.root.visible) return;
-    P.root.position.set(w.x, w.y + (w.spec.lift || 0), -w.z);
-    pose(P, w.spec, P.last ? Math.min(.1, Math.max(0, (now - P.last) / 1000)) : 1);
+    const ride = k !== 'them' && riding(st.run) ? st.run.ride : null;
+    const spec = ride ? {...w.spec, ride, reduced: st.reducedMotion, ball: false, carry: 0, lift: 0,
+      pitch: w.spec.move === 'slide' ? w.spec.pitch : 0, roll: (w.spec.roll || 0) * .45} : w.spec;
+    P.root.position.set(w.x, w.y + (spec.lift || 0), -w.z);
+    pose(P, spec, P.last ? Math.min(.1, Math.max(0, (now - P.last) / 1000)) : 1);
     P.last = now;
     if (k === 'ghost') GL.ghost.forEach(m => { m.opacity = w.alpha; });
   });
+  const shot = intro.shot(st, now);
+  GL.punt.visible = !!shot && shot.ball > 0;
+  if (GL.punt.visible) {
+    const P = GL.players.us, {a, b} = tmp();
+    P.root.updateMatrixWorld(true);
+    P.B.LeftHand.getWorldPosition(a); P.B.RightHand.getWorldPosition(b); a.lerp(b, .5);
+    const fall = 1 - shot.flight;
+    GL.punt.position.copy(a); GL.punt.position.y += fall * fall * 5.5;
+    // The glove bones sit inside the oversized gloves; put the ball against their front surfaces.
+    GL.punt.position.z -= .16 + fall * 2.5;
+    GL.punt.rotation.set(fall * 9, Math.PI, .15);
+    GL.punt.scale.setScalar(BALL * SCALE * 1.2 * shot.ball);
+  }
   const R = GL.renderer;
   R.setScissorTest(false);
   R.setViewport(0, 0, GL.w, GL.h);

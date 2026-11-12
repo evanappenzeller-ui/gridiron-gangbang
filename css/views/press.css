@@ -4,6 +4,21 @@
    Motion is opacity/transform only; the loading spinner is the only loop. The blurred backdrop behind a vertical
    video is a static filter on an image (none in lite mode). */
 
+/* Reported vacancy: shared markup on Press Room and its Matchup card, owner profile only. */
+.pr-vacancy { margin: 12px 0 16px; overflow: hidden; border: 1px solid #756044; border-radius: var(--r-card); background: #24231f; color: #f3e9d4; }
+.pr-vacancy-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; padding: 12px 16px; border-bottom: 1px dashed #66573e; color: #d6bc89; font: 700 10px/1.4 var(--font-text); letter-spacing: 1.1px; text-transform: uppercase; }
+.pr-vacancy-top > :last-child { color: #f2d49b; }
+.pr-vacancy-scene { display: block; width: 100%; height: 144px; background: radial-gradient(ellipse at 50% 0, #353126, #24231f 75%); }
+.pr-vacancy-copy { padding: 4px 20px 20px; }
+.pr-vacancy-stamp { display: inline-block; padding: 5px 8px; border: 1px solid #ad795a; border-radius: 3px; color: #efb18e; font: 750 10px/1.4 var(--font-text); letter-spacing: 1px; text-transform: uppercase; }
+.pr-vacancy h2 { margin: 10px 0 7px; color: #f3e9d4; font: 800 30px/1.1 var(--font-display, var(--font-text)); letter-spacing: -.8px; }
+.pr-vacancy p { margin: 0; max-width: 48ch; color: #d0c4ae; font: 400 14px/1.55 var(--font-text); }
+.pr-vacancy .pr-vacancy-foot { margin-top: 12px; color: #aa9d86; font-size: 12px; font-style: italic; }
+.pr-vacancy-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin-top: 12px; border-top: 1px solid #524a3b; color: #f2d49b; font: 650 13px/1.4 var(--font-text); text-decoration: none; }
+.pr-vacancy-link:focus-visible { outline: 2px solid #f2d49b; outline-offset: 3px; }
+.pr-vacancy.is-compact .pr-vacancy-scene { height: 112px; }
+.pr-vacancy.is-compact .pr-vacancy-copy { padding-bottom: 8px; }
+
 /* ================================================================ Tile (.c-press) */
 .c-press {
   position: relative; display: block; min-width: 0;
@@ -280,6 +295,15 @@ html.rm .c-press-ifr, html.rm .c-press-btn { transition: none; }
 .v-press .pr-row .row-trail { margin-left: 10px; }
 .v-press .pr-row-th { width: 88px; border-radius: 7px; }
 .v-press .pr-row.is-selected .pr-row-th { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3.5px var(--tint); }
+/* An empty slot for a no-show (seed noShows): a vacant, dashed thumbnail with a struck-through mic; nothing plays. */
+.v-press .pr-noshow { cursor: default; }
+.v-press .pr-noshow .row-title { color: var(--ink-2); }
+.v-press .pr-noshow-th { display: grid; place-items: center; align-content: center; gap: 2px; background: repeating-linear-gradient(135deg, #15161a 0 6px, #111215 6px 12px); box-shadow: inset 0 0 0 1.5px rgba(214,188,137,.45); outline: 1px dashed rgba(214,188,137,.55); outline-offset: -5px; }
+.v-press .pr-noshow-ic { position: relative; display: grid; place-items: center; color: #8d7a58; }
+.v-press .pr-noshow-ic > .ic { width: 16px; height: 16px; }
+.v-press .pr-noshow-ic::after { content: ''; position: absolute; left: -3px; right: -3px; top: 50%; height: 1.5px; background: #c9604f; transform: rotate(-40deg); border-radius: 1px; }
+.v-press .pr-noshow-tag { color: #d6bc89; font: 800 8.5px/1 var(--font-text); letter-spacing: 1.1px; text-transform: uppercase; }
+.v-press .pr-noshow-av { display: inline-flex; opacity: .45; filter: grayscale(1); }
 .v-press .pr-arch-g > .row + .row > .row-main::before { left: 0; }
 
 /* How to post, and the test-mode note */
@@ -404,3 +428,29 @@ html.rm .c-press-ifr, html.rm .c-press-btn { transition: none; }
 }
 .sh-press .shp-why { min-height: 18px; margin-top: 8px; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .sh-press .shp-why:empty { visibility: hidden; }
+
+/* Questions Evan adds (Nov 5 2026): his rows open their sheet; Add a question under the list. */
+.v-press .pr-q.is-mine { padding: 0; }
+.v-press .pr-q-edit { display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 12px 12px 12px 16px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.v-press .pr-q-edit .pr-q-main { flex: 1; }
+.v-press .pr-q-edit.is-pressed, .v-press .pr-q-edit:active { background-color: var(--surface-2); }
+.v-press .pr-q-edit:focus-visible { outline-offset: -2px; }
+.v-press .pr-q-go { flex: none; align-self: center; width: 16px; height: 16px; color: var(--ink-3); stroke-width: 2.4; }
+.v-press .pr-qs-add { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 44px; margin-top: 10px; padding: 10px 16px;
+  border: 1px dashed var(--separator); border-radius: var(--r-cell); background: none; color: var(--tint); font: 600 var(--fs-callout)/1.2 var(--font-text); cursor: pointer; }
+.v-press .pr-qs-add > .ic { width: 18px; height: 18px; stroke-width: 2.2; }
+.v-press .pr-qs-add.is-pressed, .v-press .pr-qs-add:active { background-color: var(--surface-2); }
+.sh-pq .pq-field { align-items: stretch; }
+.sh-pq textarea.pq-in { height: auto; min-height: 112px; resize: vertical; line-height: 1.4; padding-top: 10px; padding-bottom: 10px; }
+.sh-pq .pq-del { margin-top: 10px; color: var(--wrong); }
+
+/* Ask {loser} (Nov 11 2026): the questions league members send the week's loser before the podium; theirs open the
+   ask sheet (.sh-ask), which leads with who the question is for. */
+.v-press .pr-ask-empty { display: flex; align-items: center; gap: 10px; margin: 0; padding: 14px 16px; font: 400 var(--fs-callout)/var(--lh-callout) var(--font-text); color: var(--ink-3); }
+.v-press .pr-ask-empty > .ic { flex: none; }
+.v-press .pr-ask-note { margin: 10px 0 0; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.sh-ask .ask-to { display: flex; align-items: center; gap: 12px; }
+.sh-ask .shp-note { color: var(--ink-3); }
+.sh-ask .ask-to-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sh-ask .ask-to-t { font: 600 var(--fs-callout)/var(--lh-callout) var(--font-text); color: var(--ink); }
+.sh-ask .ask-to-s { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }

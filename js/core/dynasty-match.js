@@ -13,7 +13,7 @@ import * as data from './data.js';
 import {profileKey, visitWho} from './realm-active.js';
 import * as D from './dynasty.js';
 import * as B from './dynasty-battle.js';
-import {dynastyKey} from './features.js';
+import {dynastyKey, rivalsUpdated} from './features.js';
 
 export const FIELD = 'dyb';
 export const IDLE_MS = 72 * 3600e3;
@@ -34,7 +34,8 @@ export function cleanSide(M) {
   if (!M || typeof M !== 'object' || typeof M.o !== 'string' || !M.o) return null;
   return {o: M.o, k: Array.isArray(M.k) ? M.k.filter(x => typeof x === 'string').slice(0, B.DECK_SIZE) : [], m: Array.isArray(M.m) ? M.m.slice(0, 200) : [],
     ch: M.ch ? 1 : 0, z: ['decline', 'cancel', 'resign', 'claim'].includes(M.z) ? M.z : '', c: Number(M.c) || 0, at: Number(M.at) || 0, ...(M.done ? {done: 1} : {}),
-    ...(Number(M.v) >= 2 ? {v: Math.min(5, Math.floor(Number(M.v)))} : {})};
+    ...(Number(M.v) >= 2 ? {v: Math.min(5, Math.floor(Number(M.v)))} : {}),
+    ...(M.roundEnergy === 1 || M.roundEnergy === B.FRONT_ENERGY ? {roundEnergy: M.roundEnergy} : {})};
 }
 function selectProfile() {
   const key = profileKey();
@@ -122,7 +123,8 @@ function matchOf(mid, M) {
   const decks = base.you === 0 ? [M.k, them.k] : [them.k, M.k];
   const moves = base.you === 0 ? [M.m, them.m] : [them.m, M.m];
   // (the rules' version is the challenger's: core/dynasty-battle.js newGame)
-  const {G, bad} = B.replay(mid, decks, moves, (base.you === 0 ? M : them).v || 1);
+  const challenger = base.you === 0 ? M : them;
+  const {G, bad} = B.replay(mid, decks, moves, challenger.v || 1, challenger.roundEnergy);
   // (your moves this turn, not sent yet)
   const pend = PENDING[mid];
   if (pend && pend.base === M.m.length && G.phase !== 'over') for (const m of pend.list) { if (!B.play(G, base.you, m).ok) break; }
@@ -167,13 +169,14 @@ const newId = () => 'b' + Date.now().toString(36) + Math.floor(Math.random() * 1
 
 /** Challenges another player (their profile key) with your deck. {ok, why, mid}. */
 export function challenge(key) {
+  if (!D.mayPlay()) return {ok: false, why: 'Choose a Rivals profile to challenge a player.'};
   const s = D.mine(), dk = D.deckOf(s);
   if (!dk.ok) return {ok: false, why: `Your deck isn’t ready: ${dk.why}`};
   if (!key || key === PROFILE || !dynastyKey(key)) return {ok: false, why: 'Pick someone to play.'};
   const open = list().filter(x => x.opp.key === key && !['over', 'closed'].includes(x.state));
   if (open.length) return {ok: false, why: 'You already have a match with them.', mid: open[0].mid};
   const mid = newId(), now = Date.now();
-  mine()[mid] = {o: key, k: dk.ids, m: [], ch: 1, z: '', c: now, at: now, v: B.RULES_VERSION};
+  mine()[mid] = {o: key, k: dk.ids, m: [], ch: 1, z: '', c: now, at: now, v: B.RULES_VERSION, ...(rivalsUpdated() ? {roundEnergy: B.FRONT_ENERGY} : {})};
   save('challenge'); return {ok: true, mid};
 }
 /** Accepts a challenge with your deck. */

@@ -88,7 +88,16 @@ function loadMods() {
 export const MY_HOUSE = {pri: 0x7A1F2B, sec: 0xD9AD3C, sigil: 'crown'};
 const BOT_HOUSES = [[0x2E4A2B, 0xD8CFB8, 'tower'], [0x23395B, 0xC9CED6, 'star'], [0x4A3B2A, 0xD9AD3C, 'key'], [0x3B2B4F, 0xC9CED6, 'moon'],
   [0x5A2A1E, 0xE0C26A, 'sun'], [0x1F3D3A, 0xD8CFB8, 'axe'], [0x2B2B2E, 0xB8B0A0, 'sword'], [0x111114, 0xA9273A, 'star']];
+// (another player's realm, raided: its own colours and sigil from their profile key, never yours)
+const PLAYER_HOUSES = [[0x1E4E79, 0xE6C35C, 'sun'], [0x2F5D3A, 0xE8DFC8, 'axe'], [0x5B2C6F, 0xD9AD3C, 'moon'], [0x7A4A12, 0xF1E3B8, 'key'],
+  [0x234E52, 0xD8CFB8, 'star'], [0x3D3D45, 0xD4523C, 'sword'], [0x14365E, 0xC9CED6, 'tower'], [0x6B1F3A, 0xE6E0D0, 'star']];
 export const houseOf = key => {
+  if (F.isPvp(key)) {
+    let h = 0;
+    for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const [pri, sec, sigil] = PLAYER_HOUSES[h % PLAYER_HOUSES.length];
+    return {pri, sec, sigil};
+  }
   const b = F.BOTS.findIndex(x => x.k === key);
   if (b < 0) return MY_HOUSE;
   const [pri, sec, sigil] = BOT_HOUSES[b];
@@ -1035,13 +1044,14 @@ export function targets(now = Date.now(), mine = F.mine()) {
  *  before Castle level 3, the lock (raids open there) and the way to the Castle; a realm more than a level above your
  *  Castle, locked till it's high enough. */
 function raidHTML(s, now) {
+  const dailyWhy = F.dailyAttackWhy(s, now);
   const th = F.keepOf(s), rows = (open, army) => targets(now, s).map(x => {
     const bot = F.BOTS.find(b => b.k === x.k), ok = open && F.canTarget(s, bot);
     return `<div class="rl-tg${ok ? '' : ' is-locked'}"><span class="rl-tg-lv">${x.th}</span><span class="rl-tg-n"><b>${esc(x.name)}</b>`
       + `<small>${x.loot.gold || x.loot.grain ? `${curHTML('gold', x.loot.gold)} ${curHTML('grain', x.loot.grain)}` : 'Raided today: nothing left to take'}</small></span>`
       // (from Castle 3 every realm can be scouted, the ones out of reach too: core/realm.js realmOf's scout)
       + (open ? `<button type="button" class="rl-act rl-tg-go" data-rl-scout="${esc(x.k)}">Scout</button>` : '')
-      + (ok ? `<button type="button" class="rl-act is-go rl-tg-go" data-rl-go="${esc(x.k)}" ${army ? '' : 'disabled'}>Attack</button>`
+      + (ok ? `<button type="button" class="rl-act is-go rl-tg-go" data-rl-go="${esc(x.k)}" ${army && !dailyWhy ? '' : 'disabled'}>Attack</button>`
         : `<span class="rl-tg-lock" role="img" aria-label="Locked: attack it from Castle level ${F.targetAt(bot || x.k)}">${ui.icon('lock')}<span aria-hidden="true">Castle ${F.targetAt(bot || x.k)}</span></span>`) + `</div>`;
   }).join('');
   if (!F.attackOpen(s)) {
@@ -1057,12 +1067,37 @@ function raidHTML(s, now) {
       + `<h3 class="rl-sh-h">The computer’s realms</h3>${rows(false, 0)}`;
   }
   const army = F.roomOf(s.ar) || Object.keys(F.heroArmy(s)).length;
+  const players = playersHTML(s, now, army);
   const march = [...F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `${esc(F.TROOPS[t].name)} ×${s.ar[t]}`), ...F.HERO_ORDER.filter(k => F.heroArmy(s)['hero_' + k]).map(k => `${esc(F.HEROES[k].name)} level ${F.heroLevel(s, k)}`)];
   return (army ? `<p class="rl-sh-lead">Ready to march: ${march.join(', ')}. Send them round the edge of a realm; they carry off what its treasuries, cellars, mines and breweries hold. Each realm’s stores fill again every morning.</p>`
       : th < F.HEROES.knight.at ? `<p class="rl-sh-lead">Open Army to train troops before attacking. The Knight Hero and your first dragon come at Castle level ${F.HEROES.knight.at}.</p>`
       : `<p class="rl-sh-lead">Open Army to recruit the Knight Hero or train troops, or choose a dragon and build its hatchery, before attacking.</p>`)
-    + rows(true, army)
-    + `<p class="rl-sh-note">Scout a realm to look round it first: where its towers reach, where its walls run, where its gold and ale are kept. You can attack realms up to a level above your Castle.</p>`;
+    + (F.dailyAttackLimited() ? `<p class="rl-sh-note" role="status">${dailyWhy || 'One attack per day, against a player or computer realm. Your attack counts when you deploy the first troop or hero. Resets at midnight.'}</p>` : '')
+    + `<h3 class="rl-sh-h">Players’ realms <span>what you take comes off theirs</span></h3>${players}`
+    + `<h3 class="rl-sh-h">The computer’s realms</h3>${rows(true, army)}`
+    + `<p class="rl-sh-note">Scout a realm to look round it first: where its towers reach, where its walls run, where its gold and ale are kept. You can attack realms up to a level above your Castle; a player’s, no more than ${F.PVP_BELOW} below it, once a day, and not while they’re in a truce (${F.PVP_TRUCE_H} hours after losing a star).</p>`;
+}
+/** Attack's other players: each realm (core/realm.js playerTargets: the scoreboards' rule, the raids posted on it already
+ *  taken), its house, player, Castle level and what it holds to take, Scout, and Attack or why not yet. */
+export function playersHTML(s, now = Date.now(), army = 1, list = F.playerTargets(s, now)) {
+  if (!list.length) return `<p class="rl-sh-note">No other player’s realm is up yet.</p>`;
+  return list.map(x => {
+    const house = houseName(x.state, x.who), why = x.why;
+    return `<div class="rl-tg is-player${why ? ' is-locked' : ''}"><span class="rl-tg-lv">${x.th}</span><span class="rl-tg-n"><b>${esc(house)}</b>`
+      + `<small><span>${esc(x.who.name)}${x.who.guest ? ' · Guest' : ''}</span>${why ? `<span>${esc(why)}</span>` : `<span>${curHTML('gold', x.loot.gold)} ${curHTML('grain', x.loot.grain)}</span>`}</small></span>`
+      + `<button type="button" class="rl-act rl-tg-go" data-rl-scout="${esc(x.key)}" aria-label="Scout ${esc(house)}, ${esc(x.who.name)}’s realm">Scout</button>`
+      + (why ? `<span class="rl-tg-lock" role="img" aria-label="${esc(why)}">${ui.icon('lock')}</span>`
+        : `<button type="button" class="rl-act is-go rl-tg-go" data-rl-go="${esc(x.key)}" aria-label="Attack ${esc(house)}, ${esc(x.who.name)}’s realm" ${army ? '' : 'disabled'}>Attack</button>`) + `</div>`;
+  }).join('');
+}
+/** Who raided your realm since Keepfall last said (core/realm.js takenRaids): a toast, the Chronicle to see them. */
+function raidedNotice(st) {
+  const got = F.takenRaids();
+  if (!got.length || st.dead || !F.mayPlay()) return;
+  const lost = got.reduce((a, r) => [a[0] + (r.lt[0] || 0), a[1] + (r.lt[1] || 0)], [0, 0]);
+  const who = [...new Set(got.map(r => r.by))];
+  const text = got.length === 1 ? `${who[0]} raided your realm` : `${got.length} raids on your realm`;
+  ui.toast(lost[0] || lost[1] ? `${text}: lost ${nf(lost[0])} Gold, ${nf(lost[1])} Ale` : `${text}: driven off`, {icon: 'shield'});
 }
 /** The Castle, chosen and in view (from Attack's lock). */
 function toKeep(st) {
@@ -1150,7 +1185,7 @@ function logHTML(s, now) {
   const ex = (Array.isArray(s.ex) ? s.ex : []).slice().sort((a, b) => (a.st || 0) - (b.st || 0) || b.at - a.at);
   const won = s.rd.filter(r => r.st > 0).length, held = s.df.filter(r => !r.st).length;
   return `<div class="rl-sh-big"><span class="rl-amt"><i class="rl-crown"></i>${nf(s.tp)}</span><small>glory · ${won} realm${won === 1 ? '' : 's'} sacked${def.length ? ` · ${held} raid${held === 1 ? '' : 's'} driven off` : ''}</small></div>`
-    + `${def.length ? `<h3 class="rl-sh-h">Raids on your realm</h3>${def.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st ? `took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}` : 'were driven off'}</span><small>${ago(r.at)} · ${r.pc || 0}% · ${r.td > 0 ? '+' : ''}${r.td || 0} glory</small></span>${watchHTML(r, s, `${r.by}’s raid on your realm`)}</div>`).join('')}` : ''}`
+    + `${def.length ? `<h3 class="rl-sh-h">Raids on your realm</h3>${def.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b>${r.bw ? ` (${esc(r.bw)})` : ''} ${r.st || (r.pk && ((r.lt || [])[0] || (r.lt || [])[1])) ? `took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}` : 'were driven off'}</span><small>${ago(r.at)} · ${r.pc || 0}% · ${r.td > 0 ? '+' : ''}${r.td || 0} glory</small></span>${watchHTML(r, s, `${r.by}’s raid on your realm`)}</div>`).join('')}` : ''}`
     + `<h3 class="rl-sh-h">Your attacks</h3>${off.length ? off.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.nm)}</b> · you took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}</span><small>${ago(r.at)} · ${r.pc || 0}% · +${r.ta || 0} glory</small></span>${watchHTML(r, s, `your attack on ${r.nm}`)}</div>`).join('') : `<p class="rl-sh-note">${F.attackOpen(s) ? 'You haven’t attacked anyone yet.' : `You haven’t attacked anyone yet: raids open at Castle level ${F.ATTACK_AT}.`}</p>`}`
     + `<h3 class="rl-sh-h">${F.dragonExamplesForMe() ? 'Dragon sample raids' : 'Example raids'} <span>on your base as it stands · nothing taken</span></h3>`
     + (ex.length ? ex.map(r => `<div class="rl-log is-ex"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st === 3 ? 'broke through' : r.st === 2 ? 'took two stars' : r.st ? 'took a star' : 'were driven off'}</span><small>Example · ${r.pc || 0}% · nothing taken</small></span>${watchHTML(r, s, `the example raid by ${r.by}`)}</div>`).join('')
@@ -1589,7 +1624,8 @@ export default {
     earned();
     hud(st);
     loadMods().then(() => { if (!st.dead && F.mayPlay()) { earned(); synced(st); } });
-    st.stops.push(F.subscribe(() => { if (!st.dead) { hud(st); tags(st); } }));
+    st.stops.push(F.subscribe(why => { if (!st.dead) { hud(st); tags(st); if (why === 'raided') raidedNotice(st); } }));
+    raidedNotice(st);
     st.stops.push(ctx.on('daily', type => { if (type === 'lb' && !st.dead && F.mayPlay()) { earned(); synced(st); } }));
     st.stops.push(ctx.timer(() => { if (!st.dead && F.mayPlay()) { F.mine(); refresh(st); } }, 1000));
     el.addEventListener('click', e => {

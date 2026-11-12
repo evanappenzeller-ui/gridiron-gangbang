@@ -586,3 +586,77 @@ html.rm .v-rivals .rv-vt-btn { transition: background-color 200ms linear, color 
 .v-rivals .rv-mc.is-top .rv-mc-n { font-size: 16px; line-height: 21px; letter-spacing: -.01em; }
 .v-rivals .rv-mc.is-top .rv-mc-vs { display: none; } /* the big avatars face off: the names get the room */
 .v-rivals .rv-mc.is-gotw .rv-mc-hype > span:first-child { color: var(--gold); text-shadow: 0 0 12px color-mix(in srgb, var(--gold) 70%, transparent); }
+
+/* ================================================================ Header tabs (Nov 11 2026): MOTW · Press · Recap
+   Pick'em's scoreboard buttons (css/views/pickem.css .pk-lg), three of them, a glyph over a pixel word. */
+/* (.pk-lg.rv-sw: pickem.css loads after this file, so its four columns would win at equal specificity) */
+.v-rivals .pk-lg.rv-sw { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 10px 0 18px; }
+.v-rivals .rv-sw .pk-lg-t { min-height: 86px; justify-content: center; gap: 8px; }
+.v-rivals .rv-sw-ic { width: 40px; height: 40px; }
+.v-rivals .rv-sw-ic > .ic { width: 34px; height: 34px; color: var(--ink-3); filter: drop-shadow(2px 2px 0 rgba(0,0,0,.55)); opacity: .7; }
+.v-rivals .rv-sw .pk-lg-t[aria-selected="true"] .rv-sw-ic > .ic { color: #fff; opacity: 1; }
+.v-rivals .rv-pane[hidden] { display: none; }
+/* The Press tab: the Press Room embedded (views/press.js embed), its Post button where the bar's + would be. */
+.v-rivals .pr-embed-bar { display: flex; justify-content: flex-end; margin: -4px 0 10px; }
+.v-rivals .pr-embed-post { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; border: 0; background: none;
+  color: var(--tint); font: 600 var(--fs-callout)/1.2 var(--font-text); cursor: pointer; }
+.v-rivals .pr-embed-post > .ic { width: 18px; height: 18px; stroke-width: 2.2; }
+.v-rivals .pr-embed-post.is-pressed, .v-rivals .pr-embed-post:active { opacity: .6; }
+.v-rivals .pr-embed .pr-sec-feat:first-child .pr-card, .v-rivals .pr-embed .pr-main > :first-child { margin-top: 0; }
+/* The Recap tab: every week's Wrap. */
+.v-rivals .rv-recaps .rv-wk-head { margin-bottom: 8px; }
+.v-rivals .rv-recap-yrs { margin: 0 0 12px; }
+.v-rivals .rv-recap-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
+.v-rivals .rv-recap-ovl { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.v-rivals .rv-recap-new { padding: 2px 8px; border-radius: 999px; background: var(--tint); color: #06240f; font: 700 11px/16px var(--font-text); letter-spacing: .04em; text-transform: uppercase; }
+.v-rivals .rv-recap-lines { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.v-rivals .rv-recap-lines li { position: relative; padding-left: 14px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.v-rivals .rv-recap-lines b { font-weight: 600; color: var(--ink); }
+.v-rivals .rv-recap-dek { margin: 4px 0 0; font: 400 var(--fs-callout)/var(--lh-callout) var(--font-text); color: var(--ink-2); }
+.v-rivals .rv-recap-lines li::before { content: ""; position: absolute; left: 2px; top: .6em; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-4); }
+.v-rivals .rv-recap-sk { margin-bottom: 28px; }
+
+/* Compact newspaper title pages (owner profile): two covers fit together on a phone. */
+.v-rivals .rv-paper {
+  display: block; min-width: 0; padding: 10px 14px 6px; color: #24221d; background-color: #eee9dc;
+  background-image: radial-gradient(ellipse at 15% 0%, #fffcf080, transparent 65%),
+    repeating-linear-gradient(0deg, #65553505 0, #65553505 1px, transparent 1px, transparent 3px);
+  border: 1px solid #c3bcac; border-radius: 2px; box-shadow: 0 3px 0 #b5ae9c, 0 9px 22px #0003;
+  text-decoration: none; font-family: Georgia, 'Times New Roman', serif; overflow-wrap: anywhere;
+  -webkit-tap-highlight-color: #24221d20;
+}
+.v-rivals .rv-paper:focus-visible { outline: 3px solid var(--tint); outline-offset: 5px; }
+.v-rivals .rv-paper-mast { text-align: center; padding-bottom: 4px; }
+.v-rivals .rv-paper-name { display: block; font: 900 24px/1 Georgia, 'Times New Roman', serif; letter-spacing: -.055em; }
+.v-rivals .rv-paper-edition {
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 2px 8px; padding: 3px 0;
+  border-top: 3px double #24221d; border-bottom: 1px solid #24221d;
+  font: 700 8px/1.2 Arial, sans-serif; letter-spacing: .04em; text-transform: uppercase;
+}
+.v-rivals .rv-paper-headline {
+  margin: 7px 0; color: #191813; font: 800 clamp(24px, 3.6svh, 32px)/1 'Barlow Condensed', Impact, sans-serif;
+  letter-spacing: -.015em; text-transform: uppercase; text-wrap: balance;
+}
+.v-rivals .rv-paper-print { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; height: 27px; margin-bottom: 5px; }
+.v-rivals .rv-paper-print span {
+  position: relative; border-top: 3px solid #24221d99;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, #24221d55 3px 4px);
+}
+.v-rivals .rv-paper-print span::after { content: ''; position: absolute; bottom: 0; right: 0; width: 25%; height: 4px; background: #eee9dc; }
+.v-rivals .rv-paper-print span:nth-child(2) { margin-right: 3px; border-top-width: 2px; }
+.v-rivals .rv-paper-print span:nth-child(3)::after { width: 40%; }
+.v-rivals .rv-paper-open {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 21px;
+  border-top: 3px double #24221d; font: 700 9px/1.2 Arial, sans-serif; letter-spacing: .06em; text-transform: uppercase;
+}
+.v-rivals .rv-paper-open svg { flex: none; }
+@media (hover: hover) {
+  .v-rivals .rv-paper:hover { background-color: #f8f2e4; }
+  .v-rivals .rv-paper:hover .rv-paper-open span { text-decoration: underline; text-underline-offset: 4px; }
+}
+@media (max-height: 740px) {
+  .v-rivals .rv-paper { padding: 8px 12px 4px; }
+  .v-rivals .rv-paper-name { font-size: 20px; }
+  .v-rivals .rv-paper-print { height: 19px; }
+}

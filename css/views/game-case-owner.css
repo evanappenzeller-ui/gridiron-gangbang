@@ -58,6 +58,10 @@
   left: 1.4cqw; padding: .65cqw .75cqw; border-width: .22cqw; border-radius: .5cqw;
   font-size: 2.15cqw; letter-spacing: .08em; color: #ffed9b; background: rgba(20,37,6,.7);
 }
+.gm-owner .gm-band > .gm-beta.gm-new {
+  padding: 1cqw 2cqw .9cqw; border-width: .3cqw; border-radius: 1cqw; border-color: #FFB0A8;
+  font-size: 3.7cqw; font-weight: 900; letter-spacing: .14em; color: #FFFFFF; background: linear-gradient(#FF6A5C, #E3261B);
+}
 .gm-owner .gm-art,
 .gm-owner .gm-bk-in {
   border-radius: 0 0 1.1cqw 1.1cqw;

@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1400" fill="none">
+  <defs>
+    <linearGradient id="room" x1="600" y1="0" x2="600" y2="1400" gradientUnits="userSpaceOnUse"><stop stop-color="#060b14"/><stop offset=".46" stop-color="#243140"/><stop offset="1" stop-color="#111c2b"/></linearGradient>
+    <linearGradient id="ceiling" x1="600" y1="0" x2="600" y2="340" gradientUnits="userSpaceOnUse"><stop stop-color="#04070c"/><stop offset="1" stop-color="#182330"/></linearGradient>
+    <linearGradient id="screen" x1="600" y1="280" x2="600" y2="945" gradientUnits="userSpaceOnUse"><stop stop-color="#152231"/><stop offset=".55" stop-color="#263746"/><stop offset="1" stop-color="#0e1825"/></linearGradient>
+    <linearGradient id="silver" x1="0" x2="1"><stop stop-color="#253544"/><stop offset=".16" stop-color="#b0bac3"/><stop offset=".31" stop-color="#eef1f3"/><stop offset=".43" stop-color="#677987"/><stop offset=".83" stop-color="#2b3c4c"/><stop offset="1" stop-color="#182733"/></linearGradient>
+    <linearGradient id="light" x1="0" x2="1"><stop stop-color="#7893a5"/><stop offset=".22" stop-color="#c1d5df"/><stop offset=".5" stop-color="#e6eef2"/><stop offset="1" stop-color="#a9bdcd"/></linearGradient>
+    <linearGradient id="floor" x1="600" y1="900" x2="600" y2="1400" gradientUnits="userSpaceOnUse"><stop stop-color="#566577"/><stop offset=".23" stop-color="#27394d"/><stop offset=".65" stop-color="#253246"/><stop offset="1" stop-color="#111a28"/></linearGradient>
+    <linearGradient id="reflection" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#bfd2dd" stop-opacity=".26"/><stop offset="1" stop-color="#bfd2dd" stop-opacity="0"/></linearGradient>
+    <linearGradient id="redreflection" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fa284d" stop-opacity=".42"/><stop offset="1" stop-color="#fa284d" stop-opacity="0"/></linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#cfe6ff" stop-opacity=".12"/><stop offset="1" stop-color="#a9d9ff" stop-opacity="0"/></linearGradient>
+    <radialGradient id="wash"><stop stop-color="#b8d7ed" stop-opacity=".16"/><stop offset="1" stop-color="#7ea3bc" stop-opacity="0"/></radialGradient>
+    <radialGradient id="lamp"><stop stop-color="#fff"/><stop offset=".12" stop-color="#e4f4ff" stop-opacity=".8"/><stop offset=".34" stop-color="#8dc5ef" stop-opacity=".16"/><stop offset="1" stop-color="#8dc5ef" stop-opacity="0"/></radialGradient>
+    <radialGradient id="redwash"><stop stop-color="#ff264e" stop-opacity=".35"/><stop offset="1" stop-color="#ff264e" stop-opacity="0"/></radialGradient>
+    <pattern id="tiles" width="82" height="104" patternUnits="userSpaceOnUse"><path d="M0 0H82V104" stroke="#c6d9e8" stroke-opacity=".065" stroke-width="2"/><path d="M3 3H79V101" stroke="#000" stroke-opacity=".1"/></pattern>
+    <g id="tower">
+      <path d="M108 233 306 325V913L108 1004Z" fill="#0a1421" stroke="#8191a1" stroke-width="3"/>
+      <path d="M127 256 287 333V901L127 973Z" fill="url(#silver)"/>
+      <path d="M148 286 260 339V887L148 939Z" fill="url(#light)"/>
+      <path d="M162 297 174 303V927L162 932ZM231 329 243 335V895L231 901Z" fill="#e7f0f5" fill-opacity=".6"/>
+      <path d="M148 477 260 495M148 717 260 696" stroke="#3d5163" stroke-width="8"/>
+      <path d="M108 233 127 224 325 318 306 325ZM306 325 325 318V919L306 913Z" fill="#425565"/>
+      <path d="M108 1004 306 913 325 919 126 1016Z" fill="#f42e4c"/>
+      <path d="M109 1008 307 918" stroke="#ff8697" stroke-width="3"/>
+    </g>
+    <g id="rib">
+      <path d="M18 148 75 177V1040L18 1068Z" fill="#151f2e" stroke="#4e6074" stroke-width="3"/>
+      <path d="M26 183 65 202M26 225 65 241M26 267 65 281M26 309 65 321M26 351 65 361M26 393 65 401M26 435 65 441M26 477 65 481M26 519 65 521M26 561 65 561M26 603 65 601M26 645 65 641M26 687 65 681M26 729 65 721M26 771 65 761M26 813 65 801M26 855 65 841M26 897 65 881M26 939 65 921M26 981 65 961M26 1023 65 1001" stroke="#bdcdda" stroke-width="9"/>
+      <path d="M78 179V1038" stroke="#f12c4a" stroke-width="5"/>
+    </g>
+  </defs>
+  <path fill="url(#room)" d="M0 0h1200v1400H0z"/>
+  <!-- Suspended lighting grid and dark ceiling leave the card showcase readable. -->
+  <path d="M0 0H1200V192L858 344H342L0 192Z" fill="url(#ceiling)"/>
+  <g stroke="#607689" stroke-opacity=".18" stroke-width="5">
+    <path d="M0 25 410 342M224 0 495 342M600 0V342M976 0 705 342M1200 25 790 342"/>
+    <path d="M0 68H1200M0 142H1200M131 225H1069M288 298H912"/>
+  </g>
+  <g stroke="#02060b" stroke-width="14"><path d="M0 71H1200M0 147H1200M116 231H1084"/><path d="M238 0 500 342M962 0 700 342"/></g>
+  <path d="M0 187 342 344H858L1200 187" stroke="#8696a4" stroke-opacity=".4" stroke-width="5"/>
+  <path d="M0 199 342 356H858L1200 199" stroke="#0c1320" stroke-width="12"/>
+  <path d="M0 206 340 362H860L1200 206" stroke="#f13351" stroke-width="4"/>
+  <!-- Recessed display wall: quiet charcoal panels, surrounded by red LED rails. -->
+  <path d="M285 333H915V929H285Z" fill="#080f1a" stroke="#536372" stroke-width="4"/>
+  <path d="M310 352H890V908H310Z" fill="url(#screen)"/>
+  <path d="M310 352H890V908H310Z" fill="url(#tiles)"/>
+  <path d="M310 353H890V374H310Z" fill="#ba1636"/>
+  <path d="M310 354H890" stroke="#ff7186" stroke-width="3"/>
+  <path d="M310 883H890V902H310Z" fill="#c71e3e"/>
+  <path d="M310 884H890" stroke="#ff7590" stroke-width="3"/>
+  <path d="M333 407H867M333 857H867" stroke="#96b6ce" stroke-opacity=".2"/>
+  <path d="m324 488 61-48v242l-61 48Zm552 0-61-48v242l61 48Z" fill="#536f88" fill-opacity=".12"/>
+  <path d="m324 762 61-48v29l-61 48Zm552 0-61-48v29l61 48Z" fill="#d62b49" fill-opacity=".5"/>
+  <ellipse cx="600" cy="678" rx="410" ry="390" fill="url(#wash)"/>
+  <!-- Angled wing walls and softly illuminated silver architectural panels. -->
+  <path d="M0 197 302 335V922L0 1062Z" fill="#142133"/>
+  <path d="M1200 197 898 335V922L1200 1062Z" fill="#142133"/>
+  <path d="m0 224 104 48V967L0 1015Z" fill="#252b3d"/>
+  <path d="m1200 224-104 48V967l104 48Z" fill="#252b3d"/>
+  <path d="m0 284 104 38M0 422l104 20M0 560l104 2M0 698l104-16M0 836l104-34M0 974l104-52" stroke="#94afc7" stroke-opacity=".22" stroke-width="3"/>
+  <path d="m1200 284-104 38M1200 422l-104 20M1200 560l-104 2M1200 698l-104-16M1200 836l-104-34M1200 974l-104-52" stroke="#94afc7" stroke-opacity=".22" stroke-width="3"/>
+  <use href="#tower"/>
+  <use href="#tower" transform="translate(1200) scale(-1 1)"/>
+  <use href="#rib"/>
+  <use href="#rib" transform="translate(1200) scale(-1 1)"/>
+  <!-- The floor picks up the light panels and red perimeter, without any animated shine. -->
+  <path d="M302 924H898L1200 1063V1400H0V1063Z" fill="url(#floor)"/>
+  <path d="m147 988 112-54-48 466H0V1269Zm906 0-112-54 48 466h211v-131Z" fill="url(#reflection)"/>
+  <path d="M310 925H890L1120 1072H80Z" fill="url(#redreflection)" opacity=".5"/>
+  <g stroke="#9eafc1" stroke-opacity=".24" stroke-width="2">
+    <path d="M600 925V1400M475 925 275 1400M725 925 925 1400M350 925 0 1292M850 925 1200 1292"/>
+    <path d="M235 954H965M140 1006H1060M31 1084H1169M0 1201H1200M0 1381H1200"/>
+  </g>
+  <path d="M0 1068 304 928H896L1200 1068" stroke="#76162f" stroke-width="24"/>
+  <path d="M0 1063 304 924H896L1200 1063" stroke="#ff3655" stroke-width="9"/>
+  <path d="M0 1058 304 920H896L1200 1058" stroke="#ff9baa" stroke-opacity=".65" stroke-width="2"/>
+  <path d="m350 1006-204 394h49l187-394Zm500 0 204 394h-49L818 1006Z" fill="url(#redreflection)" opacity=".6"/>
+  <path d="M378 1006H822L1054 1284H146Z" fill="#101e30" fill-opacity=".6" stroke="#9eb4c7" stroke-opacity=".42" stroke-width="2"/>
+  <path d="m378 1006 444 0" stroke="#d4e4ef" stroke-opacity=".5" stroke-width="3"/>
+  <ellipse cx="600" cy="1078" rx="354" ry="145" fill="url(#wash)"/>
+  <ellipse cx="600" cy="1186" rx="436" ry="76" fill="url(#redwash)" opacity=".2"/>
+  <!-- Broad, faint beams are gradients, with no blur/filter or compositing animation. -->
+  <path d="m287 155-225 860H504Z" fill="url(#beam)"/>
+  <path d="m913 155 225 860H696Z" fill="url(#beam)"/>
+  <g fill="#02060c" stroke="#647a8c" stroke-width="2"><path d="m264 135 42-6 10 33-40 9Z"/><path d="m936 135-42-6-10 33 40 9Z"/><path d="m464 222 31-4 5 22-31 5Z"/><path d="m736 222-31-4-5 22 31 5Z"/></g>
+  <g fill="#f2f7ff"><ellipse cx="290" cy="166" rx="13" ry="4" transform="rotate(-10 290 166)"/><ellipse cx="910" cy="166" rx="13" ry="4" transform="rotate(10 910 166)"/><ellipse cx="483" cy="242" rx="9" ry="3"/><ellipse cx="717" cy="242" rx="9" ry="3"/></g>
+  <g fill="url(#lamp)"><ellipse cx="290" cy="166" rx="96" ry="45"/><ellipse cx="910" cy="166" rx="96" ry="45"/><ellipse cx="483" cy="242" rx="55" ry="25"/><ellipse cx="717" cy="242" rx="55" ry="25"/></g>
+</svg>
