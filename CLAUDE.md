@@ -115,6 +115,13 @@ No fullscreen, speed, captions or "Open in…" link (`openOf` is null for files)
 The service worker leaves `.mp4` alone, so GitHub Pages serves byte ranges for seeking. A new video: download the Drive
 file, encode it the same way, add the poster and the seed's `file`; a changed video gets a new version number.
 The kit check "Press Room: Drive first…" covers `file`; the seed-file check validates it.
+League › Media's Happy Meals use the same player (Nov 12 2026, Evan: "apply this to the videos in the media archive in
+the league tab and find out why mitch's video isn't playing"): each `data/media.json` entry's `file`
+(`video/media/hm-<who>-v1.mp4` + `.jpg`, same encode, never upscaled, so the 124–320 px phone clips stay small; 155 MB for
+all 11) goes through `views/league-media.js` `mealsOf` and `press.js` `clipHTML`; `FILE_RE` allows video/press/ and
+video/media/. Mitch's (IMG_1894) and Jayton's (IMG_7211) Happy Meals were shared with Evan alone, so Drive asked everyone
+else to sign in; with his OK both are now "anyone with the link can view" like the rest. The Media kit check requires a
+valid `file` on every entry.
 
 ## Press Room: ask the manager (November 11, 2026)
 

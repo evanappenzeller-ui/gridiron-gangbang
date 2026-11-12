@@ -184,6 +184,7 @@ export function clipHTML(c) {
   const col = data.M[c.who] ? ' ' + data.color(c.who).cls : '';
   return `<article class="c-press is-s${c.tall ? ' is-tall' : ''}${col}" data-press-key="${esc(c.key)}" data-press-vid="${esc(c.vid || '')}"`
     + (c.drive ? ` data-press-drive="${esc(c.drive)}"` : '')
+    + (c.file ? ` data-press-file="${esc(c.file)}"` : '')
     + ` data-press-title="${esc(label)}"${c.tall ? ' data-press-tall' : ''} aria-label="${esc(label)}">${media}<div class="c-press-yt"></div>${body}</article>`;
 }
 

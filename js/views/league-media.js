@@ -4,16 +4,18 @@
 //
 // Press conferences: every presser (core/press.js subscribePressers: the seed merged under Firestore), newest week
 // first, as compact tiles that expand while they play (views/press.js tileHTML 's'). Happy Meals: data/media.json's
-// Google Drive files, one tile each (views/press.js clipHTML). One player at a time, app-wide (views/press.js);
+// videos, one tile each (views/press.js clipHTML), played in the app's own player from video/media/ (Nov 12 2026; the Drive
+// file stays as the record and the fallback). One player at a time, app-wide (views/press.js);
 // leaving the segment or hiding the tab puts every player back to its thumbnail.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
+import {FILE_RE} from '../core/press.js';
 
 const MEDIA_URL = new URL('../../data/media.json', import.meta.url).href;
 let S = null; // mounted state: {body, dead, unsub, stop, pv, list, meals}
 
 let mediaP = null;
-/** data/media.json's Happy Meals, cleaned: [{key, who: [ids], drive, tall}] (a bad entry is skipped). */
+/** data/media.json's Happy Meals, cleaned: [{key, who: [ids], drive, file (video/media/…mp4 or null), tall}] (a bad entry is skipped). */
 function loadMedia() {
   if (!mediaP) {
     mediaP = fetch(MEDIA_URL, {cache: 'no-cache'}).then(r => {
@@ -28,7 +30,8 @@ export function mealsOf(j) {
   return list.map(m => {
     if (!m || typeof m.key !== 'string' || typeof m.drive !== 'string' || !/^[A-Za-z0-9_-]{25,64}$/.test(m.drive)) return null;
     const who = (Array.isArray(m.who) ? m.who : []).filter(id => typeof id === 'string' && data.M[id]);
-    return who.length ? {key: m.key, who, drive: m.drive, tall: m.tall === true} : null;
+    const file = typeof m.file === 'string' && FILE_RE.test(m.file) ? m.file : null;
+    return who.length ? {key: m.key, who, drive: m.drive, file, tall: m.tall === true} : null;
   }).filter(Boolean);
 }
 
@@ -44,7 +47,7 @@ function mealsHTML(pv, meals) {
   if (!meals) return ui.skeleton('rows', 3, {label: 'Loading Happy Meals'});
   if (!meals.length) return ui.empty({icon: 'info', title: 'No Happy Meals yet'});
   const tiles = [...meals].sort((a, b) => namesOf(a.who).localeCompare(namesOf(b.who)))
-    .map(m => pv.clipHTML({key: m.key, drive: m.drive, tall: m.tall, who: m.who[0], title: `${namesOf(m.who)}'s Happy Meal`}));
+    .map(m => pv.clipHTML({key: m.key, drive: m.drive, file: m.file, tall: m.tall, who: m.who[0], title: `${namesOf(m.who)}'s Happy Meal`}));
   return `<div class="md-list">${tiles.join('')}</div>`;
 }
 

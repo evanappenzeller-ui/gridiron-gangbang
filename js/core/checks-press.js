@@ -309,10 +309,13 @@ export async function pressChecks(check) {
     const keys = new Set(raw.map(m => m && m.key));
     const allWho = raw.every(m => m && Array.isArray(m.who) && m.who.length && m.who.every(id => data.M[id]));
     const tall = raw.every(m => typeof m.tall === 'boolean');
+    // Nov 12 2026: every Happy Meal plays from the app (video/media/…mp4), its Drive file kept as the record.
+    const files = raw.every(m => typeof m.file === 'string' && kept.some(k => k.key === m.key && k.file === m.file))
+      && mod.mealsOf({happyMeals: [{key: 'z', who: ['ben'], drive: '1RxzyQ7M2mTpNHELvjReHhDBUvIIsZzIp', file: '../x.mp4'}]})[0].file === null;
     const seg = lg.segPath('media') === '/league/media';
     const junk = mod.mealsOf({happyMeals: [{key: 'x', who: ['nobody'], drive: '1RxzyQ7M2mTpNHELvjReHhDBUvIIsZzIp'}, {key: 'y', who: ['ben'], drive: 'short'}]}).length === 0;
-    const pass = raw.length > 0 && kept.length === raw.length && keys.size === raw.length && allWho && tall && seg && junk;
-    return {pass, detail: `${kept.length}/${raw.length} kept; keys unique ${keys.size === raw.length}; managers ${allWho}; tall ${tall}; segment ${seg}; junk dropped ${junk}`};
+    const pass = raw.length > 0 && kept.length === raw.length && keys.size === raw.length && allWho && tall && files && seg && junk;
+    return {pass, detail: `${kept.length}/${raw.length} kept; keys unique ${keys.size === raw.length}; managers ${allWho}; tall ${tall}; app files ${files}; segment ${seg}; junk dropped ${junk}`};
   });
 
   // 9. Seed file
