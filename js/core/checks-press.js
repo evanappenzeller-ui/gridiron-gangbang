@@ -286,6 +286,27 @@ export async function pressChecks(check) {
     return {pass: shape && counts && hasSeed, detail: `payload shared ${shape}; subscribers ${st0.subscribers} -> ${mid.subscribers} -> ${st1.subscribers}; seed ${want.join(' ') || 'ignored/empty'} in the list ${hasSeed}`};
   });
 
+  // 8b. League › Media (Nov 11 2026): data/media.json's Happy Meals, every entry a manager's (or two) Drive file, keys
+  // unique; League's segments include Media.
+  check('League › Media: data/media.json lists every Happy Meal as a valid Drive file of known managers, keys unique; the League control has Media', async () => {
+    const [res, mod, lg] = await Promise.all([
+      fetch(new URL('../../data/media.json', import.meta.url).href, {cache: 'no-cache'}),
+      import('../views/league-media.js'),
+      import('../views/league.js')
+    ]);
+    if (!res.ok) return {pass: false, detail: 'HTTP ' + res.status};
+    const j = await res.json();
+    const raw = j && Array.isArray(j.happyMeals) ? j.happyMeals : [];
+    const kept = mod.mealsOf(j);
+    const keys = new Set(raw.map(m => m && m.key));
+    const allWho = raw.every(m => m && Array.isArray(m.who) && m.who.length && m.who.every(id => data.M[id]));
+    const tall = raw.every(m => typeof m.tall === 'boolean');
+    const seg = lg.segPath('media') === '/league/media';
+    const junk = mod.mealsOf({happyMeals: [{key: 'x', who: ['nobody'], drive: '1RxzyQ7M2mTpNHELvjReHhDBUvIIsZzIp'}, {key: 'y', who: ['ben'], drive: 'short'}]}).length === 0;
+    const pass = raw.length > 0 && kept.length === raw.length && keys.size === raw.length && allWho && tall && seg && junk;
+    return {pass, detail: `${kept.length}/${raw.length} kept; keys unique ${keys.size === raw.length}; managers ${allWho}; tall ${tall}; segment ${seg}; junk dropped ${junk}`};
+  });
+
   // 9. Seed file
   check('Press Room: the seed file (data/pressers.json) parses and every entry (pressers, chat MOTW picks, chat questions) is valid', async () => {
     need();
