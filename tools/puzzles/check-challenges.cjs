@@ -10,33 +10,37 @@ assert.equal(await page.evaluate(async()=>JSON.stringify((await import('/js/core
 for(const width of [320,390,820]){await page.setViewportSize({width,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No horizontal page overflow');}
 const real = await page.evaluate(async()=>{const d=await import('/js/core/daily.js');return {steps:d.SLUGS,save:localStorage.getItem(d.SKEY)};});
 await page.locator('[data-pz-test="on"]').click();
-await page.waitForFunction(()=>document.querySelector('[aria-label="Daily challenges"] .dc-heading p')?.textContent.includes('Test play:'));
-assert.equal((await page.locator('.dc-state').allTextContents()).filter(t=>t.includes('Done')).length,0,'Test challenges start fresh');
+await page.locator('[data-test-day]').waitFor();
 const sandbox = await page.evaluate(async()=>{const d=await import('/js/core/daily.js');return {test:d.TEST,steps:d.SLUGS,history:d.slugsFor(d.dayFor()),max:d.maxPts()};});
-assert.ok(sandbox.test);assert.deepEqual(sandbox.steps,['college','mystery','journey','grid']);assert.deepEqual(sandbox.history,real.steps,'Historical day stays unchanged');assert.equal(sandbox.max,sandbox.steps.length*200);
-for (const slug of ['college','mystery','journey','grid']) {
-  await page.locator(`[data-sample="${slug}"]`).click();
+const slugs=['college','mystery','journey','grid','stats','timeline','connections'];
+assert.ok(sandbox.test);assert.deepEqual(sandbox.steps,slugs);assert.deepEqual(sandbox.history,real.steps);assert.equal(sandbox.max,1400);
+await page.locator('[data-test-day]').click();
+for(const [index,slug] of slugs.entries()) {
   await page.waitForFunction(s=>location.hash.endsWith('/play/'+s),slug);
-  await page.locator('.v-run').waitFor();
-  await page.evaluate(()=>{location.hash='/puzzles/daily';});
-  await page.locator('[data-sample="college"]').waitFor();
+  await page.locator(`[data-page="${slug}"]`).waitFor();
+  assert.ok((await page.locator('.rn-count').textContent()).includes(`${index+1} of 7`));
+  if(index<4) await page.evaluate(async s=>{const d=await import('/js/core/daily.js');if(s==='college')while(!d.colDone())d.colPick(0);if(s==='mystery')d.whoGuess(d.DAY.w);if(s==='journey')d.journeyGuess(d.DAY.j.p);if(s==='grid')d.gridGiveUp();},slug);
+  if(slug==='stats')await page.locator('[data-answer="higher"]').click();
+  if(slug==='timeline')for(const i of [0,1,2,3])await page.locator(`[data-stop="${i}"]`).click();
+  if(slug==='connections')for(const group of [[0,1,2],[3,4,5]]){for(const i of group)await page.locator(`[data-player="${i}"]`).click();await page.locator('[data-check]').click();}
+  assert.equal(await page.evaluate(async i=>(await import('/js/core/daily.js')).STEPS[i].done(),index),true);
+  // Verify that re-entering a new puzzle preserves its full-day result.
+  if(slug==='timeline') {await page.locator('[data-rn-go="-1"]').click();await page.locator('[data-page="stats"]').waitFor();await page.locator('[data-rn-go="1"]').click();await page.locator('[data-page="timeline"] .dc-feedback').waitFor();}
+  await page.waitForTimeout(350);
+  await page.locator('[data-rn-next]').click();
 }
-const sampleBefore = await page.evaluate(async()=>JSON.stringify((await import('/js/core/daily.js')).DAY));
+await page.waitForFunction(()=>location.hash==='#/puzzles/results');
+await page.locator('.c-rbreak').waitFor();
+assert.equal(await page.locator('.c-rb').count(),7,'All seven games appear on the results screen');
+assert.equal(await page.evaluate(async()=>(await import('/js/core/daily.js')).allDone()),true);
+await page.evaluate(()=>{location.hash='/puzzles/daily';});await page.locator('[data-sample-refresh]').waitFor();
+const sampleBefore=await page.evaluate(async()=>JSON.stringify((await import('/js/core/daily.js')).DAY));
 await page.locator('[data-sample-refresh]').click();
-await page.waitForFunction(async old=>JSON.stringify((await import('/js/core/daily.js')).DAY)!==old,sampleBefore);
-await page.locator('[data-challenge="stats"]').click();
-const promptBefore=await page.locator('.dc-eyebrow').textContent();
-await page.locator('[data-answer="higher"]').click();
-await page.locator('[data-sample-replay]').click();
-await page.locator('[data-answer="higher"]').waitFor();
-await page.locator('[data-sample-next]').click();
-assert.notEqual(await page.locator('.dc-eyebrow').textContent(),promptBefore,'Next sample changes content');
-await page.locator('[data-close]').click();
-await page.evaluate(async()=>{(await import('/js/core/daily.js')).setTest(true);});
-await page.waitForFunction(()=>[...document.querySelectorAll('.dc-state')].every(x=>!x.textContent.includes('Done')));
+assert.equal(await page.evaluate(async()=>(await import('/js/core/daily.js')).anyStarted()),false,'Fresh full day clears every game');
+assert.notEqual(await page.evaluate(async()=>JSON.stringify((await import('/js/core/daily.js')).DAY)),sampleBefore);
 await page.locator('[data-pz-test="off"]').click();
 await page.waitForFunction(()=>[...document.querySelectorAll('.dc-state')].filter(x=>x.textContent.includes('Done')).length===3);
 assert.deepEqual(await page.evaluate(async()=>{const d=await import('/js/core/daily.js');return {steps:d.SLUGS,save:localStorage.getItem(d.SKEY)};}),real,'Leaving Test Play restores real steps and save');
 await page.locator('[data-pz-test="on"]').click();
-await page.locator('[data-challenge="timeline"]').click();await page.evaluate(async()=>{(await import('/js/core/data.js')).setMe('mason');});
-assert.equal(await page.evaluate(async()=>(await import('/js/core/daily.js')).TEST),false,'Profile change ends test play');await page.waitForFunction(()=>!document.querySelector('.dc-game'));assert.equal(await page.evaluate(async()=>(await import('/js/views/daily-challenges.js')).challengesHTML()),'','Pilot hidden for other profiles');assert.deepEqual(errors,[]);console.log('PASS: challenges, Test Play exclusions/reset/restore, save isolation, responsive widths and profile boundary');}finally{if(browser)await browser.close();server.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
+await page.evaluate(async()=>{(await import('/js/views/daily-challenges.js')).openChallenge('timeline');});await page.evaluate(async()=>{(await import('/js/core/data.js')).setMe('mason');});
+assert.equal(await page.evaluate(async()=>(await import('/js/core/daily.js')).TEST),false,'Profile change ends test play');await page.waitForFunction(()=>!document.querySelector('.dc-game'));assert.equal(await page.evaluate(async()=>(await import('/js/views/daily-challenges.js')).challengesHTML()),'','Pilot hidden for other profiles');assert.deepEqual(errors,[]);console.log('PASS: full seven-game test day, results, navigation, reset, save isolation and profile boundary');}finally{if(browser)await browser.close();server.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -73,6 +73,7 @@ function pendingText() {
 }
 // Post box kinds: '' (hidden) | 'done' | 'dupe' (already on the board today from another phone) | 'denied' | 'full' | 'pending'
 function postKind() {
+  if (daily.TEST) return 'test';
   const LB = daily.LB;
   if (LB.off || !LB.ready || !LB.uid) return '';
   if (daily.DS.posted || LB.status === 'posted') return 'done';
@@ -86,6 +87,7 @@ function myRank() {
   try { const m = daily.boardRows('today').find(r => r.me); return m ? m.rank : null; } catch (_) { return null; }
 }
 function postHTML(kind = postKind()) {
+  if (kind === 'test') return '<p class="c-post-note" role="status">Test day complete. These results do not count toward your daily score or streak.</p>';
   const LB = daily.LB;
   if (kind === 'done') {
     const rk = myRank();

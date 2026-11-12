@@ -1,3 +1,4 @@
+import {challengeModule} from './daily-challenges.js';
 // Puzzle run cover (route /puzzles/play/:puzzle; spec 7.2, tabs-v4 contract §4): its own top bar (close, the day and
 // the points pill; under them big ‹ › arrows flanking the puzzle's title, "2 of 3" and one dot per puzzle), the
 // puzzle header (the PROMPTS copy), the puzzle module and a sticky bottom bar (to the next unfinished puzzle, named by
@@ -25,7 +26,7 @@ import grid from './grid.js';
 import plays from './plays.js';
 
 const esc = data.esc;
-const MODS = {college, silhouette, mystery, journey, grid, plays};
+const MODS = {college, silhouette, mystery, journey, grid, plays, stats: challengeModule('stats'), timeline: challengeModule('timeline'), connections: challengeModule('connections')};
 const SLUG_ID = {college: 'col', silhouette: 'sil', mystery: 'who', journey: 'jr', grid: 'grid', plays: 'play'};
 // Labels before puzzles load (then daily.STEPS[i].label).
 const SLUG_LABEL = {college: 'College', silhouette: 'Silhouettes', mystery: 'Mystery player', journey: 'Journey', grid: 'Grid', plays: 'Name the play'};
@@ -88,7 +89,7 @@ function topHTML(slug) {
   return `<div class="rn-top" data-hscroll><div class="rn-bg bar" aria-hidden="true"></div>`
     + `<div class="rn-row">`
     + ui.iconButton({icon: 'close', label: 'Close puzzles', cls: 'rn-close', attrs: 'data-back'})
-    + `<p class="rn-date" aria-hidden="true">${r ? esc(daily.dayLabel()) : ''}</p>`
+    + `<p class="rn-date" aria-hidden="true">${r ? esc(daily.TEST ? 'Test day' : daily.dayLabel()) : ''}</p>`
     + `<span class="rn-pts${r ? '' : ' is-pending'}" role="img" aria-label="${esc(data.nf(t))} points"${r ? '' : ' aria-hidden="true"'}><span class="n5 rn-pn" aria-hidden="true">${esc(data.nf(t))}</span><span class="rn-pu" aria-hidden="true">pts</span></span>`
     + `</div>`
     + `<div class="rn-nav">${arrowHTML(-1, slug)}`
@@ -297,7 +298,7 @@ function fill(st) {
     if (silhouette.warm) silhouette.warm(); // the day's photos, before (or while) Silhouettes opens
   }
   ui.hydrate(page);
-  st.date.textContent = daily.dayLabel();
+  st.date.textContent = daily.TEST ? 'Test day' : daily.dayLabel();
   st.shown = ready() ? daily.totalPts() : 0;
   st.pn.textContent = data.nf(st.shown);
   st.pill.setAttribute('aria-label', `${data.nf(st.shown)} points`);

@@ -14,28 +14,27 @@ export const SETS = [
 const day = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const number = d => Math.floor(Date.parse(d+'T12:00:00Z')/86400000);
 const key = d => `gg-daily-challenges-v1:${profileKey()}:${d}`;
-let testRun = -1, testProgress = {};
-function read(d) { if(daily.TEST){if(testRun!==daily.TEST_RUN){testRun=daily.TEST_RUN;testProgress={};}return testProgress;} try {const x=JSON.parse(localStorage.getItem(key(d))||'{}'); return x && typeof x==='object' && !Array.isArray(x)?x:{};} catch {return {};}}
+function read(d) { if(daily.TEST)return daily.DS; try {const x=JSON.parse(localStorage.getItem(key(d))||'{}'); return x && typeof x==='object' && !Array.isArray(x)?x:{};} catch {return {};}}
 export function challengesHTML() {
  if(!data.isOwner())return '';
  const saved=read(day());
  return `<section class="dc-hub" aria-label="Daily challenges"><div class="dc-heading"><span>TRY SOMETHING NEW</span><h2>${daily.TEST?'New game samples':'Your daily challenges'}</h2><p>${daily.TEST?'Test play: explore all three new modes. Replay or load another sample inside each game.':'Three quick football puzzles. Progress saved on this device; separate from the league score.'}</p></div>${TYPES.map(([id,name,desc],i)=>`<button type="button" class="dc-entry" data-challenge="${id}"><span class="dc-number">0${i+1}</span><span><b>${name}</b><small>${desc}</small></span><span class="dc-state">${daily.TEST?'Play sample →':saved[id]?.done?'✓ Done':'Play →'}</span></button>`).join('')}</section>`;
 }
-export function openChallenge(id, after=()=>{}) {
+export function openChallenge(id, after=()=>{}, inline=null) {
  if(!data.isOwner()||!TYPES.some(t=>t[0]===id))return;
  const testing=daily.TEST, run=daily.TEST_RUN;
  const date=day(), profile=profileKey(), title=TYPES.find(t=>t[0]===id)[1];
  let n=testing?run-1:number(date), set=SETS[((n%SETS.length)+SETS.length)%SETS.length];
- let all=read(date), state=(!testing&&all[id])||{picks:[],found:[],attempts:0}, selected=[], stop=()=>{};
+ let all=read(date), state=((!testing||inline)&&all[id])||{picks:[],found:[],attempts:0}, selected=[], stop=()=>{};
  // Stable shuffled positions, identical for the day and after reload.
  const order=id==='timeline'?[2,0,3,1]:[3,0,4,1,5,2];
  const valid=()=>data.isOwner()&&profileKey()===profile&&day()===date&&daily.TEST===testing&&daily.TEST_RUN===run;
- const sh=ui.openSheet({title,body:'',detents:['large'],onClose:()=>stop()});
+ const sh=inline?{body:inline,close:()=>stop()}:ui.openSheet({title,body:'',detents:['large'],onClose:()=>stop()});
  sh.body.classList.add('dc-game');
  const stopProfile=data.subscribe(type=>{if(type==='me')sh.close();});
  const stopDaily=daily.subscribe(()=>{if(!valid())sh.close();});
  stop=()=>{stopProfile();stopDaily();};
- function save(next){if(!valid()){sh.close();return false;} const current=read(date); try{if(testing)testProgress={...current,[id]:next};else localStorage.setItem(key(date),JSON.stringify({...current,[id]:next}));state=next;after();return true;}catch{ui.toast('Progress could not be saved. Please try again.');return false;}}
+ function save(next){if(!valid()){sh.close();return false;} const current=read(date); try{if(testing){if(!daily.saveTestChallenge(id,next))return false;}else localStorage.setItem(key(date),JSON.stringify({...current,[id]:next}));state=next;after();return true;}catch{ui.toast('Progress could not be saved. Please try again.');return false;}}
  function draw(message='') {
   if(!valid()){sh.close();return;}
   const focused=document.activeElement, focusKey=focused&&sh.body.contains(focused)?['data-answer','data-stop','data-player','data-check','data-undo'].find(k=>focused.hasAttribute(k)):null, focusValue=focusKey?focused.getAttribute(focusKey):'';
@@ -49,7 +48,7 @@ export function openChallenge(id, after=()=>{}) {
    const players=set.groups.flatMap(g=>g[1]), found=state.found||[];
    html=`<p class="dc-eyebrow">${found.length} OF 2 GROUPS FOUND</p><h2>Which players share a draft team?</h2><p>Find three players drafted by the same franchise. Select three, then check your group. Four tries.</p>${found.map(g=>`<div class="dc-feedback"><b>${esc(set.groups[g][0])}</b><p>${set.groups[g][1].map(esc).join(' · ')}</p></div>`).join('')}<div class="dc-options">${order.filter(i=>!found.includes(Math.floor(i/3))).map(i=>`<button data-player="${i}" aria-pressed="${selected.includes(i)}" ${state.done?'disabled':''}>${esc(players[i])}</button>`).join('')}</div>${state.done?`<div class="dc-feedback">${found.length===2?'Both connections found!':set.groups.filter((g,i)=>!found.includes(i)).map(g=>`${esc(g[0])}: ${g[1].map(esc).join(', ')}`).join('<br>')}</div>`:`<button class="dc-check" data-check ${selected.length!==3?'disabled':''}>Check group · ${4-(state.attempts||0)} tries left</button>`}`;
   }
-  sh.body.innerHTML=html+`<p role="status" aria-live="polite">${esc(message)}</p>${testing?'<button class="dc-secondary" data-sample-replay>Replay sample</button><button class="dc-secondary" data-sample-next>Next sample</button>':''}<button class="dc-secondary" data-close>Back to daily puzzles</button>`;
+  sh.body.innerHTML=html+`<p role="status" aria-live="polite">${esc(message)}</p>${testing&&!inline?'<button class="dc-secondary" data-sample-replay>Replay sample</button><button class="dc-secondary" data-sample-next>Next sample</button>':''}${inline?'':'<button class="dc-secondary" data-close>Back to daily puzzles</button>'}`;
   if(focusKey){const target=[...sh.body.querySelectorAll('button')].find(b=>b.getAttribute(focusKey)===focusValue&&!b.disabled)||sh.body.querySelector('[data-close]');target?.focus({preventScroll:true});}
  }
  sh.body.addEventListener('click',e=>{
@@ -61,4 +60,15 @@ export function openChallenge(id, after=()=>{}) {
   if(b.hasAttribute('data-check')){const g=Math.floor(selected[0]/3), correct=selected.length===3&&selected.every(i=>Math.floor(i/3)===g), found=correct?[...(state.found||[]),g]:state.found||[],attempts=(state.attempts||0)+1;if(save({...state,found,attempts,done:found.length===2||attempts>=4})){selected=[];draw(correct?'Connection found!':'Those players do not share a draft franchise. Try again.');return;}}
   draw();
  });draw();
+ return {unmount:()=>stop()};
 }
+
+// Reuse the same puzzle UI inside the complete test-day run.
+export const challengeModule = id => ({
+  render: () => '<div class="dc-game"></div>',
+  mount: (el, ctx, api) => {
+    const inst = openChallenge(id, () => api.refreshChrome(), el.querySelector('.dc-game'));
+    const off = daily.subscribe(() => { if (!daily.TEST || !data.isOwner()) ctx.nav('/puzzles/daily'); });
+    return {unmount: () => { off(); inst?.unmount(); }};
+  }
+});

@@ -1,5 +1,18 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Full test day (November 12, 2026)
+
+Evan clarified that Test Mode must include a full day's games to test the complete UI flow. Its primary action
+now starts/continues a seven-puzzle test day: College, Mystery, Journey, Grid, Higher or Lower, Career Timeline,
+and Team Connections. All seven use the existing run navigation, numbered progress, next/previous controls,
+and shared results screen (1,400 possible test points). The three new modes reuse their challenge UI inline,
+store state in the test save, and preserve it when moving between puzzles. A fresh test day resets all seven
+and advances sample content. Results explicitly identify the test day and never post; actual daily saves,
+ranked scoring, streaks and the owner scope are preserved. Plays and Silhouettes remain excluded.
+This supersedes the standalone sample-picker flow below. Verify the full seven-game run through results,
+back-navigation persistence, fresh day reset and real-save restoration in `tools/puzzles/check-challenges.cjs`,
+including `PUZZLE_DAY=5`, plus the home-browser checks.
+
 ## Test Mode sample playground (November 12, 2026)
 
 Evan clarified that Test Mode should provide samples of every supported daily puzzle and new mode to evaluate

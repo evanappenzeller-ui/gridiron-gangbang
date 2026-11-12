@@ -181,6 +181,19 @@ export function saveDS() { try { localStorage.setItem(SKEY, JSON.stringify(DS));
 export let TEST = false;
 export let TEST_RUN = 0;
 const TEST_SETS = new WeakMap();
+const TEST_BONUS = [['stats', 'Higher or Lower'], ['timeline', 'Career Timeline'], ['connections', 'Team Connections']];
+const TEST_BONUS_STEPS = TEST_BONUS.map(([id, label]) => ({id, label, max: 200,
+  done: (ds = DS) => !!ds[id]?.done,
+  started: (ds = DS) => !!ds[id] && (!!ds[id].done || !!ds[id].picks?.length || !!ds[id].attempts),
+  pts: (ds = DS) => id === 'connections' ? (ds[id]?.found?.length || 0) * 100 : ds[id]?.done && ds[id]?.correct ? 200 : 0,
+  result: (ds = DS) => id === 'connections' ? `${ds[id]?.found?.length || 0} of 2 groups` : ds[id]?.correct ? 'Correct' : 'Not solved'
+}));
+export function saveTestChallenge(id, state) {
+  if (!TEST || !dataOwner() || !TEST_BONUS.some(x => x[0] === id)) return false;
+  DS[id] = state;
+  changed('test-challenge');
+  return true;
+}
 /** Turns test play on (a fresh sandbox of today's puzzles) or off (back to the real day). False before the puzzles. */
 export function setTest(on) {
   if (!PZ || (on && !dataOwner())) return false;
@@ -198,7 +211,7 @@ export function setTest(on) {
       if (id === 'who' && sample.wx) DAY.wx = sample.wx;
     }
     const steps = V3_STEPS.filter(s => DAY.t.includes(s.id));
-    TEST_SETS.set(DAY, {steps: Object.freeze(steps), slugs: Object.freeze(steps.map(s => V2_SLUGS[V3_STEPS.indexOf(s)]))});
+    TEST_SETS.set(DAY, {steps: Object.freeze([...steps, ...TEST_BONUS_STEPS]), slugs: Object.freeze([...steps.map(s => V2_SLUGS[V3_STEPS.indexOf(s)]), ...TEST_BONUS.map(x => x[0])])});
   }
   STEPS = stepsFor(DAY);
   SLUGS = slugsFor(DAY);
@@ -215,7 +228,7 @@ export function setTest(on) {
 export function replayTestPuzzle(slug) {
   if (!TEST || !dataOwner() || !SLUGS.includes(slug)) return false;
   const id = STEPS[SLUGS.indexOf(slug)].id;
-  DS[id] = freshDS({}, DAY)[id];
+  DS[id] = freshDS({}, DAY)[id] || {picks: [], found: [], attempts: 0};
   changed('test-replay');
   return true;
 }
@@ -808,6 +821,7 @@ export function journeyPath(day = DAY) {
 // them, silhouette rounds) become -1 (wrong), the Mystery (and the Journey) end unsolved. A v4 day's other parts are
 // left alone (v1 days: the old lockIn exactly).
 export function lockIn() {
+  if (TEST) for (const [id] of TEST_BONUS) DS[id] = {...DS[id], done: true};
   if (hasStep('grid')) DS.grid.over = true;
   if (hasStep('col')) while (DS.col.a.length < colCount()) DS.col.a.push(-1);
   if (hasStep('who') && !DS.who.done) { DS.who.done = true; DS.who.won = false; }
@@ -1118,7 +1132,7 @@ export function shareText(ds = DS, day = DAY) {
   const sq = c => c && c.ok ? '🟩' : '🟥';
   // The header date is today's (a dev ?day= preview shows the previewed puzzle day's date instead).
   const when = devDay && PZ ? dateOf(PNUM) : new Date();
-  const lines = [`${leagueName} daily, ${when.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}: ${nf(totalPts(ds, day))} pts`];
+  const lines = [`${TEST_SETS.has(day)?'Test day · ':''}${leagueName} daily, ${when.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}: ${nf(totalPts(ds, day))} pts`];
   if (ver === 4) {
     const line = {
       col: () => 'College ' + ds.col.a.map((a, r) => day.c[r] && a === day.c[r][2] ? '🟩' : '🟥').join(''),
@@ -1128,7 +1142,7 @@ export function shareText(ds = DS, day = DAY) {
       grid: () => 'Grid ' + ds.grid.cells.slice(0, gridShape(day).n).map(sq).join(''),
       play: () => 'Plays ' + playA(ds).map((a, r) => playRounds(day)[r] && a === playRounds(day)[r].a ? '🟩' : '🟥').join('')
     };
-    stepsFor(day).forEach(s => { if (s.done(ds, day)) lines.push(line[s.id]()); });
+    stepsFor(day).forEach(s => { if (s.done(ds, day)) lines.push(line[s.id] ? line[s.id]() : `${s.label}: ${s.result(ds, day)}`); });
     return lines.join('\n');
   }
   if (colDone(ds, day)) lines.push('College ' + ds.col.a.map((a, r) => a === day.c[r][2] ? '🟩' : '🟥').join(''));
