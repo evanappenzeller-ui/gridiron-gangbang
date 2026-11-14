@@ -65,6 +65,21 @@
 .v-lay .ly-br-run.is-l { background: var(--wrong-soft); color: var(--wrong); }
 .v-lay .ly-br-pct.is-none, .v-lay .ly-board .is-none { color: var(--ink-4, var(--ink-3)); }
 
+/* Who's placed it: the same compact board, columns Placed (×N), In ($) and Last (week). */
+.v-lay .ly-placed .ly-bh, .v-lay .ly-placed .ly-br { grid-template-columns: 18px 24px minmax(0, 1fr) 40px 44px 34px; }
+.v-lay .ly-placed .ly-br-nm { display: flex; align-items: center; gap: 6px; }
+.v-lay .ly-pr-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.v-lay .ly-pr-n { text-align: right; color: var(--ink); }
+.v-lay .ly-pr-n.is-none { color: var(--ink-4, var(--ink-3)); }
+.v-lay .ly-pr-last { text-align: right; font: 500 var(--fs-sub)/1 var(--font-text); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.v-lay .ly-pr-up {
+  flex: none; padding: 3px 6px; border-radius: 6px; background: var(--tint-soft); color: var(--tint);
+  font: 700 10px/1 var(--font-text); letter-spacing: .06em; text-transform: uppercase;
+}
+.v-lay .ly-pr-cash { flex: none; display: inline-flex; align-items: center; gap: 2px; color: var(--gold); font: 700 11px/1 var(--font-text); }
+.v-lay .ly-pr-cash > .ic { width: 14px; height: 14px; }
+.v-lay .ly-pr-foot { margin: 8px 16px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+
 /* ================================================================ By bet type */
 .v-lay .ly-types { padding: 14px 16px 6px; }
 .v-lay .ly-bt-lead { font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }

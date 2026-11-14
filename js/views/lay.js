@@ -1,8 +1,9 @@
 // The Lay tab root (#/lay): the league's weekly 12-leg parlay. Every manager submits one leg; the lowest scorer of the
 // previous fantasy week places it for $5 (the placer comes from league.json: the lowest regular-season score of week
 // N-1, unless the week in data/lay.json names one). Sections: this week's slip (who places it, the legs in so far),
-// season tiles, each manager's leg record (compact), how often each kind of bet hits (anytime TDs, player props,
-// spreads, moneylines, totals), then every week's slip with its hits and the legs that busted it.
+// season tiles, each manager's leg record (compact), how many times each has placed it, how often each kind of bet
+// hits (anytime TDs, player props, spreads, moneylines, totals), then every week's slip with its hits and the legs that
+// busted it.
 // Data: data/lay.json {stake, legs, weeks: [{year, week, placer?, legs: [{by, for?, bet, hit: true|false|null, stat?}]}]}.
 // stat: what a settled leg came to ("1 catch for 7 yds", "Bears won 23–12"), shown under it like the tracker's note.
 // A leg with `for` was submitted by `by` in another manager's slot: it counts on `by`'s record.
@@ -456,6 +457,54 @@ function recordsHTML(me) {
   return ui.sectionHeader({title: 'Leg records'}) + `<div class="group ly-board">${head}${rows}</div>`;
 }
 
+// Who's placed it: how many times each manager has placed the parlay (the week's placer, the lowest score the week
+// before, or the file's `placer`). A week counts once its slip is placed: a week on file with legs, or the live week
+// once legs close. Most first; each line has the times placed, what they've put in (the stake each time) and the week
+// they last placed. This week's placer, before legs close, is tagged Up. A week with no placer on record (week 1)
+// goes in the footnote.
+function placings() {
+  const P = {};
+  data.ids.forEach(id => { P[id] = {id, n: 0, cashed: 0, last: null}; });
+  const lw = live.liveWeek(), cur = currentWeek();
+  let unknown = 0, up = null;
+  WEEKS.forEach(w => {
+    const isLive = lw && w.year === lw.year && w.week === lw.week;
+    const p = placerOf(w);
+    if (isLive && !live.isClosed(lw.year, lw.week)) { if (p && w === cur) up = p.id; return; }
+    if (!legsOf(w).length) return;
+    if (!p) { unknown++; return; }
+    const r = P[p.id] || (P[p.id] = {id: p.id, n: 0, cashed: 0, last: null});
+    r.n++;
+    if (statusOf(w) === 'hit') r.cashed++;
+    r.last = w;
+  });
+  const rows = Object.values(P).sort((a, b) => b.n - a.n
+    || (b.last ? b.last.year * 100 + b.last.week : 0) - (a.last ? a.last.year * 100 + a.last.week : 0)
+    || data.name(a.id).localeCompare(data.name(b.id)));
+  return {rows, unknown, up};
+}
+function placedHTML(me) {
+  const {rows, unknown, up} = placings();
+  if (!rows.some(r => r.n) && !up) return '';
+  const stake = STAKE(), total = rows.reduce((t, r) => t + r.n, 0);
+  const body = rows.map((r, i) => {
+    const last = r.last ? `W${r.last.week}` : '—';
+    const label = `${data.name(r.id)}${r.id === me ? ' (you)' : ''}: ${!r.n ? "hasn't placed it" : `placed it ${r.n === 1 ? 'once' : `${r.n} times`}`}`
+      + (r.n ? `, ${money(r.n * stake)} in, last in Week ${r.last.week}${r.cashed ? `, cashed ${r.cashed === 1 ? 'once' : r.cashed + ' times'}` : ''}` : '')
+      + (r.id === up ? ', placing it this week' : '') + '.';
+    return `<a class="ly-br ly-pr${r.id === me ? ' is-me' : ''}" href="#/managers/${encodeURIComponent(r.id)}" aria-label="${esc(label)}" data-ly-placed="${esc(r.id)}">`
+      + `<span class="ly-br-rk n5">${i + 1}</span>${ui.avatar(r.id, {size: 24, you: r.id === me})}`
+      + `<span class="ly-br-nm"><span class="ly-pr-nm">${esc(data.name(r.id))}</span>${r.id === up ? '<span class="ly-pr-up">Up</span>' : ''}${r.cashed ? `<span class="ly-pr-cash" title="Cashed">${ui.icon('crown', {label: 'Cashed'})}${r.cashed > 1 ? r.cashed : ''}</span>` : ''}</span>`
+      + `<span class="ly-pr-n n4${r.n ? '' : ' is-none'}">${r.n ? '×' + r.n : '0'}</span>`
+      + `<span class="ly-br-pct${r.n ? '' : ' is-none'}">${r.n ? money(r.n * stake) : '—'}</span>`
+      + `<span class="ly-pr-last${r.n ? '' : ' is-none'}">${last}</span></a>`;
+  }).join('');
+  const head = `<div class="ly-bh ly-ph" aria-hidden="true"><span></span><span>Manager</span><span>Placed</span><span>In</span><span>Last</span></div>`;
+  const foot = `<p class="ly-pr-foot">${plural(total, 'slip')} placed · ${money(total * stake)} in`
+    + (unknown ? ` · ${unknown === 1 ? 'one week has' : unknown + ' weeks have'} no placer on record` : '') + `</p>`;
+  return ui.sectionHeader({title: "Who's placed it"}) + `<div class="group ly-board ly-placed">${head}${body}</div>${foot}`;
+}
+
 // ---------------------------------------------------------------------------------------------- By bet type
 // Every settled leg by what kind of bet it was (core/laytrack.js betKind): how often each kind hits, its record, the
 // manager best at it (two legs or more, more hit than missed), and for player props and totals which ones. Biggest
@@ -543,11 +592,11 @@ function bodyHTML(st) {
   // Before legs close the entry box leads; once they close (games under way) the live tracker does.
   const lw = live.liveWeek(), w = currentWeek();
   const tracking = lw && w && w.year === lw.year && w.week === lw.week && live.isClosed(lw.year, lw.week) && legsOf(w).length;
-  if (tracking) return (live.isAdmin(me) && (st || {}).editing ? entryHTML(st, me) : '') + trackerHTML(w, me) + tilesHTML() + recordsHTML(me) + betTypesHTML() + weeksHTML(me);
+  if (tracking) return (live.isAdmin(me) && (st || {}).editing ? entryHTML(st, me) : '') + trackerHTML(w, me) + tilesHTML() + recordsHTML(me) + placedHTML(me) + betTypesHTML() + weeksHTML(me);
   // Before: the entry box, "Get your legs in", then a preview of the tracker (the live week's legs, scored as they play).
   const thisWeek = lw && w && w.year === lw.year && w.week === lw.week;
-  if (thisWeek) return weekCardHTML(st || {}, me) + (legsOf(w).length ? trackerHTML(w, me, {preview: true}) : '') + tilesHTML() + recordsHTML(me) + betTypesHTML() + weeksHTML(me);
-  return entryHTML(st || {}, me) + heroHTML(me) + tilesHTML() + recordsHTML(me) + betTypesHTML() + weeksHTML(me);
+  if (thisWeek) return weekCardHTML(st || {}, me) + (legsOf(w).length ? trackerHTML(w, me, {preview: true}) : '') + tilesHTML() + recordsHTML(me) + placedHTML(me) + betTypesHTML() + weeksHTML(me);
+  return entryHTML(st || {}, me) + heroHTML(me) + tilesHTML() + recordsHTML(me) + placedHTML(me) + betTypesHTML() + weeksHTML(me);
 }
 
 function subtitle() {

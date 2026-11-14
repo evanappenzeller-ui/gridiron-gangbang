@@ -1,5 +1,15 @@
 # Gridiron Gangbang: rules for working on this app
 
+## The Lay: who's placed it (November 14, 2026)
+
+Evan: "Add a tracker for how many times a person has placed a parlay." Everyone gets it. The Lay tab adds a "Who's placed
+it" board after Leg records (`views/lay.js` `placings`/`placedHTML`, `.ly-placed` in `css/views/lay.css`): every manager,
+most placings first, with times placed (×N), money in (stake × N), the week they last placed and a crown for slips that
+cashed. The placer is the existing `placerOf` (the file's `placer`, else the lowest score the week before). A week counts
+once its slip is placed: a week on file with legs, or the live week once legs close; before then its placer is tagged Up.
+A week with no placer on record (week 1) is counted in the footnote only. No data or save changes. Verified in a real
+browser at 320/390/820 on Evan's, Mason's and a visitor's profile (rows, footnote, Up tag, no horizontal overflow).
+
 ## Featured trivia lineup (November 12, 2026)
 
 Evan removed the Build his career / Career Timeline mode and requested only 3–4 featured games per daily.
