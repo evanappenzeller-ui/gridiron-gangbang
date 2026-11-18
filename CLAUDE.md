@@ -1,5 +1,17 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Press Room questions retired (November 18, 2026)
+
+Evan: "Remove the option to add questions in the app. We are no longer doing questions for the press conferences."
+Everyone. The Press Room (and Matchup's Press tab) has no Add a question (Evan's sheet), no "Ask {loser}" section and
+no question sheets; `core/press.js` no longer has `saveQuestion`/`removeQuestion`/`sendQuestion`/`unsendQuestion`,
+`canAddQuestions`, `canSend` or `sendClosed`, so nothing writes `prq`/`prs`. Questions already asked stay as history:
+the seed's and the ones on board docs still show, read only, under their presser's "Questions from the press" (no
+section when a week has none) and count in the archive. Questions sent for a week still waiting on its presser show
+nowhere. The post prompt for a missing presser is unchanged. This supersedes the two question sections below.
+Verify `node tools/press/check-no-questions.cjs` (kit checks, Evan/Mason/loser/visitor, phone and tablet, Matchup's
+Press pane) and `node tools/matchup/check-tabs.cjs`.
+
 ## Featured trivia lineup (November 12, 2026)
 
 Evan removed the Build his career / Career Timeline mode and requested only 3–4 featured games per daily.
@@ -209,6 +221,8 @@ the video in place of the "X's Happy Meal" title. The Happy Meals are a grid (`.
 from 600 px, cells bottom-aligned so wrapped names don't stagger the videos); a playing one takes the whole row.
 
 ## Press Room: ask the manager (November 11, 2026)
+
+Retired November 18, 2026 (above): the Ask section and sending are gone; this describes the history.
 
 Evan: "Add a section in the press conference where league members can submit questions to the manager." Everyone sees
 it. `views/press.js` `askHTML` adds "Ask {loser}" under the missing-presser prompt for the latest finished week whose
@@ -1193,6 +1207,8 @@ Commons fetchers at once there. The kit checks "Gridiron Rivals: no Legend wears
 action photos…" cover it.
 
 ## Press Room questions (November 5, 2026)
+
+Retired November 18, 2026 (above): adding is gone; his questions already added still show, read only.
 
 Evan asked: "Add a section in the press room for me to manually add questions in and tie them to the manager that
 asked." Under the featured week's "Questions from the press" (`js/views/press.js` `qsHTML`), Evan's phone

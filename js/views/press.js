@@ -2,11 +2,9 @@
 // rewatchable inside the app. Pushed on any tab (a cold link sits on Matchup). Owner: PRESS-SCREEN.
 //   Large title (eyebrow "Matchup of the Week", "Press Room", "The loser faces the media.") · the featured presser as
 //   a big player card (the latest, or the route's week: the share link) with Share / Replace / Remove · the league
-//   chat's questions for that week's loser (press.questionsFor, from data/pressers.json, then the ones Evan added in the
-//   app: on his phone the section is always there with Add a question, and his own open openQuestion's sheet to change
-//   or delete; Nov 5 2026; then the ones members sent), when it has some · a prompt when
-//   the latest Matchup of the Week loser hasn't posted yet · "Ask {loser}": league members send that loser questions
-//   (openAsk; Nov 11 2026) · the archive by season (a row features that presser and
+//   chat's questions for that week's loser (press.questionsFor: the seed, then those added in the app before Nov 18 2026;
+//   read only, questions are no longer taken), when it has some · a prompt when the latest Matchup of the Week loser
+//   hasn't posted yet · the archive by season (a row features that presser and
 //   plays it) · "How to post". The + in the bar opens the post sheet. Until the rules are pasted ('denied') the +,
 //   Replace and Remove are gone and the sheet's Post stays off with that reason.
 //   Post sheet (openPost): paste a YouTube link (checked live: the thumbnail and YouTube title, or what's wrong in
@@ -813,217 +811,6 @@ function wireSheet(S) {
   });
 }
 
-// ============================================================================ Question sheet
-// Evan's alone (press.canAddQuestions): a question the league asked, tied to the manager who asked it, for a week's
-// loser. openQuestion({key: '2026-w4'}) adds one to that week (its chips can move it); with id, changes that one or
-// takes it out. Saved with press.saveQuestion / removeQuestion (on his board doc; this device only on a dev host).
-let qOpen = null;
-export function openQuestion({key, id = null} = {}) {
-  if (!press.canAddQuestions() || qOpen) return qOpen;
-  const K = parseKey(key) || {year: liveYear(), week: (press.weekOptions(liveYear()).slice(-1)[0]) || 1};
-  const item = id ? press.addedFor(keyOf(K.year, K.week)).find(x => x.id === id) : null;
-  if (id && !item) { ui.toast('That question isn\u2019t there anymore.', {icon: 'info'}); return null; }
-  const Q = {year: K.year, week: K.week, by: item ? item.by : null, busy: false, dead: false, id, el: null, sheet: null};
-  let resolve;
-  qOpen = new Promise(r => { resolve = r; });
-  const done = qOpen;
-  Q.sheet = ui.openSheet({
-    title: item ? 'Change question' : 'Add a question', body: qBody(Q, item), cls: 'sh-press sh-pq', detents: ['large'],
-    onClose: () => { Q.dead = true; if (qOpen === done) qOpen = null; resolve(Q.result || null); }
-  });
-  Q.el = Q.sheet.el;
-  wireQuestion(Q);
-  paintQ(Q);
-  requestAnimationFrame(() => { const rail = !Q.dead && Q.el.querySelector('.pq-weeks .chips'); if (rail) ui.setChips(rail, String(Q.week), {scroll: true}); });
-  return done;
-}
-function qWeeksHTML(Q) {
-  const opts = weekOpts(Q.year);
-  if (!opts.includes(Q.week)) opts.push(Q.week);
-  const items = opts.sort((a, b) => a - b).map(w => ({id: String(w), label: `Wk ${w}`}));
-  const k = keyOf(Q.year, Q.week), n = press.addedFor(k).filter(x => x.id !== Q.id).length;
-  let snap = memo.snap;
-  if (!snap) { try { snap = press.peek(); } catch (_) { snap = null; } }
-  const p = byKeyOf(snap)[k];
-  const note = p ? `For ${nm(p.who)}\u2019s week ${Q.week} press conference.` : `Week ${Q.week}\u2019s press conference isn\u2019t posted yet: the question shows once it is.`;
-  return ui.chips({name: 'pq-week', items, value: String(Q.week), label: 'Week'})
-    + `<p class="shp-note">${esc(note)}${n ? esc(` ${n} added for this week so far.`) : ''}</p>`;
-}
-function qBody(Q, item) {
-  const who = data.ids.map(mid => ({id: mid, label: nm(mid), lead: ui.avatar(mid, {size: 24})}));
-  return `<div class="shp pq">`
-    + `<section class="shp-sec" aria-labelledby="pq-week-h"><h3 class="shp-h" id="pq-week-h">Week${Q.year !== liveYear() ? `, ${Q.year}` : ''}</h3><div class="pq-weeks">${qWeeksHTML(Q)}</div></section>`
-    + `<section class="shp-sec" aria-labelledby="pq-who-h"><h3 class="shp-h" id="pq-who-h">Asked by</h3>${ui.chips({name: 'pq-who', items: who, value: Q.by || '', label: 'Asked by', cls: 'shp-who-chips'})}</section>`
-    + `<section class="shp-sec"><div class="shp-hrow"><label class="shp-h" for="pq-q">Question</label><span class="shp-count pq-qn" aria-hidden="true">0/${press.Q_MAX}</span></div>`
-    + `<div class="shp-field pq-field"><textarea id="pq-q" class="shp-in pq-in" name="pq-q" rows="4" maxlength="${press.Q_MAX}" autocapitalize="sentences" placeholder="Coach, …">${esc(item ? item.q : '')}</textarea></div></section>`
-    + `<section class="shp-sec"><div class="shp-hrow"><label class="shp-h" for="pq-note">Note</label><span class="shp-count pq-nn" aria-hidden="true">0/${press.NOTE_MAX}</span></div>`
-    + `<div class="shp-field"><input id="pq-note" class="shp-in" name="pq-note" type="text" maxlength="${press.NOTE_MAX}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Optional, e.g. Photo in the league chat." value="${esc(item && item.note ? item.note : '')}"></div></section>`
-    + `<div class="shp-foot">${ui.button({label: item ? 'Save' : 'Add question', kind: 'primary', block: true, disabled: true, attrs: {'data-pq-save': ''}})}<p class="shp-why" aria-live="polite"></p>`
-    + (item ? ui.button({label: 'Delete question', kind: 'secondary', block: true, cls: 'pq-del is-destructive', attrs: {'data-pq-del': ''}}) : '')
-    + `</div></div>`;
-}
-function paintQ(Q) {
-  const el = Q.el;
-  if (!el || Q.dead) return;
-  const q = el.querySelector('#pq-q'), n = el.querySelector('#pq-note');
-  const set = (box, v, max) => { if (box) { box.textContent = `${v.length}/${max}`; box.classList.toggle('is-full', v.length >= max); } };
-  set(el.querySelector('.pq-qn'), q.value, press.Q_MAX);
-  set(el.querySelector('.pq-nn'), n.value, press.NOTE_MAX);
-  const why = Q.busy ? '' : !Q.by ? 'Pick who asked it.' : !q.value.trim() ? 'Type the question.' : '';
-  const btn = el.querySelector('[data-pq-save]');
-  if (btn) btn.disabled = !!why || Q.busy;
-  const w = el.querySelector('.shp-why');
-  if (w) w.textContent = why;
-}
-function paintQWeeks(Q) {
-  const box = Q.el && Q.el.querySelector('.pq-weeks');
-  if (!box) return;
-  const rail = box.querySelector('.chips'), left = rail ? rail.scrollLeft : 0;
-  box.innerHTML = qWeeksHTML(Q);
-  const r2 = box.querySelector('.chips');
-  if (r2) r2.scrollLeft = left;
-}
-const Q_FAIL = {invalid: 'Pick who asked it and type the question.', full: 'That week has as many questions as it can hold.', denied: 'Only Evan can add questions.', failed: "Couldn't save. Try again."};
-async function saveQ(Q) {
-  if (Q.busy || Q.dead) return;
-  const el = Q.el, q = el.querySelector('#pq-q').value, note = el.querySelector('#pq-note').value;
-  Q.busy = true; paintQ(Q);
-  let r;
-  try { r = await press.saveQuestion({id: Q.id, week: keyOf(Q.year, Q.week), by: Q.by, q, note}); } catch (e) { console.error(e); r = {r: 'failed'}; }
-  Q.busy = false;
-  if (r.r === 'ok' || r.r === 'dev') {
-    ui.haptic('success');
-    ui.toast(`${Q.id ? 'Saved' : 'Question added'}${r.r === 'dev' ? ' on this device (dev)' : ''}`, {icon: 'check-circle'});
-    Q.result = {key: keyOf(Q.year, Q.week), id: r.id};
-    Q.sheet.close();
-    return;
-  }
-  ui.haptic('warning');
-  paintQ(Q);
-  ui.toast(Q_FAIL[r.r] || Q_FAIL.failed, {icon: 'x-circle'});
-}
-async function deleteQ(Q) {
-  if (Q.busy || Q.dead || !Q.id) return;
-  const v = await ui.actionSheet({title: 'Delete this question?', message: 'It comes off the Press Room for everyone.', actions: [{label: 'Delete', value: 'delete', role: 'destructive'}]});
-  if (v !== 'delete' || Q.dead) return;
-  Q.busy = true; paintQ(Q);
-  let r;
-  try { r = await press.removeQuestion(keyOf(Q.year, Q.week), Q.id); } catch (e) { console.error(e); r = 'failed'; }
-  Q.busy = false;
-  if (r === 'ok' || r === 'dev') { ui.haptic('success'); ui.toast(r === 'dev' ? 'Deleted on this device (dev)' : 'Deleted', {icon: 'check-circle'}); Q.sheet.close(); return; }
-  paintQ(Q);
-  ui.toast(Q_FAIL[r] || Q_FAIL.failed, {icon: 'x-circle'});
-}
-function wireQuestion(Q) {
-  const el = Q.el;
-  el.addEventListener('input', () => paintQ(Q));
-  el.addEventListener('ui:change', e => {
-    const d = e.detail || {};
-    if (d.name === 'pq-week') { const w = +d.value; if (w && w !== Q.week) { Q.week = w; paintQWeeks(Q); } }
-    else if (d.name === 'pq-who') { Q.by = data.M[d.value] ? d.value : null; paintQ(Q); }
-  });
-  el.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'pq-note') { e.preventDefault(); e.target.blur(); } });
-  el.addEventListener('click', e => {
-    const t = e.target.closest && e.target.closest('[data-pq-save], [data-pq-del]');
-    if (!t) return;
-    if (t.hasAttribute('data-pq-save')) saveQ(Q); else deleteQ(Q);
-  });
-}
-
-// ============================================================================ Ask sheet
-// A league member's question for the week's loser (Nov 11 2026): openAsk({key, who}) sends a new one, with id changes
-// or takes back one of yours. press.sendQuestion / unsendQuestion (on your board doc; this device only on a dev host).
-// The sheet belongs to the member who opened it: a profile change closes it without saving.
-let askOpen = null;
-export function openAsk({key, who, id = null} = {}) {
-  const me = press.canSend();
-  if (!me || askOpen || !parseKey(key) || !data.M[who] || who === me) return askOpen;
-  const item = id ? press.sentFor(key).find(x => x.id === id && x.by === me) : null;
-  if (id && !item) { ui.toast('That question isn’t there anymore.', {icon: 'info'}); return null; }
-  const K = parseKey(key);
-  const A = {key, who, me, id, busy: false, dead: false, el: null, sheet: null, unme: null};
-  let resolve;
-  askOpen = new Promise(r => { resolve = r; });
-  const done = askOpen;
-  A.sheet = ui.openSheet({
-    title: item ? 'Change your question' : `Ask ${nm(who)}`, body: askBody(A, item, K), cls: 'sh-press sh-pq sh-ask', detents: ['large'],
-    onClose: () => { A.dead = true; if (A.unme) A.unme(); if (askOpen === done) askOpen = null; resolve(A.result || null); }
-  });
-  A.el = A.sheet.el;
-  A.unme = data.subscribe(type => { if (type === 'me' && !A.dead && data.me() !== A.me) A.sheet.close(); });
-  wireAsk(A);
-  paintAsk(A);
-  if (!item) requestAnimationFrame(() => { const t = !A.dead && A.el.querySelector('#pq-q'); if (t && matchMedia('(pointer: fine)').matches) t.focus(); });
-  return done;
-}
-function askBody(A, item, K) {
-  const c = safeContext(K.year, K.week, A.who);
-  const line = c && data.M[c.opp] ? cap1(contextText({year: K.year, week: K.week, ctx: c}, {week: false})) : 'Lost the Matchup of the Week';
-  const left = press.SQ_PER_WEEK - press.sentFor(A.key).filter(x => x.by === A.me && x.id !== A.id).length;
-  return `<div class="shp pq">`
-    + `<div class="ask-to">${ui.avatar(A.who, {size: 40})}<span class="ask-to-tx"><span class="ask-to-t">${esc(`${nm(A.who)} · Week ${K.week}`)}</span><span class="ask-to-s">${esc(line)}</span></span></div>`
-    + `<section class="shp-sec"><div class="shp-hrow"><label class="shp-h" for="pq-q">Your question</label><span class="shp-count pq-qn" aria-hidden="true">0/${press.Q_MAX}</span></div>`
-    + `<div class="shp-field pq-field"><textarea id="pq-q" class="shp-in pq-in" name="pq-q" rows="4" maxlength="${press.Q_MAX}" autocapitalize="sentences" placeholder="Coach, …">${esc(item ? item.q : '')}</textarea></div>`
-    + `<p class="shp-note">${esc(`Everyone sees it with your name, and ${nm(A.who)} answers it at the podium. ${item ? 'You can change it' : `You can send ${left === press.SQ_PER_WEEK ? `up to ${left}` : `${left} more`} for this week, and change them`} until the press conference is posted.`)}</p></section>`
-    + `<div class="shp-foot">${ui.button({label: item ? 'Save' : 'Send question', kind: 'primary', block: true, disabled: true, attrs: {'data-ask-send': ''}})}<p class="shp-why" aria-live="polite"></p>`
-    + (item ? ui.button({label: 'Delete question', kind: 'secondary', block: true, cls: 'pq-del is-destructive', attrs: {'data-ask-del': ''}}) : '')
-    + `</div></div>`;
-}
-function paintAsk(A) {
-  const el = A.el;
-  if (!el || A.dead) return;
-  const q = el.querySelector('#pq-q'), box = el.querySelector('.pq-qn');
-  if (box) { box.textContent = `${q.value.length}/${press.Q_MAX}`; box.classList.toggle('is-full', q.value.length >= press.Q_MAX); }
-  const why = A.busy ? '' : !q.value.trim() ? 'Type your question.' : '';
-  const btn = el.querySelector('[data-ask-send]');
-  if (btn) btn.disabled = !!why || A.busy;
-  const w = el.querySelector('.shp-why');
-  if (w) w.textContent = why;
-}
-const ASK_FAIL = {invalid: 'Type your question.', self: 'You’re the one facing the media.', closed: 'The press conference is already posted.',
-  full: `You’ve sent ${press.SQ_PER_WEEK}, the most for a week.`, denied: 'Only league members can send questions.', failed: "Couldn't send. Try again."};
-async function sendAsk(A) {
-  if (A.busy || A.dead) return;
-  if (data.me() !== A.me) { A.sheet.close(); return; }
-  const q = A.el.querySelector('#pq-q').value;
-  A.busy = true; paintAsk(A);
-  let r;
-  try { r = await press.sendQuestion({id: A.id, week: A.key, q, to: A.who}); } catch (e) { console.error(e); r = {r: 'failed'}; }
-  A.busy = false;
-  if (r.r === 'ok' || r.r === 'dev') {
-    ui.haptic('success');
-    ui.toast(`${A.id ? 'Saved' : `Sent to ${nm(A.who)}`}${r.r === 'dev' ? ' on this device (dev)' : ''}`, {icon: 'check-circle'});
-    A.result = {key: A.key, id: r.id};
-    if (!A.dead) A.sheet.close();
-    return;
-  }
-  ui.haptic('warning');
-  paintAsk(A);
-  ui.toast(ASK_FAIL[r.r] || ASK_FAIL.failed, {icon: 'x-circle'});
-}
-async function deleteAsk(A) {
-  if (A.busy || A.dead || !A.id) return;
-  const v = await ui.actionSheet({title: 'Delete your question?', message: 'It comes off the Press Room for everyone.', actions: [{label: 'Delete', value: 'delete', role: 'destructive'}]});
-  if (v !== 'delete' || A.dead) return;
-  if (data.me() !== A.me) { A.sheet.close(); return; }
-  A.busy = true; paintAsk(A);
-  let r;
-  try { r = await press.unsendQuestion(A.key, A.id); } catch (e) { console.error(e); r = 'failed'; }
-  A.busy = false;
-  if (r === 'ok' || r === 'dev') { ui.haptic('success'); ui.toast(r === 'dev' ? 'Deleted on this device (dev)' : 'Deleted', {icon: 'check-circle'}); if (!A.dead) A.sheet.close(); return; }
-  paintAsk(A);
-  ui.toast(ASK_FAIL[r] || ASK_FAIL.failed, {icon: 'x-circle'});
-}
-function wireAsk(A) {
-  const el = A.el;
-  el.addEventListener('input', () => paintAsk(A));
-  el.addEventListener('click', e => {
-    const t = e.target.closest && e.target.closest('[data-ask-send], [data-ask-del]');
-    if (!t) return;
-    if (t.hasAttribute('data-ask-send')) sendAsk(A); else deleteAsk(A);
-  });
-}
-
 // ============================================================================ Screen
 // Pushed on any tab, so a Press Room can be mounted on two tabs at once: each keeps its own state (screens: ctx ->
 // state). memo.snap is the last subscribePressers payload, so a re-mounted screen paints at once.
@@ -1068,26 +855,20 @@ function featHTML(p, off) {
     + `</section>`;
 }
 // "Questions from the press": what the league asked the featured week's loser, asker by asker (the league chat's, then
-// the ones Evan added in the app). On Evan's phone (press.canAddQuestions) the section is there even with none yet,
-// with Add a question; a question he added opens its sheet to change or take it out.
+// the ones added in the app before Nov 18 2026), read only. Questions are no longer taken (Nov 18 2026, Evan: "Remove
+// the option to add questions in the app. We are no longer doing questions for the press conferences"): no Add a
+// question, no Ask {loser}; a week with none shows no section.
 function qsHTML(p) {
   const qs = p ? press.questionsFor(p.key) : [];
-  const own = !!p && press.canAddQuestions();
-  if (!qs.length && !own) return '';
+  if (!qs.length) return '';
   const me = data.me();
-  const body = x => `<span class="pr-q-lead">${ui.avatar(x.by, {size: 32, you: x.by === me})}</span>`
+  const items = qs.map(x => `<li class="pr-q"><span class="pr-q-lead">${ui.avatar(x.by, {size: 32, you: x.by === me})}</span>`
     + `<span class="pr-q-main"><span class="pr-q-by">${esc(nm(x.by))}</span><span class="pr-q-t">${esc(x.q)}</span>`
     + (x.note ? `<span class="pr-q-note">${ui.icon('info', {size: 14})}<span>${esc(x.note)}</span></span>` : '')
-    + `</span>`;
-  const items = qs.map(x => (own && x.added
-    ? `<li class="pr-q is-mine"><button type="button" class="pr-q-edit" data-pr-qedit="${esc(x.id)}" data-pr-qweek="${esc(p.key)}" aria-label="${esc(`Change ${poss(nm(x.by))} question`)}">${body(x)}${ui.icon('chevron-right', {cls: 'pr-q-go'})}</button></li>`
-    : `<li class="pr-q">${body(x)}</li>`)).join('');
-  const sub = qs.length ? `For ${nm(p.who)}, ${weekLabel(p).toLowerCase()}, from the league.` : `No questions for ${nm(p.who)} yet. Add the ones the league asked.`;
+    + `</span></li>`).join('');
   return `<section class="pr-qs" aria-labelledby="pr-qs-h"><h2 class="t-2 pr-h" id="pr-qs-h">Questions from the press</h2>`
-    + `<p class="pr-qs-sub">${esc(sub)}</p>`
-    + (items ? `<ol class="card pr-qs-list">${items}</ol>` : '')
-    + (own ? `<button type="button" class="pr-qs-add" data-pr-qadd="${esc(p.key)}">${ui.icon('plus')}<span>Add a question</span></button>` : '')
-    + `</section>`;
+    + `<p class="pr-qs-sub">${esc(`For ${nm(p.who)}, ${weekLabel(p).toLowerCase()}, from the league.`)}</p>`
+    + `<ol class="card pr-qs-list">${items}</ol></section>`;
 }
 function featSkHTML() {
   return `<div class="card pr-card pr-sk" aria-hidden="true"><span class="sk pr-sk-media"></span><div class="pr-sk-body"><span class="sk sk-circle"></span><span class="pr-sk-lines"><span class="sk sk-line"></span><span class="sk sk-line"></span></span></div></div>`;
@@ -1129,43 +910,6 @@ function promptHTML(s, v) {
     + `<span class="pr-miss-lead">${lead}</span>`
     + `<span class="pr-miss-tx" aria-hidden="true"><span class="ovl pr-miss-o">Week ${m.week}</span><span class="pr-miss-t">${esc(title)}</span><span class="pr-miss-s">${esc(sub)}</span></span>`
     + `<span class="pr-miss-go" aria-hidden="true">${ui.icon('plus')}<span>Post</span></span></button>`;
-}
-// "Ask {who}" (Nov 11 2026, Evan: "Add a section in the press conference where league members can submit questions to
-// the manager"): the week whose Matchup of the Week loser hasn't faced the media yet (missingWeek, its loser known
-// from the prompt's lookup; never a no-show week). Everyone sees what the league sent (press.sentFor); a league member
-// other than the loser sends up to press.SQ_PER_WEEK and taps his own to change or take them back; the loser sees
-// the questions waiting for him. Once the presser is posted they move under its "Questions from the press".
-function askTarget(s, v) {
-  if (!v.ready || v.err) return null;
-  const m = missingWeek(v);
-  const r = m && s.miss && s.miss.key === m.key && !s.miss.pending ? s.miss.r : null;
-  if (!r || !data.M[r.who]) return null;
-  let skip = false;
-  try { skip = press.noShows(v.byKey).some(n => n.key === m.key); } catch (_) { skip = false; }
-  return skip ? null : {key: m.key, year: m.year, week: m.week, who: r.who};
-}
-function askHTML(s, v) {
-  const t = askTarget(s, v);
-  if (!t) return '';
-  const me = data.me(), sent = press.sentFor(t.key), mine = sent.filter(x => x.by === me), isHim = me === t.who;
-  const items = sent.map(x => {
-    const body = `<span class="pr-q-lead">${ui.avatar(x.by, {size: 32, you: x.by === me})}</span>`
-      + `<span class="pr-q-main"><span class="pr-q-by">${esc(x.by === me ? `${nm(x.by)} (you)` : nm(x.by))}</span><span class="pr-q-t">${esc(x.q)}</span></span>`;
-    return x.by === me
-      ? `<li class="pr-q is-mine"><button type="button" class="pr-q-edit" data-pr-sedit="${esc(x.id)}" aria-label="${esc(`Change your question: ${x.q}`)}">${body}${ui.icon('chevron-right', {cls: 'pr-q-go'})}</button></li>`
-      : `<li class="pr-q">${body}</li>`;
-  }).join('');
-  const sub = isHim ? `The league's questions for your week ${t.week} press conference.`
-    : `${nm(t.who)} faces the media for week ${t.week}. Send a question for the podium.`;
-  const empty = isHim ? 'No questions yet.' : 'No questions yet. Be the first to ask.';
-  let foot = '';
-  if (!me) foot = `<p class="pr-ask-note">League members can send questions from their own profile.</p>`;
-  else if (!isHim && mine.length >= press.SQ_PER_WEEK) foot = `<p class="pr-ask-note">You’ve sent ${press.SQ_PER_WEEK}, the most for a week. Tap one to change it.</p>`;
-  else if (!isHim) foot = `<button type="button" class="pr-qs-add" data-pr-sask="${esc(t.key)}" data-pr-swho="${esc(t.who)}">${ui.icon('plus')}<span>${esc(mine.length ? 'Ask another question' : `Ask ${nm(t.who)} a question`)}</span></button>`;
-  return `<section class="pr-qs pr-ask" aria-labelledby="pr-ask-h" data-pr-ask="${esc(t.key)}"><h2 class="t-2 pr-h" id="pr-ask-h">Ask ${esc(nm(t.who))}</h2>`
-    + `<p class="pr-qs-sub">${esc(sub)}</p>`
-    + (items ? `<ol class="card pr-qs-list">${items}</ol>` : `<p class="card pr-ask-empty">${ui.icon('mic', {size: 18})}<span>${esc(empty)}</span></p>`)
-    + foot + `</section>`;
 }
 // An empty archive slot for a Matchup of the Week loser who never faced the media (the seed's noShows): a vacant
 // thumbnail, no video, nothing to play. It goes once that week has a presser.
@@ -1233,7 +977,6 @@ function sections(s) {
     ['feat', v.feat ? featHTML(v.feat, v.err === 'denied') : featSkHTML()],
     ['qs', qsHTML(v.feat)],
     ['prompt', promptHTML(s, v)],
-    ['ask', askHTML(s, v)],
     ['arch', archHTML(v)],
     ['help', helpHTML()],
     ['dev', devHTML(v)]
@@ -1471,16 +1214,8 @@ async function removePresser(s, key) {
   ui.toast(r === 'denied' ? OFF_MSG : "Couldn't remove it. Try again.", {icon: r === 'denied' ? 'info' : 'x-circle'});
 }
 function onClick(s, e) {
-  const t = e.target.closest && e.target.closest('[data-pr-key], [data-pr-share], [data-pr-replace], [data-pr-remove], [data-pr-post], [data-pr-retry], [data-pr-qadd], [data-pr-qedit], [data-pr-sask], [data-pr-sedit]');
+  const t = e.target.closest && e.target.closest('[data-pr-key], [data-pr-share], [data-pr-replace], [data-pr-remove], [data-pr-post], [data-pr-retry]');
   if (!t || !s.el.contains(t)) return;
-  if (t.hasAttribute('data-pr-sask')) { ui.haptic('light'); openAsk({key: t.dataset.prSask, who: t.dataset.prSwho}); return; }
-  if (t.hasAttribute('data-pr-sedit')) {
-    const a = t.closest('[data-pr-ask]'), tg = askTarget(s, vm(s));
-    if (a && tg && tg.key === a.dataset.prAsk) { ui.haptic('light'); openAsk({key: tg.key, who: tg.who, id: t.dataset.prSedit}); }
-    return;
-  }
-  if (t.hasAttribute('data-pr-qadd')) { ui.haptic('light'); openQuestion({key: t.dataset.prQadd}); return; }
-  if (t.hasAttribute('data-pr-qedit')) { ui.haptic('light'); openQuestion({key: t.dataset.prQweek, id: t.dataset.prQedit}); return; }
   if (t.hasAttribute('data-pr-key')) { ui.haptic('light'); featureKey(s, t.dataset.prKey, {play: true}); }
   else if (t.hasAttribute('data-pr-share')) sharePresser(s, t.dataset.prShare);
   else if (t.hasAttribute('data-pr-replace')) { ui.haptic('light'); openPost({key: t.dataset.prReplace, onPosted: onPosted(s)}); }

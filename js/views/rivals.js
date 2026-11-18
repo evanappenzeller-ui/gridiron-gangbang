@@ -747,7 +747,7 @@ function wrapStart() {
 
 // ---------------------------------------------------------------- The Press tab: the Press Room, embedded
 // core/press.js and views/press.js load at idle (at once when the tab is opened); views/press.js embed() draws the whole
-// Press Room (the featured presser, the questions, Ask the loser, the archive, Post) into the Press tab's pane. Its live
+// Press Room (the featured presser, its questions, the archive, Post) into the Press tab's pane. Its live
 // list runs only while that tab is showing on a visible screen; leaving the tab or the screen stops any player.
 let pvMod = null, prLoad = null;
 function loadPress() {
