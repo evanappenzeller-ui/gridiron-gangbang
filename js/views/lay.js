@@ -37,8 +37,10 @@ function loadLay({fresh} = {}) {
 }
 
 // ---------------------------------------------------------------------------------------------- Live legs
-// weekKey -> legs entered in the app (core/lay.js), for the live week and the one before it (so a week's legs stay
-// on its slip after the league moves on, until data/lay.json has them with results).
+// weekKey -> legs entered in the app (core/lay.js), for the live week, the one before it, and every earlier week of the
+// season that data/lay.json doesn't have all the legs of yet (Nov 23 2026, Evan: "Ensure the lay shows up on the
+// 'every slip' section after each week"): a week's legs stay on its slip after the league moves on, graded from ESPN's
+// box scores (core/laytrack.js), until data/lay.json has them with results.
 const LIVE = new Map();
 const TRK = new Map(); // weekKey -> laytrack's tracked week {games, boxes, at}
 let liveErr = null;
@@ -49,10 +51,14 @@ let WEEKS = [];
 function buildWeeks() {
   const ws = LAY.weeks.map(w => Object.assign({}, w, {legs: legsOf(w).map(l => Object.assign({}, l))}));
   const lw = live.liveWeek();
-  if (lw && !ws.some(w => w.year === lw.year && w.week === lw.week)) {
-    ws.push({year: lw.year, week: lw.week, legs: []});
-    ws.sort((a, b) => a.year - b.year || a.week - b.week);
-  }
+  if (lw && !ws.some(w => w.year === lw.year && w.week === lw.week)) ws.push({year: lw.year, week: lw.week, legs: []});
+  // An earlier week with legs only in the app (not in data/lay.json yet) gets its own slip.
+  LIVE.forEach((L, k) => {
+    const m = /^(\d{4})-w(\d{1,2})$/.exec(k);
+    if (!m || !L || !L.length || ws.some(w => w.year === +m[1] && w.week === +m[2])) return;
+    ws.push({year: +m[1], week: +m[2], legs: []});
+  });
+  ws.sort((a, b) => a.year - b.year || a.week - b.week);
   ws.forEach(w => {
     const L = LIVE.get(wkey(w.year, w.week));
     if (!L) return;
@@ -520,8 +526,11 @@ function weeksHTML(me) {
     const t = tally(w), st = statusOf(w), p = placerOf(w);
     const squares = legsOf(w).map(l => `<i class="${l.hit === true ? 'is-hit' : l.hit === false ? 'is-miss' : ''}"></i>`).join('');
     const res = st === 'hit' ? 'Cashed' : `${t.hit}/${t.n}`;
+    // What a leg came to: the file's stat, else (a leg graded from ESPN's box scores) the tracker's words.
+    // (the score stays in: there's no game header here, so a spread or a total reads "GB +3 · GB 45–27 NE")
+    const statOf = l => l.stat || (l.trk && l.trk.st !== 'pre' ? String(l.trk.note || '').split(' · ').filter(x => x && !/^(Q\d|QOT|Half|Final|Live)\b/.test(x)).join(' · ') : '');
     const legs = legsOf(w).map(l => `<li class="ly-cl${l.hit === false ? ' is-miss' : l.hit === true ? ' is-hit' : ''}">${ui.avatar(l.by, {size: 22, you: l.by === me})}`
-      + (l.stat ? `<span class="ly-cl-main"><span class="ly-cl-bet">${esc(l.bet || '—')}</span><span class="ly-cl-stat">${esc(l.stat)}</span></span>`
+      + (statOf(l) ? `<span class="ly-cl-main"><span class="ly-cl-bet">${esc(l.bet || '—')}</span><span class="ly-cl-stat">${esc(statOf(l))}</span></span>`
         : `<span class="ly-cl-bet">${esc(l.bet || '—')}</span>`)
       + `<span class="ly-cl-who">${esc(data.name(l.by).split(' ')[0])}</span>${markOf(l)}</li>`).join('');
     return `<details class="card ly-slip is-${st}" data-ly-slip="${w.year}-${w.week}"><summary class="ly-slip-h">`
@@ -564,6 +573,7 @@ const ST = new WeakMap();
 function fill(ctx) {
   const st = ST.get(ctx);
   if (!st) return;
+  if (LAY) ensureWatched(ctx, st); // an earlier week the file is missing legs of (a no-op once watched)
   // (not while the tab's out of sight, built ahead from Pick'em or Matchup or left behind: the live legs and box
   // scores would redraw the whole season's slips every 30 seconds for no one. Drawn on the way back instead)
   if (!ctx.visible) { st.stale = true; return; }
@@ -596,21 +606,43 @@ function fetchAndFill(ctx, opts) {
   return loadLay(opts).then(() => fill(ctx), () => fill(ctx));
 }
 
-// Live legs for the live week and the one before (resubscribed when the league moves on to a new week).
+// The weeks whose app-entered legs (and ESPN tracking) the tab needs: the live week, the one before, and every earlier
+// week of the season that data/lay.json doesn't have a leg in every slot of (once the file is loaded).
+function wantWeeks(lw) {
+  const out = [lw.week, lw.week - 1];
+  if (LAY) {
+    for (let wk = 1; wk < lw.week - 1; wk++) {
+      const f = (LAY.weeks || []).find(w => w.year === lw.year && w.week === wk);
+      if ((f ? new Set(legsOf(f).map(l => l.for || l.by)).size : 0) < SIZE()) out.push(wk);
+    }
+  }
+  return out.filter(w => w >= 1);
+}
+// Live legs for those weeks (resubscribed when the league moves on to a new week; a week the file turns out to need
+// is added as soon as the file loads, by ensureWatched from fill).
 function watchLive(ctx, st) {
   st.stops.forEach(f => f());
   st.stops = [];
+  st.watched = new Set();
   const lw = live.liveWeek();
   if (!lw) return;
-  [lw.week, lw.week - 1].filter(w => w >= 1).forEach(wk => {
+  st.liveKey = wkey(lw.year, lw.week);
+  ensureWatched(ctx, st);
+}
+function ensureWatched(ctx, st) {
+  const lw = live.liveWeek();
+  if (!lw || !st.watched || st.liveKey !== wkey(lw.year, lw.week)) return;
+  wantWeeks(lw).forEach(wk => {
+    const k = wkey(lw.year, wk);
+    if (st.watched.has(k)) return;
+    st.watched.add(k);
     st.stops.push(live.subscribe(lw.year, wk, (legs, err) => {
-      LIVE.set(wkey(lw.year, wk), legs);
+      LIVE.set(k, legs);
       if (wk === lw.week) liveErr = err;
       if (LAY) fill(ctx);
     }));
-    st.stops.push(track.track(lw.year, wk, T => { TRK.set(wkey(lw.year, wk), T); if (LAY) fill(ctx); }));
+    st.stops.push(track.track(lw.year, wk, T => { TRK.set(k, T); if (LAY) fill(ctx); }));
   });
-  st.liveKey = wkey(lw.year, lw.week);
 }
 function focusInput(st) {
   const i = st.body.querySelector('.ly-in');

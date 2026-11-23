@@ -1,5 +1,18 @@
 # Gridiron Gangbang: rules for working on this app
 
+## The Lay: every week keeps its slip (November 23, 2026)
+
+Evan: "Ensure the lay shows up on the 'every slip' section after each week." Everyone. `views/lay.js` loaded the app's
+legs (and ESPN tracking) only for the live week and the one before, so a week not yet in `data/lay.json` dropped off
+Every slip two weeks on (weeks 9 and 10 did). Now `wantWeeks` adds every earlier week of the season that the file
+doesn't have a leg in every slot of (`for || by`, `legs` slots), `ensureWatched` (from `fill`, once the file loads)
+subscribes to their legs (`core/lay.js`) and tracks them (`core/laytrack.js`), and `buildWeeks` gives each such week
+its slip. Legs are graded provisionally from ESPN's box scores until the file has results (the file still wins); a
+graded leg shows the tracker's words (with the score for spreads and totals) where a file leg shows its `stat`. A leg
+the tracker can't settle (no line, a player who never played) stays open for the league. Weeks the file covers in full
+fetch nothing extra. Verify `node tools/lay/check-every-slip.cjs` (fixtures in `tools/lay/fixtures`: ESPN's 2026
+weeks 9 and 10, trimmed).
+
 ## Scores: College and game pages (November 22, 2026)
 
 Evan: "Make the scores tab include college football. This tab should be similar to the information you can find using other
