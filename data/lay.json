@@ -142,7 +142,35 @@
     {
       "year": 2026, "week": 9,
       "legs": [
-        {"by": "mason", "for": "corbin", "bet": "Jahmyr Gibbs Anytime TD Scorer", "hit": null}
+        {"by": "ben", "bet": "Dallas Goedert 3+ Receptions", "hit": true, "stat": "5 catches for 50 yds"},
+        {"by": "mason", "for": "corbin", "bet": "Jahmyr Gibbs Anytime TD Scorer", "hit": true, "stat": "1 rush TD"},
+        {"by": "dresden", "bet": "Kendre Miller Under Rushing Yards", "hit": null, "stat": "Didn't play: not in a box score, and no line given"},
+        {"by": "evan", "bet": "Justin Jefferson Anytime TD Scorer", "hit": false, "stat": "No TD: 3 catches for 58 yds"},
+        {"by": "jackson", "bet": "Green Bay Packers +3", "hit": true, "stat": "Packers won 45–27"},
+        {"by": "jacob", "bet": "Jonah Coleman Anytime TD Scorer", "hit": true, "stat": "1 rush TD"},
+        {"by": "jaymin", "bet": "Jonathan Taylor Anytime TD Scorer", "hit": false, "stat": "No TD: 13 carries for 46 yds, 5 catches for 18"},
+        {"by": "jayton", "bet": "Rhamondre Stevenson Anytime TD Scorer", "hit": true, "stat": "1 TD catch, 3 catches for 46 yds"},
+        {"by": "john", "bet": "Caleb Williams 2+ Passing TDs", "hit": true, "stat": "2 TD passes, 22 of 37 for 279 yds"},
+        {"by": "mason", "bet": "Christian McCaffrey Anytime TD Scorer", "hit": true, "stat": "2 TDs: 1 rush, 1 catch"},
+        {"by": "mitch", "bet": "Quinshon Judkins 60+ Rushing Yards", "hit": false, "stat": "15 carries for 43 yds"},
+        {"by": "sayer", "bet": "Christian Watson 4+ Receptions", "hit": true, "stat": "7 catches for 171 yds"}
+      ]
+    },
+    {
+      "year": 2026, "week": 10,
+      "legs": [
+        {"by": "ben", "bet": "Justin Jefferson 5+ Receptions", "hit": true, "stat": "9 catches for 74 yds"},
+        {"by": "corbin", "bet": "Javonte Williams Anytime TD Scorer", "hit": false, "stat": "No TD: 16 carries for 63 yds, 1 catch for 4"},
+        {"by": "dresden", "bet": "Jordan Tyson Anytime TD Scorer", "hit": null, "stat": "Didn't play: not in a box score"},
+        {"by": "evan", "bet": "Kirk Cousins 2+ Passing TDs", "hit": true, "stat": "2 TD passes, 21 of 31 for 207 yds"},
+        {"by": "jackson", "bet": "Matthew Golden Anytime TD Scorer", "hit": false, "stat": "No TD: 5 catches for 70 yds"},
+        {"by": "jacob", "bet": "Emmett Johnson Anytime TD Scorer", "hit": true, "stat": "2 TD catches, 22 carries for 101 yds"},
+        {"by": "jaymin", "bet": "Tee Higgins 75+ Receiving Yards", "hit": false, "stat": "5 catches for 66 yds"},
+        {"by": "jayton", "bet": "San Francisco 49ers @ Dallas Cowboys Over 55.5", "hit": true, "stat": "49ers 46, Cowboys 40: 86 points"},
+        {"by": "john", "bet": "Nico Collins Anytime TD Scorer", "hit": true, "stat": "1 TD catch, 9 catches for 94 yds"},
+        {"by": "mason", "bet": "Christian McCaffrey Anytime TD Scorer", "hit": true, "stat": "3 TDs: 2 catches, 1 rush"},
+        {"by": "mitch", "bet": "Jacksonville Jaguars -10.5", "hit": true, "stat": "Jaguars won 40–23"},
+        {"by": "sayer", "bet": "Christian Watson 5+ Receptions", "hit": false, "stat": "3 catches for 37 yds"}
       ]
     }
   ]
