@@ -2,12 +2,13 @@
 // real browser.
 // Local only: the app is served from this folder with Firebase disabled, and ESPN's scoreboard and box scores are
 // stand-ins built from the league file's own lineups (every starter gets a line), so nothing reaches the network.
-// For Evan, another member and a visitor: Scores opens on NFL with the NFL · League switch; League shows this week's
+// For Evan, another member and a visitor: Scores opens on NFL with the NFL · College · League switch; League shows this week's
 // games with each side's live score, projected total (Yahoo's, moved by the scores: never under the score), chance to win (green
 // and red, adding to 100) and players left, the Matchup of the Week (once voted) first in its own card; Evan's game opens the sheet with the live score and projections, both lineups
 // (nine slots, under each side's name, which sticks) whose points add up to the score, and the next feed update moves it; League is remembered after a
-// reload, NFL comes back with the octobox; Matchup's "Live scores" opens League; then the kit checks "Live league
-// scores" and "Live Games".
+// reload, NFL comes back with the octobox, and a live box opens that game's own page (views/game.js) with its fantasy
+// points; Matchup's "Live scores" opens League; then the kit checks "Live league scores" and "Live Games". (College and
+// the game pages in depth: tools/live/check-scores-browser.cjs.)
 // Usage: node tools/matchup/check-live-browser.cjs [--shots=<dir>]   (Playwright's Chromium; screenshots when --shots)
 const fs = require('node:fs');
 const path = require('node:path');
@@ -92,7 +93,12 @@ function summary(id) {
   };
   const kick = abbr => Object.values(season.rosters.teams).flat().find(p => p[1] === 'K' && (ESPN[p[2]] || p[2]) === abbr);
   const plays = [g.home, g.away].map(t => kick(t)).filter(Boolean).map(k => ({type: {text: 'Field Goal Good'}, text: `${k[0]} 48 Yd Field Goal`, team: {abbreviation: ESPN[k[2]] || k[2]}}));
-  return {boxscore: {players: [side(g.away), side(g.home)]}, scoringPlays: plays};
+  // The game page (views/game.js) reads the header for the score and clock.
+  const comp = (ha, abbr, sc) => ({homeAway: ha, score: String(sc), team: {id: abbr, abbreviation: abbr, displayName: abbr}});
+  const header = {id: g.id, season: {year: YEAR}, competitions: [{id: g.id, date: new Date(Date.now() - 2 * 36e5).toISOString(),
+    status: {period: g.state === 'in' ? 3 : 4, displayClock: '4:12', type: {state: g.state, completed: g.state === 'post', name: g.state === 'post' ? 'STATUS_FINAL' : 'STATUS_IN_PROGRESS', shortDetail: g.state === 'post' ? 'Final' : '4:12 - 3rd'}},
+    competitors: [comp('home', g.home, g.state === 'pre' ? 0 : 17 + tick), comp('away', g.away, g.state === 'pre' ? 0 : 10)]}]};
+  return {header, boxscore: {players: [side(g.away), side(g.home)]}, scoringPlays: plays};
 }
 
 const PROFILES = [{tag: 'evan', me: 'evan'}, {tag: 'mason', me: 'mason'}, {tag: 'visitor', me: 'none'}];
@@ -125,7 +131,7 @@ async function run(url) {
       await page.waitForFunction(() => window.__ggBooted, null, {timeout: 30000});
       // Scores opens on NFL, the switch's two buttons under the title.
       await page.waitForSelector('.v-live .lg-sw [data-lg-mode="lg"]', {timeout: 20000});
-      assert.equal(await page.locator('.v-live .lg-sw .pk-lg-t').count(), 2, p.tag + ': NFL and League');
+      assert.equal(await page.locator('.v-live .lg-sw .pk-lg-t').count(), 3, p.tag + ': NFL, College and League');
       assert.equal(await page.locator('.v-live [data-lg-mode="nfl"]').getAttribute('aria-selected'), 'true', p.tag + ': NFL first');
       await page.waitForSelector('.v-live .lg-tile', {timeout: 20000});
       await page.waitForTimeout(2500); // (the splash goes)
@@ -228,15 +234,16 @@ async function run(url) {
       await page.waitForSelector('.v-live [data-lg-nfl]:not([hidden]) .lg-tile', {timeout: 20000});
       await page.waitForTimeout(600); // (the cross-fade's snapshot goes)
       assert.equal(await page.locator('.v-live [data-ll]').isHidden(), true, p.tag + ': League hides');
-      // A box on NFL opens League's top performers with that game's players only.
+      // A live box on NFL opens that game's own page (Nov 22 2026), its fantasy points on the Fantasy tab; Back returns.
       await page.locator('.v-live .lg-tile.is-in').first().click();
-      await page.waitForSelector('.v-live [data-ll]:not([hidden]) .lg-stats .lg-scope', {timeout: 10000});
-      assert.equal(await page.locator('.v-live [data-lg-mode="lg"]').getAttribute('aria-selected'), 'true', p.tag + ': a box opens League');
-      assert.ok(await page.locator('.v-live [data-ll] .lg-stats .lg-p').count() > 0, p.tag + ': that game\u2019s players');
+      await page.waitForSelector('.v-game:not([hidden]) .gm-hero.is-in', {timeout: 10000});
+      await page.locator('.v-game:not([hidden]) [data-seg="gm-tab"] button[data-value="fan"]').click();
+      await page.waitForSelector('.v-game:not([hidden]) .gm-fan .gm-fp', {timeout: 10000});
+      assert.ok(await page.locator('.v-game:not([hidden]) .gm-fan .gm-fp').count() > 0, p.tag + ': that game\u2019s players and their points');
       await page.waitForTimeout(800);
       await snap(page, p.tag + '-top-game');
-      await page.locator('.v-live [data-lg-all]').click();
-      await page.waitForFunction(() => !document.querySelector('.v-live .lg-scope'), null, {timeout: 5000});
+      await page.goBack();
+      await page.waitForSelector('.v-live [data-lg-nfl]:not([hidden]) .lg-tile', {timeout: 10000});
       // Matchup no longer lists this week's games (Oct 30 2026, the owner: "Remove this from the matchups tab").
       await page.goto(url + '/#/matchup');
       await page.waitForSelector('.v-rivals .rv-h2h-t', {state: 'attached', timeout: 20000});

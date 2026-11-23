@@ -35,8 +35,12 @@
 //
 // College (the College pick'em): `cfb` is the same client for ESPN's college-football scoreboard, its own caches
 // ('gg-cfb2-...') and pollers: cfb.scoreboard / currentWeek / watch / lookup / __dev / REG_WEEKS. Only Top 25 games
-// count there (a ranked team on either side; parse's opts.top25), and a college team carries rank (1-25, else null).
+// count there (a ranked team on either side; parse's opts.top25), and a college team carries rank (1-25, else null)
+// and conf (ESPN's conference id, '8' the SEC; core/espn-game.js CONFERENCES).
 // College abbreviations can be longer or carry & or - ('TA&M', 'M-OH').
+// `cfbAll` (the Scores tab's College screen, views/live-cfb.js; Nov 22 2026): every FBS game of a week (ESPN's
+// groups=80), the same client again with its own pollers; its finished weeks stay in memory only (about 70 games a
+// week, too many to keep in localStorage).
 
 import {canWrite} from './fire.js';
 
@@ -93,7 +97,8 @@ function teamOf(c, state, o = {}) {
     score: state === 'pre' ? null : num(c.score),
     winner: state === 'post' && c.winner === true,
     record: rec && typeof rec.summary === 'string' ? rec.summary.replace(/-/g, '–') : '',
-    rank: rk != null && rk >= 1 && rk <= 25 ? rk : null
+    rank: rk != null && rk >= 1 && rk <= 25 ? rk : null,
+    conf: o.cfb && t.conferenceId != null ? String(t.conferenceId) : ''
   };
 }
 
@@ -285,8 +290,9 @@ const allPost = weekOver;
 const liveOrDue = (games, t = Date.now()) => games.some(g => g.state === 'in' || (g.state === 'pre' && t >= toMs(g.kickoff) && t - toMs(g.kickoff) < DUE_MS));
 
 // ---------------------------------------------------------------------------
-// One feed per league (cfg: {base (ESPN scoreboard URL), ls (localStorage prefix), weeks (regular-season weeks),
-// dev (sessionStorage key for the dev patches), opts (parse options)}): its own caches, current week and pollers.
+// One feed per league (cfg: {base (ESPN scoreboard URL), query (more of its query, e.g. 'groups=80&limit=300'), ls
+// (localStorage prefix), store (false: finished weeks stay in memory only), weeks (regular-season weeks), dev
+// (sessionStorage key for the dev patches), opts (parse options)}): its own caches, current week and pollers.
 function makeFeed(cfg) {
   const okW = (y, w) => Number.isInteger(y) && y >= 2000 && y <= 2100 && Number.isInteger(w) && w >= 1 && w <= cfg.weeks;
   // ---------------------------------------------------------------------------
@@ -338,7 +344,7 @@ function makeFeed(cfg) {
   function putWeek(year, week, games) {
     const data = {year, week, games, at: Date.now()};
     mem.set(weekId(year, week), {t: data.at, data});
-    if (allPost(games)) lsSet(weekId(year, week), {year, week, at: data.at, games: games.map(ser)});
+    if (allPost(games) && cfg.store !== false) lsSet(weekId(year, week), {year, week, at: data.at, games: games.map(ser)});
     return data;
   }
 
@@ -351,7 +357,7 @@ function makeFeed(cfg) {
     const id = weekId(year, week);
     const m = mem.get(id);
     if (m && allPost(m.data.games)) return view(m.data);
-    if (!m) { const l = lsWeek(year, week); if (l) { mem.set(id, {t: Date.now(), data: l}); return view(l); } }
+    if (!m && cfg.store !== false) { const l = lsWeek(year, week); if (l) { mem.set(id, {t: Date.now(), data: l}); return view(l); } }
     if (!opt.fresh && fresh(m)) return view(m.data);
     // A currentWeek() request on its way brings ESPN's current week too (a cold open asks for both at once): wait for
     // it rather than asking twice.
@@ -363,7 +369,7 @@ function makeFeed(cfg) {
     if (inflight.has(id)) return inflight.get(id);
     const p = (async () => {
       try {
-        const b = parse(await getJSON(`${cfg.base}?seasontype=2&week=${week}&dates=${year}`), {year, week}, cfg.opts);
+        const b = parse(await getJSON(`${cfg.base}?${cfg.query ? cfg.query + '&' : ''}seasontype=2&week=${week}&dates=${year}`), {year, week}, cfg.opts);
         if (b.year !== year || b.week !== week) throw new Error(`ESPN answered ${b.year} week ${b.week}`);
         return view(putWeek(year, week, b.games));
       } catch (err) {
@@ -386,7 +392,7 @@ function makeFeed(cfg) {
     if (curP) return curP;
     curP = (async () => {
       try {
-        const b = parse(await getJSON(cfg.base), {}, cfg.opts);
+        const b = parse(await getJSON(cfg.query ? `${cfg.base}?${cfg.query}` : cfg.base), {}, cfg.opts);
         if (b.seasontype === 2 && okW(b.year, b.week)) putWeek(b.year, b.week, b.games);
         const v = pickWeek(b, cfg.weeks, {cfb: !!cfg.opts.cfb});
         if (!v) throw new Error('ESPN sent no season');
@@ -488,7 +494,8 @@ function makeFeed(cfg) {
     }
     const id = weekId(year, week);
     let w = watchers.get(id);
-    if (!w) { w = {year, week, fns: new Set(), data: null, sig: '', timer: 0, busy: false, last: 0}; watchers.set(id, w); }
+    // sig starts null, so even a week with no games (signature '') is reported once.
+    if (!w) { w = {year, week, fns: new Set(), data: null, sig: null, timer: 0, busy: false, last: 0}; watchers.set(id, w); }
     w.fns.add(fn);
     if (w.data) queueMicrotask(() => { if (w.fns.has(fn)) { try { fn(w.data); } catch (err) { console.error(err); } } });
     else if (!w.busy) tick(w, false);
@@ -597,4 +604,7 @@ const NFL = makeFeed({base: BASE, ls: LS, weeks: REG_WEEKS, dev: 'gg-dev-nfl', o
 export const {scoreboard, currentWeek, watch, lookup, __dev} = NFL;
 /** College football (the College pick'em): the same API on ESPN's college scoreboard, Top 25 games only. */
 export const cfb = Object.assign(makeFeed({base: CFB_BASE, ls: 'gg-cfb2-', weeks: 16, dev: 'gg-dev-cfb', opts: {cfb: true, top25: true, weeks: 16}}),
+  {gameStarted, gameOver, weekOver, weekId});
+/** Every FBS game of a college week (the Scores tab's College screen): ESPN's groups=80, memory-only finished weeks. */
+export const cfbAll = Object.assign(makeFeed({base: CFB_BASE, query: 'groups=80&limit=300', ls: 'gg-cfba-', store: false, weeks: 16, dev: 'gg-dev-cfba', opts: {cfb: true, weeks: 16}}),
   {gameStarted, gameOver, weekOver, weekId});

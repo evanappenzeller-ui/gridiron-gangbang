@@ -1,5 +1,26 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Scores: College and game pages (November 22, 2026)
+
+Evan: "Make the scores tab include college football. This tab should be similar to the information you can find using other
+popular sports apps like The Score, yahoo sports, nfl. Users should be able to click on a live game and get taken to a more in
+depth view with box scores, latest plays, scoring plays, etc." Everyone. The Scores switch is NFL · College · League
+(`views/live.js`, remembered in `gg-live-mode`). College (`views/live-cfb.js`) is every FBS game of the week from
+`core/nfl.js` `cfbAll` (ESPN's college scoreboard with `groups=80&limit=300`, memory-only finished weeks; the Top 25
+pick'em feed `cfb` is unchanged; teams now carry `conf`): a week stepper, chips Top 25 (default) · All FBS · each
+conference playing (`core/espn-game.js` `CONFERENCES`, remembered in `gg-cfb-scores-filter`), games on now first, then
+each day's slate with ranks, records, kickoff/TV/line or the final. Any NFL box/mini or college row opens
+`#/live/game/<nfl|cfb>/<id>` (`views/game.js`, pushed on the Scores tab; `css/views/game.css`): scoreboard, score by
+quarter, where the ball is (the scoreboard's situation when the feed has the game, else the summary's last play), last
+play, win probability bar and chart; tabs Summary (scoring plays by quarter, leaders, key team stats, game info) · Box
+score (each team's player tables, every team stat) · Plays (every drive, newest first, the one on now open; hand-opened
+or closed drives stay put) · Fantasy (NFL only: PPR points with each player's league manager, `core/gameday.js`). Before
+kickoff: matchup predictor, line, season leaders and season stats, no tabs. `core/espn-game.js` `parseSummary`/`watchGame`
+read ESPN's summary (every 20 s live, at kickoff before, a minute at a time for 10 minutes after the final, never while
+hidden). The NFL box no longer filters League's top performers (the game page's Fantasy tab has them). College postseason
+(bowls, the CFP) is not in the College screen yet. Verify `node tools/live/check-scores-browser.cjs` (fixtures in
+`tools/live/fixtures`: real ESPN payloads, Nov 22 2026) and `node tools/matchup/check-live-browser.cjs`.
+
 ## Press Room questions retired (November 18, 2026)
 
 Evan: "Remove the option to add questions in the app. We are no longer doing questions for the press conferences."

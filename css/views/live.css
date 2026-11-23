@@ -3,7 +3,7 @@
    red zone's pulse, a score's flash, the "playing now" dot. */
 
 /* ================================================================ NFL · League (Pick'em's buttons, css/views/pickem.css) */
-.v-live .lg-sw { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 6px; }
+.v-live .lg-sw { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 6px; }
 .lg-panes > [hidden] { display: none; }
 
 .lg-body { padding: 4px 0 32px; }
@@ -280,3 +280,42 @@
   .lg-body .lg-tile.is-rz, .lg-body .lg-pulse, .lg-body .lg-dot, .sh-ll .ll-dot, .sh-ll .ll-lu-on { animation: none; }
   .lg-body .lg-burst { animation-duration: .01s; animation-fill-mode: none; }
 }
+
+/* ================================================================ College (views/live-cfb.js): the week, the chips, the games */
+.lc-body .lc-wk { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; margin: 4px 0 6px; }
+.lc-body .lc-wk:empty { display: none; }
+.lc-body .lc-step { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: none; color: var(--tint); }
+.lc-body .lc-step:disabled { color: var(--ink-3); opacity: .4; }
+.lc-body .lc-wk-t { display: flex; flex-direction: column; align-items: center; }
+.lc-body .lc-wk-t b { font: 600 var(--fs-callout)/var(--lh-callout) var(--font-text); color: var(--ink); }
+.lc-body .lc-wk-t small { font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
+.lc-body .lc-chips { margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter); }
+.lc-body .lc-h-live { color: var(--wrong); }
+.lc-body .lc-list { margin: 0; padding: 0; list-style: none; border-radius: var(--r-card); overflow: hidden; background: var(--surface-1); box-shadow: var(--pixel-shadow), inset 0 0 0 1px var(--separator); }
+.lc-body .lc-list > li + li { border-top: 1px solid var(--separator); }
+.lc-body .lc-g {
+  display: grid; grid-template-columns: minmax(0, 1fr) 88px 14px; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 10px 10px 12px; background: none; color: var(--ink); text-align: left;
+}
+.lc-body .lc-g:active { background: var(--surface-2); }
+.lc-body .lc-g.is-in { background: linear-gradient(90deg, var(--surface-2), transparent 80%); }
+.lc-body .lc-g.is-rz { box-shadow: inset 3px 0 0 var(--wrong); }
+.lc-body .lc-teams { display: grid; gap: 6px; min-width: 0; }
+.lc-body .lc-t { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; }
+.lc-body .lc-t .lg-logo { width: 28px; height: 28px; }
+.lc-body .lc-nm { display: flex; align-items: baseline; gap: 0 4px; flex-wrap: wrap; min-width: 0; font: 600 var(--fs-foot)/18px var(--font-text); }
+.lc-body .lc-nm b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.lc-body .lc-nm small { flex-basis: 100%; font: 400 11px/14px var(--font-text); color: var(--ink-3); }
+.lc-body .lc-nm .lg-ball { align-self: center; }
+.lc-body .lc-rk { font: 400 var(--fs-cap)/1 var(--font-text); font-style: normal; color: var(--ink-3); }
+.lc-body .lc-sc { font-family: var(--font-num); color: var(--ink-2); }
+.lc-body .lc-g.is-in .lc-sc { color: var(--ink); }
+.lc-body .lc-t.is-won .lc-sc { color: var(--tint); }
+.lc-body .lc-t.is-lost { color: var(--ink-3); }
+.lc-body .lc-st { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 0; text-align: right; }
+.lc-body .lc-clk { font: 600 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-2); }
+.lc-body .lc-g.is-in .lc-clk { color: var(--ink); }
+.lc-body .lc-tv { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 11px/14px var(--font-text); color: var(--ink-3); }
+.lc-body .lc-dd { font: 600 11px/14px var(--font-text); color: var(--ink-2); }
+.lc-body .lc-g.is-rz .lc-dd { color: #FF8A7E; }
+.lc-body .lc-go { width: 14px; height: 14px; color: var(--ink-3); }

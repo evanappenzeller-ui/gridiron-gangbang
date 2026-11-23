@@ -1,11 +1,11 @@
 // Live (its own tab, #/live; Oct 25 2026, everyone's): the NFL week's games as they play, an
 // octobox like RedZone (eight games at once, the ones in the red zone first, each with the score, the clock, who has
 // the ball, the down and distance, the ball on a little field and the last play; a score flashes on its box), the
-// rest of the week's games under it, then the waiver wire: the best players no one in the league has, over this week
+// rest of the week's games under it (a tap on one opens its game page, views/game.js), then the waiver wire: the best players no one in the league has, over this week
 // and the one before. The top performers (every player's line with his points in the league's scoring, PPR,
 // core/gameday.js, laid out like ESPN Fantasy's, Oct 27 2026, with chips for search, my players and each position) sit on
 // League, under the matchups (Nov 1 2026, the owner: "Move the top performers to the league section of the scores
-// tab"); the NFL feed runs on either screen to keep them. A tap on a box opens League with that game's players only.
+// tab"); the NFL feed runs on either screen to keep them. A game's own page (views/game.js) lists its fantasy points too.
 // Each player's owner in the league (Yahoo's rosters, or the draft, then the trades, pickups and drops since); "My players" and "You" follow the profile picked.
 // Data: core/gameday.js (ESPN's scoreboard and box scores, every 30 s while a game is on). Styles: css/views/live.css.
 // Under the title, Pick'em's switch (its scoreboard buttons, css/views/pickem.css) toggles NFL and League (Oct 30 2026,
@@ -13,12 +13,19 @@
 // the same fashion as the pick em screen"): League is this week's league matchups scored live (views/live-league.js).
 // The one shown is remembered on this phone ('gg-live-mode'). ESPN's feed runs on both (the games and waiver wire on
 // NFL, the top performers on League); the league's live scoring only on League.
+// College (Nov 22 2026, the owner: "Make the scores tab include college football. This tab should be similar to the
+// information you can find using other popular sports apps like The Score, yahoo sports, nfl. Users should be able to
+// click on a live game and get taken to a more in depth view with box scores, latest plays, scoring plays, etc."): the
+// switch is NFL · College · League; College is every FBS game of the week (views/live-cfb.js). A tap on any game, NFL or
+// college, opens its own page (views/game.js, #/live/game/<nfl|cfb>/<id>: the score by quarter, where the ball is, win
+// probability, scoring plays, box score, every drive's plays and, for the NFL, the league's fantasy points in it).
 // Owner: LIVE.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as gd from '../core/gameday.js';
 import {youButtonHTML} from './you.js';
 import * as LL from './live-league.js';
+import * as LC from './live-cfb.js';
 
 const esc = data.esc;
 const OCTO = 8, LIST_MAX = 60;
@@ -91,7 +98,7 @@ function tileHTML(g, st) {
   const dd = g.state === 'in' && s && (s.text || s.spot) ? [s.text, s.spot && !/ at /.test(s.text) ? `at ${s.spot}` : ''].filter(Boolean).join(' ') : '';
   const label = `${g.away.name} ${g.away.score || 0}, ${g.home.name} ${g.home.score || 0}. ${clockOf(g)}.${s && s.rz ? ' In the red zone.' : ''}${dd ? ' ' + dd + '.' : ''}`;
   const tag = s && s.rz ? '<span class="lg-flag">Red zone</span>' : g.state === 'in' ? '<span class="lg-live">Live</span>' : '';
-  return `<button type="button" class="${k}" data-lg-game="${esc(g.id)}" aria-pressed="${sel}" aria-label="${esc(label)}">`
+  return `<button type="button" class="${k}" data-nav="/live/game/nfl/${esc(g.id)}" aria-label="${esc(label + ' Open the game.')}">`
     + `<span class="lg-top"><span class="lg-clock">${esc(clockOf(g))}</span>${tag}<span class="lg-tv">${esc(g.state === 'pre' ? g.tv : '')}</span></span>`
     + teamRow(g, 'away') + teamRow(g, 'home')
     + fieldHTML(g)
@@ -103,7 +110,7 @@ function tileHTML(g, st) {
 function miniHTML(g, st) {
   const sel = st.game === g.id;
   const side = t => `<span class="lg-mt">${logo(t, 20)}<b>${esc(t.abbr)}</b>${g.state === 'pre' ? '' : `<span class="n5">${t.score || 0}</span>`}</span>`;
-  return `<button type="button" class="lg-mini is-${g.state}${sel ? ' is-sel' : ''}" data-lg-game="${esc(g.id)}" aria-pressed="${sel}">`
+  return `<button type="button" class="lg-mini is-${g.state}${sel ? ' is-sel' : ''}" data-nav="/live/game/nfl/${esc(g.id)}" aria-label="${esc(`${g.away.name} ${g.state === 'pre' ? '' : (g.away.score || 0) + ' '}at ${g.home.name}${g.state === 'pre' ? '' : ' ' + (g.home.score || 0)}. ${clockOf(g)}. Open the game.`)}">`
     + side(g.away) + side(g.home) + `<span class="lg-mc">${esc(clockOf(g))}</span></button>`;
 }
 function gamesHTML(st) {
@@ -293,9 +300,10 @@ function statsHTML() {
 // ---------------------------------------------------------------------------------------------- NFL · League
 // The switch, Pick'em's scoreboard buttons (views/pickem.js leagueTabsHTML; img/nfl.webp, img/league.webp).
 const MODE_KEY = 'gg-live-mode';
-const MODES = [{id: 'nfl', sub: '', label: 'NFL scores', src: 'img/nfl.webp'}, {id: 'lg', sub: 'League', label: 'League scores', src: 'img/league.webp'}];
-const modeNow = () => (ui.lsGet(MODE_KEY) === 'lg' ? 'lg' : 'nfl');
-const SUBS = {nfl: 'Every game as it plays, the red zone first', lg: 'The league\u2019s matchups as they play'};
+const MODES = [{id: 'nfl', sub: '', label: 'NFL scores', src: 'img/nfl.webp'}, {id: 'cfb', sub: 'College', label: 'College scores', src: 'img/ncaa.webp'},
+  {id: 'lg', sub: 'League', label: 'League scores', src: 'img/league.webp'}];
+const modeNow = () => { const m = ui.lsGet(MODE_KEY); return m === 'lg' || m === 'cfb' ? m : 'nfl'; };
+const SUBS = {nfl: 'Every game as it plays, the red zone first', cfb: 'Every FBS game, the Top 25 first', lg: 'The league\u2019s matchups as they play'};
 function switchHTML(on) {
   return `<div class="pk-lg lg-sw" role="tablist" aria-label="Scores">${MODES.map(m => `<button type="button" role="tab" class="pk-lg-t" data-lg-mode="${m.id}"`
     + ` aria-selected="${m.id === on}"${m.id === on ? '' : ' tabindex="-1"'} aria-label="${m.label}">`
@@ -305,6 +313,7 @@ function switchHTML(on) {
 }
 function eyebrowOf(st) {
   if (st.mode === 'lg') return LL.eyebrow();
+  if (st.mode === 'cfb') return LC.eyebrow();
   return st.D && st.D.week ? `NFL · Week ${st.D.week} · Live` : 'NFL · Live';
 }
 // Shows NFL or League: the other's feed stops, the title's eyebrow and subtitle follow, the chosen button bounces.
@@ -312,7 +321,7 @@ function setMode(ctx, st, mode, animate) {
   if (mode === st.mode) return;
   st.mode = mode;
   ui.lsSet(MODE_KEY, mode);
-  const el = st.el, nflB = el.querySelector('[data-lg-nfl]'), lgB = el.querySelector('[data-ll]');
+  const el = st.el, nflB = el.querySelector('[data-lg-nfl]'), lgB = el.querySelector('[data-ll]'), cfbB = el.querySelector('[data-lc]');
   el.querySelectorAll('[data-lg-mode]').forEach(b => {
     const on = b.dataset.lgMode === mode;
     b.setAttribute('aria-selected', String(on));
@@ -321,15 +330,19 @@ function setMode(ctx, st, mode, animate) {
   const eb = el.querySelector('.lt-eyebrow'), sub = el.querySelector('.lt-sub');
   if (eb) eb.textContent = eyebrowOf(st);
   if (sub) sub.textContent = SUBS[mode];
-  const put = () => { nflB.hidden = mode !== 'nfl'; lgB.hidden = mode !== 'lg'; };
+  const put = () => { nflB.hidden = mode !== 'nfl'; lgB.hidden = mode !== 'lg'; cfbB.hidden = mode !== 'cfb'; };
   if (animate && ctx.visible && !ui.RM) ui.crossfade(el.querySelector('.lg-panes'), put, {duration: 160}); else put();
   if (mode === 'lg') { if (ctx.visible) st.lg.show(); }
   else st.lg.hide();
-  if (ctx.visible) { start(ctx, st); if (st.stale) draw(ctx); }
+  if (mode === 'cfb') { if (ctx.visible) st.cfb.show(); }
+  else st.cfb.hide();
+  // ESPN's NFL feed runs for NFL and League (its top performers), not for College.
+  if (mode === 'cfb') stopFeed(st);
+  else if (ctx.visible) { start(ctx, st); if (st.stale) draw(ctx); }
   ctx.refreshChrome();
   const to = el.querySelector(`[data-lg-mode="${mode}"]`);
   if (animate && to && ctx.visible && !ui.RM) ui.animate(to, [{transform: 'scale(.94)'}, {transform: 'none'}], {spring: 'bouncy'});
-  if (animate) { ui.haptic('selection'); ui.announce(mode === 'lg' ? 'League scores.' : 'NFL scores.'); }
+  if (animate) { ui.haptic('selection'); ui.announce(mode === 'lg' ? 'League scores.' : mode === 'cfb' ? 'College scores.' : 'NFL scores.'); }
 }
 
 // ---------------------------------------------------------------------------------------------- View
@@ -398,37 +411,25 @@ export default {
 
   render() {
     const mode = modeNow();
-    return ui.largeTitle({eyebrow: mode === 'lg' ? LL.eyebrow() : 'NFL · Live', title: 'Scores', subtitle: SUBS[mode], trailing: youButtonHTML()})
+    return ui.largeTitle({eyebrow: mode === 'lg' ? LL.eyebrow() : mode === 'cfb' ? LC.eyebrow() : 'NFL · Live', title: 'Scores', subtitle: SUBS[mode], trailing: youButtonHTML()})
       + switchHTML(mode) + `<div class="lg-panes">`
       + `<div class="lg-body" data-lg-nfl${mode === 'nfl' ? '' : ' hidden'}><section class="lg-games" data-lg-games>${gamesHTML({D: null})}</section>`
       + `<section class="lg-waiver" data-lg-waiver></section>`
       + `<p class="lg-foot">PPR: 1 a catch, 0.1 a rushing or receiving yard, 0.04 a passing yard, 6 a TD (4 passing), −1 an interception, −2 a fumble lost. From ESPN's box scores, every 30 seconds while games are on.</p>`
       + `<p class="lg-foot">${ownersNote()}</p></div>`
-      + LL.html(mode === 'lg', statsHTML()) + `</div>`;
+      + LC.html(mode === 'cfb') + LL.html(mode === 'lg', statsHTML()) + `</div>`;
   },
 
   mount(el, ctx) {
     const st = {ctx, el, games: el.querySelector('[data-lg-games]'), list: el.querySelector('[data-lg-list]'), waiver: el.querySelector('[data-lg-waiver]'),
       D: null, past: new Map(), asked: new Set(), wpos: 'all', pos: 'all', q: '', mine: false, game: null, more: false, prev: new Map(), flash: new Map(), flashT: 0, stop: null,
-      mode: el.querySelector('[data-ll]').hidden ? 'nfl' : 'lg', lg: LL.create(ctx, el.querySelector('[data-ll]'))};
+      mode: !el.querySelector('[data-ll]').hidden ? 'lg' : !el.querySelector('[data-lc]').hidden ? 'cfb' : 'nfl',
+      lg: LL.create(ctx, el.querySelector('[data-ll]')), cfb: LC.create(ctx, el.querySelector('[data-lc]'))};
     ST.set(ctx, st);
     el.addEventListener('click', e => {
       const t = e.target;
       const sw = t.closest('[data-lg-mode]');
       if (sw) { setMode(ctx, st, sw.dataset.lgMode, true); return; }
-      const g = t.closest('[data-lg-game]');
-      if (g) {
-        // A box on NFL opens League's top performers with that game's players only (a second tap on it shows every game).
-        st.game = st.game === g.dataset.lgGame ? null : g.dataset.lgGame;
-        st.more = false;
-        draw(ctx);
-        if (st.game) {
-          setMode(ctx, st, 'lg', true);
-          const sec = st.el.querySelector('.lg-stats');
-          requestAnimationFrame(() => { if (sec && sec.isConnected) sec.scrollIntoView({block: 'start', behavior: ui.RM ? 'auto' : 'smooth'}); });
-        }
-        return;
-      }
       if (t.closest('[data-lg-all]')) { st.game = null; draw(ctx); return; }
       const mb = t.closest('[data-lg-mine]');
       if (mb) { st.mine = !st.mine; st.more = false; mb.setAttribute('aria-pressed', String(st.mine)); draw(ctx, 'stats'); return; }
@@ -458,8 +459,9 @@ export default {
       draw(ctx, 'stats');
     });
     draw(ctx);
-    start(ctx, st);
+    if (st.mode !== 'cfb') start(ctx, st);
     if (st.mode === 'lg' && ctx.visible) st.lg.show();
+    if (st.mode === 'cfb' && ctx.visible) st.cfb.show();
   },
 
   onShow(ctx) {
@@ -468,18 +470,19 @@ export default {
     // Another tab of the app may have switched it meanwhile.
     if (modeNow() !== st.mode) setMode(ctx, st, modeNow(), false);
     if (st.mode === 'lg') st.lg.show();
-    start(ctx, st);
+    if (st.mode === 'cfb') st.cfb.show();
+    else start(ctx, st);
     if (st.stale) draw(ctx);
   },
 
-  onHide(ctx) { const st = ST.get(ctx); if (st) { stopFeed(st); st.lg.hide(); } },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { stopFeed(st); st.lg.hide(); st.cfb.hide(); } },
 
   // 'me': whose players are "You" and "My players"; 'data': the league file (owners, the league's week and lineups).
   update(ctx) { const st = ST.get(ctx); if (st) { draw(ctx); st.lg.draw(); } },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);
-    if (st) { stopFeed(st); clearTimeout(st.flashT); st.lg.stop(); }
+    if (st) { stopFeed(st); clearTimeout(st.flashT); st.lg.stop(); st.cfb.stop(); }
     ST.delete(ctx);
   }
 };

@@ -59,6 +59,7 @@ export const REGISTRY = {
   profile: () => import('./views/profile.js'),
   lay: () => import('./views/lay.js'),
   live: () => import('./views/live.js'),
+  game: () => import('./views/game.js'),
   realm: () => import('./views/realm.js'),
   'realm-raid': () => import('./views/realm-raid.js'),
   'realm-scout': () => import('./views/realm-scout.js'),
@@ -156,6 +157,9 @@ function matchSegs(p, q) {
     case 'live':
       // Live (views/live.js): the week's games, top performers and PPR stats.
       if (n === 1) return R('live', 'root', 'live');
+      // A game's own page (views/game.js): #/live/game/nfl/401873075, #/live/game/cfb/401856753. Pushed over the Scores
+      // tab (a cold link sits on it); the view checks the id (a bad one says so).
+      if (n === 4 && b === 'game' && (c === 'nfl' || c === 'cfb') && /^[0-9]{1,12}$/.test(d || '')) return R('game', 'push', 'live', {league: c, id: d});
       return null;
     case 'realm':
       // Existing realm links keep working. Scouting and raids return to The Keep, including from a cold link.
