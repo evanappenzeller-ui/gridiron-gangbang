@@ -1204,6 +1204,29 @@ export async function runChecks() {
     return {pass: got === want && real, detail: `day ${P}${R3 ? '' : ' (crafted)'}: ${got}`};
   });
 
+  check('Grid: edge-rushing linebackers fit Played DL (Nov 23 2026, Evan: Micah Parsons for Cowboys x Played DL "seems incorrect"); off-ball linebackers don\u2019t; both still fit LB; Nov 23\u2019s wrong Parsons square re-grades right', () => {
+    needDaily();
+    const PP = daily.PP, bad = [], at = n => PP.find(p => p[0] === n);
+    const edge = ['Micah Parsons', 'T.J. Watt', 'Von Miller', 'Lawrence Taylor', 'DeMarcus Ware', 'Khalil Mack'];
+    const off = ['Ray Lewis', 'Brian Urlacher', 'Bobby Wagner', 'Junior Seau', 'Luke Kuechly', 'Fred Warner'];
+    edge.forEach(n => { const p = at(n); if (!p) bad.push(n + ' missing'); else if (!daily.critOk('p:DL', p) || !daily.critOk('p:LB', p)) bad.push(n + ' not DL and LB'); });
+    off.forEach(n => { const p = at(n); if (!p) bad.push(n + ' missing'); else if (daily.critOk('p:DL', p) || !daily.critOk('p:LB', p)) bad.push(n + ' should be LB only'); });
+    const q = at('Quinnen Williams');
+    if (!q || !daily.critOk('p:DL', q) || daily.critOk('p:LB', q)) bad.push('Quinnen Williams should be DL only');
+    const day = daily.dayFor(57), sq = k => daily.gridSquare(k, day);
+    const k = [0, 1].find(i => sq(i) && daily.critLabel(sq(i).col) === 'Cowboys' && daily.critLabel(sq(i).row) === 'Played DL');
+    const mp = PP.findIndex(p => p[0] === 'Micah Parsons');
+    if (k == null) bad.push('Nov 23 grid has no Cowboys x Played DL');
+    else {
+      const cells = [null, null];
+      cells[k] = {p: mp, ok: false};
+      const ds = {v: 5, grid: {cells, over: true}};
+      if (daily.regradeDS(ds, day) !== 1 || !ds.grid.cells[k].ok) bad.push('Parsons not re-graded');
+    }
+    const n = PP.filter(p => p[2] === 'LB' && daily.critOk('p:DL', p)).length;
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${n} edge-rushing linebackers also fit DL (${daily.EDGE_SACKS}+ sacks a 17-game season, ${daily.EDGE_MIN}+ in all); Parsons re-graded`};
+  });
+
   // Day 3 (Wed Sep 30) is the one v3 day: from day 4 (Thu Oct 1) on the file is v4 (checked below).
   check('Grid re-grading: Earl Campbell fits Titans x Texas (Nov 4), a wrong square that now fits turns right and its posted entry gains the points', () => {
     needDaily();

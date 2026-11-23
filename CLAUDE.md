@@ -1,5 +1,16 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Grid: edge rushers count as DL (November 23, 2026)
+
+Evan, with a screenshot of Micah Parsons marked wrong for Cowboys × Played DL: "This seems incorrect." Everyone. The
+puzzle file gives each player one position, so 3-4 outside linebackers and hybrid edges were LB only. `core/daily.js`
+`posFits` (used by `critOk`/`critFn`) also lets a linebacker fit "Played DL" when his career line in `PZ.N` shows an
+edge rusher's pass rush: `EDGE_SACKS` (5) sacks a 17-game season and `EDGE_MIN` (20) in all (35 players: Parsons, T.J.
+Watt, Von Miller, Lawrence Taylor...); he still fits LB. Off-ball linebackers stay LB only (Ray Lewis, Urlacher,
+Wagner). Players without `PZ.N` stats are unchanged. The existing `regradeGrids` re-judges wrong squares of the last
+two weeks on each phone, so Evan's Nov 23 Parsons square turns right and his posted entry gains the points. The kit
+check "Grid: edge-rushing linebackers fit Played DL…" covers it.
+
 ## The Lay: every week keeps its slip (November 23, 2026)
 
 Evan: "Ensure the lay shows up on the 'every slip' section after each week." Everyone. `views/lay.js` loaded the app's

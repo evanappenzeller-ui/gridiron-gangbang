@@ -316,11 +316,35 @@ export const yrs = i => PP[i][4] === PP[i][5] ? `${PP[i][4]}` : `${PP[i][4]}–$
 export const stat = (i, k) => PZ.N[i][7][SK.indexOf(k)];
 export function playerLine(i) { return `${POSN[PP[i][2]] || PP[i][2]}, ${yrs(i)}. ${andList(teamsOf(i))}.`; }
 
+// Edge rushers listed as linebackers count as defensive linemen too (Nov 23 2026, Evan, with Micah Parsons marked
+// wrong for Cowboys x Played DL: "This seems incorrect"). The player file gives each player one position, so a 3-4
+// outside linebacker or a hybrid edge (Parsons, T.J. Watt, Von Miller, Lawrence Taylor) was only ever LB. A linebacker
+// whose career line (PZ.N stats: the well-known players) shows an edge rusher's pass rush, EDGE_SACKS sacks a 17-game
+// season and EDGE_MIN in all, also fits "Played DL"; he still fits "Played LB". Off-ball linebackers stay LB only (Ray
+// Lewis 3.1 a season, Brian Urlacher 3.9, Bobby Wagner 3.1). Wrong squares from the last two weeks are re-judged by
+// regradeGrids (below), so a Parsons answered before this turns right.
+export const EDGE_SACKS = 5, EDGE_MIN = 20;
+let EDGE = new WeakSet(), EDGE_PP = null;
+function edgeSet() {
+  if (EDGE_PP === PP) return EDGE;
+  EDGE = new WeakSet(); EDGE_PP = PP;
+  const N = PZ && PZ.N, si = SK.indexOf('def_sacks'), gi = SK.indexOf('games');
+  if (N) Object.keys(N).forEach(k => {
+    const p = PP[+k], st = N[k] && N[k][7];
+    if (!p || p[2] !== 'LB' || !Array.isArray(st)) return;
+    const sacks = Number(st[si]) || 0, games = Number(st[gi]) || 0;
+    if (sacks >= EDGE_MIN && games > 0 && sacks / games * 17 >= EDGE_SACKS) EDGE.add(p);
+  });
+  return EDGE;
+}
+/** Whether a player fits a position criterion ('DL' takes the edge-rushing linebackers too). */
+export const posFits = (p, v) => p[2] === v || (v === 'DL' && p[2] === 'LB' && edgeSet().has(p));
+
 // Criteria
 export function critOk(c, p) {
   const [k, v] = c.split(':');
   if (k === 't') return p[1].includes(TA[+v]);
-  if (k === 'p') return p[2] === v;
+  if (k === 'p') return posFits(p, v);
   if (k === 'd') return p[3] === v;
   if (k === 'c') return p[6].includes(TA[+v]);
   return false;
@@ -433,7 +457,7 @@ export function exampleFor(r, c, exclude = new Set()) {
 function critFn(c) {
   const [k, v] = String(c).split(':');
   if (k === 't') { const ch = TA[+v]; return p => p[1].includes(ch); }
-  if (k === 'p') return p => p[2] === v;
+  if (k === 'p') return p => posFits(p, v);
   if (k === 'd') return p => p[3] === v;
   if (k === 'c') { const ch = TA[+v]; return p => p[6].includes(ch); }
   return () => false;
