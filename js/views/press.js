@@ -185,7 +185,7 @@ export function clipHTML(c) {
   const me = data.me();
   const tagHTML = tag.length
     ? `<div class="c-press-mgr c-press-tag">${tag.length === 1 ? ui.avatar(tag[0], {size: 28, you: tag[0] === me}) : ui.avatarStack(tag.map(id => ({id, you: id === me})), {size: 28})}`
-      + `<span class="c-press-tx"><span class="c-press-who">${esc(tag.map(id => data.name(id)).join(' & '))}</span></span></div>`
+      + `<span class="c-press-tx"><span class="c-press-who">${esc(tag.map(id => data.name(id)).join(' & '))}</span>${c.note ? `<span class="c-press-ss c-press-note">${esc(c.note)}</span>` : ''}</span></div>`
     : '';
   const body = tagHTML || `<div class="c-press-body"><span class="c-press-st">${esc(label)}</span>${c.sub ? `<span class="c-press-ss">${esc(c.sub)}</span>` : ''}</div>`;
   const col = data.M[c.who] ? ' ' + data.color(c.who).cls : '';

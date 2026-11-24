@@ -296,7 +296,7 @@ export async function pressChecks(check) {
 
   // 8b. League › Media (Nov 11 2026): data/media.json's Happy Meals, every entry a manager's (or two) Drive file, keys
   // unique; League's segments include Media.
-  check('League › Media: data/media.json lists every Happy Meal as a valid Drive file of known managers, keys unique; the League control has Media', async () => {
+  check('League › Media: data/media.json lists every Happy Meal as a valid Drive file of known managers, keys unique, and the draft order their times set; the League control has Media', async () => {
     const [res, mod, lg] = await Promise.all([
       fetch(new URL('../../data/media.json', import.meta.url).href, {cache: 'no-cache'}),
       import('../views/league-media.js'),
@@ -314,8 +314,16 @@ export async function pressChecks(check) {
       && mod.mealsOf({happyMeals: [{key: 'z', who: ['ben'], drive: '1RxzyQ7M2mTpNHELvjReHhDBUvIIsZzIp', file: '../x.mp4'}]})[0].file === null;
     const seg = lg.segPath('media') === '/league/media';
     const junk = mod.mealsOf({happyMeals: [{key: 'x', who: ['nobody'], drive: '1RxzyQ7M2mTpNHELvjReHhDBUvIIsZzIp'}, {key: 'y', who: ['ben'], drive: 'short'}]}).length === 0;
-    const pass = raw.length > 0 && kept.length === raw.length && keys.size === raw.length && allWho && tall && files && seg && junk;
-    return {pass, detail: `${kept.length}/${raw.length} kept; keys unique ${keys.size === raw.length}; managers ${allWho}; tall ${tall}; app files ${files}; segment ${seg}; junk dropped ${junk}`};
+    // Nov 24 2026: the draft order the Happy Meals set: every manager once, picks 1..n, each time its raw time plus its
+    // penalties and credits, and the fastest picking first (ties in the draft's own order).
+    const dr = mod.draftOf(j), sec = t => { const m = /^(\d+):(\d\d)$/.exec(t); return m ? +m[1] * 60 + +m[2] : NaN; };
+    const dt = dr ? dr.times : [];
+    const draftOk = !!dr && dt.length === data.ids.length && new Set(dt.map(t => t.who)).size === dt.length
+      && dt.every((t, i) => t.pick === i + 1) && dt.every(t => t.note || sec(t.raw) + t.adj.reduce((x, a) => x + a[0], 0) === sec(t.time))
+      && dt.every((t, i) => !i || sec(t.time) >= sec(dt[i - 1].time))
+      && (j.draft.times || []).length === dt.length;
+    const pass = raw.length > 0 && kept.length === raw.length && keys.size === raw.length && allWho && tall && files && seg && junk && draftOk;
+    return {pass, detail: `${kept.length}/${raw.length} kept; keys unique ${keys.size === raw.length}; managers ${allWho}; tall ${tall}; app files ${files}; segment ${seg}; junk dropped ${junk}; draft order ${draftOk} (${dt.map(t => `${t.pick}. ${data.name(t.who)} ${t.time}`).join(', ')})`};
   });
 
   // 9. Seed file

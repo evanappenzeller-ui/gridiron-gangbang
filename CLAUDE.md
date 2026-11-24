@@ -1,5 +1,17 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Happy Meal times set the draft order (November 24, 2026)
+
+Evan, with his note "Happy Meal Times/Draft Order" (Aug 23 2026): "The videos in the media of league members eating happy
+meals was how we determined the draft order. Here are the times." Everyone. `data/media.json` `draft` ({year, times:
+[{who, pick, raw, adj: [[seconds, why]], time, note?}]}) holds each manager's video time, penalties (+) and credits (-)
+and the time that counted; `pick` is the 2026 draft's first-round pick, which matches the times and breaks the Dresden-Ben
+tie at 3:03 (Dresden 7, Ben 8). Evan's own note lists a 3 s unwrapping credit but the same 2:48, so his row keeps 2:48
+with that note. League › Media (`views/league-media.js` `draftOf`, `draftHTML`) leads the Happy Meals with a "2026 draft
+order" card (pick, manager, raw time and adjustments, time; your row highlighted) and shows the videos in draft order,
+each with "Nth pick · time" under the name (`press.js` `clipHTML`'s `note`; the shared Jackson & Jacob video "Picks 11 & 12").
+The Media kit check validates every manager once, picks 1..n, raw + adjustments = time and fastest first.
+
 ## Swipe back on pushed screens (November 24, 2026)
 
 Evan, with the NO @ CHI game page: "On a screen where the user can tap the back button, they should also be able to

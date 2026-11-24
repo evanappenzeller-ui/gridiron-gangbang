@@ -428,3 +428,17 @@ html.rm .v-league .rc.is-focus::after { animation-name: hl-flash-rm; }
 @media (min-width: 600px) { .v-league .md-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .v-league .md-grid > .c-press.is-playing { grid-column: 1 / -1; }
 .v-league .md-host > .empty { background: var(--surface-1); border-radius: var(--r-card); }
+/* The draft order the Happy Meals set (Nov 24 2026): fastest first, the pick, the manager, how the time came to be, the time. */
+.v-league .md-draft { margin: 8px 0 16px; padding: 12px 14px 6px; }
+.v-league .md-dr-h { display: flex; flex-direction: column; margin: 0 0 6px; font: 400 11px/16px var(--font-pixel); text-transform: uppercase; color: var(--ink-2); }
+.v-league .md-dr-h span { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); text-transform: none; color: var(--ink-3); }
+.v-league .md-dr-list { margin: 0; padding: 0; list-style: none; }
+.v-league .md-dr { display: grid; grid-template-columns: 24px 32px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--separator); }
+.v-league .md-dr:first-child { border-top: 0; }
+.v-league .md-dr-pk { text-align: center; color: var(--ink-3); }
+.v-league .md-dr.is-first .md-dr-pk { color: var(--gold); }
+.v-league .md-dr-m { display: flex; flex-direction: column; min-width: 0; }
+.v-league .md-dr-m b { font: 600 var(--fs-callout)/var(--lh-callout) var(--font-text); color: var(--ink); }
+.v-league .md-dr-m small { font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
+.v-league .md-dr-t { color: var(--ink); }
+.v-league .md-dr.is-me { background: linear-gradient(90deg, var(--tint-soft), transparent 70%); }

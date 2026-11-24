@@ -12,5 +12,23 @@
     {"key": "hm-mason", "who": ["mason"], "drive": "1O0DL3R3fvskOvJpQIpA32tpLw1S9TPNk", "file": "video/media/hm-mason-v1.mp4", "tall": true},
     {"key": "hm-mitch", "who": ["mitch"], "drive": "1MpROd4MRkW9rsVdx1kgw1aU4qxiFRdnh", "file": "video/media/hm-mitch-v1.mp4", "tall": true},
     {"key": "hm-sayer", "who": ["sayer"], "drive": "10LzrviWWe8C7XL2nKZh45j_lB8KnXOeQ", "file": "video/media/hm-sayer-v1.mp4", "tall": true}
-  ]
+  ],
+  "draft": {
+    "about": "The 2026 draft order, set by the Happy Meal times (Evan's note of Aug 23 2026, sent Nov 24 2026): the fastest picked first. raw is the video's time, adj each penalty (+) or credit (-) in seconds with why, time the time that counted (raw plus adj; Evan's own was already counted, note). pick is the 2026 draft's first-round pick, which breaks the Dresden-Ben tie at 3:03.",
+    "year": 2026,
+    "times": [
+      {"who": "corbin", "pick": 1, "raw": "1:37", "adj": [[-2, "unwrapping"]], "time": "1:35"},
+      {"who": "john", "pick": 2, "raw": "2:09", "adj": [[5, "fry left"]], "time": "2:14"},
+      {"who": "evan", "pick": 3, "raw": "2:48", "adj": [], "time": "2:48", "note": "\u22123 s unwrapping noted; 2:48 as recorded"},
+      {"who": "jaymin", "pick": 4, "raw": "2:57", "adj": [], "time": "2:57"},
+      {"who": "mitch", "pick": 5, "raw": "3:24", "adj": [[-3, "unwrapping"], [-22, "extra fries"]], "time": "2:59"},
+      {"who": "mason", "pick": 6, "raw": "3:01", "adj": [], "time": "3:01"},
+      {"who": "dresden", "pick": 7, "raw": "3:03", "adj": [], "time": "3:03"},
+      {"who": "ben", "pick": 8, "raw": "1:53", "adj": [[70, "small Sprite"]], "time": "3:03"},
+      {"who": "jayton", "pick": 9, "raw": "3:28", "adj": [], "time": "3:28"},
+      {"who": "sayer", "pick": 10, "raw": "3:48", "adj": [], "time": "3:48"},
+      {"who": "jackson", "pick": 11, "raw": "7:30", "adj": [], "time": "7:30"},
+      {"who": "jacob", "pick": 12, "raw": "9:40", "adj": [], "time": "9:40"}
+    ]
+  }
 }
