@@ -1,5 +1,17 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Swipe back on pushed screens (November 24, 2026)
+
+Evan, with the NO @ CHI game page: "On a screen where the user can tap the back button, they should also be able to
+swipe over to go back to the previous page. Right now, swiping will bring them back to the home page." Everyone, every
+touch phone. `js/app.js` `enableSwipeBack` started only within 20 px of the left edge, where iOS's own back swipe lives in
+the home-screen app (since iOS 12.2), so one edge swipe went back twice (game page, past Scores, to Daily Games). Now a
+swipe right from anywhere on a pushed screen except that edge (`SWIPE_EDGE`, 24 px, left to the system's one-step back)
+pops one screen; never from `NO_SWIPE` controls or anything that scrolls or swipes sideways (`ownsSideways`), and not
+on Keepfall, Rivals or the games' own pages (`NO_SWIPE_BACK`: Return Man, Kick It, the Drill, 17-0; Daily Puzzles' page
+swipes back). Tab roots keep the tab swipe. Enabled for `(pointer: coarse)` as well as the iOS home-screen app.
+Verify `node tools/nav/check-swipe-back.cjs` and the home transition checks.
+
 ## Grid: edge rushers count as DL (November 23, 2026)
 
 Evan, with a screenshot of Micah Parsons marked wrong for Cowboys × Played DL: "This seems incorrect." Everyone. The

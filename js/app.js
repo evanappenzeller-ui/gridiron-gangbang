@@ -2022,9 +2022,21 @@ function setupTabSwipe() {
   ui.onIdle(() => warmNeighbours(S.tab));
 }
 
-// ============================================================================ Swipe-back (3.4; iOS standalone only)
+// ============================================================================ Swipe-back (3.4)
+// On a pushed screen (one with a Back button), a swipe to the right goes back: the screen follows the finger and the
+// one under it slides in; past half way (or with a flick) it pops, else it slides back. Nov 24 2026 (Evan, with the
+// NO @ CHI game page: "On a screen where the user can tap the back button, they should also be able to swipe over to go
+// back to the previous page. Right now, swiping will bring them back to the home page"): this used to start only within
+// 20 px of the left edge, the very place iOS's own back swipe lives in the home-screen app (since iOS 12.2), so one edge
+// swipe went back twice (the game page, past Scores, to Daily Games). Now it starts anywhere on the screen except that
+// edge (SWIPE_EDGE), which is left to the system's one-step back (history.back: handlePop pops one screen); never from
+// something that scrolls or swipes sideways itself (NO_SWIPE, ownsSideways), or on screens whose play surfaces swipe
+// (NO_SWIPE_BACK: Keepfall, Rivals and the games' pages; their Back buttons and the edge still go back). On every touch
+// phone, not only the iOS home-screen app.
+const SWIPE_EDGE = 24;
+const NO_SWIPE_BACK = r => !r || isKeepRoute(r) || r.view === 'dynasty' || (r.view === 'puzzles' && r.params && r.params.game && r.params.game !== 'puzzles');
 let swipeOn = false;
-/** Enables the edge swipe-back gesture (automatic in the iOS home-screen app). */
+/** Enables swipe-back on pushed screens (automatic on touch phones). */
 export function enableSwipeBack() {
   if (swipeOn) return;
   swipeOn = true;
@@ -2039,15 +2051,15 @@ export function enableSwipeBack() {
   stage.addEventListener('touchstart', e => {
     g = null;
     release();
-    if (e.touches.length !== 1 || S.cover || S.sheets.length || running.size || qBusy) return;
+    if (e.touches.length !== 1 || S.cover || S.sheets.length || running.size || qBusy || pager.on || sliding) return;
     const t = e.touches[0];
     const left = stage.getBoundingClientRect().left;
-    if (t.clientX - left > 20) return;
+    if (t.clientX - left < SWIPE_EDGE) return; // the system's own back swipe: one step, by itself
     const st = S.stacks[S.tab];
     if (st.length < 2) return;
-    // The Keep owns every swipe, including at the screen edge; leave it with the Back button.
-    if (available() && isKeepRoute(st[st.length - 1].route)) return;
-    if (e.target.closest && e.target.closest('[data-hscroll]')) return;
+    if (NO_SWIPE_BACK(st[st.length - 1].route)) return;
+    const el = e.target;
+    if (!el || !el.closest || el.closest(NO_SWIPE) || ownsSideways(el, stage)) return;
     g = {x0: t.clientX, y0: t.clientY, locked: false, topE: st[st.length - 1], underE: st[st.length - 2], s: [[performance.now(), t.clientX]], x: 0, p: 0};
     // Only an edge gesture gets a non-passive listener (to preventDefault after the axis lock); every other
     // touch on the stage, and all scrolling, sees passive listeners only (spec 11).
@@ -2060,8 +2072,8 @@ export function enableSwipeBack() {
     const t = e.touches[0];
     const dx = t.clientX - g.x0, dy = t.clientY - g.y0;
     if (!g.locked) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      if (Math.abs(dy) > Math.abs(dx) || dx <= 0) { g = null; release(); return; }
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      if (Math.abs(dx) < Math.abs(dy) * 1.4 || dx <= 0) { g = null; release(); return; } // a scroll, or a swipe left
       const top = g.topE.scr;
       const under = ensureScreenSync(g.underE, {before: top && top.el, z: S.stacks[S.tab].length - 1, restore: true, transition: 'pop'});
       if (!top || !under) { g = null; release(); return; }
@@ -2356,7 +2368,8 @@ async function start() {
   else showReleaseNotice();
   setupTabBar();
   setupTabSwipe();
-  if (ui.IOS_STANDALONE) enableSwipeBack();
+  // Swipe-back on pushed screens on every touch phone (the iOS home-screen app included).
+  if (ui.IOS_STANDALONE || matchMedia('(pointer: coarse)').matches) enableSwipeBack();
   requestAnimationFrame(() => ui.onIdle(() => {
     daily.ensure().catch(() => {});
     // Live Rivals: presence, challenges and the challenge notice (core/rivals-live.js; the Rivals group alone publishes).
