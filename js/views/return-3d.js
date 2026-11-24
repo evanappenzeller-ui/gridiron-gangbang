@@ -146,6 +146,16 @@ function flightGear(P) {
   if (!P.jetpack) { P.jetpack = W3.bend(makeJetpack(T)); P.jetpack.scale.setScalar(.7); P.root.add(P.jetpack); }
   return P.jetpack;
 }
+/** How a ride moves now (its age): {bob (yards up), push (0 to 1: the scooter's back foot kicking the road), pump (0 to
+ *  1: the hoverboard's knees), sway (-1 to 1: his arms balancing), tilt (radians: the board rocking)}. */
+export function rideMotion(ride) {
+  const a = ride.age || 0;
+  if (ride.kind === 'scooter') {
+    const p = (a % .95) / .95, push = p < .42 ? Math.sin(Math.PI * p / .42) : 0;
+    return {bob: -.06 * push + .012 * Math.sin(a * 21), push, pump: 0, sway: 0, tilt: .03 * push, lean: .12 * push};
+  }
+  return {bob: .1 * Math.sin(a * 3.4), push: 0, pump: .5 + .5 * Math.sin(a * 3.4 - .6), sway: Math.sin(a * 2.1), tilt: .08 * Math.sin(a * 2.1), lean: .1 * Math.sin(a * 2.1)};
+}
 function rideGear(P) {
   if (!P.rides) P.rides = Object.fromEntries(['scooter', 'hoverboard'].map(kind => {
     const ride = makeRide(T, kind); ride.visible = false; P.root.add(ride); return [kind, ride];
@@ -639,7 +649,8 @@ function pose(P, s, dt) {
   P.root.rotation.order = s.jetpack ? 'ZXY' : 'YXZ';
   P.root.rotation.set(-(s.pitch || 0), -(s.turn || 0), -(s.roll || 0));
   // Roll around the torso in flight, not around the feet. Restore the standing pivot on landing.
-  P.wrap.position.y = s.jetpack ? -.85 * (s.flight || 0) : s.ride ? .35 : 0;
+  const rm = s.ride && s.move !== 'slide' && !s.reduced ? rideMotion(s.ride) : null;
+  P.wrap.position.y = s.jetpack ? -.85 * (s.flight || 0) : s.ride ? .35 + (rm ? rm.bob : 0) : 0;
   if (s.jetpack) P.root.position.y += .85 * (s.flight || 0);
   P.root.updateMatrixWorld(true);
   P.wrap.getWorldQuaternion(P.q);
@@ -661,19 +672,24 @@ function pose(P, s, dt) {
   if (P.jetpack) P.jetpack.visible = !!s.jetpack && features.returnManUpdated();
   if (P.rides) for (const [kind, ride] of Object.entries(P.rides)) {
     ride.visible = !!s.ride && s.ride.kind === kind && !s.jetpack;
-    if (ride.visible) animateRide(ride, s.ride, s.move === 'slide', s.reduced);
+    if (ride.visible) animateRide(ride, s.ride, s.move === 'slide', s.reduced, s.roll || 0, rm);
   }
   if (s.ride && s.move !== 'slide') {
-    const scooter = s.ride.kind === 'scooter', crouch = s.move === 'jump' ? .36 : .16;
-    trunk(P, [0, 1, .12]);
+    // (Nov 24 2026, Evan: "Make the scooter and hover board animated instead of riding still"): on the scooter he
+    // kicks off the road with his back foot every so often, the front knee giving as he pushes; on the hoverboard he
+    // rides it like a surfer, knees pumping with its bob and his arms out, swaying for balance (rideMotion)
+    const scooter = s.ride.kind === 'scooter', air = s.move === 'jump', m = rm || {push: 0, pump: 0, sway: 0};
+    const crouch = air ? .36 : .16 + (scooter ? .12 * m.push : .1 * m.pump);
+    trunk(P, [0, 1, .12 + (scooter ? .14 * m.push : .05 * m.pump)]);
     leg(P, 'Left', [.12, -1, crouch], [.04, -1, -crouch]);
-    leg(P, 'Right', [-.12, -1, -.08], [-.03, -1, .08]);
+    if (scooter && !air && m.push > 0) leg(P, 'Right', [-.13 - .45 * m.push, -1, .05 - .75 * m.push], [-.05 - .35 * m.push, -1, -.12 - .5 * m.push]);
+    else leg(P, 'Right', [-.12, -1, -.08 - .06 * m.pump], [-.03, -1, .08 + .06 * m.pump]);
     if (scooter) {
       limb(P, 'Left', [.24, -.7, .7], [-.08, -.25, 1]);
       limb(P, 'Right', [-.24, -.7, .7], [.08, -.25, 1]);
     } else {
-      limb(P, 'Left', [.65, -.6, .2], [.5, -.5, .2]);
-      limb(P, 'Right', [-.65, -.6, -.15], [-.5, -.5, .15]);
+      limb(P, 'Left', [.65, -.6 + .35 * m.sway, .2], [.5, -.5 + .45 * m.sway, .2]);
+      limb(P, 'Right', [-.65, -.6 - .35 * m.sway, -.15], [-.5, -.5 - .45 * m.sway, .15]);
     }
   }
   // a stumble: the trunk forward (not down in a slide), his free arm flailing
@@ -735,8 +751,10 @@ export function render(st, now, who) {
     P.root.visible = !!(w && w.show !== false);
     if (!P.root.visible) return;
     const ride = k !== 'them' && riding(st.run) ? st.run.ride : null;
+    // (the ride and him on it lean with its motion: into each kick, side to side on the hoverboard)
+    const lean = ride && !st.reducedMotion && w.spec.move !== 'slide' ? rideMotion(ride).lean : 0;
     const spec = ride ? {...w.spec, ride, reduced: st.reducedMotion, ball: false, carry: 0, lift: 0,
-      pitch: w.spec.move === 'slide' ? w.spec.pitch : 0, roll: (w.spec.roll || 0) * .45} : w.spec;
+      pitch: w.spec.move === 'slide' ? w.spec.pitch : 0, roll: (w.spec.roll || 0) * .45 + lean} : w.spec;
     P.root.position.set(w.x, w.y + (spec.lift || 0), -w.z);
     pose(P, spec, P.last ? Math.min(.1, Math.max(0, (now - P.last) / 1000)) : 1);
     P.last = now;

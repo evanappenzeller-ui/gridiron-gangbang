@@ -13,7 +13,7 @@ try { playwright = require('playwright'); } catch (_) { playwright = require(pat
 const mime = {'.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp', '.glb': 'model/gltf-binary', '.woff2': 'font/woff2'};
 async function main() {
   fs.mkdirSync(output, {recursive: true});
-  const browser = await playwright.chromium.launch({channel: 'msedge', headless: true, args: ['--enable-unsafe-swiftshader']});
+  const browser = await playwright.chromium.launch({channel: 'msedge', headless: true, args: ['--enable-unsafe-swiftshader']}).catch(() => playwright.chromium.launch({headless: true, args: ['--enable-unsafe-swiftshader']}));
   const errors = [], external = [], report = {};
   try {
     const context = await browser.newContext({viewport: {width: 430, height: 820}, serviceWorkers: 'block'});
@@ -327,19 +327,21 @@ async function main() {
       });
       test('Every profile is tackled by a distinct unprotected hit while the chaser is visible', () => {
         const rowHit = (r, ob = 'hurdle') => { r.co.rows.push({i:r.co.rows.length,z:r.z+.01,lanes:[null,ob,null],th:'stadium'}); return tick(r,.02); };
-        for (const profile of ['evan','ben','none']) for (const dt of [1/30,1/60,1/120]) for (const elapsed of [.2,1,3.9,4.02,4.1,4.2]) for (const kind of ['hurdle','bar','hole','low vehicle','vehicle side','edge']) {
+        for (const profile of ['evan','ben','none']) for (const dt of [1/30,1/60,1/120]) for (const elapsed of [.2,1,3.9,4.02,4.1,4.2]) for (const kind of ['hurdle','bar','pile','gate','beam','hole','low vehicle','vehicle side','edge']) {
           const r=empty(profile); rowHit(r); tick(r,Math.max(0,elapsed-(r.t-r.hitAt)),dt);
           const st={run:r,camZ:r.z-7,lag:0,dt,mode:'run'};
           ok(V.chaserAt(st)!==null, 'chaser visible before '+kind+' at '+elapsed);
           let events;
-          if (['hurdle','bar','hole'].includes(kind)) events=rowHit(r,kind);
+          if (['hurdle','bar','pile','gate','beam','hole'].includes(kind)) events=rowHit(r,kind);
           else if (kind==='edge') { r.lane=0; r.x=R.xOf(r,0); R.move(r,'left'); events=tick(r,.02,dt); }
           else {
             const side=kind==='vehicle side', p={lane:side?0:1,kind:'bench',part:0,z0:side?r.z-1:r.z+.01,z1:r.z+8,h:side?R.HIGH_H:R.LOW_H,b:0,ramp:0,hi:side};
             r.co.sets=[{i:0,zs:p.z0,ze:p.z1,plats:[p]}];
             if(side) R.move(r,'left'); events=tick(r,.02,dt);
           }
-          ok(r.over && events.some(e=>e.type==='tackled') && r.hits===1, kind+' must tackle, not give another stumble, at '+elapsed+' / '+dt);
+          // (a pothole: down it, the end of the return, Nov 24 2026: "falling into a pothole should be an automatic fail")
+          if (kind==='hole') ok(r.over && r.why==='pit' && events.some(e=>e.type==='pitfall') && r.hits===1, 'hole must end the return down the pit, at '+elapsed+' / '+dt);
+          else ok(r.over && events.some(e=>e.type==='tackled') && r.hits===1, kind+' must tackle, not give another stumble, at '+elapsed+' / '+dt);
         }
         const r=empty(); rowHit(r); ok(r.grace>0,'inside duplicate-contact grace');
         ok(rowHit(r,'bar').some(e=>e.type==='tackled') && r.over,'a distinct obstacle is never ignored by grace');

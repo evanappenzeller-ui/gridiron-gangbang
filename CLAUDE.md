@@ -22,6 +22,32 @@ Media Room); the Press Room and Matchup's Press tab keep the pressers. Verify `n
 `--shots=<dir>`), the Media kit check, `tools/press/check-no-questions.cjs`, `tools/nav/check-swipe-back.cjs` and the home and
 case-flip checks.
 
+## Return Man: much harder (November 24, 2026)
+
+Evan: "Increase the difficulty for the return man game. This should be much more difficult. Create new obstacles and make
+power ups less frequent. Also there should be a quick pop up on the screen when a power up is collected of what it is,
+except the Jetpack... Make the scooter and hover board animated... falling into a pothole should be an automatic fail and
+add an animation specifically for this where the return man falls down the pit. Make the pot holes more visible... Include
+new barriers to slide under and more objects to jump over. Search through the current assets we have and insert them."
+Everyone (the shared enhanced course; the legacy hard/regular fixtures are unchanged). `core/return.js`: `ENH_GAP` (beats
+from .95 s closing to .3 s by 450 yds, more and wider vehicle sets) and `addRowEnhanced` (fuller rows, about half of them
+all three lanes; potholes from 55 yds, never in all three lanes) with three new row types in `OBST`/`NEW_OBST`: `pile`
+(jump, clear .62), `gate` (boom gate, slide) and `beam` (low beam, slide), named per place (`PILES`, `BEAMS`). Power-ups
+come every 380-640 yds (was 180-360), the first at 220; the jetpack is still every third. A pothole run into on the ground
+(`pitFatal`) is `pitfall`, `run.why = 'pit'`: the end of the return whatever he has on (painkillers, salts, a ride); a
+jump, the jetpack or its landing carries him over. Art: `return-models.js` `obstacle` builds piles and beams from each
+place's existing scenery models (barrels and crates, hay, boulders, trash cans and a chair, a sandcastle and chest, fuel
+barrels; stacks with a plank and more on top), `return-3dworld.js` `obstacleOf` the boom gate, the stadium's trunks and
+hanging tackling dummies and every fallback, `return-world.js` the canvas versions. Potholes: a hazard-striped ring, a
+darker pit, a pulsing orange glow and a flashing lamp on the cone (3D and canvas). `views/return.js`: `pitOf`/`PIT`, he
+teeters with his arms up and drops out of sight, the camera leaning in, the end card after 1.5 s; `powerPop` pops each
+power-up's name and line for 1.4 s (none for the jetpack; this supersedes the Nov 8 "no text popup" rule). Rides
+(`return-3d.js` `rideMotion`, `return-rides.js` `animateRide`/`drawRide`): a kick-push on the scooter with the bars
+steering, the hoverboard bobbing and rocking under a surf stance with his arms balancing; reduced motion stays still.
+Help text says potholes end the run. Verify the kit check "the shared course is much harder…" (`check-stumbles.cjs`),
+`check-rides.cjs`, `check-intro.cjs` (pop-ups), `check-motion.cjs`, `check-performance.cjs`, `check-environments.cjs`
+and the other tools/return checks (`check-powerups.cjs` fails the same without this change).
+
 ## Matchup of the Week: every game shows (November 24, 2026)
 
 Evan: "Show all matchup of the week options to vote on without a 'show more' button." Everyone. `views/rivals.js`

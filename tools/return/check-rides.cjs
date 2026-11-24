@@ -11,7 +11,7 @@ const origin = 'http://127.0.0.1:8765';
 const mime = {'.js':'text/javascript','.json':'application/json','.css':'text/css','.png':'image/png','.webp':'image/webp','.glb':'model/gltf-binary','.woff2':'font/woff2'};
 (async () => {
   fs.mkdirSync(output, {recursive:true});
-  const browser = await pw.chromium.launch({channel:'msedge',headless:true,args:['--enable-unsafe-swiftshader']});
+  const browser = await pw.chromium.launch({channel:'msedge',headless:true,args:['--enable-unsafe-swiftshader']}).catch(() => pw.chromium.launch({headless:true,args:['--enable-unsafe-swiftshader']}));
   const errors = [];
   try {
     const context = await browser.newContext({viewport:{width:430,height:820},serviceWorkers:'block'});
@@ -55,7 +55,9 @@ const mime = {'.js':'text/javascript','.json':'application/json','.css':'text/cs
         R.stop(r);ok(!R.riding(r)&&!R.summonRide(r),'ended runs cannot ride');
       });
       test('A ride absorbs one hit, protects against walls and preserves the existing pursuit',()=>{
-        for(const ob of ['hurdle','bar','hole']){const r=empty();r.hitAt=r.t;R.summonRide(r);const e=row(r,ob);ok(!r.over&&!r.ride&&r.hits===0&&R.chasing(r)&&e.some(e=>e.type==='rideHit'),'one protection for '+ob);ok(row(r).some(e=>e.type==='tackled'),'next distinct obstacle tackles');}
+        for(const ob of ['hurdle','bar','pile','gate','beam']){const r=empty();r.hitAt=r.t;R.summonRide(r);const e=row(r,ob);ok(!r.over&&!r.ride&&r.hits===0&&R.chasing(r)&&e.some(e=>e.type==='rideHit'),'one protection for '+ob);ok(row(r).some(e=>e.type==='tackled'),'next distinct obstacle tackles');}
+        // (Nov 24 2026, Evan: "falling into a pothole should be an automatic fail": no ride saves him from one)
+        {const r=empty();R.summonRide(r);const e=row(r,'hole');ok(r.over&&r.why==='pit'&&e.some(e=>e.type==='pitfall')&&!e.some(e=>e.type==='rideHit'),'a pothole swallows a rider');}
         const r=empty();R.summonRide(r);r.trains=[{i:'test',lane:1,kind:'express',z0:.01,z1:20,h:3.6,b:0,ramp:0,hi:true}];const e=tick(r,.02);ok(!r.over&&e.some(e=>e.type==='rideHit')&&r.trains[0].cleared,'incoming train consumes ride once');
         const wall=empty();wall.hitAt=wall.t;R.summonRide(wall);wall.co.sets=[{i:0,zs:.01,ze:30,plats:[{lane:1,kind:'bus',z0:.01,z1:30,h:3,b:0,ramp:0,hi:true}]}];const contact=tick(wall,1);ok(!wall.over&&contact.filter(e=>e.type==='rideHit').length===1&&wall.y===3,'solid vehicle resolves onto roof without repeating contact after grace');
         const edge=empty();edge.lane=0;edge.x=R.xOf(edge,0);R.summonRide(edge);R.move(edge,'left');tick(edge,.02);R.move(edge,'left');const repeat=tick(edge,.02);ok(!edge.over&&repeat.some(e=>e.type==='shoved'),'duplicate edge contact is one hit');
@@ -78,15 +80,22 @@ const mime = {'.js':'text/javascript','.json':'application/json','.css':'text/cs
     });
     await page.waitForTimeout(500);
     for(const kind of ['scooter','hoverboard']){
-      const result=await page.evaluate(kind=>{const {R,D3,st,draw}=qa;st.run.ride=null;st.run.rideCooldown=0;const count=D3.GL.renderer.info.programs.length;R.summonRide(st.run,kind);st.run.ride.age=2;draw();const p=D3.GL.players.us;return {before:count,after:D3.GL.renderer.info.programs.length,visible:p.rides[kind].visible,other:p.rides[kind==='scooter'?'hoverboard':'scooter'].visible,lift:p.wrap.position.y,rootLift:p.root.position.y-st.run.y};},kind);
-      assert.equal(result.before,result.after,'summoning must not compile shaders');assert(result.visible&&!result.other&&result.lift===.35&&result.rootLift===0);
+      const result=await page.evaluate(kind=>{const {R,D3,st,draw}=qa;st.run.ride=null;st.run.rideCooldown=0;const count=D3.GL.renderer.info.programs.length;R.summonRide(st.run,kind);st.run.ride.age=2;draw();const p=D3.GL.players.us;
+        // (Nov 24 2026, Evan: "Make the scooter and hover board animated instead of riding still"): over a moment he
+        // and the ride move (the scooter's kick, the hoverboard's bob and rock), his feet staying on it
+        const pose=()=>{const ride=p.rides[kind],foot=new p.root.position.constructor();p.B.RightFoot.getWorldPosition(foot);return [p.wrap.position.y,ride.position.y,ride.rotation.x,ride.rotation.z,foot.y,foot.z].map(v=>+v.toFixed(3));};
+        const poses=[];for(const age of [2,2.15,2.3,2.45,2.6]){st.run.ride.age=age;draw();poses.push(pose());}
+        st.run.ride.age=2;draw();
+        return {before:count,after:D3.GL.renderer.info.programs.length,visible:p.rides[kind].visible,other:p.rides[kind==='scooter'?'hoverboard':'scooter'].visible,lift:p.wrap.position.y,rootLift:p.root.position.y-st.run.y,moves:new Set(poses.map(String)).size};},kind);
+      assert.equal(result.before,result.after,'summoning must not compile shaders');assert(result.visible&&!result.other&&Math.abs(result.lift-.35)<.1&&result.rootLift===0,JSON.stringify(result));
+      assert(result.moves>=4,kind+' animates while riding: '+result.moves+' distinct poses');
       await page.screenshot({path:path.join(output,kind+'.png')});
     }
     const skin=await page.evaluate(async()=>{const {D3,st,draw}=qa;const original=D3.GL.players.us,them=D3.GL.players.them;D3.setSkin({jersey:0x17ABCD,helmet:0xF09920});const changed=D3.GL.players.us;await D3.prepare(st);draw();D3.setSkin(null);return {changed:changed!==original,restored:D3.GL.players.us===original,opponent:D3.GL.players.them===them};});
     assert(skin.changed&&skin.restored&&skin.opponent,'skin changes are isolated and original kit is reused');
     const reduced=await page.evaluate(()=>{const {D3,st,draw}=qa;st.reducedMotion=true;st.run.ride={kind:'scooter',left:10,age:.01};draw();const scooter=D3.GL.players.us.rides.scooter;return {scale:scooter.scale.x,rotation:scooter.getObjectByName('ride-wheel').rotation.x};});
     assert.equal(reduced.scale,1);assert.equal(reduced.rotation,0);
-    console.log('PASS 3D scooter/hoverboard, riding pose, prewarmed shaders and isolated reusable skins');
+    console.log('PASS 3D scooter/hoverboard, animated riding (kick and bob), riding pose, prewarmed shaders and isolated reusable skins');
     assert.deepEqual(errors,[]);fs.writeFileSync(path.join(output,'report.json'),JSON.stringify({tests:report,skin},null,2));
   }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

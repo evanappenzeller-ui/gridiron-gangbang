@@ -406,3 +406,66 @@ function crates(b, lit, V, M, rows) {
   for (let j = 0; j < rows; j++) for (let i = 0; i < n; i++) fit(b, lit, m, x0, x1, j * h, (j + 1) * h, z0 + i * d, z0 + (i + 1) * d, (i + j) % 2 ? PI : 0);
   return true;
 }
+
+// ============================================================================ In the lanes: the new rows
+// The shared course's new row obstacles (core/return.js NEW_OBST, Nov 24 2026, Evan: "Include new barriers to slide
+// under and more objects to jump over. Search through the current assets we have and insert them"): built from each
+// place's own models, at the lane's middle (x 0, z 0: the row), about 2.4 yards across. A pile to jump: the place's
+// things side by side, up to a yard high (barrels, crates, trash cans, a picnic table, hay, boulders, a sandcastle and a
+// chest, fuel cells). A beam to slide under: a stack of them each side, a plank across them at the chest (1 to 1.25
+// yards) and more of them on top, so it reads as nothing to jump. False: the world's own shapes (no models in yet).
+const PILE = {desert: ['barrel', 'crate', 'barrel'], tundra: ['rock', 'rock2'], beach: ['castle', 'chest'], space: ['barrel1', 'barrel2', 'battery'],
+  farm: ['hay', 'hay'], city: ['trash1', 'trash2', 'trash1'], market: ['crate', 'barrel', 'crate'], tailgate: ['trash', 'chair', 'trash']};
+const STACK = {desert: ['barrel', 'crate'], tundra: ['rock', 'rock2'], beach: ['barrel', 'chest'], space: ['barrel1', 'barrel2'],
+  farm: ['hay', 'stump'], city: ['trash1', 'trash2'], market: ['crate', 'barrel'], tailgate: ['trash', 'trash']};
+const BEAM_COL = {desert: ['#8A5A32', '#5E3B1E'], tundra: ['#6B4A33', '#F2F7FA'], beach: ['#B99A72', '#8C7350'], space: ['#3A4152', '#5CF4FF'],
+  farm: ['#9A6B42', '#6B4A33'], city: ['#F2A900', '#1B1B1B'], market: ['#A8743F', '#2E9E4F'], tailgate: ['#F28C28', '#FFFFFF']};
+/** The place's models (ms, in turn) side by side, each h yards tall (less if it's too wide), filling up to w yards
+ *  across, centred, at height y. */
+function across(b, lit, ms, w, y, h, z, r, most = 4) {
+  const row = [];
+  let tot = 0;
+  for (let i = 0; i < most && tot < w - .35; i++) {
+    const m = ms[i % ms.length];
+    if (!m) return false;
+    const s = Math.min(h / m.size[1], w / m.size[0]);
+    if (row.length && tot + m.size[0] * s > w + .3) break; // (one more would squash the rest)
+    row.push({m, s, w: m.size[0] * s});
+    tot += m.size[0] * s + .06;
+  }
+  const k = Math.min(1, w / tot);
+  let x = -tot * k / 2;
+  row.forEach(q => { put(b, lit, q.m, x + q.w * k / 2, y, z + (r() - .5) * .1, (r() - .5) * .2, q.s * k); x += (q.w + .06) * k; });
+  return true;
+}
+/** A stack of the place's models (ms, in turn) up to h yards, at most w across, its foot's middle at x. */
+function stack(b, lit, ms, x, h, w, r) {
+  let y = 0;
+  for (let i = 0; i < 3 && y < h - .12; i++) {
+    const m = ms[i % ms.length], s = Math.min((h - y) / m.size[1], w / m.size[0], w * 1.4 / m.size[2]);
+    put(b, lit, m, x, y, 0, (r() - .5) * .3, s);
+    y += m.size[1] * s;
+  }
+}
+export function obstacle(b, lit, type, id) {
+  if (!ready(id) || !PILE[id]) return false;
+  const M = name => get(id, name), r = rnd('obstacle', type, id);
+  if (type === 'pile') {
+    const ms = PILE[id].map(M);
+    if (ms.some(m => !m)) return false;
+    return across(b, lit, ms, 2.5, 0, 1, 0, r);
+  }
+  if (type === 'beam') {
+    const ms = STACK[id].map(M);
+    if (ms.some(m => !m)) return false;
+    const [wood, edge] = BEAM_COL[id];
+    // a stack each side, up to the plank
+    stack(b, lit, ms, -1.2, 1, .8, r); stack(b, lit, ms.slice().reverse(), 1.2, 1, .8, r);
+    // the plank across, its edges in the place's other colour; more of its things up on it
+    b.add('box', wood, 0, 1.12, 0, 2.95, .26, .42);
+    b.add('box', edge, 0, 1.255, 0, 2.97, .03, .44);
+    b.add('box', edge, 0, .985, 0, 2.97, .03, .44);
+    return across(b, lit, [ms[1], ms[0]], 2.5, 1.27, .5, 0, r, 5);
+  }
+  return false;
+}

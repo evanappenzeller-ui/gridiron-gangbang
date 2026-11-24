@@ -6,7 +6,7 @@ let pw; try { pw = require('playwright'); } catch { pw = require(path.join(proce
 const mime = {'.js':'text/javascript','.json':'application/json','.css':'text/css','.png':'image/png','.webp':'image/webp','.woff2':'font/woff2'};
 (async () => {
   fs.mkdirSync(output, {recursive:true});
-  const browser = await pw.chromium.launch({channel:'msedge',headless:true});
+  const browser = await pw.chromium.launch({channel:'msedge',headless:true}).catch(() => pw.chromium.launch({headless:true}));
   const errors = [], external = [];
   try {
     const context = await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'}), page = await context.newPage();

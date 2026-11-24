@@ -585,6 +585,42 @@ export async function returnChecks(check) {
     const pass = hole === 'hurdled,stumbled,stumbled' && named && sled === 'stumbled,stumbled,stumbled,juked' && ended && saved && still;
     return {pass, detail: `pothole: ${hole} (${named ? 'named for its place' : 'WRONG name'}); sled: ${sled}; head on: ${ended ? 'the end' : 'WRONG'}, salts ${salts.run.over ? 'WRONG' : 'shook it off'}, painkillers ${pills.run.over ? 'WRONG' : 'up onto it'}; regular course ${still ? 'a stumble' : 'WRONG'}`};
   });
+  check('Return Man: the shared course is much harder (Nov 24 2026, Evan: "Increase the difficulty ... Create new obstacles and make power ups less frequent ... falling into a pothole should be an automatic fail"): piles to jump, boom gates and low beams to slide under mixed into fuller rows, potholes never in all three lanes, a power-up every 380 yards or more (was 180); a pothole run into on the ground ends the return down the pit whatever he has on (painkillers, salts, a ride), a jump or the jetpack carries him over; the legacy hard course keeps its stumble', () => {
+    const bad = [], seen = {}, gaps = [];
+    let full = 0, rows = 0;
+    for (let n = 30; n < 42; n++) {
+      const co = R.fill(R.course(n, 0, true, true), 4000);
+      co.rows.forEach(r => {
+        rows++; if (r.lanes.every(Boolean)) full++;
+        r.lanes.forEach(t => { if (t) seen[t] = (seen[t] || 0) + 1; });
+        if (r.lanes.every(t => t === 'hole')) bad.push(`day ${n}: potholes across at ${r.z}`);
+      });
+      for (let i = 1; i < co.items.length; i++) gaps.push(co.items[i].z - co.items[i - 1].z);
+    }
+    const fewer = gaps.length > 0 && gaps.filter(g => g < 300).length / gaps.length < .2;
+    const types = ['pile', 'gate', 'beam', 'hole', 'hurdle', 'bar'].every(t => seen[t] > 100);
+    const play = (ob, set = {}, moveAt = null) => {
+      const run = R.startRun(30, 0, true, false, true);
+      run.co = Object.assign({}, run.co, {rows: [{i: 0, z: 6, lanes: [null, ob, null], th: 'space'}], sets: [], items: [], traffic: [], z: 1e9, done: 1e9});
+      Object.assign(run, set); run.hitAt = -10; run.t = 10;
+      const evs = [];
+      for (let k = 0; k < 120 && !run.over && run.z < 10; k++) {
+        if (moveAt && run.z >= moveAt[0] && !run.moved) { R.move(run, moveAt[1]); run.moved = true; }
+        evs.push(...R.step(run, 1 / 60));
+      }
+      return {run, types: evs.map(e => e.type).filter(t => !['td', 'landed', 'coned', 'passed'].includes(t)).join()};
+    };
+    const v = R.speedAt(0, true, true), jumpAt = 6 - v * .28, slideAt = 6 - v * .2;
+    const pit = play('hole'), pills = play('hole', {pills: 6}), salts = play('hole', {salts: 2, burst: 10});
+    const jumped = play('hole', {}, [jumpAt, 'up']), pile = play('pile', {}, [jumpAt, 'up']), gate = play('gate', {}, [slideAt, 'down']), beam = play('beam', {}, [slideAt, 'down']);
+    const gateJump = play('gate', {}, [jumpAt, 'up']), pileRun = play('pile');
+    const legacy = (() => { const run = R.startRun(30, 0, true, false, false); run.co = Object.assign({}, run.co, {rows: [{i: 0, z: 6, lanes: [null, 'hole', null], th: 'city'}], sets: [], items: [], z: 1e9, done: 1e9}); run.hitAt = -10; run.t = 10; const e = []; for (let k = 0; k < 120 && run.z < 8; k++) e.push(...R.step(run, 1 / 60)); return e.some(x => x.type === 'stumbled') && !run.over; })();
+    const ends = [pit, pills, salts].every(p => p.run.over && p.run.why === 'pit' && p.types.endsWith('pitfall'));
+    const named = R.hitLine({type: 'pitfall', ob: 'hole', row: {th: 'space'}}) === 'Fell into the crater' && R.hitLine({ob: 'pile', row: {th: 'desert'}}) === 'Tripped over the barrels';
+    const beaten = !jumped.run.over && /hurdled|over/.test(jumped.types) && /hurdled|over/.test(pile.types) && /slid/.test(gate.types) && /slid/.test(beam.types) && /stumbled/.test(gateJump.types) && /stumbled/.test(pileRun.types);
+    const pass = types && fewer && !bad.length && full / rows > .3 && ends && named && beaten && legacy;
+    return {pass, detail: `12 days to 4,000 yds: ${Object.entries(seen).map(([t, k]) => t + ' ' + k).join(', ')}; ${(100 * full / rows).toFixed(0)}% of rows full; power-ups ${gaps.length ? Math.min(...gaps).toFixed(0) : '-'}+ yds apart (${gaps.filter(g => g < 300).length} under 300); ${bad.length ? bad.slice(0, 2).join('; ') : 'never potholes across'}; a pothole on foot: ${pit.types}, on painkillers: ${pills.types}, with salts: ${salts.types} (${ends ? 'down the pit each time' : 'WRONG'}), jumped: ${jumped.types}; pile jumped ${pile.types}, run into ${pileRun.types}; gate slid ${gate.types}, jumped ${gateJump.types}; beam slid ${beam.types}; ${named ? 'named for the place' : 'WRONG words'}; legacy hard course ${legacy ? 'still a stumble' : 'WRONG'}`};
+  });
   check('Return Man: the hard course\'s power-ups (the owner\'s ask, Oct 2026): the smelling salts burst him on for 10 seconds (4 on the regular course); painkillers carry him through a barricade, a banner, a pothole, a sled and up onto a bus without a stumble; booze doubles his yards for 8 seconds; their words say so', () => {
     // (how much faster than the course's own speed where he is, from seconds after he picks them up)
     const pace = (hard, from) => {
@@ -742,9 +778,10 @@ export async function returnChecks(check) {
     const rules = types === 'stumbled,tackled,revived' && R.hitLine(hits.hole) === 'Stepped in the ice hole' && hits.bus.type === 'crashed' && hits.barricade.type === 'stumbled';
     // the game: one place starts a fall (fallIn), and only for what fallsIn says
     const src = await fetch(new URL('../views/return.js', import.meta.url)).then(r => r.text()).catch(() => '');
-    // (and the fall's moves, 'fallin', only ever drawn from a fall that's on: fallOf's)
+    // (and the fall's moves, 'fallin', only ever drawn from a fall that's on: fallOf's, or the shared course's fall down
+    // a pothole, pitOf's: the end of the return there, Nov 24 2026)
     const starts = (src.match(/st\.fall = \{/g) || []).length, guarded = /function fallIn\(st, e, now\) \{\s*(?:const run = st\.run;\s*)?if \(!R\.fallsIn\(e\)/.test(src);
-    const clips = src.split('\n').filter(l => l.includes('\'fallin\'')), clip = clips.length >= 1 && clips.every(l => /if \(fl[ )&]/.test(l));
+    const clips = src.split('\n').filter(l => l.includes('\'fallin\'')), clip = clips.length >= 1 && clips.every(l => /if \((fl|pit)[ )&]/.test(l));
     const game = starts === 1 && guarded && clip;
     return {pass: only && rules && game, detail: `falls in: ${Object.entries(fall).filter(([, f]) => f).map(([k]) => k).join(', ') || 'none'} (not: ${Object.entries(fall).filter(([, f]) => !f).map(([k]) => k).join(', ')}); pothole hits ${types}, "${R.hitLine(hits.hole)}"; the game ${game ? 'starts it from fallsIn alone' : `WRONG (${starts} starts, guarded ${guarded}, clip ${clip})`}`};
   });
