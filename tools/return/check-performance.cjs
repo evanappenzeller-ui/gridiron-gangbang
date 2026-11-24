@@ -67,7 +67,7 @@ async function fixture(browser, legacy) {
   assert.deepEqual(errors, [], 'no browser errors'); await ctx.close(); return result;
 }
 (async () => {
-  fs.mkdirSync(output, {recursive: true}); const browser = await pw.chromium.launch({channel: 'msedge', headless: true, args: ['--enable-unsafe-swiftshader']});
+  fs.mkdirSync(output, {recursive: true}); const browser = await pw.chromium.launch({channel: 'msedge', headless: true, args: ['--enable-unsafe-swiftshader']}).catch(() => pw.chromium.launch({headless: true, args: ['--enable-unsafe-swiftshader']}));
   try {
     const report = {baseline: await fixture(browser, true), current: await fixture(browser, false)};
     fs.writeFileSync(path.join(output, 'report.json'), JSON.stringify(report, null, 2));

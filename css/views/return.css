@@ -133,6 +133,9 @@
 .rm-pane .rm-pop.is-salts { color: #BFEFFF; text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(150,225,255,.8); }
 .rm-pane .rm-pop.is-pills { color: #FFC07A; text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(255,140,40,.8); }
 .rm-pane .rm-pop.is-booze { color: var(--rm-gold); text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(255,200,80,.8); }
+/* A power-up's name as he picks it up (the shared course, Nov 24 2026): quick, its colour, what it does under it */
+.rm-pane .rm-pop.is-power { font-size: 30px; }
+.rm-pane .rm-pop.is-power small { margin-top: 5px; font-size: 15px; letter-spacing: .05em; }
 .rm-pane .rm-pop.is-hit { color: #FF5A5F; text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 22px rgba(230,30,40,.8); }
 /* a pickup's catchphrase (the hard course): bigger, and up a little longer */
 .rm-pane .rm-pop.is-catch { font-size: 42px; padding: 0 16px; }

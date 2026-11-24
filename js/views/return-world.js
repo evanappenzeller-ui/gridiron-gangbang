@@ -1874,9 +1874,17 @@ function hole(st, c, X, z, id) {
     for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, w = 1 + .09 * Math.sin(3 * a + z) + .05 * Math.cos(5 * a); pts.push(P(st, X + rx * Math.cos(a) * w, 0, z + rz * Math.sin(a) * w)); }
     return pts;
   };
-  fill(c, ring(1.15, 1.05), rim);
-  fill(c, ring(.94, .84), deep);
-  fill(c, ring(.6, .5), 'rgba(0,0,0,.35)');
+  // (Nov 24 2026: easier to see coming: an orange glow pulsing round it, a ring of hazard stripes, darker inside)
+  const pulse = .35 + .3 * (.5 + .5 * Math.sin((st.t || 0) * 7));
+  c.save(); c.globalAlpha = pulse; fill(c, ring(1.75, 1.6), '#FF7A1A'); c.restore();
+  const outer = ring(1.42, 1.3);
+  fill(c, outer, '#161616');
+  c.save(); c.beginPath(); path(c, outer); c.clip();
+  for (let i = 0; i < outer.length; i += 2) { const a = outer[i], b = outer[(i + 1) % outer.length]; fill(c, [P(st, X, 0, z), a, b], '#FFD21F'); }
+  c.restore();
+  fill(c, ring(1.2, 1.1), rim);
+  fill(c, ring(1.02, .92), deep);
+  fill(c, ring(.8, .7), 'rgba(0,0,0,.75)');
 }
 // A pothole's cone (core/return.js CONE: no obstacle, its size), just before it in its lane: a bright orange traffic
 // cone on a dark foot, two white bands round it. Run through, it's kicked (u: 0 to 1 over CONE_MS ms) on ahead (ahead
@@ -1917,7 +1925,30 @@ export function obstacle(st, c, type, lane, z, k = 0) {
   if (!k) fill(c, gnd(st, X - 1.3, X + 1.3, z - .1, z + .45), 'rgba(0,0,0,.22)');
   flat(st, c, X, lift, z);
   c.rotate(side * k * 1.3);
-  if (type === 'hurdle') {
+  if (type === 'pile') {
+    // the place's things side by side, about a yard high (the 3D world builds them from its models)
+    [-.66, .66].forEach((x, i) => {
+      const h = i ? .92 : 1;
+      rr(c, x - .58, -h, 1.16, h, .08); c.fillStyle = i ? b : a; c.fill();
+      c.fillStyle = 'rgba(0,0,0,.28)'; c.fillRect(x - .58, -h * .66, 1.16, .1);
+      c.fillStyle = 'rgba(255,255,255,.18)'; c.fillRect(x - .52, -h + .04, 1.04, .08);
+      c.strokeStyle = 'rgba(0,0,0,.45)'; c.lineWidth = .03; rr(c, x - .58, -h, 1.16, h, .08); c.stroke();
+    });
+  } else if (type === 'gate') {
+    // a boom gate: two striped posts, two red and white arms (the low one at his chest), a lamp blinking on each post
+    [-1.32, 1.32].forEach(x => { for (let q = 0; q < 5; q++) { c.fillStyle = q % 2 ? '#161616' : '#FFD21F'; c.fillRect(x - .1, -(.12 + (q + 1) * .36), .2, .36); } });
+    [[1.1, .24], [1.62, .2]].forEach(([y, hh]) => {
+      for (let q = 0; q < 8; q++) { c.fillStyle = q % 2 ? '#D7262E' : '#FFFFFF'; c.fillRect(-1.35 + q * 2.7 / 8, -(y + hh / 2), 2.7 / 8 + .01, hh); }
+    });
+    c.fillStyle = Math.floor((st.t || 0) * 2.5) % 2 ? '#FF3030' : '#801818';
+    [-1.32, 1.32].forEach(x => { c.beginPath(); c.arc(x, -1.97, .1, 0, Math.PI * 2); c.fill(); });
+  } else if (type === 'beam') {
+    // a stack each side, a plank across them at his chest, more of them up on it
+    [-1.2, 1.2].forEach(x => { rr(c, x - .3, -1, .6, 1, .06); c.fillStyle = a; c.fill(); c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(x - .3, -.55, .6, .08); });
+    c.fillStyle = '#8A5A32'; c.fillRect(-1.48, -1.25, 2.96, .26);
+    c.fillStyle = b; c.fillRect(-1.48, -1.27, 2.96, .03); c.fillRect(-1.48, -1.0, 2.96, .03);
+    [-.8, 0, .8].forEach((x, i) => { rr(c, x - .32, -1.75, .64, .48, .05); c.fillStyle = i % 2 ? a : b; c.fill(); c.strokeStyle = 'rgba(0,0,0,.4)'; c.lineWidth = .03; c.stroke(); });
+  } else if (type === 'hurdle') {
     // two sawhorse legs
     c.fillStyle = '#2B2F36';
     [-1.02, 1.02].forEach(e => { c.beginPath(); c.moveTo(e - .2, 0); c.lineTo(e - .05, -.9); c.lineTo(e + .05, -.9); c.lineTo(e + .2, 0); c.lineTo(e + .1, 0); c.lineTo(e, -.62); c.lineTo(e - .1, 0); c.closePath(); c.fill(); });

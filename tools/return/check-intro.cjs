@@ -7,7 +7,7 @@ const origin = 'http://127.0.0.1:8765';
 const mime = {'.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.glb': 'model/gltf-binary', '.webp': 'image/webp', '.png': 'image/png', '.woff2': 'font/woff2'};
 async function main() {
   fs.mkdirSync(output, {recursive: true});
-  const browser = await pw.chromium.launch({channel: 'msedge', headless: true, args: ['--enable-unsafe-swiftshader']});
+  const browser = await pw.chromium.launch({channel: 'msedge', headless: true, args: ['--enable-unsafe-swiftshader']}).catch(() => pw.chromium.launch({headless: true, args: ['--enable-unsafe-swiftshader']}));
   const errors = [], results = [];
   try {
     const ctx = await browser.newContext({viewport: {width: 390, height: 844}, serviceWorkers: 'block'}), page = await ctx.newPage();
@@ -118,11 +118,15 @@ async function main() {
       const shared = await page.evaluate(() => {
         const {V,D3,I,st,R}=window.qa, now=performance.now(); st.catchAt=now-1180; st.last=now; V.frame(st,now);
         const intro = st.mode==='catch' && st.run.co.enhanced && st.run.z===0 && D3.GL.punt.visible && !!I.shot(st,now);
+        // (Nov 24 2026, Evan: a quick pop up naming each power-up as it's picked up, except the Jetpack)
         let item=0;
+        const named={pills:'PAINKILLERS',booze:'BOOZE',salts:'SMELLING SALTS'}, pop=st.el.querySelector('[data-rm-pop]'), word=()=>pop.firstChild?pop.firstChild.nodeValue:'';
         for (const kind of ['pills','booze','salts','jetpack']) {
           for (let i=0;i<6;i++) {
+            const before=word();
             V.onEvents(st,[{type:'pickup',kind,item:{i:item++}}]);
-            if (st.el.querySelector('[data-rm-pop]').textContent || !st.el.querySelector('[data-rm-got]').hidden) throw new Error('Pickup must stay text-free: '+kind);
+            if (kind==='jetpack' ? word()!==before : word()!==named[kind] || !pop.querySelector('small') || !pop.classList.contains('is-power')) throw new Error('Pickup pop-up wrong: '+kind+' '+word());
+            if (!st.el.querySelector('[data-rm-got]').hidden) throw new Error('No pickup card: '+kind);
           }
         }
         if(st.el.querySelector('[data-rm-flight-note]')) throw new Error('No gameplay instruction banner');
@@ -130,7 +134,7 @@ async function main() {
       });
       assert.deepEqual(shared,{intro:true,zone:500,updated:true},'complete updated presentation '+profile);
     }
-    results.push('Owner, member, app user, named guest and unselected players share title, preload, intro, course and text-free pickups');
+    results.push('Owner, member, app user, named guest and unselected players share title, preload, intro, course and named pickup pop-ups (none for the jetpack)');
     assert.deepEqual(errors,[]); console.log(results.map(s=>'PASS '+s).join('\n'));
     fs.writeFileSync(path.join(output,'report.json'),JSON.stringify({passed:true,results,frames,errors},null,2));
   } finally { await browser.close(); }

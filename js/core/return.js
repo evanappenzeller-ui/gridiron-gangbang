@@ -151,9 +151,22 @@ export const OBST = {
   hurdle: {name: 'barricade', beat: 'jump', clear: .5, top: 1.05, says: 'Clipped the barricade'},
   bar: {name: 'banner', beat: 'slide', top: 2.5, says: 'Ran into the banner'},
   hole: {name: 'pothole', beat: 'jump', clear: .25, top: 1.05, says: 'Stepped in the pothole'},
-  sled: {name: 'tackling sled', beat: 'juke', top: 1.6, says: 'Ran into the tackling sled'}
+  sled: {name: 'tackling sled', beat: 'juke', top: 1.6, says: 'Ran into the tackling sled'},
+  // The shared course's new ones (Nov 24 2026, Evan: "Include new barriers to slide under and more objects to jump
+  // over"): a pile of the place's own things to jump (its models: return-models.js obstacle; PILES names it), a boom
+  // gate (two striped arms, the low one at the chest: too high to jump, go under) and a low beam laid across two of
+  // the place's stacks (BEAMS) to slide under.
+  pile: {name: 'pile', beat: 'jump', clear: .62, top: 1.1, says: 'Tripped over the pile'},
+  gate: {name: 'boom gate', beat: 'slide', top: 1.75, says: 'Ran into the boom gate'},
+  beam: {name: 'low beam', beat: 'slide', top: 1.6, says: 'Ran into the low beam'}
 };
 export const HARD_OBST = ['hole'];
+/** The obstacle types the shared course adds (each place draws them: return-3dworld.js obstacleOf, return-world.js obstacle). */
+export const NEW_OBST = ['pile', 'gate', 'beam'];
+export const PILES = {stadium: 'equipment trunks', tailgate: 'trash cans', city: 'trash cans', tundra: 'boulders', desert: 'barrels',
+  market: 'crates', beach: 'sandcastle', space: 'fuel cells', farm: 'hay bales'};
+export const BEAMS = {stadium: 'tackling dummies', tailgate: 'low beam', city: 'low beam', tundra: 'fallen log', desert: 'hitching rail',
+  market: 'crate beam', beach: 'driftwood', space: 'conduit', farm: 'fence rail'};
 export const HOLES = {stadium: 'divot', tailgate: 'pothole', city: 'pothole', tundra: 'ice hole', desert: 'sinkhole', market: 'open manhole',
   beach: 'sand pit', space: 'crater', farm: 'mud pit'};
 // A traffic cone stands just before every pothole, in its lane (the owner's ask, Oct 2026: a marker to see it coming),
@@ -170,6 +183,11 @@ export const coneZ = row => row.z - CONE.before;
 export const FALL_IN = ['stumbled', 'revived', 'tackled'];
 /** Whether a hit (step's event) is a fall into a pothole. */
 export const fallsIn = e => !!e && e.ob === 'hole' && FALL_IN.includes(e.type);
+// On the shared course a pothole is the end of the return (Nov 24 2026, Evan: "falling into a pothole should be an
+// automatic fail and add an animation specifically for this where the return man falls down the pit"): run into one on
+// the ground and he falls down it ('pitfall', run.why 'pit'), whatever he has on (painkillers, salts, a ride). Only being
+// over it (a jump, the jetpack, its landing) carries him past. views/return.js draws the fall.
+export const pitFatal = co => !!(co && co.enhanced);
 // What stands in the lanes: each place's own (KINDS, below): vehicles to go round or climb (a tall one, HIGH_H yards;
 // a ramp up onto its roof, or not), low ones to jump on (LOW_H), and things to climb: ramps up onto rocks and crates,
 // steps of hay bales, a flatbed and its cab, piers with a gap between, pads floating in the air. Each is one or more
@@ -372,6 +390,15 @@ export const GAP = {first: 22, cars: 45, max: 1.3, min: .62, by: 1000, jitter: .
 // (A returner who reads it all right but can only swipe every .35-.45 s is down in 1 to 3 minutes; on the regular
 // course he runs forever.)
 export const HARD_GAP = {first: 20, cars: 35, max: 1.1, min: .32, by: 650, late: [.06, 3000], jitter: .2, in: .6, after: [.25, .1], mix: 700, sets: [.22, .38], two: .6, hole: 120, sled: 220};
+// The shared course, much harder (Nov 24 2026, Evan: "Increase the difficulty for the return man game. This should be much
+// more difficult. Create new obstacles and make power ups less frequent"): the beats start closer and close in sooner,
+// fuller rows (NEW_OBST mixed in with the barricades, banners and potholes, from hole yards), more vehicles and side by
+// side more often, the incoming trains as before (train: yards between, and more), and a power-up every item[0] to
+// item[0] + item[1] yards (was 180 to 360), the first at item[2]. The hard course's own table (HARD_GAP) is unchanged
+// for its fixtures.
+export const ENH_GAP = {first: 18, cars: 28, max: .95, min: .3, by: 450, late: [.05, 2500], jitter: .15, in: .55, after: [.2, .08], mix: 450,
+  sets: [.26, .42], two: .7, hole: 55, item: [380, 260, 220], train: [175, 75]};
+const gapsOf = co => (co.enhanced ? ENH_GAP : HARD_GAP);
 const COURSES = new Map();
 /** Day n's kickoff k: the same on every phone. It's worked out as it's needed (fill). */
 export function course(n, k, hard = false, enhanced = false) {
@@ -383,7 +410,7 @@ export function course(n, k, hard = false, enhanced = false) {
   const others = shuffle(THEMES.map((_, i) => i).slice(1), rng(hashStr(`return-man-places-${n}`))), m = others.length;
   const order = [0, ...others.slice(k % m), ...others.slice(0, k % m)];
   const c = {n, k, hard, order, rows: [], sets: [], items: [], r: rng(hashStr(`return-man-${n}-${k}${hard ? '-hard' : ''}`)), z: (hard ? HARD_GAP : GAP).first, itemAt: 100, done: 0, first: {}};
-  if (enhanced) Object.assign(c, {enhanced: true, traffic: [], trafficAt: TRAFFIC.first});
+  if (enhanced) Object.assign(c, {enhanced: true, traffic: [], trafficAt: TRAFFIC.first, z: ENH_GAP.first, itemAt: ENH_GAP.item[2]});
   if (COURSES.size > 12) COURSES.clear();
   COURSES.set(key, c);
   return c;
@@ -400,7 +427,7 @@ export function zoneAt(co, z) {
 /** Seconds to the next beat at z yards (L: how far into the course, 0 to 1). */
 function gapAt(co, L, z) {
   if (!co.hard) return GAP.max - (GAP.max - GAP.min) * L + co.r() * GAP.jitter;
-  const H = HARD_GAP, d = Math.max(0, z), [lk, lby] = H.late;
+  const H = gapsOf(co), d = Math.max(0, z), [lk, lby] = H.late;
   return H.min + lk * Math.exp(-d / lby) + (H.max - H.min - lk) * Math.exp(-d / H.by) + co.r() * H.jitter * (1 - .5 * Math.min(1, d / 2000));
 }
 // Keep obstacle spacing at the old course pace: the faster shared runner has less time to react.
@@ -414,9 +441,28 @@ function addItem(co, z, lane, top) {
     z = set.zs + 1.8; top = false;
   }
   co.items.push({i: co.items.length, z: round2(z), lane, top: !!top, kind});
-  co.itemAt = z + 180 + co.r() * 180;
+  co.itemAt = co.enhanced ? z + ENH_GAP.item[0] + co.r() * ENH_GAP.item[1] : z + 180 + co.r() * 180;
+}
+/** A row on the shared course (ENH_GAP): fuller, every type mixed in (a pothole from hole yards, never in all three
+ *  lanes); each one beaten by its move in its lane, so a full row still has a way through. */
+function addRowEnhanced(co, z, open) {
+  const r = co.r, lanes = [null, null, null], pick = r();
+  let count = z < 40 ? 1 : z < 120 ? (pick < .35 ? 1 : 2) : z < 320 ? (pick < .1 ? 1 : pick < .55 ? 2 : 3) : (pick < .35 ? 2 : 3);
+  count = Math.min(count, open.length);
+  let holes = 0;
+  shuffle(open.slice(), r).slice(0, count).forEach(l => {
+    if (z < 30) { lanes[l] = r() < .5 ? 'hurdle' : 'pile'; return; }
+    const w = [['hurdle', 1], ['bar', .9], ['hole', z >= ENH_GAP.hole && holes < 2 ? 1.1 : 0], ['pile', 1], ['gate', .8], ['beam', .8]];
+    let u = r() * w.reduce((a, x) => a + x[1], 0), t = 'hurdle';
+    for (const [id, k] of w) { if ((u -= k) < 0) { t = id; break; } }
+    if (t === 'hole') holes++;
+    lanes[l] = t;
+    if (!(t in co.first)) co.first[t] = z;
+  });
+  co.rows.push({i: co.rows.length, z: round2(z), lanes, th: zoneAt(co, z).theme.id});
 }
 function addRow(co, z, open) {
+  if (co.enhanced) return addRowEnhanced(co, z, open);
   const r = co.r, lanes = [null, null, null];
   const pick = r(), most = open.length;
   let count = co.hard
@@ -445,7 +491,7 @@ function addRow(co, z, open) {
 // A set at z (where the first ramp starts, or the fronts): a thing of the place's in one lane, or two side by side
 // (always a lane left open). False if it would cross into the next place.
 function addSet(co, z, L) {
-  const r = co.r, th = zoneAt(co, z).theme, lanes = shuffle([0, 1, 2], r), two = co.hard ? L > .1 && r() < HARD_GAP.two : L > .2 && r() < .45;
+  const r = co.r, th = zoneAt(co, z).theme, lanes = shuffle([0, 1, 2], r), two = co.hard ? L > .1 && r() < gapsOf(co).two : L > .2 && r() < .45;
   const plats = [];
   lanes.slice(0, two ? 2 : 1).forEach(lane => {
     const picked = pickKind(th, r, co.hard);
@@ -466,24 +512,24 @@ function addSet(co, z, L) {
   if (roof && z >= co.itemAt - 40) addItem(co, roof.z0 + (roof.z1 - roof.z0) * (.35 + r() * .3), roof.lane, true);
   // the rows beside it: in the open lanes, a beat apart
   const open = [0, 1, 2].filter(l => !plats.some(p => p.lane === l)), zf = Math.min(...plats.map(p => p.z0));
-  const gIn = (co.hard ? HARD_GAP : GAP).in;
+  const gIn = (co.hard ? gapsOf(co) : GAP).in;
   for (let at = zf + Math.max(gIn, gapAt(co, L, zf)) * speedOn(co, zf); at < ze - 3; at += Math.max(gIn, gapAt(co, L, at)) * speedOn(co, at)) {
     if (r() < .75) addRow(co, at, open);
   }
-  const after = co.hard ? HARD_GAP.after : [.45, .15];
+  const after = co.hard ? gapsOf(co).after : [.45, .15];
   co.z = ze + (gapAt(co, L, ze) + (plats.some(p => p.hi) ? after[0] : after[1])) * speedOn(co, ze);
   return true;
 }
 /** Works the course out as far as z yards (once; the same every time). */
 export function fill(co, z) {
   while (co.z <= z + 2) {
-    const r = co.r, at = co.z, H = HARD_GAP, L = Math.min(1, at / (co.hard ? H.mix : GAP.by));
+    const r = co.r, at = co.z, H = gapsOf(co), L = Math.min(1, at / (co.hard ? H.mix : GAP.by));
     if (co.enhanced && at >= co.trafficAt && zoneAt(co, at).theme.id !== 'stadium') {
       // Reserve the whole encounter: no stationary obstacles can close its escape lane.
       const lanes = shuffle([0, 1, 2], r), count = co.traffic.length > 1 ? 2 : 1;
       co.traffic.push({i: co.traffic.length, trigger: at, lanes: lanes.slice(0, count)});
       co.z = at + TRAFFIC.lead + TRAFFIC.length + 12;
-      co.trafficAt = co.z + 175 + r() * 75;
+      co.trafficAt = co.z + ENH_GAP.train[0] + r() * ENH_GAP.train[1];
       continue;
     }
     if (at > (co.hard ? H.cars : GAP.cars) && r() < (co.hard ? H.sets[0] + (H.sets[1] - H.sets[0]) * L : .2 + .18 * L) && addSet(co, at, L)) continue;
@@ -566,7 +612,7 @@ function coinLine(co, at) {
         // the first barricade or pothole in the lane far enough on to jump it from here
         for (let i = rowFrom(co, at + 4); i < co.rows.length && co.rows[i].z <= at + 45; i++) {
           const w = co.rows[i], t = w.lanes[lane];
-          if (t !== 'hurdle' && t !== 'hole') continue;
+          if (t !== 'hurdle' && t !== 'hole' && t !== 'pile') continue;
           vj = speedAt(w.z, true, co.enhanced);
           if (w.z - vj * JUMP_S / 2 >= at) { over = w; break; }
         }
@@ -601,7 +647,7 @@ function coinsFit(co, lane, coins, over, land) {
   for (let i = rowFrom(co, za); i < co.rows.length && co.rows[i].z <= zb; i++) { const w = co.rows[i]; if ((w.lanes[lane] || sledIn(w, lane)) && w !== over) return false; }
   // (and just before that, no banner to hide the line or sled to juke round as it starts: COIN.look seconds clear)
   const zl = coins[0].z - COIN.look * speedAt(coins[0].z, true, co.enhanced);
-  for (let i = rowFrom(co, zl); i < co.rows.length && co.rows[i].z < za; i++) { const w = co.rows[i], t = w.lanes[lane]; if (t === 'bar' || t === 'sled' || sledIn(w, lane)) return false; }
+  for (let i = rowFrom(co, zl); i < co.rows.length && co.rows[i].z < za; i++) { const w = co.rows[i], t = w.lanes[lane]; if (t === 'bar' || t === 'gate' || t === 'beam' || t === 'sled' || sledIn(w, lane)) return false; }
   if (co.sets.some(s => s.zs <= zb && s.ze >= za && s.plats.some(p => p.lane === lane && p.z0 - p.ramp <= zb && p.z1 >= za))) return false;
   if (co.items.some(it => it.lane === lane && it.z > za - COIN.item && it.z < last + COIN.item)) return false;
   if (over && over.lanes[lane] === 'hole') {
@@ -778,12 +824,19 @@ function hit(run, out, what) {
   out.push(Object.assign({type: 'stumbled', z: run.z, n: run.hits}, what));
   return 'stumble';
 }
+/** Down a pothole on the shared course (pitFatal): the end of the return, nothing shakes it off. */
+function pitfall(run, out, what) {
+  run.over = true; run.why = 'pit'; run.by = what;
+  out.push(Object.assign({type: 'pitfall', z: run.z}, what));
+}
 /** A hit's words: "Clipped the barricade", "Ran into the city bus", "Bounced off the city bus", "Ran out of room on the
  *  right". */
 export function hitLine(what) {
   if (!what) return '';
   if (what.edge) return `Ran out of room on the ${what.edge}`;
-  if (what.ob === 'hole') return `Stepped in the ${HOLES[what.row && what.row.th] || OBST.hole.name}`;
+  if (what.ob === 'hole') return `${what.type === 'pitfall' ? 'Fell into the' : 'Stepped in the'} ${HOLES[what.row && what.row.th] || OBST.hole.name}`;
+  if (what.ob === 'pile') return `Tripped over the ${PILES[what.row && what.row.th] || OBST.pile.name}`;
+  if (what.ob === 'beam') return `Ran into the ${BEAMS[what.row && what.row.th] || OBST.beam.name}`;
   if (what.ob) return OBST[what.ob].says;
   const p = what.plat, name = p && KINDS[p.kind] ? KINDS[p.kind].name : 'wall';
   return `${what.side ? 'Bounced off' : 'Ran into'} the ${name}`;
@@ -868,6 +921,7 @@ function sub(run, dt, out) {
     if (run.y >= O.top + .1) { out.push({type: 'over', row, lane, ob, z: run.z}); continue; }
     if (O.beat === 'jump' && run.y >= O.clear) { out.push({type: 'hurdled', row, lane, ob, z: run.z}); continue; }
     if (O.beat === 'slide' && run.slide > 0 && run.y < .3) { out.push({type: 'slid', row, lane, ob, z: run.z}); continue; }
+    if (ob === 'hole' && pitFatal(co) && !(run.landing > 0) && !flying(run)) { pitfall(run, out, {ob, row, lane}); return; }
     if (!hit(run, out, {ob, row, lane})) return;
   }
   // the power-ups: in your lane, at your height

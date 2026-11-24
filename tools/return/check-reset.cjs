@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '../..'), origin = 'http://127.0.0.1:8765';
 let pw; try { pw = require('playwright'); } catch { pw = require(path.join(process.env.USERPROFILE, '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright')); }
 const mime = {'.js':'text/javascript','.json':'application/json','.css':'text/css','.png':'image/png','.webp':'image/webp','.woff2':'font/woff2'};
 (async () => {
-  const browser = await pw.chromium.launch({channel:'msedge',headless:true});
+  const browser = await pw.chromium.launch({channel:'msedge',headless:true}).catch(() => pw.chromium.launch({headless:true}));
   const errors = [], external = [];
   try {
     const context = await browser.newContext({timezoneId:'America/Phoenix',serviceWorkers:'block'}), page = await context.newPage();

@@ -7,7 +7,7 @@ const origin = 'http://127.0.0.1:8765';
 const mime = {'.js':'text/javascript','.css':'text/css','.json':'application/json','.glb':'model/gltf-binary','.png':'image/png','.webp':'image/webp','.woff2':'font/woff2'};
 async function main() {
   fs.mkdirSync(output, {recursive:true});
-  const browser = await pw.chromium.launch({channel:'msedge',headless:true,args:['--enable-unsafe-swiftshader']});
+  const browser = await pw.chromium.launch({channel:'msedge',headless:true,args:['--enable-unsafe-swiftshader']}).catch(() => pw.chromium.launch({headless:true,args:['--enable-unsafe-swiftshader']}));
   const errors = [];
   try {
     const context = await browser.newContext({viewport:{width:390,height:844},hasTouch:true,serviceWorkers:'block'}), page = await context.newPage();

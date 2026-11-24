@@ -85,14 +85,14 @@ function keysHTML(hard) {
   const pw = (kind, name, what) => `<li class="rm-pk">${iconHTML(kind, 34)}<b>${name}</b><span>${what}</span></li>`;
   return `<ul class="rm-keys" aria-label="How to play">`
     + k('is-lr', '← →', 'Swipe to juke a lane. Off the edge, you stumble')
-    + k('is-up', '↑', hard ? 'Jump a barricade or a pothole, or onto a low one' : 'Jump a barricade, or onto a low one')
-    + k('is-dn', '↓', 'Slide under a banner')
+    + k('is-up', '↑', features.returnManUpdated() ? 'Jump barricades, piles and potholes, or onto a low one. Fall in a pothole: the return’s over' : hard ? 'Jump a barricade or a pothole, or onto a low one' : 'Jump a barricade, or onto a low one')
+    + k('is-dn', '↓', features.returnManUpdated() ? 'Slide under banners, boom gates and low beams' : 'Slide under a banner')
     + k('is-ramp', '◢', hard ? 'Run up a ramp onto the roofs. Head on into a bus: down' : 'Run up a ramp onto the roofs')
     + (features.returnManUpdated() ? k('is-train', '↔', 'Incoming trains: change lanes to dodge') : '')
     + k('is-chase', '!', features.returnManUpdated() ? 'While the chaser is visible, your next unprotected hit ends the run. Stay clean until he leaves the screen' : hard ? 'The linebacker starts close. After a stumble, your next unprotected hit tackles you—even after a clean stretch' : 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
     + pw('salts', 'Smelling salts', features.returnManUpdated() ? '10-second speed burst. Unused extra lives expire with the boost' : hard ? '10-second speed burst + extra life' : 'Speed burst + extra life')
-    + pw('pills', 'Painkillers', hard ? 'Hit anything, no stumble' : 'Feel nothing')
+    + pw('pills', 'Painkillers', features.returnManUpdated() ? 'Hit anything, no stumble. Potholes still swallow you' : hard ? 'Hit anything, no stumble' : 'Feel nothing')
     + pw('booze', 'Booze', features.returnManUpdated() ? 'Double yards, with a swaying view' : hard ? 'Double yards, but blurry' : 'Double yards')
     + (features.returnManUpdated() ? pw('jetpack', 'Jetpack', 'Fly headfirst for 8 seconds. Swipe left or right to barrel roll through coins and dodge sky hazards. A hit brings you down') : '')
     + `</ul>`;
@@ -459,6 +459,7 @@ function runnerAnim(st, now) {
  *  off his feet and flat out through the air, down on top of him. */
 function chaserAnim(st, now, z) {
   const run = st.run, t = now / 1000;
+  if (run.over && run.why === 'pit') return {f: 'def.r_b0', mo: {t, seed: 7}};
   if (run.over && run.why === 'caught') {
     const e = now - st.downAt;
     if (e < 150) return {f: 'def.r_b1', ex: {lift: .1 * e / 150, sy: 1.06}};
@@ -522,6 +523,20 @@ function fallOf(st, now) {
   const k = F.k * clamp01((1.15 - Math.abs(run.x - f.x)) / .35) * clamp01(1 - run.y / .45);
   return {k, lag: F.lag, z: run.z - F.lag - .25 * k, pose: k > .02 && !(run.vy > 0), u: F.u, s, hole: f.z};
 }
+// Down a pothole on the shared course (core pitFatal, Nov 24 2026, Evan: "falling into a pothole should be an automatic
+// fail and add an animation specifically for this where the return man falls down the pit"): he steps out over it,
+// teeters on its rim a moment, arms flung up, and drops out of sight into the dark, turning as he goes; the camera eases
+// forward and down to look in after him; the end card waits for it (PIT.card ms). Reduced motion: no camera move.
+const PIT = {teeter: .16, drop: .25, g: 11, deep: 5, card: 1500, look: 1.8, dip: .85};
+/** The fall down a pothole now, or null: {s (seconds since), lift (yards he's down: up to -PIT.deep), k (0 to 1: how
+ *  far into the drop), x, z (the hole's middle)}. */
+function pitOf(st, now) {
+  const p = st.pit;
+  if (!p || !st.run || !st.run.over) return null;
+  const s = (now - p.at) / 1000, f = Math.max(0, s - PIT.teeter);
+  const lift = -Math.min(PIT.deep, PIT.drop * smooth(clamp01(s / PIT.teeter)) + PIT.g * f * f);
+  return {s, lift, k: clamp01(-lift / PIT.deep), x: p.x, z: p.z};
+}
 /** The returner's 3D pose now (return-3d.js pose's spec; dz: yards on from where he is, thrown forward going down). */
 function runner3(st, now) {
   const run = st.run, t = now / 1000;
@@ -542,7 +557,10 @@ function runner3(st, now) {
       roll: ui.RM ? -.08 * (R.xOf(run, run.lane) - run.x) : (flight < 1 ? rest * flight : roll),
       lift: ui.RM ? 0 : .045 * Math.sin(run.t * 4)};
   }
-  const fl = fallOf(st, now);
+  const fl = fallOf(st, now), pit = pitOf(st, now);
+  // (down a pothole: over its rim, arms flung up, then down it, turning and tipping as he goes)
+  const pw = pit ? Math.min(1, pit.s / PIT.teeter) : 0;
+  if (pit) return Object.assign(o, {move: 'fallin', u: .1 + .1 * pw, phase: 0, catch: pw, lift: pit.lift, pitch: .35 * pw - .25 * pit.k, roll: ui.RM ? 0 : .22 * Math.sin(pit.s * 13) * pw, turn: ui.RM ? 0 : 1.6 * pit.k, dz: pit.z - run.z + .1});
   if (run.over) {
     const k = Math.min(1, (now - st.downAt) / 420);
     // (tackled in a pothole: down in it to his waist, his chest driven over forward onto its far rim)
@@ -577,6 +595,7 @@ function runner3(st, now) {
 /** The linebacker's 3D pose (z: where he is): running him down; set while the kick's in the air; the dive. */
 function chaser3(st, now, z) {
   const run = st.run, t = now / 1000;
+  if (run.over && run.why === 'pit') return {move: 'idle', t};
   if (run.over && run.why === 'caught') {
     const k = Math.min(1, (now - st.downAt) / 380);
     return {move: 'fall', u: k, phase: z / D3.STRIDE, t, pitch: .3 + 1.22 * smooth(k), lift: .45 * Math.sin(Math.PI * k) + .1 * k, turn: fallDir(run) * .4 * k, dz: .45 * smooth(k)};
@@ -661,9 +680,10 @@ function drawLanes(st, c, now) {
   const an = runnerAnim(st, now), g = run ? R.surfaceAt(run, R.laneOf(run), rz, ry) : 0, fl = run ? fallOf(st, now) : null;
   // (bouncing off the edge of the road; thrown forward; held back in a pothole)
   // (a picture, cut off at the road: to about his waist, as in 3D)
-  const bx = rx + .5 * edgeBounce(st, now), az = (fl ? fl.z : rz - easeBack(st)) + (an.dz || 0), sink = fl ? FALL.deep * .9 * fl.k : 0;
+  const pit = run ? pitOf(st, now) : null;
+  const bx = pit ? pit.x : rx + .5 * edgeBounce(st, now), az = pit ? pit.z : (fl ? fl.z : rz - easeBack(st)) + (an.dz || 0), sink = pit ? -pit.lift : fl ? FALL.deep * .9 * fl.k : 0;
   // (down in a pothole he's drawn after it, the part of him under the road cut away)
-  list.push({z: fl ? Math.min(az, fl.hole - R.HOLE_LEN / 2 - .01) : az, me: true, draw: () => {
+  list.push({z: pit ? pit.z - R.HOLE_LEN / 2 - .01 : fl ? Math.min(az, fl.hole - R.HOLE_LEN / 2 - .01) : az, me: true, draw: () => {
     if (sink < .1) shadow(st, c, bx, g, az, .5);
     pillsGlow(st, c, now, g);
     c.save();
@@ -673,7 +693,7 @@ function drawLanes(st, c, now) {
       else {
         const riding = R.riding(run);
         if (riding) drawRide(st, c, x, ry - sink, z, run.ride, P);
-        sprite(st, c, riding && !run.slide && !run.vy ? {f: 'rb.r_b0', ex: {sy: .93}} : an, US, x, ry - sink + (riding ? .35 : 0), z, alpha);
+        sprite(st, c, riding && !run.slide && !run.vy ? {f: 'rb.r_b0', ex: {sy: .93}} : an, US, x, ry - sink + (riding ? .35 + (run.ride.kind === 'hoverboard' && !ui.RM ? .08 * Math.sin(run.ride.age * 3.4) : 0) : 0), z, alpha);
       }
     };
     // a cut's and a spin's afterimages, behind him
@@ -852,7 +872,7 @@ function coinFx(st, c, now, bx, az) {
  *  over them: the painkillers' glow, the dust, the hints over what's coming, the kick coming down. */
 function draw3(st, c, now) {
   const run = st.run, rz = run ? run.z : 0, rx = run ? run.x : 0, ry = run ? run.y : 0;
-  const us = runner3(st, now), bx = rx + .5 * edgeBounce(st, now), az = rz + (us.dz || 0) - easeBack(st);
+  const us = runner3(st, now), pit = run ? pitOf(st, now) : null, bx = pit ? pit.x : rx + .5 * edgeBounce(st, now), az = rz + (us.dz || 0) - easeBack(st);
   const blink = run && !run.over && run.shield > 0 && !run.pills && Math.floor(now / 70) % 2;
   const who = {us: {spec: us, x: bx, y: ry, z: az, show: !blink}};
   // booze: he's seeing double
@@ -918,10 +938,11 @@ function draw(st, now = performance.now()) {
   // too, and it dips, down quick and back up easier; with reduced motion it does neither: it stays on where he is)
   const fl = run ? fallOf(st, now) : null, lo = st.lagOut && !fl ? 1 - (now - st.lagOut.at) / FALL.out : 0;
   st.lag = fl ? fl.lag : lo > 0 ? st.lagOut.v * smooth(lo) : 0;
-  const dip = fl && !ui.RM ? FALL.dip * fl.k : 0;
+  const pit = run ? pitOf(st, now) : null, look = pit && !ui.RM ? smooth(clamp01(pit.s / .7)) : 0;
+  const dip = pit ? PIT.dip * look : fl && !ui.RM ? FALL.dip * fl.k : 0;
   st.dip = (st.dip || 0) + (dip - (st.dip || 0)) * Math.min(1, dt * (dip > (st.dip || 0) ? 30 : 10));
   st.camH = st.camH0 + st.lift - st.dip;
-  st.camZ = (run ? run.z : 0) - st.back - (ui.RM ? 0 : st.lag);
+  st.camZ = (run ? run.z : 0) - st.back - (ui.RM ? 0 : st.lag) + PIT.look * look;
   const z = run ? run.z : 0, t = now / 1000;
   st.t = t;
   st.lifeTime = run ? run.t : t; st.reducedMotion = ui.RM;
@@ -1138,10 +1159,14 @@ function pop(st, text, cls = '', sub = '') {
   el.className = 'rm-pop' + (cls ? ' ' + cls : '');
   if (st.run?.co.enhanced) {
     st.popAnimation?.cancel();
-    st.popAnimation = el.animate(ui.RM ? [{opacity: 1}, {opacity: 1, offset: .9}, {opacity: 0}] : [
+    const power = cls.includes('is-power');
+    st.popAnimation = el.animate(ui.RM ? [{opacity: 1}, {opacity: 1, offset: .9}, {opacity: 0}] : power ? [
+      {opacity: 0, transform: 'translateY(10px) scale(.6)'}, {opacity: 1, transform: 'translateY(0) scale(1.1)', offset: .14},
+      {opacity: 1, transform: 'translateY(-4px) scale(1)', offset: .7}, {opacity: 0, transform: 'translateY(-20px) scale(.96)'}
+    ] : [
       {opacity: 0, transform: 'translateY(14px) scale(.7)'}, {opacity: 1, transform: 'translateY(0) scale(1.08)', offset: .18},
       {opacity: 1, transform: 'translateY(-8px) scale(1)', offset: .6}, {opacity: 0, transform: 'translateY(-26px) scale(.96)'}
-    ], {duration: 2100, easing: 'ease-out', fill: 'forwards'});
+    ], {duration: power ? POWER_POP : 2100, easing: 'ease-out', fill: 'forwards'});
     return;
   }
   void el.offsetWidth;
@@ -1169,7 +1194,7 @@ function go(st) {
   st.lastTap = null; st.ptr = null;
   // (his first run here, but the board shows another of his phones ran the day's first: the end card says so)
   if (own && !coins && !k && !R.testing() && R.ranElsewhere(st.n)) st.run.elsewhere = true;
-  st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0; st.edgeAt = 0; st.fall = null; st.splash = null; st.lagOut = null; st.dip = 0;
+  st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0; st.edgeAt = 0; st.fall = null; st.pit = null; st.splash = null; st.lagOut = null; st.dip = 0;
   st.coinGot = new Set(); st.sparks = [];
   ungot(st);
   clearPickupPop(st);
@@ -1184,7 +1209,7 @@ function go(st) {
   fitScreen(st, true);
   loop(st);
 }
-function tackled(st) {
+function tackled(st, wait = 950) {
   bankCoins(st); st.lastTap = null; st.ptr = null;
   st.mode = 'tackled'; st.downAt = performance.now();
   ungot(st); clearPickupPop(st);
@@ -1197,7 +1222,7 @@ function tackled(st) {
     if (st.dead) return;
     setCard(st, true); patchBoard(st);
     if (st.flat && D3.ready()) { st.flat = false; draw(st); } // (a run in the pictures over: the 3D, in since, from now)
-  }, ui.RM ? 200 : 950);
+  }, ui.RM ? 200 : wait);
 }
 /** A power-up he's just picked up: what it is and what it does, under the HUD for a moment. */
 const GOT_MS = 3200;
@@ -1263,6 +1288,15 @@ function catchphrase(st, kind) {
   pop(st, line, `is-${kind} is-catch${owner ? ' is-quippy' : ''}`);
   return owner ? line : '';
 }
+// What a power-up is, popped up for a moment as he picks it up (Nov 24 2026, Evan: "there should be a quick pop up on the
+// screen when a power up is collected of what it is, except the Jetpack since that's self explanatory"): its name in
+// its colour, what it does under it, rising and gone in POWER_POP ms. Transform and opacity only (no layout reads).
+const POWER_POP = 1400;
+function powerPop(st, kind) {
+  if (kind === 'jetpack') return;
+  const pw = R.powerOf(kind, st.run.co.hard, st.run.co.enhanced);
+  pop(st, pw.name.toUpperCase(), `is-${kind} is-power`, pw.says);
+}
 function onEvents(st, evs) {
   const now = performance.now();
   const quiet = !!(st.run && st.run.co && st.run.co.hard), say = (...a) => { if (!quiet) pop(st, ...a); };
@@ -1290,6 +1324,7 @@ function onEvents(st, evs) {
       const pw = R.powerOf(e.kind, st.run.co.hard, st.run.co.enhanced); st.got.add(e.item.i);
       const line = quiet ? catchphrase(st, e.kind) : '';
       if (!quiet) got(st, e.kind);
+      if (st.run.co.enhanced) powerPop(st, e.kind);
       ui.haptic('success'); ui.announce(`${line ? line + '. ' : ''}${pw.name}: ${pw.is}. ${pw.does}.${st.run.co.enhanced ? ' Double points while the boost is active.' : ''}`);
     }
     else if (e.type === 'landed') st.landAt = now;
@@ -1318,6 +1353,12 @@ function onEvents(st, evs) {
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
     else if (e.type === 'tackled' || e.type === 'crashed') { fallIn(st, e, now); tackled(st); }
+    // down a pothole (the shared course): the end of the return, and its own fall (pitOf)
+    else if (e.type === 'pitfall') {
+      endFall(st, now); st.pit = {at: now, x: R.xOf(null, e.lane), z: e.row.z};
+      ui.announce(`${R.hitLine(e)}. The return is over.`);
+      tackled(st, PIT.card);
+    }
   });
 }
 function frame(st, now) {

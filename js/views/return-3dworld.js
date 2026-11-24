@@ -84,7 +84,7 @@ export function init(three, scene, utils) {
   // so coming to a new place never holds a frame up
   R.THEMES.forEach(th => { roadMat(th.id); baseMat(th.id); obstacleOf('hurdle', th.id); obstacleOf('bar', th.id); gateOf(th); });
   // (the hard course's potholes, their cones and sleds: the owner's only, so only on his phones)
-  if (features.available()) { R.THEMES.forEach(th => R.HARD_OBST.forEach(type => obstacleOf(type, th.id))); coneObj(); }
+  if (features.available()) { R.THEMES.forEach(th => R.HARD_OBST.concat(R.NEW_OBST).forEach(type => obstacleOf(type, th.id))); coneObj(); }
   ['salts', 'pills', 'booze'].forEach(itemOf);
   endzoneMat(); logoMat(); seaMat(); for (let n = 10; n <= 50; n += 10) numberMat(n);
 }
@@ -889,19 +889,84 @@ export const sceneryReady = id => models.ready(id) || models.failed(id);
 // ---------------------------------------------------------------- The barricades and banners
 const OBJ = new Map();
 function obstacleOf(type, id) {
-  const key = type + ':' + id;
+  // (the new rows built from the place's models once they're in: return-models.js obstacle; until then its own shapes)
+  const withModels = (type === 'pile' || type === 'beam') && models.ready(id), key = type + ':' + id + (withModels ? ':m' : '');
   if (OBJ.has(key)) return OBJ.get(key);
   const [a, b] = OBS[id] || OBS.stadium, g = new T.Group(), parts = new Batch();
+  g.userData.theme = id; g.userData.models = (type === 'pile' || type === 'beam') ? withModels : true;
   if (type === 'hole') {
-    // a pothole (each place's own: return-world.js HOLE_COL): its broken edge and its dark inside, flat in the road
+    // a pothole (each place's own: return-world.js HOLE_COL): its broken edge and its dark inside, flat in the road,
+    // ringed in hazard stripes with a glow round it pulsing, to see it coming (Nov 24 2026, Evan: "Make the pot holes
+    // more visible so players can identify them quicker"); it falls away into the dark (drawn deeper in the middle)
     const [rim, deep] = HOLE_COL[id] || HOLE_COL.city;
-    const m = new T.MeshLambertMaterial({transparent: true, depthWrite: false, map: texOf('hole:' + id, () => canvasTex(256, 144, (c2, w, h) => {
-      const blob = (k, col) => { c2.fillStyle = col; c2.beginPath(); for (let i = 0; i <= 24; i++) { const t = i / 24 * Math.PI * 2, q = 1 + .09 * Math.sin(3 * t) + .05 * Math.cos(5 * t); c2.lineTo(w / 2 + Math.cos(t) * q * w * .48 * k, h / 2 + Math.sin(t) * q * h * .48 * k); } c2.fill(); };
-      blob(1, rim); blob(.82, deep); blob(.52, 'rgba(0,0,0,.4)');
+    const m = new T.MeshLambertMaterial({transparent: true, depthWrite: false, map: texOf('hole2:' + id, () => canvasTex(320, 288, (c2, w, h) => {
+      const path = k => { c2.beginPath(); for (let i = 0; i <= 32; i++) { const t = i / 32 * Math.PI * 2, q = 1 + .07 * Math.sin(3 * t) + .04 * Math.cos(5 * t); c2.lineTo(w / 2 + Math.cos(t) * q * w * .48 * k, h / 2 + Math.sin(t) * q * h * .48 * k); } c2.closePath(); };
+      const blob = (k, col) => { c2.fillStyle = col; path(k); c2.fill(); };
+      // the hazard ring: yellow and black in wedges
+      c2.save(); path(1); c2.clip();
+      for (let i = 0; i < 20; i++) { c2.fillStyle = i % 2 ? '#161616' : '#FFD21F'; c2.beginPath(); c2.moveTo(w / 2, h / 2); c2.arc(w / 2, h / 2, w, i / 20 * Math.PI * 2, (i + 1) / 20 * Math.PI * 2); c2.fill(); }
+      c2.restore();
+      blob(.86, rim); blob(.74, deep);
+      const g2 = c2.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * .36);
+      g2.addColorStop(0, '#000'); g2.addColorStop(.6, 'rgba(0,0,0,.92)'); g2.addColorStop(1, 'rgba(0,0,0,.35)');
+      c2.fillStyle = g2; path(.72); c2.fill();
     }, false))});
-    const d = decal(m, 2.3, 2.1, 0, 0, 0);
+    const d = decal(m, 2.9, 2.6, 0, 0, 0);
     d.position.y = .014; d.updateMatrix(); d.userData.shared = true;
     g.add(d);
+    // the glow: an orange ring on the road round it, pulsing (the world's update: userData.pulse)
+    const ring = new T.Mesh(new T.RingGeometry(1.5, 1.75, 40), texOf('m:holeglow', () => new T.MeshBasicMaterial({color: 0xFF7A1A, transparent: true, opacity: .55, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false})));
+    ring.rotation.x = -Math.PI / 2; ring.scale.set(1, 1.05, 1); ring.position.y = .02; ring.userData.shared = true; ring.userData.pulse = true;
+    g.add(ring);
+    OBJ.set(key, g);
+    return g;
+  }
+  if (type === 'pile' || type === 'beam') {
+    const lit = new Batch();
+    if (!withModels || !models.obstacle(parts, lit, type, id)) {
+      parts.n = 0; lit.n = 0;
+      if (type === 'pile') {
+        // equipment trunks in the place's colours, metal at the corners and a band round each (no models: the stadium)
+        [-.66, .66].forEach((x, i) => {
+          const h = i ? .92 : 1;
+          parts.add('box', i ? b : a, x, h / 2, 0, 1.18, h, .95);
+          parts.add('box', '#2B2F36', x, h * .62, 0, 1.2, .1, .97);
+          [-.55, .55].forEach(e => parts.add('box', '#B9C0CA', x + e, h / 2, -.46, .1, h, .06));
+          parts.add('box', '#E9EDF1', x, h + .02, 0, 1.08, .04, .85);
+        });
+      } else {
+        // hanging tackling dummies: a frame over the lane, three dummies hung from it in the place's colours, their feet
+        // at his chest (go under them)
+        [-1.35, 1.35].forEach(x => parts.add('box', '#2B2F36', x, 1.2, 0, .14, 2.4, .14));
+        parts.add('box', '#2B2F36', 0, 2.36, 0, 2.84, .12, .14);
+        [-.82, 0, .82].forEach((x, i) => {
+          parts.add('cyl', '#8E98A4', x, 2.15, 0, .03, .3, .03);
+          parts.add('cyl', i % 2 ? b : a, x, 1.5, 0, .3, 1, .3);
+          parts.add('cyl', i % 2 ? a : b, x, 1.62, 0, .31, .12, .31);
+          parts.add('cyl', '#2B2F36', x, 1.04, 0, .31, .08, .31);
+        });
+      }
+    }
+    const pm = parts.mesh(mats().vcs); if (pm) { pm.castShadow = true; g.add(pm); }
+    const lm = lit.mesh(mats().glow); if (lm) g.add(lm);
+    OBJ.set(key, g);
+    return g;
+  }
+  if (type === 'gate') {
+    // a boom gate: two posts in hazard stripes, two red and white arms (the low one at his chest: go under), a red lamp
+    // blinking on each post
+    [-1.32, 1.32].forEach(x => {
+      parts.add('box', '#2B2F36', x, .06, 0, .5, .12, .5);
+      for (let k = 0; k < 5; k++) parts.add('box', k % 2 ? '#161616' : '#FFD21F', x, .12 + k * .36 + .18, 0, .2, .36, .2);
+    });
+    const arm = new T.MeshLambertMaterial({map: texOf('boom', () => canvasTex(256, 32, (c2, w, h) => {
+      c2.fillStyle = '#FFFFFF'; c2.fillRect(0, 0, w, h); c2.fillStyle = '#D7262E';
+      for (let x = 0; x < w; x += 64) c2.fillRect(x, 0, 32, h);
+    }, false))});
+    [[1.1, .24], [1.62, .2]].forEach(([y, hh]) => { const m = new T.Mesh(new T.BoxGeometry(2.7, hh, .12), arm); m.position.set(0, y, 0); m.castShadow = true; m.userData.shared = true; g.add(m); });
+    const lamp = new T.Mesh(new T.SphereGeometry(.1, 10, 8), new T.MeshBasicMaterial({color: 0xFF3030, toneMapped: false}));
+    [-1.32, 1.32].forEach(x => { const l = lamp.clone(); l.position.set(x, 1.97, 0); l.userData.blink = true; g.add(l); });
+    const pm = parts.mesh(mats().vcs); pm.castShadow = true; g.add(pm);
     OBJ.set(key, g);
     return g;
   }
@@ -962,6 +1027,10 @@ function coneObj() {
   geo.computeBoundingSphere();
   const m = new T.Mesh(geo, new T.MeshStandardMaterial({vertexColors: true, roughness: .45, metalness: 0, emissive: 0xFF5A10, emissiveIntensity: .18}));
   m.castShadow = true; m.receiveShadow = true; m.userData.shared = true;
+  // a warning lamp on its tip, flashing amber (Nov 24 2026: the potholes easier to see coming)
+  const lamp = new T.Mesh(new T.SphereGeometry(.09, 10, 8), new T.MeshBasicMaterial({color: 0xFFB020, toneMapped: false}));
+  lamp.position.y = H + .05; lamp.userData.blink = true; lamp.userData.shared = true;
+  m.add(lamp);
   OBJ.set('cone', m);
   return m;
 }
@@ -1409,14 +1478,17 @@ export function update(st, now) {
     // the barricades and banners (knocked flying after a hit)
     A.rows.forEach(({row, d}) => row.lanes.forEach((type, l) => {
       if (!type) return;
-      const z = run.z + d, id = R.zoneAt(st.co, z).theme.id, o = keep(`r:${key}|${row.i}|${l}`, () => { const g = obstacleOf(type, id).clone(); g.position.set(R.xOf(null, l), 0, -z); return g; });
+      const z = run.z + d, id = R.zoneAt(st.co, z).theme.id, o = keep(`r:${key}|${row.i}|${l}`, () => { const g = obstacleOf(type, id).clone(); g.position.set(R.xOf(null, l), 0, -z); g.userData.z0 = z; return g; });
       const kn = type !== 'hole' && st.knocked && st.knocked.get(`${row.i}:${l}`), k = kn ? Math.min(1, (now - kn.at) / 650) : 0;
       if (o) {
         const side = l === 0 ? -1 : 1;
         o.position.set(R.xOf(null, l) + side * k * 4.5, Math.max(0, 3.2 * k - 4 * k * k), -z);
         o.rotation.set(-k * 2, 0, -side * k * 1.3);
         o.visible = k < 1;
-        o.children.forEach(ch => { if (ch.userData.blink) ch.visible = Math.floor(t * 2.5) % 2 === 0; });
+        o.children.forEach(ch => {
+          if (ch.userData.blink) ch.visible = Math.floor(t * 2.5) % 2 === 0;
+          if (ch.userData.pulse) ch.material.opacity = st.reducedMotion ? .55 : .35 + .35 * (.5 + .5 * Math.sin(t * 7));
+        });
       }
       // a pothole's cone, just before it (core CONE): kicked on ahead, tumbling off to the side, when he ran through it
       if (type === 'hole') {
@@ -1427,6 +1499,7 @@ export function update(st, now) {
           c.position.set(R.xOf(null, l) + f.x, f.y, -(R.coneZ(row) + f.z));
           c.rotation.set(f.rx, f.ry, -f.rz);
           c.visible = u < 1;
+          if (c.children[0]) c.children[0].visible = !kc && Math.floor(t * 4) % 2 === 0;
         }
       }
     }));
