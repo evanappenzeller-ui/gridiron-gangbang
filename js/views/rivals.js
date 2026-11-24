@@ -394,15 +394,12 @@ function readLens() {
   try { const v = localStorage.getItem(LENS_KEY); return motw.LENSES.some(l => l.id === v) ? v : 'overall'; } catch (_) { return 'overall'; }
 }
 function saveLens(v) { try { localStorage.setItem(LENS_KEY, v); } catch (_) {} }
-const SHOWN = 3;
 const recOf = x => x.rank ? `#${x.rank} · ${data.recStr(x.w, x.l, x.t)}` : 'No games yet';
 
 function mcSide(id, x, side, size) {
   return `<span class="rv-mc-side ${side}">${ui.avatar(id, {size, you: id === data.me()})}`
     + `<span class="rv-mc-txt"><span class="rv-mc-n">${esc(nm(id))}</span><span class="rv-mc-r">${esc(recOf(x))}</span></span></span>`;
 }
-// Your vote and the leader always show, even beyond the top 3.
-const keepRow = (key, vm) => !!vm && (vm.mine === key || (vm.total > 0 && vm.leader === key));
 // The decided game's banner: GAME OF THE WEEK in gold lights.
 function gotwHTML() {
   return `<span class="rv-gotw" aria-hidden="true"><span class="rv-gotw-mid"><span class="rv-gotw-t">Game of the Week</span></span></span>`;
@@ -421,7 +418,7 @@ function mcRow(c, vm, res) {
   const top = c.place === 1;
   const label = `${c.place}. ${nm(c.a)} versus ${nm(c.b)}. Hype ${c.hype}.${c.tags.length ? ' ' + c.tags.join('. ') + '.' : ''} Show this rivalry`;
   const gotw = !!vm && gotwKey(vm, res) === key;
-  const cls = `rv-mc${top ? ' is-top' : ''}${gotw ? ' is-gotw' : ''}${c.place > SHOWN && !keepRow(key, vm) ? ' is-more' : ''}${vm && vm.mine === key ? ' is-voted' : ''}${vm && vm.locked && vm.leader === key ? ' is-lead' : ''}`;
+  const cls = `rv-mc${top ? ' is-top' : ''}${gotw ? ' is-gotw' : ''}${vm && vm.mine === key ? ' is-voted' : ''}${vm && vm.locked && vm.leader === key ? ' is-lead' : ''}`;
   return `<li class="${cls}" data-key="${esc(key)}">`
     + `<button type="button" class="rv-mc-hit" data-motw="${esc(key)}" aria-label="${esc(label)}"></button>`
     + (gotw ? gotwHTML() : '')
@@ -438,14 +435,13 @@ function motwHTML(lens) {
   const res = motw.candidates(lens);
   if (!res || !res.list.length) return '';
   const vm = voteModel();
-  const more = res.list.length > SHOWN;
   return `<section class="rv-motw" id="rv-motw" data-enter aria-labelledby="rv-motw-h">`
     + `<div class="rv-motw-head"><h2 class="t-2" id="rv-motw-h">Matchup of the Week</h2><span class="ovl rv-motw-wk">Week ${res.week}</span></div>`
     + ui.seg({name: 'motw-lens', items: motw.LENSES, value: res.lens, small: true, label: 'Rank by', cls: 'rv-motw-seg'})
     + `<div class="card rv-motw-card">${vm ? `<div class="rv-vt-sw">${vtStatusHTML(vm)}</div>` : ''}`
     + `<ol class="rv-motw-list" aria-label="${esc(`Week ${res.week} games, best first`)}">${motwRows(res, vm)}</ol>`
     + `<div class="rv-motw-foot">`
-    + (more ? ui.button({label: `Show all ${res.list.length}`, kind: 'plain', size: 's', attrs: {'data-motw-more': '', 'aria-expanded': 'false'}}) : '<span></span>')
+    + '<span></span>' // (every game shows: no Show all, Nov 24 2026)
     + ui.button({label: shareLabel(vm), kind: 'secondary', size: 's', icon: 'share', attrs: {'data-motw-share': ''}})
     + `</div></div></section>`;
 }
@@ -459,7 +455,6 @@ function patchMotw(animate) {
     const wrap = st.el.querySelector('.rv-week');
     if (res && res.list.length && wrap) {
       wrap.insertAdjacentHTML('afterbegin', motwHTML(st.lens));
-      if (st.all) toggleMore(true);
       syncH2hTitle();
     }
     return;
@@ -472,20 +467,6 @@ function patchMotw(animate) {
   const put = () => { list.innerHTML = motwRows(res, vm); };
   if (animate) ui.flip(list, put); else put();
   patchVotes({animate: false});
-}
-function toggleMore(on) {
-  const sec = st && st.el.querySelector('.rv-motw');
-  if (!sec) return;
-  st.all = on;
-  sec.classList.toggle('is-all', on);
-  const b = sec.querySelector('[data-motw-more]');
-  if (b) {
-    const n = sec.querySelectorAll('.rv-mc').length;
-    b.setAttribute('aria-expanded', String(on));
-    const lab = b.querySelector('.btn-label');
-    if (lab) lab.textContent = on ? 'Show fewer' : `Show all ${n}`;
-  }
-  if (on) sec.querySelectorAll('.rv-mc.is-more').forEach(li => ui.animate(li, [{opacity: 0, transform: 'translateY(-6px)'}, {opacity: 1, transform: 'none'}], {duration: 220, easing: 'ease-out'}));
 }
 // Scroll so el sits just under the nav bar.
 function scrollUnder(el, gap = 8, behavior) {
@@ -572,10 +553,6 @@ function patchVotes({animate = false, pop = null} = {}) {
     morphInto(box, vtLine(key, vm));
     li.classList.toggle('is-voted', vm.mine === key);
     li.classList.toggle('is-lead', vm.locked && vm.leader === key);
-    if (li.classList.contains('is-more') && keepRow(key, vm)) {
-      li.classList.remove('is-more'); // never re-hidden here: a row you just tapped never vanishes under you
-      if (animate) ui.animate(li, [{opacity: 0, transform: 'translateY(-6px)'}, {opacity: 1, transform: 'none'}], {duration: 220, easing: 'ease-out'});
-    }
     const ni = box.querySelector('.rv-vt-bar > i');
     const now = ni ? parseFloat(ni.dataset.share) || 0 : 0;
     if (animate && ni && Math.abs(now - old) > 1e-6) ui.animate(ni, [{transform: `scaleX(${old})`}, {transform: `scaleX(${now})`}], {spring: 'smooth'});
@@ -1591,7 +1568,7 @@ function chooseOpp(id) {
 }
 
 function onClick(e) {
-  const t = e.target.closest && e.target.closest('[data-rv-mode], [data-swap], [data-pick], [data-opp], [data-motw], [data-motw-more], [data-motw-share], '
+  const t = e.target.closest && e.target.closest('[data-rv-mode], [data-swap], [data-pick], [data-opp], [data-motw], [data-motw-share], '
     + '[data-vote], [data-vt-who], [data-past-more]');
   if (!t || !st) return;
   // (the embedded Press Room handles its own taps)
@@ -1601,7 +1578,6 @@ function onClick(e) {
   else if (t.hasAttribute('data-vt-who')) openWeekSheet('votes', t.dataset.vtWho);
   else if (t.hasAttribute('data-past-more')) { ui.haptic('light'); togglePast(); }
   else if (t.hasAttribute('data-motw')) chooseMotw(t.dataset.motw);
-  else if (t.hasAttribute('data-motw-more')) { ui.haptic('light'); toggleMore(!st.all); }
   else if (t.hasAttribute('data-motw-share')) shareMotw();
   else if (t.hasAttribute('data-swap')) swap();
   else if (t.hasAttribute('data-pick')) {

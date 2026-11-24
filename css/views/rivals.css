@@ -245,8 +245,6 @@
   content: ""; position: absolute; left: 44px; right: 0; top: 0; height: .5px;
   background: var(--separator); pointer-events: none;
 }
-.v-rivals .rv-mc.is-more { display: none; }
-.v-rivals .rv-motw.is-all .rv-mc.is-more { display: grid; }
 .v-rivals .rv-mc-hit {
   position: absolute; inset: 0; width: 100%;
   background-color: transparent;

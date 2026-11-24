@@ -1,5 +1,12 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Matchup of the Week: every game shows (November 24, 2026)
+
+Evan: "Show all matchup of the week options to vote on without a 'show more' button." Everyone. `views/rivals.js`
+`motwHTML`/`mcRow` list every game of the week in the vote card (no `SHOWN` cut-off, no `is-more` rows, no Show all /
+Show fewer button, `toggleMore` and `keepRow` gone); the foot keeps the share button. Past Matchups of the Week keep
+their own Show all. Verify `node tools/matchup/check-tabs.cjs` and the Matchup kit checks.
+
 ## Happy Meal times set the draft order (November 24, 2026)
 
 Evan, with his note "Happy Meal Times/Draft Order" (Aug 23 2026): "The videos in the media of league members eating happy
