@@ -1,5 +1,27 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Media Room: every video on its own disc (November 24, 2026)
+
+Evan: "Create a new disc on the Home Screen for the media room. This should include all the videos in the app from the happy
+meal challenge to the weekly press conferences. Make this look like a Netflix or HBO app. You can leave the press conference
+videos in the matchup tab, but get rid of the media archive section since this will be replacing it." Everyone. A Media Room
+case is last on the Home shelf (`views/games.js` `GAMES` id `media`, LASTING like Keepfall: no board, no flip control, its
+printed back the booklet's lineup, NEW until December 8, 2026, Watch in place of Start); cover, booklet and disc are drawn from
+the videos' own posters by `tools/media/case-art.cjs` (`img/games/media-{cover,book,disc}-v1.webp`; a changed design gets a new
+version). It opens `#/puzzles/media` (`views/media.js`, `chrome: 'none'`, `css/views/media.css`, dark whatever the theme): its
+own bar (Back, the MEDIA ROOM wordmark, clear over the billboard and solid once scrolled) over All · Press Conferences · Happy
+Meals (`gg-media-filter`); the billboard (newest presser, or the 1st pick's Happy Meal) with Play/Resume and Info; All has
+Continue Watching, Press Conferences (newest first, the week 7 no-show among them), The Happy Meal Challenge (Top-10 style, the
+draft pick in big numerals, in draft order), the season week by week and the 2026 Draft Order card; the other filters list every
+episode. A poster opens its title page (a dark sheet): the app's own player (play/pause, 10 s back/on, slider, time, full
+screen; YouTube's for a presser with only a link), Play/Resume/Start over, the story, Starring, From the Press (the questions,
+read only) or The Times, and More Episodes (tap plays). Where each video got to is kept per profile on the phone
+(`core/media.js` `gg-media-watch:<member id | visitor>`, never posted); closing, hiding or leaving stops the video. League ›
+Media is gone (`league-media.js` removed, its `mealsOf`/`draftOf` now in `core/media.js`; `#/league/media` redirects to the
+Media Room); the Press Room and Matchup's Press tab keep the pressers. Verify `node tools/media/check-media-room.cjs` (optional
+`--shots=<dir>`), the Media kit check, `tools/press/check-no-questions.cjs`, `tools/nav/check-swipe-back.cjs` and the home and
+case-flip checks.
+
 ## Matchup of the Week: every game shows (November 24, 2026)
 
 Evan: "Show all matchup of the week options to vote on without a 'show more' button." Everyone. `views/rivals.js`
@@ -14,9 +36,9 @@ meals was how we determined the draft order. Here are the times." Everyone. `dat
 [{who, pick, raw, adj: [[seconds, why]], time, note?}]}) holds each manager's video time, penalties (+) and credits (-)
 and the time that counted; `pick` is the 2026 draft's first-round pick, which matches the times and breaks the Dresden-Ben
 tie at 3:03 (Dresden 7, Ben 8). Evan's own note lists a 3 s unwrapping credit but the same 2:48, so his row keeps 2:48
-with that note. League › Media (`views/league-media.js` `draftOf`, `draftHTML`) leads the Happy Meals with a "2026 draft
-order" card (pick, manager, raw time and adjustments, time; your row highlighted) and shows the videos in draft order,
-each with "Nth pick · time" under the name (`press.js` `clipHTML`'s `note`; the shared Jackson & Jacob video "Picks 11 & 12").
+with that note. The Media Room (`core/media.js` `draftOf`, `views/media.js` `draftHTML`; League › Media until Nov 24 2026)
+shows a "2026 Draft Order" card (pick, manager, raw time and adjustments, time; your row highlighted) and the Happy Meals in
+draft order, each with "Nth pick · time" (the shared Jackson & Jacob video "Picks 11 & 12").
 The Media kit check validates every manager once, picks 1..n, raw + adjustments = time and fastest first.
 
 ## Swipe back on pushed screens (November 24, 2026)
@@ -286,7 +308,7 @@ The kit check "Press Room: Drive first…" covers `file`; the seed-file check va
 League › Media's Happy Meals use the same player (Nov 12 2026, Evan: "apply this to the videos in the media archive in
 the league tab and find out why mitch's video isn't playing"): each `data/media.json` entry's `file`
 (`video/media/hm-<who>-v1.mp4` + `.jpg`, same encode, never upscaled, so the 124–320 px phone clips stay small; 155 MB for
-all 11) goes through `views/league-media.js` `mealsOf` and `press.js` `clipHTML`; `FILE_RE` allows video/press/ and
+all 11) goes through `core/media.js` `mealsOf` and, since Nov 24 2026, the Media Room's own player; `FILE_RE` allows video/press/ and
 video/media/. Mitch's (IMG_1894) and Jayton's (IMG_7211) Happy Meals were shared with Evan alone, so Drive asked everyone
 else to sign in; with his OK both are now "anyone with the link can view" like the rest. The Media kit check requires a
 valid `file` on every entry.
@@ -294,7 +316,8 @@ Name tags (Nov 12 2026, Evan: "Just put the persons name above their happy meal 
 else in the app"): `clipHTML`'s `tag` (the entry's manager ids) puts the presser cards' manager tag (`.c-press-mgr`: the
 colored initials avatar, your own ringed, then the name; two avatars stacked and "Jackson & Jacob" for the shared one) above
 the video in place of the "X's Happy Meal" title. The Happy Meals are a grid (`.md-grid` in `hall.css`: two columns, three
-from 600 px, cells bottom-aligned so wrapped names don't stagger the videos); a playing one takes the whole row.
+from 600 px, cells bottom-aligned so wrapped names don't stagger the videos); a playing one takes the whole row. (Retired with
+League › Media on Nov 24 2026: `clipHTML` and `.md-*` are gone; the Media Room, top of this file, shows the Happy Meals.)
 
 ## Press Room: ask the manager (November 11, 2026)
 

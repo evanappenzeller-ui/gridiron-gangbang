@@ -1,5 +1,5 @@
-// League tab root (#/league/standings, #/league/trophies, #/league/records[/<focus>], #/league/shame[?y=<year>],
-// #/league/media: the video archive, league-media.js):
+// League tab root (#/league/standings, #/league/trophies, #/league/records[/<focus>], #/league/shame[?y=<year>]; the old
+// #/league/media archive is the Media Room now, views/media.js, Nov 24 2026):
 // the large title "League" (your avatar button trailing: app.js opens the You sheet on a [data-you] tap and redraws it
 // after a 'me' change) over a segmented control Standings · Trophies · Records · Shame. The segments live in standings.js,
 // hall-trophies.js, hall-records.js (Record of the day on top) and hall-shame.js: {render, mount, unmount} plus
@@ -17,11 +17,10 @@ import * as standings from './standings.js';
 import * as trophies from './hall-trophies.js';
 import * as records from './hall-records.js';
 import * as shame from './hall-shame.js';
-import * as media from './league-media.js';
 
-const SEGS = {standings, trophies, records, shame, media};
-const SEG_IDS = ['standings', 'trophies', 'records', 'shame', 'media'];
-const SEG_ITEMS = [{id: 'standings', label: 'Standings'}, {id: 'trophies', label: 'Trophies'}, {id: 'records', label: 'Records'}, {id: 'shame', label: 'Shame'}, {id: 'media', label: 'Media'}];
+const SEGS = {standings, trophies, records, shame};
+const SEG_IDS = ['standings', 'trophies', 'records', 'shame'];
+const SEG_ITEMS = [{id: 'standings', label: 'Standings'}, {id: 'trophies', label: 'Trophies'}, {id: 'records', label: 'Records'}, {id: 'shame', label: 'Shame'}];
 /** Canonical path of a segment's plain route. */
 export const segPath = seg => '/league/' + (SEG_IDS.includes(seg) ? seg : 'standings');
 

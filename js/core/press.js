@@ -126,7 +126,7 @@ export const driveViewURL = id => `https://drive.google.com/file/d/${id}/view`;
 
 // Videos in the app itself (Nov 12 2026, the owner: "There's too much on the screen when the video plays. Add a pause and
 // play button with a slider that moves throughout the video"). A seeded presser may carry `file`: an H.264 MP4 under
-// video/press/ (League › Media's Happy Meals: video/media/) (faststart, made from the Drive original) with a same-named .jpg poster beside it. It wins over Drive and
+// video/press/ (the Media Room's Happy Meals: video/media/) (faststart, made from the Drive original) with a same-named .jpg poster beside it. It wins over Drive and
 // YouTube and plays in the app's own player (views/press.js: just play/pause and a progress slider). Only the seed file
 // carries files.
 export const FILE_RE = /^video\/(?:press|media)\/[a-z0-9][a-z0-9-]*\.mp4$/;

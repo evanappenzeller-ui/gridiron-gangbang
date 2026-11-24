@@ -294,13 +294,15 @@ export async function pressChecks(check) {
     return {pass: shape && counts && hasSeed, detail: `payload shared ${shape}; subscribers ${st0.subscribers} -> ${mid.subscribers} -> ${st1.subscribers}; seed ${want.join(' ') || 'ignored/empty'} in the list ${hasSeed}`};
   });
 
-  // 8b. League › Media (Nov 11 2026): data/media.json's Happy Meals, every entry a manager's (or two) Drive file, keys
-  // unique; League's segments include Media.
-  check('League › Media: data/media.json lists every Happy Meal as a valid Drive file of known managers, keys unique, and the draft order their times set; the League control has Media', async () => {
-    const [res, mod, lg] = await Promise.all([
+  // 8b. The Media Room (League › Media until Nov 24 2026): data/media.json's Happy Meals, every entry a manager's (or
+  // two) Drive file, keys unique; the Media Room's case on the shelf and its route, League's old Media link sent there.
+  check('Media Room: data/media.json lists every Happy Meal as a valid Drive file of known managers, keys unique, and the draft order their times set; its case opens #/puzzles/media and League has no Media segment', async () => {
+    const [res, mod, lg, gm, mv] = await Promise.all([
       fetch(new URL('../../data/media.json', import.meta.url).href, {cache: 'no-cache'}),
-      import('../views/league-media.js'),
-      import('../views/league.js')
+      import('./media.js'),
+      import('../views/league.js'),
+      import('../views/games.js'),
+      import('../views/media.js')
     ]);
     if (!res.ok) return {pass: false, detail: 'HTTP ' + res.status};
     const j = await res.json();
@@ -312,7 +314,11 @@ export async function pressChecks(check) {
     // Nov 12 2026: every Happy Meal plays from the app (video/media/…mp4), its Drive file kept as the record.
     const files = raw.every(m => typeof m.file === 'string' && kept.some(k => k.key === m.key && k.file === m.file))
       && mod.mealsOf({happyMeals: [{key: 'z', who: ['ben'], drive: '1RxzyQ7M2mTpNHELvjReHhDBUvIIsZzIp', file: '../x.mp4'}]})[0].file === null;
-    const seg = lg.segPath('media') === '/league/media';
+    const seg = lg.segPath('media') === '/league/standings' && gm.gamePath('media') === '/puzzles/media'
+      && gm.GAMES.some(g => g.id === 'media' && g.art && g.book && g.disc) && gm.gamesFor(null).some(g => g.id === 'media');
+    // every Happy Meal in the Media Room, in draft order (the shared video by its first pick)
+    const cat = mv.__dev.catalogue({list: [], meals: kept, draft: mod.draftOf(j)});
+    const room = cat.meals.length === kept.length && cat.meals.every((x, i) => !i || x.pick >= cat.meals[i - 1].pick) && cat.meals[0].pick === 1;
     const junk = mod.mealsOf({happyMeals: [{key: 'x', who: ['nobody'], drive: '1RxzyQ7M2mTpNHELvjReHhDBUvIIsZzIp'}, {key: 'y', who: ['ben'], drive: 'short'}]}).length === 0;
     // Nov 24 2026: the draft order the Happy Meals set: every manager once, picks 1..n, each time its raw time plus its
     // penalties and credits, and the fastest picking first (ties in the draft's own order).
@@ -322,8 +328,8 @@ export async function pressChecks(check) {
       && dt.every((t, i) => t.pick === i + 1) && dt.every(t => t.note || sec(t.raw) + t.adj.reduce((x, a) => x + a[0], 0) === sec(t.time))
       && dt.every((t, i) => !i || sec(t.time) >= sec(dt[i - 1].time))
       && (j.draft.times || []).length === dt.length;
-    const pass = raw.length > 0 && kept.length === raw.length && keys.size === raw.length && allWho && tall && files && seg && junk && draftOk;
-    return {pass, detail: `${kept.length}/${raw.length} kept; keys unique ${keys.size === raw.length}; managers ${allWho}; tall ${tall}; app files ${files}; segment ${seg}; junk dropped ${junk}; draft order ${draftOk} (${dt.map(t => `${t.pick}. ${data.name(t.who)} ${t.time}`).join(', ')})`};
+    const pass = raw.length > 0 && kept.length === raw.length && keys.size === raw.length && allWho && tall && files && seg && room && junk && draftOk;
+    return {pass, detail: `${kept.length}/${raw.length} kept; keys unique ${keys.size === raw.length}; managers ${allWho}; tall ${tall}; app files ${files}; case and route ${seg}; Media Room in draft order ${room}; junk dropped ${junk}; draft order ${draftOk} (${dt.map(t => `${t.pick}. ${data.name(t.who)} ${t.time}`).join(', ')})`};
   });
 
   // 9. Seed file

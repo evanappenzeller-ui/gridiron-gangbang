@@ -66,6 +66,7 @@ export const REGISTRY = {
   'realm-replay': () => import('./views/realm-replay.js'),
   'realm-visit': () => import('./views/realm-visit.js'),
   dynasty: () => import('./views/dynasty.js'),
+  media: () => import('./views/media.js'),
   'dynasty-battle': () => import('./views/dynasty-battle.js'),
   _kit: () => import('./views/_kit.js')
 };
@@ -90,7 +91,7 @@ const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup
 // Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
 const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
 const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays', 'stats', 'connections', 'numbers']; // every day's steps are some of these (daily.SLUGS)
-const LEAGUE_SEGS = ['standings', 'trophies', 'records', 'shame', 'media'];
+const LEAGUE_SEGS = ['standings', 'trophies', 'records', 'shame'];
 const BAD_LINK = "That link didn't lead anywhere.";
 const isKeepRoute = r => !!r && ['realm', 'realm-raid', 'realm-scout', 'realm-replay', 'realm-visit'].includes(r.view);
 // "evan-vs-mason" → {a, b} (strings, not validated: the Matchup view checks them), else null.
@@ -125,6 +126,8 @@ function matchSegs(p, q) {
       if (n === 2 && b === 'dynasty') return dynastyOpen() ? R('dynasty', 'push', 'puzzles') : {redirect: '/puzzles', query: false};
       if (n === 4 && b === 'dynasty' && c === 'battle' && /^[a-z0-9]{4,24}$/.test(d || '')) return dynastyOpen() ? {...R('dynasty-battle', 'cover', 'puzzles', {id: d}), base: '/puzzles/dynasty'} : {redirect: '/puzzles', query: false};
       if (n === 2 && b === 'keep') return available() ? R('realm', 'push', 'puzzles') : {redirect: '/puzzles', query: false};
+      // The Media Room (views/media.js, Nov 24 2026): every video in the app, from its case on the Home shelf.
+      if (n === 2 && b === 'media') return R('media', 'push', 'puzzles');
       return null;
     case 'pickem':
       // NFL Pick'em (optional ?week=N) is a tab root now: links to it switch to the tab.
@@ -139,6 +142,8 @@ function matchSegs(p, q) {
       // One root with a segmented control: Standings · Trophies · Records · Shame (?y= on Shame).
       if (n === 1) return {redirect: '/league/standings'};
       if (n === 2 && LEAGUE_SEGS.includes(b)) return R(TAB_VIEW.league, 'root', 'league', {seg: b});
+      // League › Media's old link: the Media Room replaced it (Nov 24 2026).
+      if (n === 2 && b === 'media') return {redirect: '/puzzles/media', query: false};
       if (n === 3 && b === 'records') return R(TAB_VIEW.league, 'root', 'league', {seg: 'records', focus: c});
       return null;
     case 'draft': {

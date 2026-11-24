@@ -44,13 +44,17 @@ export const GAMES = [
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover-v2.webp', book: 'img/games/drill-book.webp', disc: 'img/games/drill-disc.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover-v3.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
   {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-man-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in'},
-  {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'}
+  {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'},
+  // (the Media Room, Nov 24 2026, Evan: "Create a new disc on the Home Screen for the media room": every video in the app,
+  // the press conferences and the Happy Meals, in views/media.js; it replaced League › Media. Last on the shelf, so a swipe
+  // back from Daily Puzzles comes to it; NEW on its band for two weeks)
+  {id: 'media', name: 'Media Room', title: 'Media Room', art: 'img/games/media-cover-v1.webp', book: 'img/games/media-book-v1.webp', disc: 'img/games/media-disc-v1.webp', fresh: '2026-12-08', watch: true}
 ];
 // The games that go on with no day's final, countdown or board (Keepfall, Gridiron Dynasty): a printed back on their
 // case, never IN PROGRESS.
-const LASTING = ['keep', 'dynasty'];
+const LASTING = ['keep', 'dynasty', 'media'];
 // Bottom controls stay inside the existing case footprint. Preserve other profiles' shelf.
-const caseControls = g => g.id !== 'dynasty' && data.isOwner();
+const caseControls = g => g.id !== 'dynasty' && g.id !== 'media' && data.isOwner();
 // The room under the shelf a case flip button needs (it sits 8px under the case and is 28px tall).
 const CASE_CONTROL_ROOM = 22;
 const byId = id => GAMES.find(g => g.id === id);
@@ -287,7 +291,11 @@ function dynastyState() {
   const n = features.rivalsVersus() ? safeN(() => dynastyWaiting()) : 0;
   return {kind: ui.lsGet('gg-dynasty-seen') === '1' ? 'started' : 'new', sticker: n ? 'YOUR MOVE' : ''};
 }
-const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState, keep: keepState, dynasty: dynastyState};
+// The Media Room: nothing to finish, no board; its case never plays anything by itself.
+function mediaState() {
+  return {kind: ui.lsGet('gg-media-seen') === '1' ? 'started' : 'new', go: 'Watch'};
+}
+const STATE = {media: mediaState, puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState, keep: keepState, dynasty: dynastyState};
 
 // ============================================================================ The cases
 // The list is a shelf of game cases (the owner's ask, Oct 2026, after a console's shelf of box art): you swipe along
@@ -295,7 +303,7 @@ const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState,
 // band across its top and the game's cover under it (the owner's art). Played today, a case turns round:
 // its back is the leaderboard. Tap the back and it comes up close, Today's and the Season's to switch between.
 // ACCENT: each game's colour on its back (the tag, the switch), out of its cover.
-const ACCENT = {puzzles: '#B5452F', '17-0': '#A0721F', drill: '#D23B2F', kick: '#C9A227', return: '#A31F34', keep: '#AEB9BD', dynasty: '#3FA9F5'};
+const ACCENT = {puzzles: '#B5452F', '17-0': '#A0721F', drill: '#D23B2F', kick: '#C9A227', return: '#A31F34', keep: '#AEB9BD', dynasty: '#3FA9F5', media: '#E3342F'};
 // The band: the name in the middle, a BETA tag at its left end for a game still being worked on, a tag or the close
 // button at its right.
 /** Whether a game is still just released (its fresh day not yet come). */
@@ -395,9 +403,16 @@ function dynastyBackHTML(g, up = false) {
     <span class="gm-keep-print gm-dy-print"><img src="img/games/dynasty-back-v2.webp" alt="Every pack, a new rivalry: three jersey cards bursting from a pack, and the Open, Collect and Compete panels" decoding="async" draggable="false"></span>${up ? GLOSS : ''}
   </div>`;
 }
+/** The Media Room's printed back: the booklet's lineup (its own art, tools/media/case-art.cjs) under the band. */
+function mediaBackHTML(g, up = false) {
+  return `<div class="gm-face gm-back gm-keep-back gm-dy-back${up ? ' gm-z-back' : ''}">${bandHTML('', g)}
+    <span class="gm-keep-print gm-dy-print"><img src="${g.book}" alt="Tonight's lineup on the Media Room: press conferences, the Happy Meal Challenge, continue watching and the draft order" decoding="async" draggable="false"></span>${up ? GLOSS : ''}
+  </div>`;
+}
 /** Keepfall has a printed back in every play state, never a league scoreboard (Gridiron Dynasty its own). */
 function keepBackHTML(g, up = false) {
   if (g.id === 'dynasty') return dynastyBackHTML(g, up);
+  if (g.id === 'media') return mediaBackHTML(g, up);
   return `<div class="gm-face gm-back gm-keep-back${up ? ' gm-z-back' : ''}">${bandHTML()}
     <span class="gm-keep-print">
       <span class="gm-keep-hero"><img src="${g.book}" alt="" decoding="async" draggable="false">
@@ -414,7 +429,7 @@ const caseLabel = (g, s) => {
   const name = `${g.name}${g.beta ? ' (beta)' : isFresh(g) ? ' (new)' : ''}`;
   if (s.kind === 'coming-soon') return `${name}: Coming Soon`;
   if (s.kind === 'done') return `${name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard`;
-  return `${name}${s.kind === 'started' && !LASTING.includes(g.id) ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
+  return `${name}${s.kind === 'started' && !LASTING.includes(g.id) ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : g.watch ? '. Open the case to watch' : '. Open the case to play'}`;
 };
 /** A case's faces: its front, and its back when it has one (a game finished; one that turns before it's played). */
 const facesHTML = (g, s) => sidesHTML(g) + frontHTML(g, s) + (isKeepCase(g) ? keepBackHTML(g) : s.kind === 'done' || s.turns ? backHTML(g, s) : '');
@@ -736,7 +751,7 @@ export function mountList(el, ctx, opts = {}) {
   // whole board, its front the cover; turned to the front it opens, the disc inside. play: a game not played yet, to
   // start: it comes up facing front (no back to turn to) and opens, Start in the tray's top right over the disc.
   // The owner's launch control sits directly below the case, at full touch size even when the case scales.
-  const goLabel = s => (s.kind === 'started' ? 'Continue' : 'Start');
+  const goLabel = s => s.go || (s.kind === 'started' ? 'Continue' : 'Start');
   const ownerGoHTML = (g, s) => `<button type="button" class="gm-z-go" data-gm-zgo disabled aria-label="${esc(`${goLabel(s)}: ${g.name}`)}">`
     + `${ui.icon('play-fill')}<span class="gm-z-go-word" aria-hidden="true">${goLabel(s)}</span></button>`;
   function caseUpHTML(g, s, play = false) {
@@ -768,7 +783,7 @@ export function mountList(el, ctx, opts = {}) {
     const g = byId(id), cs = curCase(id);
     if (!g || !gameOpen(id) || st.zoom) return;
     const s = stateOf(g), replay = board && !!s.turns && s.kind !== 'done', play = s.kind !== 'done' && !replay, keep = isKeepCase(g);
-    const hints = keep ? {back: 'Drag or turn over to see the cover', front: 'Drag to turn · tap the cover to open', open: 'Ready to play · drag or turn over to see the back'} : play ? {front: HINT.front, open: features.available() ? 'Ready to play' : `Press ${goLabel(s)} to play`}
+    const hints = keep ? {back: 'Drag or turn over to see the cover', front: 'Drag to turn · tap the cover to open', open: `Ready to ${g.watch ? 'watch' : 'play'} · drag or turn over to see the back`} : play ? {front: HINT.front, open: features.available() ? `Ready to ${g.watch ? 'watch' : 'play'}` : `Press ${goLabel(s)} to ${g.watch ? 'watch' : 'play'}`}
       : replay ? {...HINT, back: 'Drag to turn it · open it from the front to play', front: 'Tap the cover to play'}
       : id === '17-0' ? {...HINT, back: 'Tap a name for their team · drag to turn it'} : HINT;
     const z = document.createElement('div');
