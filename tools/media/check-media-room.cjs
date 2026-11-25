@@ -87,6 +87,14 @@ const meals = JSON.parse(fs.readFileSync(path.join(root, 'data/media.json'))).ha
     assert.equal(page.press, pressers.length + 1, 'every press conference and the no-show in its row');
     assert.equal(page.noshow, 1, "Corbin's week 7 no-show");
     assert.deepEqual(page.tops, Array.from({length: meals.length}, (_, i) => String(i + 1)), 'every Happy Meal in draft order (the shared one at 11)');
+    // every pick's numeral shows whole beside its poster (Nov 25 2026, Evan: "10 and 11 happy meals are hidden and look like 1"):
+    // the poster covers at most the last digit's edge (22 px)
+    const hidden = await p.evaluate(() => [...document.querySelectorAll('section.screen.v-media .mr-top')].map(t => {
+      const n = t.querySelector('.mr-top-n'), r = document.createRange(); r.selectNodeContents(n);
+      const g = r.getBoundingClientRect(), art = t.querySelector('.mr-art').getBoundingClientRect();
+      return {n: n.textContent, covered: Math.round(Math.max(0, g.right - art.left))};
+    }).filter(x => x.covered > 22));
+    assert.deepEqual(hidden, [], 'no pick number hides behind its poster');
     assert.equal(page.draft, 12, 'the draft order, every manager');
     assert.equal(page.me, 'Ben', 'your row highlighted');
     assert.equal(page.bg, 'rgb(11, 11, 13)', 'dark');

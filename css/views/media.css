@@ -109,13 +109,13 @@ img.is-broken { visibility: hidden; }
 .is-noshow .mr-card-t, .is-noshow .mr-card-s { color: var(--mr-ink-3); }
 
 /* the Happy Meals, Top-10 style: the draft pick, huge, behind each poster */
-.mr-top { flex-direction: row; align-items: flex-end; width: 178px; }
+.mr-top { flex-direction: row; align-items: flex-end; width: auto; }
 .mr-top-n {
-  flex: none; width: 74px; margin-right: -20px; font-size: 168px; line-height: .74; letter-spacing: -.04em; text-align: right;
+  flex: none; display: block; margin-right: -18px; font-size: 168px; line-height: .74; letter-spacing: -.02em; white-space: nowrap;
   color: var(--mr-bg); -webkit-text-stroke: 3px #8d8d95; paint-order: stroke fill; z-index: 0; user-select: none;
 }
-.mr-top-n.is-2 { width: 108px; margin-right: -26px; letter-spacing: -.1em; }
-.mr-top:has(.mr-top-n.is-2) { width: 212px; }
+/* (two digits, 10 and up: smaller and tighter, both digits clear of the poster but the last one's edge) */
+.mr-top-n.is-2 { font-size: 132px; letter-spacing: -.06em; margin-right: -12px; }
 .mr-top .mr-art { width: 104px; flex: none; z-index: 1; box-shadow: -6px 0 14px rgba(0,0,0,.5); }
 .mr-top-l { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 6px 8px; display: flex; flex-direction: column; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.85)); }
 .mr-top-l b { font: 700 12px/15px var(--font-text); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
