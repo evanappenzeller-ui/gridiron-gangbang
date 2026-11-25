@@ -1,5 +1,14 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Scores: the conference chips swipe easily (November 25, 2026)
+
+Evan, with the College screen: "It is currently hard to swipe across the conferences on the scores tab." Everyone.
+`views/live-cfb.js` `draw` rebuilt the chip rail on every redraw, and a live week redraws every 30 s, which stopped a
+swipe mid-way; now the rail is built once per set of chips (`data-key` on its wrapper) and a redraw only moves the
+pressed chip. `css/views/live.css` `.lc-chips`: a 44 px strip (6 px above and below the chips), `touch-action: pan-x`
+so a wandering swipe still moves the chips, no scroll snapping. `tools/live/check-scores-browser.cjs` asserts the
+strip, the pan and that a redraw keeps the same rail where it was scrolled.
+
 ## Scores: the NCAA logo alone (November 25, 2026)
 
 Evan, with the Scores tab on College: "Remove the college text underneath the logo in scores." Everyone. `views/live.js`
