@@ -138,10 +138,31 @@ async function playBonus(page, day) {
     await key('ENTER'); await page.waitForTimeout(200);
     assert.equal(((await ds(page, 'bonus')) || {}).g, undefined, 'a non-word is refused');
     for (let k = 0; k < 5; k++) await key('DEL');
-    // a real guess that isn't the answer: its tiles and keys take the right colours
+    // board and keyboard between the run's bars, keys wide enough to tap
+    const fit = async () => page.evaluate(() => {
+      const top = document.querySelector('.rn-top, [data-rn-top]') || document.querySelector('.v-run header'), bot = document.querySelector('.rn-bottom');
+      const b = document.querySelector('.tv-bonus [data-gw]').getBoundingClientRect(), k = document.querySelector('.tv-bonus [data-gwkb]').getBoundingClientRect();
+      const tb = top ? top.getBoundingClientRect().bottom : 0, bt = bot ? bot.getBoundingClientRect().top : innerHeight;
+      const q = document.querySelector('.tv-bonus [data-gk="Q"]').getBoundingClientRect();
+      return {board: Math.round(b.top - tb), kb: Math.round(bt - k.bottom), key: Math.round(q.width)};
+    });
+    await page.waitForTimeout(500);
+    const f390 = await fit();
+    assert.ok(f390.board >= -2 && f390.kb >= -2, 'board and keyboard between the bars at 390x844: ' + JSON.stringify(f390));
+    // a real guess that isn't the answer: its tiles and keys take the right colours; focus stays on the Enter key
     const guess = answer === 'CRANE' ? 'SLATE' : 'CRANE';
     for (const c of guess) await key(c);
+    const enter = await page.locator('.tv-bonus [data-gk="ENTER"]').elementHandle();
+    await enter.focus();
     await key('ENTER'); await page.waitForTimeout(1700);
+    assert.ok(await enter.evaluate(e => e.isConnected && document.activeElement === e), 'focus stays on the Enter key after a guess');
+    assert.equal(await page.evaluate(async () => (await import('/js/core/daily.js')).STEPS.find(x => x.id === 'bonus').started()), true, 'a guess counts as started');
+    // a sheet on top: typing goes nowhere near the board
+    await page.evaluate(async () => { (await import('/js/core/ui.js')).openSheet({title: 'Test', body: '<button type="button" id="sheetbtn">OK</button>'}); });
+    await page.waitForTimeout(400);
+    await page.keyboard.type('ab');
+    assert.equal(await page.locator('.tv-bonus [data-gwrow="1"] .tv-gw-t.is-typed').count(), 0, 'no typing into the board under a sheet');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(500);
     const want = await page.evaluate(async ([g, a]) => (await import('/js/views/bonus.js')).gwMarks(g, a).join(''), [guess, answer]);
     const got = await page.$$eval('.tv-bonus [data-gwrow="0"] .tv-gw-t', ts => ts.map(t => (t.className.match(/is-([gyn])\b/) || [])[1]).join(''));
     assert.equal(got, want, 'the first row shows its marks');
@@ -152,7 +173,25 @@ async function playBonus(page, day) {
     const s = await ds(page, 'bonus');
     assert.deepEqual([s.done, s.won, s.g.length, s.pts], [true, true, 2, 170], 'solved on the 2nd guess: 170');
     assert.ok(await page.locator('.tv-bonus [data-gwdef]').isVisible(), 'the meaning shows at the end');
+    assert.equal(s.kind, 'gridword', 'the save names its kind');
     if (shots) await page.screenshot({path: path.join(shots, 'gridword-won.png')});
+    // over: Enter on the run's next button still works
+    const before = await page.evaluate(() => location.hash);
+    await page.locator('[data-rn-next]').focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(600);
+    assert.notEqual(await page.evaluate(() => location.hash), before, 'Enter on the Next button leaves the finished word');
+    // a small phone: the keys are tappable and the board and keyboard fit once scrolled to
+    await page.setViewportSize({width: 320, height: 568});
+    await page.evaluate(async () => { const d = await import('/js/core/daily.js'); d.DS.bonus = {kind: 'gridword', g: []}; });
+    await go(page, 'bonus'); await page.waitForTimeout(600);
+    const f320 = await fit();
+    assert.ok(f320.key >= 26, 'keys at least 26 px wide at 320: ' + f320.key);
+    assert.ok(f320.board >= -2 && f320.kb >= -2, 'board and keyboard between the bars at 320x568: ' + JSON.stringify(f320));
+    if (shots) await page.screenshot({path: path.join(shots, 'gridword-320.png')});
+    // another kind's save on this day (an older build): shown read only, not read as a Gridword
+    await page.evaluate(async () => { const d = await import('/js/core/daily.js'); d.DS.bonus = {kind: 'wheel', done: true, pts: 120, line: '9 of 14 words', got: ['ACT']}; });
+    await go(page, 'numbers'); await go(page, 'bonus');
+    assert.match(await page.locator('.tv-bonus .tv-title').innerText(), /played/i, 'a save of another kind shows read only');
+    await page.setViewportSize({width: 390, height: 844});
     return;
   }
   if (kind === 'wheel') {
@@ -248,6 +287,8 @@ async function playBonus(page, day) {
         return {dup: dup.slice(0, 10), ndup: dup.length, days, kinds, first, before: !before.nv, steps: d.slugsFor(d.dayFor(F))};
       });
       assert.equal(r.before, true, 'days before FRESH_FROM keep their format');
+      const rot = await page.evaluate(async () => { const d = await import('/js/core/daily.js'); return {kinds: [60, 61, 62, 63, 64, 65].map(d.bonusKindOf), file: performance.getEntriesByType('resource').some(e => e.name.endsWith('/data/trivia-v7.json'))}; });
+      assert.deepEqual(rot, {kinds: ['gridword', 'wheel', 'scramble', 'cross', 'score', 'gridword'], file: true}, 'the rotation is fixed and the bank is trivia-v7.json');
       assert.ok(r.steps.includes('bonus'), 'the fresh days end with the Bonus');
       assert.equal(r.ndup, 0, 'no repeats in 200 days: ' + JSON.stringify(r.dup));
       console.log(`PASS 200 fresh days: no game repeated, none of days 1-59's puzzles; first repeat (days in): ${JSON.stringify(r.first)}; bonus kinds in 400 days ${JSON.stringify(r.kinds)}`);

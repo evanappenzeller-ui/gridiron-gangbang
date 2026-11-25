@@ -13,8 +13,17 @@ the answers); a refused guess shakes and costs nothing. 200/170/140/110/80/50 po
 (`GW_PTS`), 0 on a miss; the answer's football meaning shows at the end. DS.bonus {g, won, done, pts, line}. Words:
 `tools/puzzles/gridword-words.json` (110 [ANSWER, meaning], BLITZ first; an adversarial review dropped generic words and
 corrected meanings; a meaning never contains its answer), built into `data/trivia-v6.json` `bonus.gridword` by
-`trivia_v6.py` (append-only as before). Styles: `css/views/trivia.css` (Gridword). Verify `node tools/puzzles/check-trivia-v6.cjs`
-(marks with repeated letters, refused guesses, a real guess's colours, a real-keyboard win, the meaning; all five kinds).
+`trivia_v6.py` (append-only as before). The bank is now `data/trivia-v7.json` (`daily.TRIVIA_URL`; v6 stays as deployed for
+older builds: a file whose meaning changes gets a new name, since the service worker can answer from an older cache), and
+`bonusKindOf` indexes the fixed `BONUS_KINDS` (a kind without levels gives no bonus, never a shifted rotation). Every bonus
+save carries its `kind`; a save of another kind on the day shows read only. The real keyboard is taken only while the word
+is under way, with no sheet open and the screen visible, and never from a focused button outside the board (Enter on the run's
+Next still works; a key reached by Tab keeps its own Enter). A guess patches its row and recolours the keys in place (focus
+stays), the board and keyboard are sized by the screen's height and revealed between the run's bars, keys about 27 px wide
+at 320 (the typing bonuses' card bleeds into the gutter on phones), ruled-out keys 7.6:1. The bonus step counts any kind's
+progress as started. Styles: `css/views/trivia.css` (Gridword). Verify `node tools/puzzles/check-trivia-v6.cjs` (marks with
+repeated letters, refused guesses, colours, focus, a sheet on top, Enter on Next, 390x844 and 320x568 fits, key width, a
+real-keyboard win, the meaning, another kind's save, the fixed rotation and v7 file; all five kinds).
 
 ## Daily trivia: fresh levels, a Bonus puzzle, sharper games (November 25, 2026)
 

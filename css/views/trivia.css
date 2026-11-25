@@ -253,10 +253,12 @@
 @media (prefers-reduced-motion: reduce) { .v-run .cl-opt.is-right, .v-run .cl-opt.is-wrong, .v-run .gc.is-ok, .v-run .gc.is-no, .v-run .my-clue.is-new, .v-run .jr-reveal, .v-run .my-reveal { animation: none; } }
 
 /* ---------------------------------------------------------------- Bonus: Gridword (one football word, six guesses) */
-.tv-gw { position: relative; display: grid; gap: 7px; justify-content: center; margin: 4px auto 16px; perspective: 600px; }
-.tv-gw-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; width: min(78vw, 300px); }
+.tv-gw { position: relative; display: grid; gap: clamp(4px, calc((100svh - 500px) * .02), 7px); justify-content: center; margin: 4px auto 16px; perspective: 600px; }
+.tv-gw-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px;
+  /* sized by the height too, so the board and the keyboard fit between the run's bars (the header may scroll off) */
+  width: min(78vw, 290px, calc((100svh - 400px) * .82)); min-width: 165px; gap: clamp(4px, calc((100svh - 500px) * .02), 6px); }
 .tv-gw-t { --c: #1D2A55; --b: rgba(255,255,255,.14); display: grid; place-items: center; aspect-ratio: 1; border-radius: 10px;
-  font: 800 30px/1 "Barlow Condensed", sans-serif; color: #fff; text-transform: uppercase;
+  font: 800 clamp(18px, calc((100svh - 400px) * .11), 30px)/1 "Barlow Condensed", sans-serif; color: #fff; text-transform: uppercase;
   background: rgba(255,255,255,.04); border: 2px solid var(--b); transition: border-color .12s; }
 .tv-gw-row.is-cur .tv-gw-t { border-color: rgba(255,255,255,.22); }
 .tv-gw-t.is-typed { border-color: rgba(62,232,255,.75); box-shadow: 0 0 12px rgba(62,232,255,.3); background: rgba(62,232,255,.06); }
@@ -275,6 +277,14 @@
 .tv-gw-def span { display: block; margin-top: 6px; color: var(--tv-ink-2); font: 600 14px/1.4 var(--font-text); }
 .tv-gw-kb button.is-g { background: linear-gradient(180deg, #8DF56A, #3FCB5E); color: #05230E; box-shadow: 0 3px 0 #1E7A33; }
 .tv-gw-kb button.is-y { background: linear-gradient(180deg, #FFE27A, #F5B83A); color: #2A1700; box-shadow: 0 3px 0 #A3711A; }
-.tv-gw-kb button.is-n { background: #2A3150; color: #6E7898; box-shadow: 0 3px 0 #141A33; }
+.tv-gw-kb button.is-n { background: #232941; color: #B4BCD8; box-shadow: 0 3px 0 #141A33; } /* (dimmed by its key, the letter still readable: 7:1) */
 .tv-gw-kb button.is-enter { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+/* typing puzzles: the keyboard nearly edge to edge (keys about 28 px at 320 wide, 44 tall) */
+.tv.tv-b-gridword, .tv.tv-b-cross { padding-left: 5px; padding-right: 5px; }
+@media (max-width: 480px) { .tv.tv-b-gridword, .tv.tv-b-cross { margin-left: -10px; margin-right: -10px; } }
+.tv-b-gridword .tv-head, .tv-b-cross .tv-head, .tv-b-cross .tv-x-bar, .tv-b-cross .tv-x-lists, .tv-b-cross > .tv-btn { margin-left: 8px; margin-right: 8px; }
+.tv-b-gridword .tv-kb div, .tv-b-cross .tv-kb div { gap: 3px; }
+.tv-b-gridword .tv-kb button, .tv-b-cross .tv-kb button { max-width: 40px; }
+.tv-b-gridword .tv-kb button.is-wide, .tv-b-cross .tv-kb button.is-wide { max-width: 64px; }
 @media (prefers-reduced-motion: reduce) { .tv-gw-t.is-flip { animation: none; } }
+.tv:focus:not(:focus-visible) { outline: none; }

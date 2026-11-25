@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds data/trivia-v6.json: the daily trivia's levels from November 26, 2026 on (Evan, Nov 25 2026: "Provide a bunch
+"""Builds data/trivia-v7.json (data/trivia-v6.json before Gridword, kept as it was for older builds): the daily trivia's levels from November 26, 2026 on (Evan, Nov 25 2026: "Provide a bunch
 of new levels and ensure that no game is repeated ... Include a new feature that allows players to do a bonus puzzle").
 
 Every level is used once, in order, one day after another (js/core/daily.js freshDay), so no game repeats:
@@ -535,7 +535,7 @@ def main():
             'bonus': {'gridword': build_gridword(random.Random(608)), 'wheel': build_wheel(random.Random(604)), 'cross': build_cross(random.Random(605)),
                       'scramble': build_scramble(random.Random(606)), 'score': build_scores(random.Random(607), espn) if espn else []},
             'classic': build_classic()}
-    path = os.path.join(ROOT, 'data/trivia-v6.json')
+    path = os.path.join(ROOT, 'data/trivia-v7.json')  # (v6: the file before Gridword, kept for older builds)
     # Append-only: a level once in the file keeps its place (days already played never change); a rerun (say with
     # more weeks of scores) only adds the new levels after them.
     if os.path.exists(path):

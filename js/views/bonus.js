@@ -26,6 +26,8 @@ const esc = data.esc;
 const ok = () => daily.isFresh() && daily.hasStep('bonus') && !!daily.DAY.bx;
 const stateOf = () => (daily.DS && daily.DS.bonus && typeof daily.DS.bonus === 'object' ? daily.DS.bonus : {});
 const seedOf = () => (daily.DAY.pnum || 1) * 977 + 3;
+/** Saves the bonus's progress, stamped with its kind (a save of another kind is never read as this one's). */
+const bsave = (next, api) => save('bonus', {...next, kind: daily.DAY.bx.kind}, api);
 
 // ============================================================================ Gridword
 export const GW_PTS = [200, 170, 140, 110, 80, 50];
@@ -37,7 +39,7 @@ export function gwMarks(guess, answer) {
   return m;
 }
 const GW_WORD = {g: 'right spot', y: 'in the word', n: 'not in it'};
-function gridwordMount(box, api) {
+function gridwordMount(box, api, ctx) {
   const [answer, meaning] = daily.DAY.bx.d;
   const allowed = new Set(String((daily.TV && daily.TV.w5) || '').split(' '));
   allowed.add(answer);
@@ -50,9 +52,19 @@ function gridwordMount(box, api) {
     guesses.forEach(g => gwMarks(g, answer).forEach((m, i) => { const c = g[i]; if (!k[c] || RANK[m] > RANK[k[c]]) k[c] = m; }));
     return k;
   };
+  const keyLabel = (c, m) => `${c}${m ? ', ' + GW_WORD[m] : ''}`;
   function kbHTML(guesses) {
     const ks = keyState(guesses);
-    return KEYS.map((row, ri) => `<div>${ri === 2 ? '<button type="button" class="is-wide is-enter" data-gk="ENTER">Enter</button>' : ''}${row.split('').map(c => `<button type="button" data-gk="${c}" class="${ks[c] ? 'is-' + ks[c] : ''}" aria-label="${c}${ks[c] ? ', ' + GW_WORD[ks[c]] : ''}">${c}</button>`).join('')}${ri === 2 ? '<button type="button" class="is-wide" data-gk="DEL" aria-label="Delete">⌫</button>' : ''}</div>`).join('');
+    return KEYS.map((row, ri) => `<div>${ri === 2 ? '<button type="button" class="is-wide is-enter" data-gk="ENTER">Enter</button>' : ''}${row.split('').map(c => `<button type="button" data-gk="${c}" class="${ks[c] ? 'is-' + ks[c] : ''}" aria-label="${keyLabel(c, ks[c])}">${c}</button>`).join('')}${ri === 2 ? '<button type="button" class="is-wide" data-gk="DEL" aria-label="Delete">⌫</button>' : ''}</div>`).join('');
+  }
+  /** The keys' colours brought up to date in place (the buttons stay, and so does focus on them). */
+  function paintKeys(guesses) {
+    const ks = keyState(guesses);
+    box.querySelectorAll('[data-gwkb] [data-gk]').forEach(b => {
+      const c = b.dataset.gk; if (c.length !== 1) return;
+      b.classList.remove('is-g', 'is-y', 'is-n'); if (ks[c]) b.classList.add('is-' + ks[c]);
+      b.setAttribute('aria-label', keyLabel(c, ks[c]));
+    });
   }
   function rowHTML(r, g, cur, flip) {
     const marks = g ? gwMarks(g, answer) : null, letters = g || (cur ? typed.padEnd(5) : '     ');
@@ -60,32 +72,44 @@ function gridwordMount(box, api) {
     return `<div class="tv-gw-row${cur ? ' is-cur' : ''}" data-gwrow="${r}" role="group" aria-label="${esc(label)}">${[...letters].map((c, i) =>
       `<span class="tv-gw-t${g ? ' is-' + marks[i] : c.trim() ? ' is-typed' : ''}${flip ? ' is-flip' : ''}" style="--i:${i}" aria-hidden="true">${c.trim() ? c : ''}</span>`).join('')}</div>`;
   }
-  function draw(fx) {
+  const headOf = s => tvHead(`BONUS · GRIDWORD · ${s.done ? 'FINAL' : `GUESS ${(s.g || []).length + 1} OF 6`}`,
+    s.done ? (s.won ? `Got it in ${s.g.length}!` : `It was ${answer}`) : 'Guess the football word',
+    s.done ? `${s.pts || 0} points` : 'Six tries. Green: right spot. Gold: wrong spot.');
+  /** The whole screen (on mount, and once the word is over). */
+  function draw(flipRow = -1) {
     if (!ok()) return;
-    const s = stateOf(), g = s.g || [], won = !!s.won;
-    const flipRow = fx === 'flip' ? g.length - 1 : -1;
+    const s = stateOf(), g = Array.isArray(s.g) ? s.g : [];
     const rows = Array.from({length: 6}, (_, r) => rowHTML(r, g[r], r === g.length && !s.done, r === flipRow)).join('');
-    box.innerHTML = tvHead(`BONUS · GRIDWORD · ${s.done ? 'FINAL' : `GUESS ${g.length + 1} OF 6`}`,
-      s.done ? (won ? `Got it in ${g.length}!` : `It was ${answer}`) : 'Guess the football word',
-      s.done ? `${s.pts || 0} points` : 'Five letters, six tries. Green: right spot. Gold: in the word, wrong spot.')
+    box.innerHTML = headOf(s)
       + `<div class="tv-gw" data-gw>${rows}</div>`
       + (s.done ? `<div class="tv-gw-def" data-gwdef><b>${esc(answer)}</b><span>${esc(meaning)}</span></div>` : '')
-      + (s.done ? '' : `<div class="tv-kb tv-gw-kb" data-gwkb>${kbHTML(flipRow >= 0 ? g.slice(0, -1) : g)}</div>`);
-    if (flipRow >= 0) {
-      busy = true;
-      const after = ui.RM ? 0 : 5 * FLIP + 260;
-      setTimeout(() => {
-        busy = false;
-        const kb = box.querySelector('[data-gwkb]'); if (kb) kb.innerHTML = kbHTML(g);
-        if (won) {
-          box.querySelectorAll(`[data-gwrow="${flipRow}"] .tv-gw-t`).forEach((t, i) => ui.animate(t, [{transform: 'translateY(0)'}, {transform: 'translateY(-14px)'}, {transform: 'none'}], {duration: 380, delay: i * 70}));
-          pop(box.querySelector('[data-gw]'), `+${s.pts}`, 'is-gold');
-        }
-        const d = box.querySelector('[data-gwdef]'); if (d) ui.animate(d, [{opacity: 0, transform: 'translateY(10px)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
-      }, after);
-      const d = box.querySelector('[data-gwdef]');
-      if (d && !ui.RM) { d.style.opacity = '0'; setTimeout(() => { d.style.opacity = ''; }, after); }
-    }
+      + (s.done ? '' : `<div class="tv-kb tv-gw-kb" data-gwkb>${kbHTML(g)}</div>`);
+  }
+  /** Board and keyboard between the run's bars (the header may scroll off). */
+  const show = (smooth = true) => { const b = box.querySelector('[data-gw]'), kb = box.querySelector('[data-gwkb]') || box.querySelector('[data-gwdef]'); if (b && api && api.reveal) api.reveal([b, kb], {smooth}); };
+  /** An accepted guess: its row flips in place (and the next row opens); the keys recolour after the flip. On the last
+   *  guess the screen turns into the final one once the flip is done, and focus lands on it. */
+  function landed(s) {
+    const g = s.g, r = g.length - 1, row = box.querySelector(`[data-gwrow="${r}"]`);
+    if (row) row.outerHTML = rowHTML(r, g[r], false, !ui.RM);
+    const next = box.querySelector(`[data-gwrow="${r + 1}"]`);
+    if (next && !s.done) next.outerHTML = rowHTML(r + 1, null, true, false);
+    const eb = box.querySelector('.tv-eyebrow'); if (eb && !s.done) eb.textContent = `BONUS · GRIDWORD · GUESS ${g.length + 1} OF 6`;
+    busy = true;
+    setTimeout(() => {
+      busy = false;
+      if (!ok()) return;
+      if (!s.done) { paintKeys(g); return; }
+      const hadFocus = box.contains(document.activeElement);
+      draw();
+      if (s.won) {
+        box.querySelectorAll(`[data-gwrow="${r}"] .tv-gw-t`).forEach((t, i) => ui.animate(t, [{transform: 'translateY(0)'}, {transform: 'translateY(-14px)'}, {transform: 'none'}], {duration: 380, delay: i * 70}));
+        pop(box.querySelector('[data-gw]'), `+${s.pts}`, 'is-gold');
+      }
+      const d = box.querySelector('[data-gwdef]'); if (d) ui.animate(d, [{opacity: 0, transform: 'translateY(10px)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
+      if (hadFocus) box.focus({preventScroll: true});
+      show();
+    }, ui.RM ? 0 : 5 * FLIP + 260);
   }
   function paintRow() {
     const s = stateOf(), r = (s.g || []).length, row = box.querySelector(`[data-gwrow="${r}"]`);
@@ -93,20 +117,22 @@ function gridwordMount(box, api) {
     row.outerHTML = rowHTML(r, null, true, false);
   }
   function bad(msg) { const s = stateOf(), row = box.querySelector(`[data-gwrow="${(s.g || []).length}"]`); ui.haptic('warning'); shake(row); pop(box.querySelector('[data-gw]'), msg, 'is-red'); ui.announce(msg); }
+  /** Whether a key goes to the word now: a game under way, nothing else on top, this screen showing. */
+  const taking = () => { const s = stateOf(); return ok() && !s.done && !busy && !(ui.sheetCount && ui.sheetCount() > 0) && (!ctx || ctx.visible !== false); };
   function press(k) {
+    if (!taking()) return;
     const s = stateOf();
-    if (s.done || busy || !ok()) return;
     if (k === 'DEL') { if (typed) { typed = typed.slice(0, -1); ui.haptic('light'); paintRow(); } return; }
     if (k === 'ENTER') {
       if (typed.length < 5) { bad('Five letters'); return; }
       if (!allowed.has(typed)) { bad('Not in the word list'); return; }
       const g = [...(s.g || []), typed], won = typed === answer, done = won || g.length >= 6;
-      const pts = won ? GW_PTS[g.length - 1] : 0;
-      if (!save('bonus', {...s, g, won, done, pts, line: won ? `Solved in ${g.length}` : done ? 'Missed' : `${g.length} of 6 guesses`}, api)) return;
+      const pts = won ? GW_PTS[g.length - 1] : 0, next = {...s, g, won, done, pts, line: won ? `Solved in ${g.length}` : done ? 'Missed' : `${g.length} of 6 guesses`};
+      if (!bsave(next, api)) return;
       const marks = gwMarks(typed, answer);
       ui.haptic(won ? 'success' : 'light');
       ui.announce(`${typed}: ${[...typed].map((c, i) => `${c} ${GW_WORD[marks[i]]}`).join(', ')}.${won ? ` Solved in ${g.length}.` : done ? ` The word was ${answer}.` : ''}`);
-      typed = ''; draw('flip'); return;
+      typed = ''; landed(stateOf()); return;
     }
     if (/^[A-Z]$/.test(k) && typed.length < 5) {
       typed += k; ui.haptic('selection'); paintRow();
@@ -119,16 +145,24 @@ function gridwordMount(box, api) {
     press(b.dataset.gk);
     ui.animate(b, [{transform: 'translateY(-4px) scale(1.08)'}, {transform: 'none'}], {duration: 150});
   });
-  // a real keyboard too, while this screen shows (never from a text field elsewhere)
+  // A real keyboard too, only while the word takes input (not once it's over, under a sheet, or off screen), and only
+  // keys not aimed at something else: a focused button or link outside the board keeps its Enter, a focused key on the
+  // on-screen keyboard its own click; text fields are never touched.
   const onKey = e => {
-    if (!box.isConnected || box.offsetParent === null || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (!box.isConnected || box.offsetParent === null || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+    const t = e.target, el = t && t.closest ? t : null;
+    if (el && el.closest('input, textarea, select, [contenteditable="true"]')) return;
     const k = e.key === 'Enter' ? 'ENTER' : e.key === 'Backspace' ? 'DEL' : /^[a-z]$/i.test(e.key) ? e.key.toUpperCase() : null;
-    if (!k) return;
+    if (!k || !taking()) return;
+    const mine = !el || el === document.body || el === document.documentElement || el === box || (box.contains(el) && !el.closest('button, a, [tabindex]:not([tabindex="-1"])'));
+    // (a key on the on-screen keyboard reached by Tab keeps its own Enter; one focused by a tap or click doesn't)
+    const key = el && el.closest('[data-gk]');
+    if (!mine && !(key && (k !== 'ENTER' || !key.matches(':focus-visible')))) return;
     e.preventDefault(); press(k);
   };
   window.addEventListener('keydown', onKey);
   draw();
+  requestAnimationFrame(() => show(false));
   return () => window.removeEventListener('keydown', onKey);
 }
 
@@ -181,10 +215,10 @@ function wheelMount(box, api) {
     if (got.includes(w)) { ui.haptic('warning'); shake(ww); pop(ww, 'Already found'); setTimeout(paint, 380); return; }
     if (targets.includes(w)) {
       const ng = [...got, w], next = {...s, got: ng, pts: ptsOf(ng), line: `${ng.length} of ${total} words`, done: ng.length === total};
-      if (!save('bonus', next, api)) return;
+      if (!bsave(next, api)) return;
       ui.haptic('success'); ui.announce(`${w}. ${ng.length} of ${total}.`); draw(w); return;
     }
-    if (extras.includes(w) && !(s.extra || []).includes(w)) { save('bonus', {...s, extra: [...(s.extra || []), w]}, api); ui.haptic('light'); pop(ww, 'Bonus word!', 'is-blue'); setTimeout(() => draw(), 600); return; }
+    if (extras.includes(w) && !(s.extra || []).includes(w)) { bsave({...s, extra: [...(s.extra || []), w]}, api); ui.haptic('light'); pop(ww, 'Bonus word!', 'is-blue'); setTimeout(() => draw(), 600); return; }
     ui.haptic('error'); shake(ww); setTimeout(paint, 380);
   }
   function letterAt(x, y) {
@@ -229,7 +263,7 @@ function wheelMount(box, api) {
   function finish(b) {
     if (!b.classList.contains('is-confirm')) { b.classList.add('is-confirm'); b.textContent = 'Sure? Tap again'; setTimeout(() => { b.classList.remove('is-confirm'); b.textContent = 'Finish'; }, 2600); return; }
     const s = stateOf(), got = s.got || [];
-    if (save('bonus', {...s, got, pts: ptsOf(got), line: `${got.length} of ${total} words`, done: true}, api)) { ui.haptic('medium'); draw(); }
+    if (bsave({...s, got, pts: ptsOf(got), line: `${got.length} of ${total} words`, done: true}, api)) { ui.haptic('medium'); draw(); }
   }
   draw();
 }
@@ -260,7 +294,7 @@ function scrambleMount(box, api) {
   }
   function finishWord(right) {
     const s = stateOf(), okv = [...(s.ok || []), right], pts = okv.filter(Boolean).length * 50;
-    if (!save('bonus', {...s, ok: okv, pts, line: `${okv.filter(Boolean).length} of 4 spelled`, done: okv.length >= 4}, api)) return false;
+    if (!bsave({...s, ok: okv, pts, line: `${okv.filter(Boolean).length} of 4 spelled`, done: okv.length >= 4}, api)) return false;
     showing = okv.length - 1; typed = []; used = [];
     return true;
   }
@@ -277,7 +311,7 @@ function scrambleMount(box, api) {
       if (got === w[0]) { if (finishWord(true)) { ui.haptic('success'); ui.announce(`${w[0]}. Correct.`); draw('ok'); } }
       else {
         const tries = [...(s.tries || [])]; tries[i] = (tries[i] || 0) + 1;
-        save('bonus', {...s, tries}, api);
+        bsave({...s, tries}, api);
         ui.haptic('error'); shake(box.querySelector('[data-ans]'));
         if (tries[i] >= 3) setTimeout(() => { if (finishWord(false)) draw(); }, 450);
         else setTimeout(() => { typed = []; used = []; draw(); }, 450);
@@ -348,7 +382,7 @@ function crossMount(box, api) {
     if (ch === '⌫') {
       if (!locked.has(key) && f[key]) delete f[key];
       else { let k = sel.k - 1; while (k >= 0 && locked.has(ks[k])) k--; if (k >= 0) { sel.k = k; if (!locked.has(ks[k])) delete f[ks[k]]; } }
-      save('bonus', {...s, f}, api); ui.haptic('light'); draw(); return;
+      bsave({...s, f}, api); ui.haptic('light'); draw(); return;
     }
     if (locked.has(key)) { sel.k = nextFree(s, sel.k); }
     f[ks[sel.k]] = ch; ui.haptic('selection');
@@ -361,7 +395,7 @@ function crossMount(box, api) {
     }
     const pts = Math.round(200 * okw.length / W.length);
     const full = cellsOf(sel.w).every(k => f[k]), wrong = full && !okw.includes(sel.w);
-    if (!save('bonus', {...s, f, ok: okw, pts, line: `${okw.length} of ${W.length} words`, done: okw.length === W.length}, api)) return;
+    if (!bsave({...s, f, ok: okw, pts, line: `${okw.length} of ${W.length} words`, done: okw.length === W.length}, api)) return;
     if (newly != null) {
       ui.haptic('success'); ui.announce(`${W[newly][0]}. Correct.`);
       const nxt = W.map((_, i) => i).find(i => !okw.includes(i));
@@ -387,7 +421,7 @@ function crossMount(box, api) {
     if (b.dataset.xw != null && !s.done) { sel = {w: +b.dataset.xw, k: 0}; sel.k = nextFree(s, 0); ui.haptic('selection'); draw(); box.querySelector('.tv-x-grid').scrollIntoView({block: 'nearest', behavior: ui.RM ? 'auto' : 'smooth'}); return; }
     if (b.hasAttribute('data-finish')) {
       if (!b.classList.contains('is-confirm')) { b.classList.add('is-confirm'); b.textContent = 'Reveal the answers? Tap again'; return; }
-      if (save('bonus', {...s, pts: Math.round(200 * (s.ok || []).length / W.length), line: `${(s.ok || []).length} of ${W.length} words`, done: true}, api)) { ui.haptic('medium'); draw(); }
+      if (bsave({...s, pts: Math.round(200 * (s.ok || []).length / W.length), line: `${(s.ok || []).length} of ${W.length} words`, done: true}, api)) { ui.haptic('medium'); draw(); }
     }
   });
   box.addEventListener('keydown', e => { if (/^[a-z]$/i.test(e.key)) { e.preventDefault(); type(e.key.toUpperCase()); } else if (e.key === 'Backspace') { e.preventDefault(); type('⌫'); } });
@@ -424,16 +458,16 @@ function scoreMount(box, api) {
     if (b.dataset.chip != null) { const k = +b.dataset.chip; held = held === k ? null : k; ui.haptic('selection'); draw(); return; }
     if (b.dataset.slot != null) {
       const k = +b.dataset.slot;
-      if (place[k] != null) { place[k] = null; held = null; ui.haptic('light'); save('bonus', {...s, place}, api); draw(); return; }
+      if (place[k] != null) { place[k] = null; held = null; ui.haptic('light'); bsave({...s, place}, api); draw(); return; }
       if (held == null) { const free = chips.findIndex((c, i) => !place.includes(i)); if (free < 0) return; held = free; }
       place[k] = held; held = null; ui.haptic('medium');
-      save('bonus', {...s, place}, api); draw();
+      bsave({...s, place}, api); draw();
       const el = box.querySelector(`[data-slot="${k}"]`); ui.animate(el, [{transform: 'scale(.7)'}, {transform: 'scale(1.08)'}, {transform: 'none'}], {duration: 300});
       return;
     }
     if (b.hasAttribute('data-slock')) {
       const right = place.filter((c, k) => c != null && chips[c].v === truth[k]).length, pts = Math.round(200 * right / 6);
-      if (!save('bonus', {...s, place, right, pts, line: `${right} of 6 scores`, done: true}, api)) return;
+      if (!bsave({...s, place, right, pts, line: `${right} of 6 scores`, done: true}, api)) return;
       ui.haptic(right >= 4 ? 'success' : 'medium'); ui.announce(`${right} of 6 right. ${pts} points.`);
       draw('reveal'); pop(box.querySelector('.tv-head'), `+${pts}`, 'is-gold');
     }
@@ -449,7 +483,13 @@ export const bonusModule = {
     const box = el.querySelector('.tv');
     if (!ok()) { box.innerHTML = tvHead('BONUS', 'No bonus today', ''); return {unmount() {}}; }
     box.classList.add('tv-b-' + daily.DAY.bx.kind);
-    const done = KINDS[daily.DAY.bx.kind](box, api);
+    // progress saved for another kind of bonus (a phone that ran an older build that day): its result stands, read only
+    const was = daily.DS && daily.DS.bonus;
+    if (was && was.kind && was.kind !== daily.DAY.bx.kind) {
+      box.innerHTML = tvHead('BONUS', 'Today’s bonus is played', `${was.pts || 0} points · ${was.line || 'Done'}`);
+      return {unmount() {}};
+    }
+    const done = KINDS[daily.DAY.bx.kind](box, api, ctx);
     const off = daily.subscribe(type => { if (type === 'newday') ctx.nav('/puzzles/daily'); });
     return {unmount() { off(); if (typeof done === 'function') done(); }};
   }
