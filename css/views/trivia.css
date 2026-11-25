@@ -251,3 +251,30 @@
 @keyframes tv-good { 0% { transform: scale(1); filter: brightness(1); } 35% { transform: scale(1.05); filter: brightness(1.3); } 100% { transform: none; filter: none; } }
 @keyframes tv-bad { 0%, 100% { transform: none; } 20% { transform: translateX(-7px); } 45% { transform: translateX(6px); } 70% { transform: translateX(-4px); } 85% { transform: translateX(2px); } }
 @media (prefers-reduced-motion: reduce) { .v-run .cl-opt.is-right, .v-run .cl-opt.is-wrong, .v-run .gc.is-ok, .v-run .gc.is-no, .v-run .my-clue.is-new, .v-run .jr-reveal, .v-run .my-reveal { animation: none; } }
+
+/* ---------------------------------------------------------------- Bonus: Gridword (one football word, six guesses) */
+.tv-gw { position: relative; display: grid; gap: 7px; justify-content: center; margin: 4px auto 16px; perspective: 600px; }
+.tv-gw-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; width: min(78vw, 300px); }
+.tv-gw-t { --c: #1D2A55; --b: rgba(255,255,255,.14); display: grid; place-items: center; aspect-ratio: 1; border-radius: 10px;
+  font: 800 30px/1 "Barlow Condensed", sans-serif; color: #fff; text-transform: uppercase;
+  background: rgba(255,255,255,.04); border: 2px solid var(--b); transition: border-color .12s; }
+.tv-gw-row.is-cur .tv-gw-t { border-color: rgba(255,255,255,.22); }
+.tv-gw-t.is-typed { border-color: rgba(62,232,255,.75); box-shadow: 0 0 12px rgba(62,232,255,.3); background: rgba(62,232,255,.06); }
+.tv-gw-t.is-g { --c: linear-gradient(180deg, #8DF56A, #3FCB5E); background: var(--c); border-color: transparent; color: #05230E; box-shadow: 0 0 16px rgba(124,240,88,.45); }
+.tv-gw-t.is-y { --c: linear-gradient(180deg, #FFE27A, #F5B83A); background: var(--c); border-color: transparent; color: #2A1700; box-shadow: 0 0 14px rgba(255,194,61,.4); }
+.tv-gw-t.is-n { --c: #3A4466; background: var(--c); border-color: transparent; color: #C5CCE4; }
+.tv-gw-t.is-flip { animation: tv-gw-flip .5s ease both; animation-delay: calc(var(--i) * 230ms); }
+@keyframes tv-gw-flip {
+  0% { transform: rotateX(0); background: rgba(255,255,255,.04); color: #fff; border-color: rgba(62,232,255,.75); box-shadow: none; }
+  49% { transform: rotateX(90deg); background: rgba(255,255,255,.04); color: #fff; border-color: rgba(62,232,255,.75); box-shadow: none; }
+  50% { transform: rotateX(90deg); }
+  100% { transform: rotateX(0); }
+}
+.tv-gw-def { margin: 0 0 4px; padding: 14px 16px; border-radius: 16px; text-align: center; background: var(--tv-glass); border: 1px solid var(--tv-edge); transition: opacity .3s; }
+.tv-gw-def b { display: block; font: 800 30px/1 "Barlow Condensed", sans-serif; letter-spacing: .14em; color: var(--tv-gold); text-shadow: 0 0 18px rgba(255,216,77,.55); }
+.tv-gw-def span { display: block; margin-top: 6px; color: var(--tv-ink-2); font: 600 14px/1.4 var(--font-text); }
+.tv-gw-kb button.is-g { background: linear-gradient(180deg, #8DF56A, #3FCB5E); color: #05230E; box-shadow: 0 3px 0 #1E7A33; }
+.tv-gw-kb button.is-y { background: linear-gradient(180deg, #FFE27A, #F5B83A); color: #2A1700; box-shadow: 0 3px 0 #A3711A; }
+.tv-gw-kb button.is-n { background: #2A3150; color: #6E7898; box-shadow: 0 3px 0 #141A33; }
+.tv-gw-kb button.is-enter { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+@media (prefers-reduced-motion: reduce) { .tv-gw-t.is-flip { animation: none; } }

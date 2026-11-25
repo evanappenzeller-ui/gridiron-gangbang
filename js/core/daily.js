@@ -214,13 +214,15 @@ const DAILY_LINEUPS = [
 // From November 26, 2026 (puzzle day FRESH_FROM; Evan, Nov 25 2026: "Every time the trivia game has used the game where
 // the user has to match the players with the team, all of the correct answers have been on one side ... Provide a bunch
 // of new levels and ensure that no game is repeated ... Include a new feature that allows players to do a bonus puzzle"):
-// each day keeps the four-game rotation and adds a Bonus puzzle (Word Wheel, Unscramble, Crossword, Score Match in turn).
+// each day keeps the four-game rotation and adds a Bonus puzzle (Gridword, Word Wheel, Unscramble, Crossword, Score Match in
+// turn).
 // Every game takes the next unused level of data/trivia-v6.json (TV): College, Mystery, Journey and Grid from puzzle days
 // never played before (TV.classic), Higher or Lower 4 career match-ups (hl), Team Connections 3 groups of 3 (cn), Number
 // Trivia 2 questions (nq), the bonus its kind's next level (bx). A day before FRESH_FROM is exactly as it was.
 export const FRESH_FROM = 60;
-export const BONUS_KINDS = ['wheel', 'scramble', 'cross', 'score'];
-export const BONUS_LABEL = {wheel: 'Word Wheel', scramble: 'Unscramble', cross: 'Crossword', score: 'Score Match'};
+// (Gridword joined on Nov 25 2026, before any fresh day was played, so the rotation could still change: it leads it)
+export const BONUS_KINDS = ['gridword', 'wheel', 'scramble', 'cross', 'score'];
+export const BONUS_LABEL = {gridword: 'Gridword', wheel: 'Word Wheel', scramble: 'Unscramble', cross: 'Crossword', score: 'Score Match'};
 const CHALLENGE_IDS = ['stats', 'connections', 'numbers', 'bonus'];
 const lineupOf = pnum => DAILY_LINEUPS[((pnum - TRIVIA_FROM) % DAILY_LINEUPS.length + DAILY_LINEUPS.length) % DAILY_LINEUPS.length];
 const nth = (list, i) => list[((i % list.length) + list.length) % list.length];

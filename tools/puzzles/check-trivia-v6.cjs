@@ -124,6 +124,37 @@ async function playNumbers(page, day) {
 async function playBonus(page, day) {
   await go(page, 'bonus');
   const kind = day.bx.kind, d = day.bx.d;
+  if (kind === 'gridword') {
+    const answer = d[0];
+    // the marks: repeated letters counted as the answer has them
+    const marks = await page.evaluate(async () => { const b = await import('/js/views/bonus.js'); return [['SPEED', 'STEAL'], ['EERIE', 'SPEED'], ['BLITZ', 'BLITZ'], ['ABBEY', 'BABES'], ['LLAMA', 'HELLO'], ['SPEED', 'ERASE']].map(([g, a]) => b.gwMarks(g, a).join('')); });
+    assert.deepEqual(marks, ['gngnn', 'yynnn', 'ggggg', 'yyggn', 'yynnn', 'ynyyn'], 'Gridword marks repeated letters right');
+    const key = async k => page.locator(`.tv-bonus [data-gk="${k}"]`).click();
+    // too short, then not a word: refused, nothing used up
+    for (const c of 'TEA') await key(c);
+    await key('ENTER'); await page.waitForTimeout(200);
+    assert.equal(((await ds(page, 'bonus')) || {}).g, undefined, 'a short guess is refused');
+    for (const c of 'MX') await key(c);
+    await key('ENTER'); await page.waitForTimeout(200);
+    assert.equal(((await ds(page, 'bonus')) || {}).g, undefined, 'a non-word is refused');
+    for (let k = 0; k < 5; k++) await key('DEL');
+    // a real guess that isn't the answer: its tiles and keys take the right colours
+    const guess = answer === 'CRANE' ? 'SLATE' : 'CRANE';
+    for (const c of guess) await key(c);
+    await key('ENTER'); await page.waitForTimeout(1700);
+    const want = await page.evaluate(async ([g, a]) => (await import('/js/views/bonus.js')).gwMarks(g, a).join(''), [guess, answer]);
+    const got = await page.$$eval('.tv-bonus [data-gwrow="0"] .tv-gw-t', ts => ts.map(t => (t.className.match(/is-([gyn])\b/) || [])[1]).join(''));
+    assert.equal(got, want, 'the first row shows its marks');
+    if (shots) await page.screenshot({path: path.join(shots, 'gridword-guess.png')});
+    // the answer on a real keyboard
+    await page.keyboard.type(answer.toLowerCase()); await page.keyboard.press('Enter');
+    await page.waitForTimeout(1900);
+    const s = await ds(page, 'bonus');
+    assert.deepEqual([s.done, s.won, s.g.length, s.pts], [true, true, 2, 170], 'solved on the 2nd guess: 170');
+    assert.ok(await page.locator('.tv-bonus [data-gwdef]').isVisible(), 'the meaning shows at the end');
+    if (shots) await page.screenshot({path: path.join(shots, 'gridword-won.png')});
+    return;
+  }
   if (kind === 'wheel') {
     const [letters, targets] = d;
     // a real drag across the letters for the first word
@@ -225,7 +256,7 @@ async function playBonus(page, day) {
     }
     // 3. whole days through the screens: 60 (wheel), 61 (scramble, stats, connections, numbers), 62 (cross), 63 (score)
     const played = {};
-    for (const day of [61, 60, 62, 63]) {
+    for (const day of [61, 60, 62, 63, 64]) {
       const {context, page, errors} = await open(browser, url, day);
       const D0 = await dayOf(page);
       if (D0.t.includes('stats')) await playStats(page, D0);
@@ -250,10 +281,10 @@ async function playBonus(page, day) {
       console.log(`PASS day ${day}: ${D0.t.join(', ')} (bonus ${D0.bx.kind}) played through, ${total} of 1,000, results and reload`);
       await context.close();
     }
-    assert.ok(['wheel', 'scramble', 'cross', 'score'].every(k => played[k]), 'every bonus kind played');
+    assert.ok(['gridword', 'wheel', 'scramble', 'cross', 'score'].every(k => played[k]), 'every bonus kind played: ' + Object.keys(played));
     // 4. a game in progress survives a reload (Connections mid-way) and Test Play previews the fresh days
     {
-      const {context, page, errors} = await open(browser, url, 64);
+      const {context, page, errors} = await open(browser, url, 65);
       const D0 = await dayOf(page);
       if (D0.t.includes('connections')) {
         await go(page, 'connections');

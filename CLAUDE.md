@@ -1,5 +1,21 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Bonus: Gridword, one football word (November 25, 2026)
+
+Evan: "Add another bonus game mode like wordle but with football terms, only one word." Everyone. A fifth Bonus kind,
+`gridword` (the app's own name and colours, not Wordle's), leads the rotation: `daily.BONUS_KINDS` = gridword, wheel,
+scramble, cross, score (changed before any fresh day was played; day 60, Nov 26 2026, is the first Gridword). One
+five-letter football word, six guesses, typed on the on-screen keyboard or a real one (`window` keydown while the screen
+shows, never from a text field; the run's own keys are only the arrows). Each guess's letters flip to green (right spot),
+gold (in the word elsewhere) or grey, repeated letters counted as the answer has them (`views/bonus.js` `gwMarks`); the
+keyboard keeps each letter's best colour. A guess must be 5 letters and a word (`TV.w5`: 9,620 common words, plurals and
+the answers); a refused guess shakes and costs nothing. 200/170/140/110/80/50 points by the guess it's solved on
+(`GW_PTS`), 0 on a miss; the answer's football meaning shows at the end. DS.bonus {g, won, done, pts, line}. Words:
+`tools/puzzles/gridword-words.json` (110 [ANSWER, meaning], BLITZ first; an adversarial review dropped generic words and
+corrected meanings; a meaning never contains its answer), built into `data/trivia-v6.json` `bonus.gridword` by
+`trivia_v6.py` (append-only as before). Styles: `css/views/trivia.css` (Gridword). Verify `node tools/puzzles/check-trivia-v6.cjs`
+(marks with repeated letters, refused guesses, a real guess's colours, a real-keyboard win, the meaning; all five kinds).
+
 ## Daily trivia: fresh levels, a Bonus puzzle, sharper games (November 25, 2026)
 
 Evan: "Every time the trivia game has used the game where the user has to match the players with the team, all of the

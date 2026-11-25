@@ -10,6 +10,11 @@
 //             tiles (or type), 50 a word, three tries each, Skip reveals it. i, ok.
 //   cross     A criss-cross mini crossword: tap a square or a clue, type on the keyboard below; a word right turns green
 //             and locks. f: letters by square, ok: the words solved. Finish reveals the rest.
+//   gridword  One five-letter football word in six guesses (Evan, Nov 25 2026: "Add another bonus game mode like wordle
+//             but with football terms, only one word"): type on the keyboard below (or a real one), Enter; each letter
+//             flips to green (right spot), gold (in the word, elsewhere) or grey; any common 5-letter word is a guess
+//             (daily.TV.w5). 200/170/140/110/80/50 by the guess it's solved on; the word's football meaning shows at the
+//             end. g: the guesses.
 //   score     Three 2026 games: put each of the six final scores on its team (tap a score, then a team), Lock in.
 //             place: the score chip on each team.
 import * as ui from '../core/ui.js';
@@ -21,6 +26,111 @@ const esc = data.esc;
 const ok = () => daily.isFresh() && daily.hasStep('bonus') && !!daily.DAY.bx;
 const stateOf = () => (daily.DS && daily.DS.bonus && typeof daily.DS.bonus === 'object' ? daily.DS.bonus : {});
 const seedOf = () => (daily.DAY.pnum || 1) * 977 + 3;
+
+// ============================================================================ Gridword
+export const GW_PTS = [200, 170, 140, 110, 80, 50];
+/** Each letter of a guess against the answer: 'g' right spot, 'y' in the word elsewhere, 'n' not (repeats counted). */
+export function gwMarks(guess, answer) {
+  const m = Array(5).fill('n'), left = {};
+  for (let i = 0; i < 5; i++) { if (guess[i] === answer[i]) m[i] = 'g'; else left[answer[i]] = (left[answer[i]] || 0) + 1; }
+  for (let i = 0; i < 5; i++) if (m[i] !== 'g' && left[guess[i]] > 0) { m[i] = 'y'; left[guess[i]]--; }
+  return m;
+}
+const GW_WORD = {g: 'right spot', y: 'in the word', n: 'not in it'};
+function gridwordMount(box, api) {
+  const [answer, meaning] = daily.DAY.bx.d;
+  const allowed = new Set(String((daily.TV && daily.TV.w5) || '').split(' '));
+  allowed.add(answer);
+  let typed = '', busy = false;
+  const FLIP = 230;
+  const RANK = {n: 1, y: 2, g: 3};
+  /** The keyboard's colours: each letter's best mark so far (green over gold over grey). */
+  const keyState = guesses => {
+    const k = {};
+    guesses.forEach(g => gwMarks(g, answer).forEach((m, i) => { const c = g[i]; if (!k[c] || RANK[m] > RANK[k[c]]) k[c] = m; }));
+    return k;
+  };
+  function kbHTML(guesses) {
+    const ks = keyState(guesses);
+    return KEYS.map((row, ri) => `<div>${ri === 2 ? '<button type="button" class="is-wide is-enter" data-gk="ENTER">Enter</button>' : ''}${row.split('').map(c => `<button type="button" data-gk="${c}" class="${ks[c] ? 'is-' + ks[c] : ''}" aria-label="${c}${ks[c] ? ', ' + GW_WORD[ks[c]] : ''}">${c}</button>`).join('')}${ri === 2 ? '<button type="button" class="is-wide" data-gk="DEL" aria-label="Delete">⌫</button>' : ''}</div>`).join('');
+  }
+  function rowHTML(r, g, cur, flip) {
+    const marks = g ? gwMarks(g, answer) : null, letters = g || (cur ? typed.padEnd(5) : '     ');
+    const label = g ? `${g}: ${[...g].map((c, i) => `${c} ${GW_WORD[marks[i]]}`).join(', ')}` : cur ? `Guess ${r + 1}: ${typed || 'empty'}` : `Guess ${r + 1}`;
+    return `<div class="tv-gw-row${cur ? ' is-cur' : ''}" data-gwrow="${r}" role="group" aria-label="${esc(label)}">${[...letters].map((c, i) =>
+      `<span class="tv-gw-t${g ? ' is-' + marks[i] : c.trim() ? ' is-typed' : ''}${flip ? ' is-flip' : ''}" style="--i:${i}" aria-hidden="true">${c.trim() ? c : ''}</span>`).join('')}</div>`;
+  }
+  function draw(fx) {
+    if (!ok()) return;
+    const s = stateOf(), g = s.g || [], won = !!s.won;
+    const flipRow = fx === 'flip' ? g.length - 1 : -1;
+    const rows = Array.from({length: 6}, (_, r) => rowHTML(r, g[r], r === g.length && !s.done, r === flipRow)).join('');
+    box.innerHTML = tvHead(`BONUS · GRIDWORD · ${s.done ? 'FINAL' : `GUESS ${g.length + 1} OF 6`}`,
+      s.done ? (won ? `Got it in ${g.length}!` : `It was ${answer}`) : 'Guess the football word',
+      s.done ? `${s.pts || 0} points` : 'Five letters, six tries. Green: right spot. Gold: in the word, wrong spot.')
+      + `<div class="tv-gw" data-gw>${rows}</div>`
+      + (s.done ? `<div class="tv-gw-def" data-gwdef><b>${esc(answer)}</b><span>${esc(meaning)}</span></div>` : '')
+      + (s.done ? '' : `<div class="tv-kb tv-gw-kb" data-gwkb>${kbHTML(flipRow >= 0 ? g.slice(0, -1) : g)}</div>`);
+    if (flipRow >= 0) {
+      busy = true;
+      const after = ui.RM ? 0 : 5 * FLIP + 260;
+      setTimeout(() => {
+        busy = false;
+        const kb = box.querySelector('[data-gwkb]'); if (kb) kb.innerHTML = kbHTML(g);
+        if (won) {
+          box.querySelectorAll(`[data-gwrow="${flipRow}"] .tv-gw-t`).forEach((t, i) => ui.animate(t, [{transform: 'translateY(0)'}, {transform: 'translateY(-14px)'}, {transform: 'none'}], {duration: 380, delay: i * 70}));
+          pop(box.querySelector('[data-gw]'), `+${s.pts}`, 'is-gold');
+        }
+        const d = box.querySelector('[data-gwdef]'); if (d) ui.animate(d, [{opacity: 0, transform: 'translateY(10px)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
+      }, after);
+      const d = box.querySelector('[data-gwdef]');
+      if (d && !ui.RM) { d.style.opacity = '0'; setTimeout(() => { d.style.opacity = ''; }, after); }
+    }
+  }
+  function paintRow() {
+    const s = stateOf(), r = (s.g || []).length, row = box.querySelector(`[data-gwrow="${r}"]`);
+    if (!row) return;
+    row.outerHTML = rowHTML(r, null, true, false);
+  }
+  function bad(msg) { const s = stateOf(), row = box.querySelector(`[data-gwrow="${(s.g || []).length}"]`); ui.haptic('warning'); shake(row); pop(box.querySelector('[data-gw]'), msg, 'is-red'); ui.announce(msg); }
+  function press(k) {
+    const s = stateOf();
+    if (s.done || busy || !ok()) return;
+    if (k === 'DEL') { if (typed) { typed = typed.slice(0, -1); ui.haptic('light'); paintRow(); } return; }
+    if (k === 'ENTER') {
+      if (typed.length < 5) { bad('Five letters'); return; }
+      if (!allowed.has(typed)) { bad('Not in the word list'); return; }
+      const g = [...(s.g || []), typed], won = typed === answer, done = won || g.length >= 6;
+      const pts = won ? GW_PTS[g.length - 1] : 0;
+      if (!save('bonus', {...s, g, won, done, pts, line: won ? `Solved in ${g.length}` : done ? 'Missed' : `${g.length} of 6 guesses`}, api)) return;
+      const marks = gwMarks(typed, answer);
+      ui.haptic(won ? 'success' : 'light');
+      ui.announce(`${typed}: ${[...typed].map((c, i) => `${c} ${GW_WORD[marks[i]]}`).join(', ')}.${won ? ` Solved in ${g.length}.` : done ? ` The word was ${answer}.` : ''}`);
+      typed = ''; draw('flip'); return;
+    }
+    if (/^[A-Z]$/.test(k) && typed.length < 5) {
+      typed += k; ui.haptic('selection'); paintRow();
+      const t = box.querySelectorAll(`[data-gwrow="${(s.g || []).length}"] .tv-gw-t`)[typed.length - 1];
+      if (t) ui.animate(t, [{transform: 'scale(.8)'}, {transform: 'scale(1.1)'}, {transform: 'none'}], {duration: 160});
+    }
+  }
+  box.addEventListener('click', e => {
+    const b = e.target.closest('[data-gk]'); if (!b) return;
+    press(b.dataset.gk);
+    ui.animate(b, [{transform: 'translateY(-4px) scale(1.08)'}, {transform: 'none'}], {duration: 150});
+  });
+  // a real keyboard too, while this screen shows (never from a text field elsewhere)
+  const onKey = e => {
+    if (!box.isConnected || box.offsetParent === null || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    const k = e.key === 'Enter' ? 'ENTER' : e.key === 'Backspace' ? 'DEL' : /^[a-z]$/i.test(e.key) ? e.key.toUpperCase() : null;
+    if (!k) return;
+    e.preventDefault(); press(k);
+  };
+  window.addEventListener('keydown', onKey);
+  draw();
+  return () => window.removeEventListener('keydown', onKey);
+}
 
 // ============================================================================ Word Wheel
 function wheelMount(box, api) {
@@ -331,7 +441,7 @@ function scoreMount(box, api) {
   draw();
 }
 
-const KINDS = {wheel: wheelMount, scramble: scrambleMount, cross: crossMount, score: scoreMount};
+const KINDS = {gridword: gridwordMount, wheel: wheelMount, scramble: scrambleMount, cross: crossMount, score: scoreMount};
 export const bonusModule = {
   render: () => '<div class="tv tv-bonus" tabindex="-1"></div>',
   mount(el, ctx, api) {
@@ -339,8 +449,8 @@ export const bonusModule = {
     const box = el.querySelector('.tv');
     if (!ok()) { box.innerHTML = tvHead('BONUS', 'No bonus today', ''); return {unmount() {}}; }
     box.classList.add('tv-b-' + daily.DAY.bx.kind);
-    KINDS[daily.DAY.bx.kind](box, api);
+    const done = KINDS[daily.DAY.bx.kind](box, api);
     const off = daily.subscribe(type => { if (type === 'newday') ctx.nav('/puzzles/daily'); });
-    return {unmount() { off(); }};
+    return {unmount() { off(); if (typeof done === 'function') done(); }};
   }
 };

@@ -9,7 +9,7 @@ Every level is used once, in order, one day after another (js/core/daily.js fres
           first name), every player fitting only his own group.
   num     Number Trivia days: 2 questions (a career total, a draft pick, or a hand-checked record), each with its own
           scale that never centres on the answer.
-  bonus   The bonus puzzle, a kind a day in turn: wheel (a Wordscapes letter wheel: every common word in the letters),
+  bonus   The bonus puzzle, a kind a day in turn: gridword (one 5-letter football word in six guesses), wheel (a Wordscapes letter wheel: every common word in the letters),
           cross (a criss-cross mini crossword of teams, players and football words), scramble (4 words: a player, a
           team, a coach, a player) and score (3 games of the 2026 season: match the 6 final scores to the teams).
   classic College / Mystery / Journey / Grid source days (indexes into puzzles-v4.json days) never played before:
@@ -447,6 +447,33 @@ def build_scramble(rng):
         out.append([[w, cl, mix(w)] for w, cl in (p1, t, c, p2)])
     return out
 
+# ------------------------------------------------------------------------------------------------ Bonus: Gridword
+# One five-letter football word to guess in six tries (Evan, Nov 25 2026: "Add another bonus game mode like wordle but with
+# football terms, only one word"). Each answer's football meaning shows once the puzzle is over; checked by an adversarial
+# review (football accuracy, fair everyday word, clue never giving the answer away). The allowed guesses (TV.w5) are
+# every common 5-letter dictionary word plus the answers.
+GRIDWORD = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gridword-words.json')))
+
+def build_gridword(rng):
+    words = [list(x) for x in GRIDWORD]
+    assert all(len(a) == 5 and a.isalpha() and a.isupper() and a.lower() not in c.lower() for a, c in words), 'bad Gridword entry'
+    assert len({a for a, _ in words}) == len(words), 'a repeated Gridword answer'
+    first, rest = words[0], words[1:]
+    rng.shuffle(rest)
+    return [first] + rest
+
+def build_w5():
+    from wordfreq import zipf_frequency
+    from english_words import get_english_words_set
+    raw = get_english_words_set(['web2'], lower=False, alpha=True)
+    from wordfreq import top_n_list
+    ok = {w.upper() for w in raw if len(w) == 5 and w.islower() and zipf_frequency(w, 'en') >= 1.8}
+    # plurals (the dictionary lists none) and any frequent 5-letter word: a guess is better accepted than refused
+    ok |= {(w + 's').upper() for w in raw if len(w) == 4 and w.islower() and zipf_frequency(w + 's', 'en') >= 2.0}
+    ok |= {w.upper() for w in top_n_list('en', 80000) if len(w) == 5 and w.isascii() and w.isalpha()}
+    ok |= {a for a, _ in GRIDWORD}
+    return ' '.join(sorted(ok))
+
 # ------------------------------------------------------------------------------------------------ Bonus: score match
 def build_scores(rng, espn_dir, used=frozenset()):
     games = []
@@ -504,7 +531,8 @@ def main():
     espn = sys.argv[1] if len(sys.argv) > 1 else None
     bank = {'v': 1, 'from': '2026-11-26',
             'hl': build_hl(random.Random(601)), 'conn': build_conn(random.Random(602)), 'num': build_num(random.Random(603)),
-            'bonus': {'wheel': build_wheel(random.Random(604)), 'cross': build_cross(random.Random(605)),
+            'w5': build_w5(),
+            'bonus': {'gridword': build_gridword(random.Random(608)), 'wheel': build_wheel(random.Random(604)), 'cross': build_cross(random.Random(605)),
                       'scramble': build_scramble(random.Random(606)), 'score': build_scores(random.Random(607), espn) if espn else []},
             'classic': build_classic()}
     path = os.path.join(ROOT, 'data/trivia-v6.json')
