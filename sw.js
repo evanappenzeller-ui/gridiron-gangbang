@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-media-cover2-20261125';
+const CACHE = 'gg-media-cover3-20261125';
 const CORE = ['ui', 'home-navigation', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'media', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'fantasy-live', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-layout', 'realm-battle', 'checks-realm', 'dynasty', 'dynasty-battle', 'dynasty-match', 'dynasty-table', 'dynasty-solo', 'busy', 'rivals-live', 'rivals-live-match', 'dynasty-real', 'dynasty-legends', 'dynasty-action', 'checks-dynasty'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and live (Live). Keepfall opens from Daily Games.
 const VIEWS = ['dynasty-energy', 'dynasty-pack-shelf', 'welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -52,7 +52,7 @@ const SHELL = [
   'img/drill/players.webp', 'img/drill/players-mask.webp',
   'icons/hub-192.png', 'icons/hub-512.png', 'icons/hub-maskable-512.png', 'icons/hub-apple-180.png',
   'data/league.json', 'data/pressers.json', 'data/media.json', 'data/lay.json', 'data/puzzles-v4.json', 'data/nfl-players.json', 'data/seventeen.json', 'data/drill.json', 'data/dynasty.json',
-  'img/games/media-cover-v2.webp', 'img/games/media-book-v1.webp', 'img/games/media-disc-v1.webp',
+  'img/games/media-cover-v3.webp', 'img/games/media-book-v1.webp', 'img/games/media-disc-v1.webp',
   'img/games/dynasty-cover-v3.webp', 'img/games/dynasty-book-v4.webp', 'img/games/dynasty-disc-v4.webp', 'img/games/dynasty-back-v2.webp', 'img/rivals/card-back-v1.webp',
   ...['common', 'rare', 'epic', 'legendary', 'mythic'].map(r => `img/rivals/field-${r}.svg`)
 ];
