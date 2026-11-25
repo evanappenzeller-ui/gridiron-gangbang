@@ -56,7 +56,9 @@ function mealItem(m, draft) {
   const about = ts.length ? ts.map(t => `${nm(t.who)} finished in ${t.raw}${t.adj.length ? ` with ${t.adj.map(adjTxt).join(' and ')}` : ''}: ${t.time}, the ${ord(t.pick)} pick${draft && draft.year ? ` of the ${draft.year} draft` : ''}.`).join(' ')
     : `${names(m.who)} takes on the Happy Meal Challenge.`;
   return {id: 'meal:' + m.key, kind: 'meal', key: m.key, who: m.who, src: m, tall: !!m.tall, poster: press.thumbOf(m), file: m.file,
-    pick, picks: ts, title: `${names(m.who)}'s Happy Meal`, short: names(m.who), badge: pick < 99 ? `#${pick}` : '',
+    // (the shared video has both its picks, Nov 25 2026, Evan: "Jackson and Jacob (the last video) got 11&12")
+    pick, picks: ts, pickLabel: ts.length ? ts.map(t => t.pick).sort((a, b) => a - b).join(' & ') : '',
+    title: `${names(m.who)}'s Happy Meal`, short: names(m.who), badge: ts.length ? `#${ts.map(t => t.pick).sort((a, b) => a - b).join(' & ')}` : '',
     eyebrow: 'The Happy Meal Challenge', meta: [draft && draft.year ? String(draft.year) : '', line].filter(Boolean).join(' · '), line, about};
 }
 function catalogue(s) {
@@ -105,9 +107,12 @@ function noShowHTML(n) {
     + `<span class="mr-card-t" aria-hidden="true">${esc(nm(n.who))}</span><span class="mr-card-s" aria-hidden="true">Did not attend</span></div>`;
 }
 function topHTML(x) {
-  const n = x.pick < 99 ? x.pick : '';
+  // the pick, huge; a shared video's both picks ("11&12", the & small between them)
+  const ps = x.picks.map(t => t.pick).sort((a, b) => a - b);
+  const n = ps.map(String).join('<i>&amp;</i>');
+  const cls = ps.length > 1 ? ' is-pair' : String(ps[0] || '').length > 1 ? ' is-2' : '';
   return `<button type="button" class="mr-top" data-mr-open="${esc(x.id)}" data-mr-id="${esc(x.id)}" aria-label="${esc(`${x.title}. ${x.line}`)}">`
-    + `<span class="mr-top-n${String(n).length > 1 ? ' is-2' : ''}" aria-hidden="true">${n}</span>`
+    + `<span class="mr-top-n${cls}" aria-hidden="true">${n}</span>`
     + `<span class="mr-art is-poster">${posterImg(x)}<span class="mr-top-l" aria-hidden="true"><b>${esc(x.short)}</b><small>${esc(x.picks.map(t => t.time).join(' & '))}</small></span>${progHTML(x)}</span></button>`;
 }
 const rowHTML = (title, inner, {cls = '', sub = ''} = {}) => `<section class="mr-row${cls ? ' ' + cls : ''}"><h2 class="mr-row-h">${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ''}</h2>`
@@ -158,7 +163,7 @@ function mainHTML(s) {
         + eps.filter(e => Math.floor(e.k / 100) === y).map(e => (e.x ? epHTML(e.x) : epNoShow(e.n))).join('') + `</div></section>`).join('');
   } else {
     out += loadingM ? `<div class="mr-eps">${'<span class="mr-sk is-ep"></span>'.repeat(4)}</div>`
-      : `${draftHTML(s.draft)}<section class="mr-row"><h2 class="mr-row-h">Every Happy Meal<small>In draft order</small></h2><div class="mr-eps" role="list">${C.meals.map(x => epHTML(x, x.pick < 99 ? x.pick : null)).join('')}</div></section>`;
+      : `${draftHTML(s.draft)}<section class="mr-row"><h2 class="mr-row-h">Every Happy Meal<small>In draft order</small></h2><div class="mr-eps" role="list">${C.meals.map(x => epHTML(x, x.pickLabel || null)).join('')}</div></section>`;
   }
   if (s.err && !C.all.length) out += `<p class="mr-none">The videos couldn't load. Check your connection and try again.</p>`;
   return out;
@@ -185,7 +190,7 @@ function detailHTML(s, x) {
     extra = `<section class="mr-d-sec"><h3>The Times</h3><ul class="mr-times">${x.picks.map(t => `<li><span class="mr-dr-pk">${t.pick}</span><span><b>${esc(nm(t.who))}</b><small>${esc([`${t.raw} on the clock`, ...t.adj.map(adjTxt), t.note].filter(Boolean).join(' · '))}</small></span><span class="mr-dr-t">${esc(t.time)}</span></li>`).join('')}</ul></section>`;
   }
   const more = (x.kind === 'press' ? C.pressers : C.meals).filter(y => y.id !== x.id);
-  const moreHTML = more.length ? `<section class="mr-d-sec"><h3>${x.kind === 'press' ? 'More Episodes' : 'More Happy Meals'}</h3><div class="mr-eps">${more.map(y => epHTML(y, x.kind === 'meal' && y.pick < 99 ? y.pick : null).replace('data-mr-open=', 'data-mr-swap=')).join('')}</div></section>` : '';
+  const moreHTML = more.length ? `<section class="mr-d-sec"><h3>${x.kind === 'press' ? 'More Episodes' : 'More Happy Meals'}</h3><div class="mr-eps">${more.map(y => epHTML(y, x.kind === 'meal' ? y.pickLabel || null : null).replace('data-mr-open=', 'data-mr-swap=')).join('')}</div></section>` : '';
   return `<div class="mr-d" data-mr-d="${esc(x.id)}">${playerHTML(x)}<div class="mr-d-in">`
     + `<p class="mr-eyebrow"><i class="mr-g" aria-hidden="true">G</i>${esc(x.eyebrow)}</p><h2 class="mr-d-t">${esc(x.title)}</h2>`
     + `<p class="mr-d-meta"><span>${esc(x.meta)}</span><span class="mr-rate">TV-GG</span><span class="mr-hd">HD</span></p>`

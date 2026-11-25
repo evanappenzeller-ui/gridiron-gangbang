@@ -28,7 +28,8 @@ read only) or The Times, and More Episodes (tap plays). Where each video got to 
 Media is gone (`league-media.js` removed, its `mealsOf`/`draftOf` now in `core/media.js`; `#/league/media` redirects to the
 Media Room); the Press Room and Matchup's Press tab keep the pressers. Pick numerals size to their digits (Nov 25 2026, Evan:
 "10 and 11 happy meals are hidden and look like 1": `.mr-top-n` is as wide as its text, two digits smaller, the poster over
-at most the last digit's edge; the browser check measures it). Verify `node tools/media/check-media-room.cjs` (optional
+at most the last digit's edge; the browser check measures it). The shared Jackson & Jacob video carries both its picks (Nov 25
+2026, Evan: "Jackson and Jacob (the last video) got 11&12"): "11&12" on its numeral, "11 & 12." in the episode lists. Verify `node tools/media/check-media-room.cjs` (optional
 `--shots=<dir>`), the Media kit check, `tools/press/check-no-questions.cjs`, `tools/nav/check-swipe-back.cjs` and the home and
 case-flip checks.
 

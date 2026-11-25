@@ -116,6 +116,8 @@ img.is-broken { visibility: hidden; }
 }
 /* (two digits, 10 and up: smaller and tighter, both digits clear of the poster but the last one's edge) */
 .mr-top-n.is-2 { font-size: 132px; letter-spacing: -.06em; margin-right: -12px; }
+.mr-top-n.is-pair { font-size: 104px; letter-spacing: -.05em; margin-right: -10px; }
+.mr-top-n i { font-style: normal; font-size: .5em; letter-spacing: 0; margin: 0 .04em; -webkit-text-stroke-width: 2px; }
 .mr-top .mr-art { width: 104px; flex: none; z-index: 1; box-shadow: -6px 0 14px rgba(0,0,0,.5); }
 .mr-top-l { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 6px 8px; display: flex; flex-direction: column; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.85)); }
 .mr-top-l b { font: 700 12px/15px var(--font-text); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
