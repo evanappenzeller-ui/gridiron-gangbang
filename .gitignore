@@ -15,3 +15,5 @@ output/return-intro/
 output/return-motion/
 output/return-performance/
 output/return-reset/
+# Daily trivia preview screenshots (tools/puzzles/check-trivia-v6.cjs --shots)
+output/trivia-preview/
