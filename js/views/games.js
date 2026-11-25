@@ -48,7 +48,7 @@ export const GAMES = [
   // (the Media Room, Nov 24 2026, Evan: "Create a new disc on the Home Screen for the media room": every video in the app,
   // the press conferences and the Happy Meals, in views/media.js; it replaced League › Media. Last on the shelf, so a swipe
   // back from Daily Puzzles comes to it; NEW on its band for two weeks)
-  {id: 'media', name: 'Media Room', title: 'Media Room', art: 'img/games/media-cover-v1.webp', book: 'img/games/media-book-v1.webp', disc: 'img/games/media-disc-v1.webp', fresh: '2026-12-08', watch: true}
+  {id: 'media', name: 'Media Room', title: 'Media Room', art: 'img/games/media-cover-v4.webp', book: 'img/games/media-book-v1.webp', disc: 'img/games/media-disc-v1.webp', fresh: '2026-12-08', watch: true}
 ];
 // The games that go on with no day's final, countdown or board (Keepfall, Gridiron Dynasty): a printed back on their
 // case, never IN PROGRESS.

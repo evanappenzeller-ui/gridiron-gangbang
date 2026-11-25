@@ -106,18 +106,26 @@ export function create(ctx, el) {
     wk.innerHTML = st.week ? `<button type="button" class="lc-step" data-lc-step="-1" aria-label="Week before"${st.week > 1 ? '' : ' disabled'}>${ui.icon('chevron-left')}</button>`
       + `<span class="lc-wk-t"><b>Week ${st.week}</b>${D && D.games.length ? `<small>${esc(rangeOf(D.games))}</small>` : ''}</span>`
       + `<button type="button" class="lc-step" data-lc-step="1" aria-label="Week after"${st.week < st.weeks ? '' : ' disabled'}>${ui.icon('chevron-right')}</button>` : '';
-    if (!D) { box.innerHTML = ui.skeleton('rows', 6, {label: 'Loading the games.'}); chips.innerHTML = ''; return; }
+    if (!D) { box.innerHTML = ui.skeleton('rows', 6, {label: 'Loading the games.'}); chips.innerHTML = ''; chips.dataset.key = ''; return; }
     if (!D.games.length) {
-      chips.innerHTML = '';
+      chips.innerHTML = ''; chips.dataset.key = '';
       box.innerHTML = ui.empty({icon: 'football', title: D.error ? "Couldn't load the games." : 'No games this week.', body: D.error ? 'Check your connection.' : ''});
       return;
     }
     const items = chipsOf(D.games);
     if (!items.some(c => c.id === st.f)) st.f = 'top25';
-    const rail = chips.querySelector('.chips'), left = rail ? rail.scrollLeft : 0;
-    chips.innerHTML = ui.chips({name: 'lc-f', items, value: st.f, label: 'Which games', cls: 'lc-chips'});
-    const r2 = chips.querySelector('.chips');
-    if (r2) r2.scrollLeft = left;
+    // The rail is built once per set of chips (Nov 25 2026, Evan: "It is currently hard to swipe across the conferences
+    // on the scores tab"): a live week redraws every 30 s, and replacing the rail then stopped a swipe in its tracks.
+    // The same chips keep their rail and only the pressed chip changes.
+    const key = items.map(c => c.id + ':' + c.label).join('|'), rail = chips.querySelector('.chips');
+    if (rail && chips.dataset.key === key) ui.setChips(rail, st.f, {scroll: false});
+    else {
+      const left = rail ? rail.scrollLeft : 0;
+      chips.innerHTML = ui.chips({name: 'lc-f', items, value: st.f, label: 'Which games', cls: 'lc-chips'});
+      chips.dataset.key = key;
+      const r2 = chips.querySelector('.chips');
+      if (r2) r2.scrollLeft = left;
+    }
     const list = filtered(D.games, st.f), on = D.games.filter(g => g.state === 'in').length;
     const head = `<div class="sh lg-sh"><h2>${on ? `${on} ${on === 1 ? 'game' : 'games'} on` : `${list.length} ${list.length === 1 ? 'game' : 'games'}`}</h2>`
       + `<span class="lg-at">${D.stale ? 'Offline · ' : ''}${on ? '<i class="lg-pulse" aria-hidden="true"></i>Updated ' : 'As of '}${esc(new Date(D.at || Date.now()).toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'}))}</span></div>`;

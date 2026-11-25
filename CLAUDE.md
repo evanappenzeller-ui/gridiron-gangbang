@@ -35,6 +35,14 @@ get the same glass, condensed glowing names and pulse/shake (trivia.css, end). I
 `node tools/puzzles/check-trivia-v6.cjs` (optional `--shots=<dir>`: 200 days without a repeat, the deal, every game and bonus
 kind played through, results, reload, Test Play), `check-rollout.cjs`, `PUZZLE_DAY=5 check-challenges.cjs` and the home and
 case-flip checks.
+## Scores: the conference chips swipe easily (November 25, 2026)
+
+Evan, with the College screen: "It is currently hard to swipe across the conferences on the scores tab." Everyone.
+`views/live-cfb.js` `draw` rebuilt the chip rail on every redraw, and a live week redraws every 30 s, which stopped a
+swipe mid-way; now the rail is built once per set of chips (`data-key` on its wrapper) and a redraw only moves the
+pressed chip. `css/views/live.css` `.lc-chips`: a 44 px strip (6 px above and below the chips), `touch-action: pan-x`
+so a wandering swipe still moves the chips, no scroll snapping. `tools/live/check-scores-browser.cjs` asserts the
+strip, the pan and that a redraw keeps the same rail where it was scrolled.
 
 ## Scores: the NCAA logo alone (November 25, 2026)
 
@@ -50,8 +58,12 @@ meal challenge to the weekly press conferences. Make this look like a Netflix or
 videos in the matchup tab, but get rid of the media archive section since this will be replacing it." Everyone. A Media Room
 case is last on the Home shelf (`views/games.js` `GAMES` id `media`, LASTING like Keepfall: no board, no flip control, its
 printed back the booklet's lineup, NEW until December 8, 2026, Watch in place of Start); cover, booklet and disc are drawn from
-the videos' own posters by `tools/media/case-art.cjs` (`img/games/media-{cover,book,disc}-v1.webp`; a changed design gets a new
-version). It opens `#/puzzles/media` (`views/media.js`, `chrome: 'none'`, `css/views/media.css`, dark whatever the theme): its
+the videos' own posters by `tools/media/case-art.cjs` (`img/games/media-cover-v4.webp`, `media-{book,disc}-v1.webp`; a changed design
+gets a new version; the cover's v2, Nov 25 2026, Evan: "Remove the now streaming and bottom text from the media room case":
+no NOW STREAMING tag, tagline or TV-GG bar; 808 x 1040, what the case shows of it, so the whole wordmark shows; v3 the same
+day, "Remove gridiron hub as well": the cover's title is MEDIA ROOM alone; the case's own GRIDIRON HUB band stays, as on every case; v4, "Make the play button
+larger and semi transparent. Ensure the text size and position is adjusted so it looks natural": a 212 px frosted, see-through
+button over the poster wall, the title a little smaller and anchored above the cover's foot). It opens `#/puzzles/media` (`views/media.js`, `chrome: 'none'`, `css/views/media.css`, dark whatever the theme): its
 own bar (Back, the MEDIA ROOM wordmark, clear over the billboard and solid once scrolled) over All · Press Conferences · Happy
 Meals (`gg-media-filter`); the billboard (newest presser, or the 1st pick's Happy Meal) with Play/Resume and Info; All has
 Continue Watching, Press Conferences (newest first, the week 7 no-show among them), The Happy Meal Challenge (Top-10 style, the

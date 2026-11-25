@@ -3,9 +3,15 @@
 // the videos' own poster frames (video/press/*.jpg, video/media/*.jpg) and the app's Barlow Condensed, then saved as
 // WebP (python3 + Pillow) under img/games/media-{cover,book,disc}-v1.webp. A changed design gets a new version number
 // (and its paths in views/games.js and sw.js).
-// Usage: node tools/media/case-art.cjs
+// Usage: node tools/media/case-art.cjs [cover] [book] [disc] (default all)
 const fs = require('node:fs'), path = require('node:path'), {execFileSync} = require('node:child_process');
-const root = path.resolve(__dirname, '../..'), OUT = path.join(root, 'img/games'), V = 'v1';
+const root = path.resolve(__dirname, '../..'), OUT = path.join(root, 'img/games');
+// The cover is 808 x 1040, what the case shows of it (puzzles.css .gm-img is top-anchored; up close .gm-art is 808 / 1040).
+// Each piece's version (the cover v2, Nov 25 2026, Evan: "Remove the now streaming and bottom text from the media room case").
+// (v3, Nov 25 2026, Evan: "Remove gridiron hub as well": the cover's title is MEDIA ROOM alone)
+// (v4, the same day, Evan: "Make the play button larger and semi transparent. Ensure the text size and position is adjusted so it
+// looks natural": a 212 px frosted button over the wall, the title a little smaller, anchored above the bottom)
+const V = {cover: 'v4', book: 'v1', disc: 'v1'};
 const tmp = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'media-art-'));
 const uri = f => 'data:image/' + (f.endsWith('.jpg') ? 'jpeg' : 'webp') + ';base64,' + fs.readFileSync(path.join(root, f)).toString('base64');
 const font = 'data:font/woff2;base64,' + fs.readFileSync(path.join(root, 'fonts/barlow-condensed-800.woff2')).toString('base64');
@@ -21,25 +27,22 @@ const base = `@font-face{font-family:BC;src:url(${font}) format('woff2');font-we
 const tiles = (n, off = 0) => Array.from({length: n}, (_, i) => `<i style="background-image:url(${wall[(i + off) % wall.length]})"></i>`).join('');
 const wallCSS = (cols, w, h, gap) => `.wall{position:absolute;display:grid;grid-template-columns:repeat(${cols},${w}px);gap:${gap}px}
 .wall i{display:block;width:${w}px;height:${h}px;border-radius:10px;background:#222 center 30%/cover;box-shadow:0 10px 30px #000a}`;
-const mark = (size, one = false) => `<div class="bc mk" style="font-size:${size}px;line-height:.82;letter-spacing:-.01em;color:#fff;text-align:center">
-  <span style="display:block;font-size:.26em;letter-spacing:.32em;color:#e9e9e9;margin-bottom:.12em">GRIDIRON HUB</span>
+const mark = (size, one = false, hub = true) => `<div class="bc mk" style="font-size:${size}px;line-height:.82;letter-spacing:-.01em;color:#fff;text-align:center">
+  ${hub ? '<span style="display:block;font-size:.26em;letter-spacing:.32em;color:#e9e9e9;margin-bottom:.12em">GRIDIRON HUB</span>' : ''}
   <span style="display:${one ? 'inline' : 'block'};color:${RED};text-shadow:0 .03em 0 #7d0f0b,0 .06em .2em #000">MEDIA</span>${one ? ' ' : ''}<span style="display:${one ? 'inline' : 'block'};text-shadow:0 .06em .2em #000">ROOM</span></div>`;
 
-const COVER = {w: 808, h: 1212, html: `<style>${base}${wallCSS(4, 230, 340, 18)}
-body{width:808px;height:1212px;position:relative;overflow:hidden;background:#050506}
+const COVER = {w: 808, h: 1040, html: `<style>${base}${wallCSS(4, 230, 340, 18)}
+body{width:808px;height:1040px;position:relative;overflow:hidden;background:#050506}
 .wall{left:-170px;top:-120px;transform:perspective(1400px) rotateX(18deg) rotateZ(-11deg);transform-origin:50% 0}
 .fade{position:absolute;inset:0;background:linear-gradient(180deg,#0506 0%,#05050600 22%,#050506aa 48%,#050506 66%),radial-gradient(120% 70% at 50% 100%,#3a0a08aa,#0000 60%)}
-.mk{position:absolute;left:0;right:0;top:540px}
-.tag{position:absolute;left:0;right:0;top:1028px;text-align:center;color:#d9d9d9;font-size:25px;letter-spacing:.2em}
-.tag b{color:${RED}}
-.bar{position:absolute;left:44px;right:44px;bottom:40px;display:flex;justify-content:space-between;align-items:center;color:#bbb;font-size:22px;letter-spacing:.14em}
-.rt{border:3px solid #ddd;color:#fff;padding:6px 10px 3px;font-size:24px;letter-spacing:.06em}
-.new{position:absolute;top:36px;left:36px;background:${RED};color:#fff;font-size:26px;letter-spacing:.14em;padding:8px 16px 5px;border-radius:4px;box-shadow:0 6px 20px #000c}
-.play{position:absolute;left:50%;top:412px;width:96px;height:96px;margin-left:-48px;border-radius:50%;background:#ffffffe6;box-shadow:0 10px 40px #000}
-.play:after{content:'';position:absolute;left:38px;top:28px;border-left:32px solid #111;border-top:20px solid transparent;border-bottom:20px solid transparent}
-</style><div class="wall">${tiles(20)}</div><div class="fade"></div><span class="bc new">NOW STREAMING</span><span class="play"></span>
-${mark(232)}<p class="bc tag">PRESS CONFERENCES <b>·</b> THE HAPPY MEAL CHALLENGE</p>
-<div class="bc bar"><span class="rt">TV-GG</span><span>EVERY EPISODE · EVERY SEASON</span><span>HD</span></div>`};
+.mk{position:absolute;left:0;right:0;bottom:62px}
+/* the play button: large and see-through, frosted over the poster wall (v4) */
+.play{position:absolute;left:50%;top:248px;width:212px;height:212px;margin-left:-106px;border-radius:50%;
+  background:rgba(255,255,255,.2);-webkit-backdrop-filter:blur(10px) saturate(1.2);backdrop-filter:blur(10px) saturate(1.2);
+  border:5px solid rgba(255,255,255,.78);box-shadow:0 18px 60px rgba(0,0,0,.55),inset 0 0 40px rgba(255,255,255,.12)}
+.play:after{content:'';position:absolute;left:78px;top:58px;border-left:76px solid rgba(255,255,255,.9);border-top:46px solid transparent;border-bottom:46px solid transparent;filter:drop-shadow(0 4px 10px rgba(0,0,0,.35))}
+</style><div class="wall">${tiles(20)}</div><div class="fade"></div><span class="play"></span>
+${mark(216, false, false)}`};
 
 const BOOK = {w: 620, h: 930, html: `<style>${base}
 body{width:620px;height:930px;position:relative;overflow:hidden;background:#0c0c0e;color:#fff;padding:44px 40px}
@@ -70,7 +73,8 @@ body{width:706px;height:706px;position:relative}
   const {chromium} = require('playwright');
   const b = await chromium.launch();
   try {
-    for (const [name, A] of Object.entries({cover: COVER, book: BOOK, disc: DISC})) {
+    const want = process.argv.slice(2).filter(a => !a.startsWith('-'));
+    for (const [name, A] of Object.entries({cover: COVER, book: BOOK, disc: DISC}).filter(([n]) => !want.length || want.includes(n))) {
       const p = await b.newPage({viewport: {width: A.w, height: A.h}, deviceScaleFactor: 1});
       await p.setContent(`<!doctype html><meta charset="utf-8">${A.html}`);
       await p.evaluate(() => document.fonts.ready);
@@ -78,7 +82,7 @@ body{width:706px;height:706px;position:relative}
       const png = path.join(tmp, name + '.png');
       await p.screenshot({path: png, omitBackground: !!A.transparent});
       // the disc's middle is see-through, as every disc's is
-      const out = path.join(OUT, `media-${name}-${V}.webp`);
+      const out = path.join(OUT, `media-${name}-${V[name]}.webp`);
       execFileSync('python3', ['-I', '-c', `import sys
 from PIL import Image, ImageDraw
 im = Image.open(sys.argv[1]).convert('RGBA')

@@ -118,6 +118,29 @@ async function college(page, tag) {
   await page.locator('.v-live [data-chips="lc-f"] .chip[data-value="8"]').click();
   await page.waitForFunction(() => document.querySelectorAll('.v-live .lc-g').length > 0 && document.querySelectorAll('.v-live .lc-g').length < 20, null, {timeout: 5000});
   const sec = await page.locator('.v-live .lc-g').count();
+  // The conference rail (Nov 25 2026, Evan: "It is currently hard to swipe across the conferences on the scores tab"):
+  // a 44 px strip held to sideways pans, and a redraw (a chip, a live update) keeps the same rail where it was scrolled.
+  const railOf = () => page.evaluate(() => {
+    const r = document.querySelector('.v-live [data-chips="lc-f"]'), cs = getComputedStyle(r);
+    if (!window.__lcRail) window.__lcRail = r;
+    return {same: window.__lcRail === r, h: r.getBoundingClientRect().height, ta: cs.touchAction, left: r.scrollLeft, max: r.scrollWidth - r.clientWidth};
+  });
+  const r0 = await railOf();
+  assert.ok(r0.h >= 44, tag + ': the rail is a 44 px strip (' + r0.h + ')');
+  assert.equal(r0.ta, 'pan-x', tag + ': the rail pans sideways only');
+  await page.locator('.v-live [data-chips="lc-f"] .chip[data-value="all"]').click();
+  await page.locator('.v-live [data-chips="lc-f"] .chip[data-value="8"]').click();
+  await page.waitForTimeout(400);
+  // a redraw while the rail sits scrolled (as a live update mid-swipe)
+  await page.evaluate(() => {
+    const r = document.querySelector('.v-live [data-chips="lc-f"]');
+    r.scrollLeft = 20;
+    r.dispatchEvent(new CustomEvent('ui:change', {bubbles: true, detail: {name: 'lc-f', value: '8'}}));
+  });
+  await page.waitForTimeout(100);
+  const r1 = await railOf();
+  assert.ok(r1.same, tag + ': a redraw keeps the same rail');
+  if (r0.max > 20) assert.ok(Math.abs(r1.left - 20) < 2, tag + ': and where it was scrolled (' + r1.left + ')');
   // The week stepper: an empty week, then back.
   await page.locator('.v-live [data-lc-step="1"]').click();
   await page.waitForFunction(w => /Week (\d+)/.exec(document.querySelector('.v-live .lc-wk-t').textContent)[1] === String(w), CFB_WEEK + 1, {timeout: 5000});
