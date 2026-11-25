@@ -14,8 +14,9 @@ meal challenge to the weekly press conferences. Make this look like a Netflix or
 videos in the matchup tab, but get rid of the media archive section since this will be replacing it." Everyone. A Media Room
 case is last on the Home shelf (`views/games.js` `GAMES` id `media`, LASTING like Keepfall: no board, no flip control, its
 printed back the booklet's lineup, NEW until December 8, 2026, Watch in place of Start); cover, booklet and disc are drawn from
-the videos' own posters by `tools/media/case-art.cjs` (`img/games/media-{cover,book,disc}-v1.webp`; a changed design gets a new
-version). It opens `#/puzzles/media` (`views/media.js`, `chrome: 'none'`, `css/views/media.css`, dark whatever the theme): its
+the videos' own posters by `tools/media/case-art.cjs` (`img/games/media-cover-v2.webp`, `media-{book,disc}-v1.webp`; a changed design
+gets a new version; the cover's v2, Nov 25 2026, Evan: "Remove the now streaming and bottom text from the media room case":
+no NOW STREAMING tag, tagline or TV-GG bar; 808 x 1040, what the case shows of it, so the whole wordmark shows). It opens `#/puzzles/media` (`views/media.js`, `chrome: 'none'`, `css/views/media.css`, dark whatever the theme): its
 own bar (Back, the MEDIA ROOM wordmark, clear over the billboard and solid once scrolled) over All · Press Conferences · Happy
 Meals (`gg-media-filter`); the billboard (newest presser, or the 1st pick's Happy Meal) with Play/Resume and Info; All has
 Continue Watching, Press Conferences (newest first, the week 7 no-show among them), The Happy Meal Challenge (Top-10 style, the
