@@ -9,7 +9,9 @@ const root = path.resolve(__dirname, '../..'), OUT = path.join(root, 'img/games'
 // The cover is 808 x 1040, what the case shows of it (puzzles.css .gm-img is top-anchored; up close .gm-art is 808 / 1040).
 // Each piece's version (the cover v2, Nov 25 2026, Evan: "Remove the now streaming and bottom text from the media room case").
 // (v3, Nov 25 2026, Evan: "Remove gridiron hub as well": the cover's title is MEDIA ROOM alone)
-const V = {cover: 'v3', book: 'v1', disc: 'v1'};
+// (v4, the same day, Evan: "Make the play button larger and semi transparent. Ensure the text size and position is adjusted so it
+// looks natural": a 212 px frosted button over the wall, the title a little smaller, anchored above the bottom)
+const V = {cover: 'v4', book: 'v1', disc: 'v1'};
 const tmp = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'media-art-'));
 const uri = f => 'data:image/' + (f.endsWith('.jpg') ? 'jpeg' : 'webp') + ';base64,' + fs.readFileSync(path.join(root, f)).toString('base64');
 const font = 'data:font/woff2;base64,' + fs.readFileSync(path.join(root, 'fonts/barlow-condensed-800.woff2')).toString('base64');
@@ -33,16 +35,14 @@ const COVER = {w: 808, h: 1040, html: `<style>${base}${wallCSS(4, 230, 340, 18)}
 body{width:808px;height:1040px;position:relative;overflow:hidden;background:#050506}
 .wall{left:-170px;top:-120px;transform:perspective(1400px) rotateX(18deg) rotateZ(-11deg);transform-origin:50% 0}
 .fade{position:absolute;inset:0;background:linear-gradient(180deg,#0506 0%,#05050600 22%,#050506aa 48%,#050506 66%),radial-gradient(120% 70% at 50% 100%,#3a0a08aa,#0000 60%)}
-.mk{position:absolute;left:0;right:0;top:612px}
-.tag{position:absolute;left:0;right:0;top:1028px;text-align:center;color:#d9d9d9;font-size:25px;letter-spacing:.2em}
-.tag b{color:${RED}}
-.bar{position:absolute;left:44px;right:44px;bottom:40px;display:flex;justify-content:space-between;align-items:center;color:#bbb;font-size:22px;letter-spacing:.14em}
-.rt{border:3px solid #ddd;color:#fff;padding:6px 10px 3px;font-size:24px;letter-spacing:.06em}
-.new{position:absolute;top:36px;left:36px;background:${RED};color:#fff;font-size:26px;letter-spacing:.14em;padding:8px 16px 5px;border-radius:4px;box-shadow:0 6px 20px #000c}
-.play{position:absolute;left:50%;top:478px;width:96px;height:96px;margin-left:-48px;border-radius:50%;background:#ffffffe6;box-shadow:0 10px 40px #000}
-.play:after{content:'';position:absolute;left:38px;top:28px;border-left:32px solid #111;border-top:20px solid transparent;border-bottom:20px solid transparent}
+.mk{position:absolute;left:0;right:0;bottom:62px}
+/* the play button: large and see-through, frosted over the poster wall (v4) */
+.play{position:absolute;left:50%;top:248px;width:212px;height:212px;margin-left:-106px;border-radius:50%;
+  background:rgba(255,255,255,.2);-webkit-backdrop-filter:blur(10px) saturate(1.2);backdrop-filter:blur(10px) saturate(1.2);
+  border:5px solid rgba(255,255,255,.78);box-shadow:0 18px 60px rgba(0,0,0,.55),inset 0 0 40px rgba(255,255,255,.12)}
+.play:after{content:'';position:absolute;left:78px;top:58px;border-left:76px solid rgba(255,255,255,.9);border-top:46px solid transparent;border-bottom:46px solid transparent;filter:drop-shadow(0 4px 10px rgba(0,0,0,.35))}
 </style><div class="wall">${tiles(20)}</div><div class="fade"></div><span class="play"></span>
-${mark(232, false, false)}`};
+${mark(216, false, false)}`};
 
 const BOOK = {w: 620, h: 930, html: `<style>${base}
 body{width:620px;height:930px;position:relative;overflow:hidden;background:#0c0c0e;color:#fff;padding:44px 40px}
