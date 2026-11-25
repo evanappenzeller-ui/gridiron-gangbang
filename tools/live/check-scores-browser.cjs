@@ -82,6 +82,8 @@ async function open(browser, url, me, viewport) {
     localStorage.setItem('gg-welcome', '1');
     ['evan', 'mason', 'visitor'].forEach(k => localStorage.setItem('gg-release-3.0:' + k, '1'));
   }, me);
+  // (the fixtures are the Nov 22 2026 slate: the phone's clock is set to that afternoon, running on from there)
+  await context.clock.install({time: new Date('2026-11-22T13:30:00-06:00')}); await context.clock.resume();
   const page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + (e.stack || e.message)));
   page.on('console', m => { if (m.type() === 'error' && !/net::ERR|Failed to load resource|firebase|navigator\.vibrate/i.test(m.text())) errors.push(m.text()); });
@@ -95,6 +97,8 @@ const gameScreen = '.v-game:not([hidden])';
 async function college(page, tag) {
   await page.waitForSelector('.v-live .lg-sw [data-lg-mode="cfb"]', {timeout: 20000});
   assert.deepEqual(await page.$$eval('.v-live .lg-sw .pk-lg-t', bs => bs.map(b => b.dataset.lgMode)), ['nfl', 'cfb', 'lg'], tag + ': NFL · College · League');
+  // (Nov 25 2026, Evan: "Remove the college text underneath the logo in scores": the NCAA logo alone, as NFL's)
+  assert.equal(await page.locator('.v-live [data-lg-mode="cfb"] .pk-lg-s').count(), 0, tag + ': no College word under the NCAA logo');
   await page.locator('.v-live [data-lg-mode="cfb"]').click();
   await page.waitForSelector('.v-live [data-lc]:not([hidden]) .lc-g', {timeout: 20000});
   await page.waitForTimeout(400);

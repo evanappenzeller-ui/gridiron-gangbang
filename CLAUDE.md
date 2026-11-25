@@ -1,5 +1,12 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Scores: the NCAA logo alone (November 25, 2026)
+
+Evan, with the Scores tab on College: "Remove the college text underneath the logo in scores." Everyone. `views/live.js`
+`MODES`: the College button shows only the NCAA logo, like NFL's (its `sub` is ''; the accessible label stays "College
+scores"); League keeps its word. `tools/live/check-scores-browser.cjs` asserts it and now pins the browser's clock to the
+fixtures' day (Nov 22 2026), so it no longer fails once the real week moves on.
+
 ## Media Room: every video on its own disc (November 24, 2026)
 
 Evan: "Create a new disc on the Home Screen for the media room. This should include all the videos in the app from the happy

@@ -300,7 +300,7 @@ function statsHTML() {
 // ---------------------------------------------------------------------------------------------- NFL · League
 // The switch, Pick'em's scoreboard buttons (views/pickem.js leagueTabsHTML; img/nfl.webp, img/league.webp).
 const MODE_KEY = 'gg-live-mode';
-const MODES = [{id: 'nfl', sub: '', label: 'NFL scores', src: 'img/nfl.webp'}, {id: 'cfb', sub: 'College', label: 'College scores', src: 'img/ncaa.webp'},
+const MODES = [{id: 'nfl', sub: '', label: 'NFL scores', src: 'img/nfl.webp'}, {id: 'cfb', sub: '', label: 'College scores', src: 'img/ncaa.webp'},
   {id: 'lg', sub: 'League', label: 'League scores', src: 'img/league.webp'}];
 const modeNow = () => { const m = ui.lsGet(MODE_KEY); return m === 'lg' || m === 'cfb' ? m : 'nfl'; };
 const SUBS = {nfl: 'Every game as it plays, the red zone first', cfb: 'Every FBS game, the Top 25 first', lg: 'The league\u2019s matchups as they play'};
