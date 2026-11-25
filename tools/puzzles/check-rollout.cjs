@@ -18,7 +18,7 @@ const server=http.createServer((req,res)=>{let p=path.join(root,new URL(req.url,
   assert.equal(await page.evaluate(async()=>(await import('/js/core/daily.js')).dayVersion()),5,'November 13 activates shared rollout');
   assert.equal(await page.locator('[data-puzzle-jump]').count(),4);
   const rotation=await page.evaluate(async()=>{const d=await import('/js/core/daily.js');return Array.from({length:30},(_,i)=>{const day=d.dayFor(47+i);return {ids:d.stepsFor(day).map(s=>s.id),max:d.maxPts(day)};});});
-  for(const day of rotation){assert.ok(day.ids.length>=3&&day.ids.length<=4);assert.equal(new Set(day.ids).size,day.ids.length);assert.ok(!day.ids.some(x=>['timeline','sil','play'].includes(x)));assert.equal(day.max,day.ids.length*200);}
+  for(const day of rotation){assert.ok(day.ids.length>=3&&day.ids.length<=5);assert.ok(day.ids.length<5||day.ids[4]==='bonus','From Nov 26 2026 (puzzle day 60) the fifth game is the Bonus');assert.equal(new Set(day.ids).size,day.ids.length);assert.ok(!day.ids.some(x=>['timeline','sil','play'].includes(x)));assert.equal(day.max,day.ids.length*200);}
   assert.ok(rotation[0].ids.includes('numbers'),'Tomorrow features circular trivia');
   assert.ok(new Set(rotation.map(x=>x.ids.join())).size>1,'Lineups rotate');
   await page.locator('[data-cta]').click();

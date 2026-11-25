@@ -1,0 +1,275 @@
+// The fresh trivia (Nov 26 2026 on; Evan, Nov 25 2026: the matching game's answers "all on one side", "ensure that no
+// game is repeated", smoother feedback, and a Bonus puzzle: a Wordscapes wheel, a crossword, unscrambling names and
+// matching this season's scores). In a real browser on a local server (Firebase off, outside hosts blocked):
+//   1. the level bank: every day from FRESH_FROM for a year has fresh games: no Higher or Lower match-up, Connections
+//      set, Number question, bonus level or College / Mystery / Journey / Grid source used twice, and none of the
+//      classic sources played on days 1-59; the days before FRESH_FROM are as they were.
+//   2. Team Connections deals no group in one row or one column, on 120 days.
+//   3. a whole day played through the screens on several days (every game: Higher or Lower 4 rounds, Connections with
+//      a miss then all three groups, Number Trivia with the dial and the nudges, and each bonus kind: a real drag on
+//      the Word Wheel, Unscramble, Crossword typing, Score Match), points as the rules say, results, a reload keeps it.
+//   4. phone widths 320/390 and a tablet: no sideways scroll.
+// Usage: node tools/puzzles/check-trivia-v6.cjs [--shots=<dir>]
+const fs = require('fs'), path = require('path'), http = require('http'), assert = require('assert/strict');
+const root = path.resolve(__dirname, '../..'), pw = require('playwright');
+const shots = (process.argv.find(a => a.startsWith('--shots=')) || '').slice(8);
+if (shots) fs.mkdirSync(shots, {recursive: true});
+const mime = {'.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html', '.json': 'application/json', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp'};
+const server = http.createServer((req, res) => {
+  let p = path.join(root, new URL(req.url, 'http://localhost').pathname);
+  if (p.endsWith('/')) p += 'index.html';
+  if (!p.startsWith(root + path.sep)) return res.writeHead(403).end();
+  fs.readFile(p, (e, b) => {
+    if (e) return res.writeHead(404).end();
+    if (p.endsWith('index.html')) b = Buffer.from(b.toString().replace(/(<script id="firebase-config"[^>]*>)[\s\S]*?(<\/script>)/, '$1{}$2'));
+    res.setHeader('Content-Type', mime[path.extname(p)] || 'application/octet-stream'); res.end(b);
+  });
+});
+/** Waits for the day to load (an async waitForFunction would pass at once: its promise is truthy). */
+async function ready(page) {
+  for (let k = 0; k < 200; k++) { if (await page.evaluate(async () => (await import('/js/core/daily.js')).status === 'ready')) return; await page.waitForTimeout(100); }
+  throw new Error('the day never loaded');
+}
+
+async function open(browser, url, day, opts = {}) {
+  const context = await browser.newContext({viewport: {width: 390, height: 844}, serviceWorkers: 'block', hasTouch: !!opts.touch});
+  await context.route('**/*', r => (new URL(r.request().url()).origin === url ? r.continue() : r.abort()));
+  await context.addInitScript(() => { localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-release-3.0:evan', '1'); sessionStorage.setItem('gg-skip-title', '1'); });
+  const page = await context.newPage(), errors = [];
+  page.on('pageerror', e => errors.push(e.stack || e.message));
+  await page.goto(`${url}/?day=${day}#/puzzles/daily`);
+  await page.waitForFunction(() => window.__ggBooted);
+  await ready(page);
+  return {context, page, errors};
+}
+const go = async (page, slug) => { await page.evaluate(s => { location.hash = '/puzzles/play/' + s; }, slug); await page.locator(`[data-page="${slug}"] .tv`).first().waitFor(); await page.waitForTimeout(250); };
+const ds = (page, id) => page.evaluate(async id => JSON.parse(JSON.stringify((await import('/js/core/daily.js')).DS[id] || null)), id);
+const dayOf = page => page.evaluate(async () => JSON.parse(JSON.stringify((await import('/js/core/daily.js')).DAY)));
+
+async function playStats(page, day) {
+  await go(page, 'stats');
+  let right = 0;
+  for (let i = 0; i < 4; i++) {
+    const q = day.hl[i], truth = q[5] > q[2] ? 'higher' : 'lower', ans = i === 1 ? (truth === 'higher' ? 'lower' : 'higher') : truth;
+    if (ans === truth) right++;
+    await page.locator(`.tv-stats [data-ans="${ans}"]`).click();
+    await page.locator('.tv-stats [data-next]').waitFor();
+    if (shots && i === 0) await page.screenshot({path: path.join(shots, 'stats-reveal.png')});
+    await page.locator('.tv-stats [data-next]').click();
+  }
+  const s = await ds(page, 'stats');
+  assert.equal(s.done, true); assert.deepEqual(s.r, [true, false, true, true]);
+  assert.equal(await page.evaluate(async () => (await import('/js/core/daily.js')).STEPS.find(x => x.id === 'stats').pts()), right * 50);
+  await page.locator('.tv-stats .tv-recap li').first().waitFor();
+}
+async function playConnections(page, day) {
+  await go(page, 'connections');
+  // the deal: no group in one row or column
+  const names = await page.$$eval('.tv-connections .tv-tile', b => b.map(x => x.dataset.tile));
+  assert.equal(names.length, 9);
+  for (const g of day.cn) {
+    const at = g[1].map(n => names.indexOf(n));
+    assert.ok(new Set(at.map(i => Math.floor(i / 3))).size > 1 && new Set(at.map(i => i % 3)).size > 1, 'a group spread over rows and columns: ' + g[0]);
+  }
+  if (shots) await page.screenshot({path: path.join(shots, 'connections.png')});
+  // a miss: two of one group and one of another
+  for (const n of [day.cn[0][1][0], day.cn[0][1][1], day.cn[1][1][0]]) await page.locator(`.tv-connections [data-tile="${n}"]`).click();
+  await page.locator('.tv-connections [data-submit]').click();
+  await page.waitForTimeout(500);
+  assert.equal((await ds(page, 'connections')).miss, 1);
+  await page.locator('.tv-connections [data-clear]').click();
+  for (const g of day.cn) {
+    for (const n of g[1]) await page.locator(`.tv-connections [data-tile="${n}"]`).click();
+    await page.locator('.tv-connections [data-submit]').click();
+    await page.waitForTimeout(200);
+  }
+  const s = await ds(page, 'connections');
+  assert.equal(s.done, true); assert.equal(s.found.length, 3);
+  assert.equal(await page.locator('.tv-connections .tv-band').count(), 3);
+  if (shots) await page.screenshot({path: path.join(shots, 'connections-done.png')});
+}
+async function playNumbers(page, day) {
+  await go(page, 'numbers');
+  const dial = page.locator('.tv-numbers [data-dial]');
+  // a drag on the dial moves the needle without a redraw
+  const box = await dial.boundingBox(), cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+  const svgBefore = await dial.elementHandle();
+  await page.mouse.move(cx - box.width * .38, cy + box.height * .3); await page.mouse.down();
+  await page.mouse.move(cx, cy - box.height * .4, {steps: 8}); await page.mouse.up();
+  assert.ok(await svgBefore.evaluate(e => e.isConnected), 'the dial is moved in place, not redrawn');
+  const mid = Number(await dial.getAttribute('aria-valuenow')), q0 = day.nq[0];
+  assert.ok(Math.abs(mid - (q0[2] + q0[3]) / 2) <= (q0[3] - q0[2]) * .08, `top of the dial is about the middle (${mid})`);
+  await page.locator('.tv-numbers [data-nudge="1"]').click();
+  assert.ok(Number(await dial.getAttribute('aria-valuenow')) > mid, 'the + nudge moves it up');
+  await dial.focus(); await page.keyboard.press('End');
+  assert.equal(Number(await dial.getAttribute('aria-valuenow')), q0[3]);
+  await page.locator('.tv-numbers [data-lock]').click();
+  await page.locator('.tv-numbers [data-next]').waitFor();
+  await page.waitForTimeout(1000);
+  if (shots) await page.screenshot({path: path.join(shots, 'numbers-reveal.png')});
+  await page.locator('.tv-numbers [data-next]').click();
+  // the second: exactly right through the keyboard
+  const q1 = day.nq[1];
+  await page.locator('.tv-numbers [data-dial]').focus(); await page.keyboard.press('Home');
+  const st = Number(await page.locator('.tv-numbers [data-dial]').getAttribute('aria-valuenow'));
+  for (let k = 0; k < 400 && Number(await page.locator('.tv-numbers [data-dial]').getAttribute('aria-valuenow')) < q1[4]; k++) await page.keyboard.press('ArrowRight');
+  void st;
+  await page.locator('.tv-numbers [data-lock]').click();
+  const s = await ds(page, 'numbers');
+  assert.equal(s.done, true); assert.equal(s.g[0], q0[3]);
+  const want0 = Math.max(0, Math.round(100 * (1 - Math.abs(q0[3] - q0[4]) / (q0[3] - q0[2]) * 1.6)));
+  assert.equal(s.p[0], want0, 'points by distance');
+  if (s.g[1] === q1[4]) assert.equal(s.p[1], 100, 'exact: 100');
+}
+async function playBonus(page, day) {
+  await go(page, 'bonus');
+  const kind = day.bx.kind, d = day.bx.d;
+  if (kind === 'wheel') {
+    const [letters, targets] = d;
+    // a real drag across the letters for the first word
+    const spell = async w => {
+      const used = new Set(), pts = [];
+      for (const c of w) {
+        const i = [...letters].findIndex((x, k) => x === c && !used.has(k)); used.add(i);
+        const b = await page.locator(`.tv-bonus [data-wl="${i}"]`).boundingBox(); pts.push([b.x + b.width / 2, b.y + b.height / 2]);
+      }
+      return pts;
+    };
+    const p = await spell(targets[targets.length - 1]);
+    await page.mouse.move(...p[0]); await page.mouse.down();
+    for (const q of p.slice(1)) await page.mouse.move(...q, {steps: 6});
+    if (shots) await page.screenshot({path: path.join(shots, 'wheel-drag.png')});
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    assert.deepEqual((await ds(page, 'bonus')).got, [targets[targets.length - 1]], 'a drag spells a word');
+    for (const w of targets.slice(0, -1)) {
+      const used = new Set();
+      for (const c of w) { const i = [...letters].findIndex((x, k) => x === c && !used.has(k)); used.add(i); await page.locator(`.tv-bonus [data-wl="${i}"]`).evaluate(el => el.click()); } // (a keyboard press: detail 0)
+      await page.locator('.tv-bonus [data-wsubmit]').click();
+      await page.waitForTimeout(80);
+    }
+  } else if (kind === 'scramble') {
+    for (let i = 0; i < 4; i++) {
+      const word = d[i][0];
+      if (i === 2) { // a wrong try first
+        const tiles = await page.$$eval('.tv-bonus [data-lt]', b => b.map(x => x.textContent));
+        const order = [...tiles.keys()].reverse();
+        if (tiles.slice().reverse().join('') !== word) { for (const k of order) await page.locator(`.tv-bonus [data-lt="${k}"]`).click(); await page.waitForTimeout(600); assert.equal((await ds(page, 'bonus')).tries[2], 1); }
+      }
+      const tiles = await page.$$eval('.tv-bonus [data-lt]', b => b.map(x => x.textContent)), used = new Set();
+      for (const c of word) { const k = tiles.findIndex((t, j) => t === c && !used.has(j)); used.add(k); await page.locator(`.tv-bonus [data-lt="${k}"]`).click(); }
+      await page.locator('.tv-bonus [data-snext]').waitFor();
+      if (shots && i === 0) await page.screenshot({path: path.join(shots, 'scramble-right.png')});
+      await page.locator('.tv-bonus [data-snext]').click();
+    }
+  } else if (kind === 'cross') {
+    const W = d.words;
+    for (let wi = 0; wi < W.length; wi++) {
+      if ((await ds(page, 'bonus') || {}).ok?.includes(wi)) continue;
+      await page.locator(`.tv-bonus [data-xw="${wi}"]`).click();
+      // (the cursor skips squares already locked by a solved word: type the open ones)
+      const locked = new Set(((await ds(page, 'bonus')) || {ok: []}).ok?.flatMap(i => [...W[i][0]].map((_, k) => W[i][4] === 'a' ? `${W[i][2]},${W[i][3] + k}` : `${W[i][2] + k},${W[i][3]}`)) || []);
+      const [ans, , r, c, dir] = W[wi];
+      for (let k = 0; k < ans.length; k++) if (!locked.has(dir === 'a' ? `${r},${c + k}` : `${r + k},${c}`)) await page.locator(`.tv-bonus [data-xk="${ans[k]}"]`).click();
+    }
+    if (shots) await page.screenshot({path: path.join(shots, 'cross-done.png'), fullPage: true});
+  } else if (kind === 'score') {
+    const truth = d.flatMap(g => [g[5], g[9]]);
+    for (let k = 0; k < 6; k++) {
+      const chips = await page.$$eval('.tv-bonus [data-chip]', b => b.map(x => ({v: Number(x.textContent), off: x.disabled})));
+      const c = chips.findIndex(x => x.v === truth[k] && !x.off);
+      await page.locator(`.tv-bonus [data-chip="${c}"]`).click();
+      await page.locator(`.tv-bonus [data-slot="${k}"]`).click();
+    }
+    await page.locator('.tv-bonus [data-slock]').click();
+  }
+  const s = await ds(page, 'bonus');
+  assert.equal(s.done, true, kind + ' finished');
+  assert.equal(s.pts, kind === 'scramble' ? 200 : 200, kind + ': full points');
+  if (shots) await page.screenshot({path: path.join(shots, `bonus-${kind}.png`)});
+}
+
+(async () => {
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const url = 'http://127.0.0.1:' + server.address().port;
+  const browser = await pw.chromium.launch();
+  try {
+    // 1-2. the bank over a year
+    {
+      const {context, page, errors} = await open(browser, url, 59);
+      const r = await page.evaluate(async () => {
+        const d = await import('/js/core/daily.js'), F = d.FRESH_FROM, seen = {}, dup = [], old = new Set();
+        const before = d.dayFor(59);
+        for (let p = 1; p < F; p++) { const x = d.dayFor(p); for (const f of ['c', 'w', 'j', 'g']) if (x && x[f] != null) old.add(f + JSON.stringify(x[f])); }
+        const first = {};
+        const add = (k, v) => { const key = k + JSON.stringify(v); if (seen[key]) { if (p0 < F + 200) dup.push(k + ' on ' + p0); first[k] = first[k] || p0 - F; } seen[key] = 1; };
+        let p0 = 0, days = 0, kinds = {};
+        for (let p = F; p < F + 400; p++) {
+          p0 = p;
+          const x = d.dayFor(p); days++;
+          for (const f of ['c', 'w', 'j', 'g']) if (x[f] != null && p < F + 200) { if (old.has(f + JSON.stringify(x[f]))) dup.push('old ' + f + ' on ' + p); }
+          if (x.w != null) add('who', x.w); if (x.j) add('jr', x.j.p);
+          if (x.hl) x.hl.forEach(q => add('hl', [q[1], q[4], q[0]].sort()));
+          if (x.cn) add('cn', x.cn.map(g => g[1].slice().sort()).sort());
+          if (x.nq) x.nq.forEach(q => add('nq', q[0]));
+          if (x.bx) { add('bx' + x.bx.kind, x.bx.d); kinds[x.bx.kind] = (kinds[x.bx.kind] || 0) + 1; }
+        }
+        return {dup: dup.slice(0, 10), ndup: dup.length, days, kinds, first, before: !before.nv, steps: d.slugsFor(d.dayFor(F))};
+      });
+      assert.equal(r.before, true, 'days before FRESH_FROM keep their format');
+      assert.ok(r.steps.includes('bonus'), 'the fresh days end with the Bonus');
+      assert.equal(r.ndup, 0, 'no repeats in 200 days: ' + JSON.stringify(r.dup));
+      console.log(`PASS 200 fresh days: no game repeated, none of days 1-59's puzzles; first repeat (days in): ${JSON.stringify(r.first)}; bonus kinds in 400 days ${JSON.stringify(r.kinds)}`);
+      assert.deepEqual(errors, []);
+      await context.close();
+    }
+    // 3. whole days through the screens: 60 (wheel), 61 (scramble, stats, connections, numbers), 62 (cross), 63 (score)
+    const played = {};
+    for (const day of [61, 60, 62, 63]) {
+      const {context, page, errors} = await open(browser, url, day);
+      const D0 = await dayOf(page);
+      if (D0.t.includes('stats')) await playStats(page, D0);
+      if (D0.t.includes('connections')) await playConnections(page, D0);
+      if (D0.t.includes('numbers') && !played.numbers) { await playNumbers(page, D0); played.numbers = 1; }
+      await playBonus(page, D0);
+      played[D0.bx.kind] = 1;
+      // the rest of the day, then its results
+      await page.evaluate(async () => { const d = await import('/js/core/daily.js'); d.lockIn && d.lockIn(); d.saveDS(); });
+      const e = await page.evaluate(async () => { const d = await import('/js/core/daily.js'); return {entry: d.boardEntry(), all: d.allDone(), max: d.maxPts(), total: d.totalPts()}; });
+      assert.equal(e.max, 1000); assert.equal(e.all, true);
+      assert.ok(e.entry.b && 'bonus' in e.entry.b, 'the board entry carries the bonus points');
+      await page.evaluate(() => { location.hash = '/puzzles/results'; });
+      await page.locator('.c-rbreak').waitFor();
+      assert.equal(await page.locator('.c-rb').count(), 5, 'five games on the results');
+      if (shots) await page.screenshot({path: path.join(shots, `results-${day}.png`), fullPage: true});
+      const total = e.total;
+      await page.reload(); await ready(page);
+      assert.equal(await page.evaluate(async () => (await import('/js/core/daily.js')).totalPts()), total, 'a reload keeps the day');
+      for (const w of [320, 390, 820]) { await page.setViewportSize({width: w, height: 844}); await go(page, 'bonus'); assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `no sideways scroll at ${w}`); }
+      assert.deepEqual(errors, [], 'no errors on day ' + day);
+      console.log(`PASS day ${day}: ${D0.t.join(', ')} (bonus ${D0.bx.kind}) played through, ${total} of 1,000, results and reload`);
+      await context.close();
+    }
+    assert.ok(['wheel', 'scramble', 'cross', 'score'].every(k => played[k]), 'every bonus kind played');
+    // 4. a game in progress survives a reload (Connections mid-way) and Test Play previews the fresh days
+    {
+      const {context, page, errors} = await open(browser, url, 64);
+      const D0 = await dayOf(page);
+      if (D0.t.includes('connections')) {
+        await go(page, 'connections');
+        for (const n of D0.cn[2][1]) await page.locator(`.tv-connections [data-tile="${n}"]`).click();
+        await page.locator('.tv-connections [data-submit]').click(); await page.waitForTimeout(300);
+        await page.reload(); await ready(page); await go(page, 'connections');
+        assert.equal(await page.locator('.tv-connections .tv-band').count(), 1, 'the found group stays found');
+        assert.equal(await page.locator('.tv-connections .tv-tile').count(), 6);
+      }
+      const t = await page.evaluate(async () => { const d = await import('/js/core/daily.js'); d.setTest(true); return {fresh: d.isFresh(), test: d.TEST, bonus: d.SLUGS.includes('bonus')}; });
+      assert.deepEqual(t, {fresh: true, test: true, bonus: true}, 'Test Play previews the fresh days');
+      assert.deepEqual(errors, []);
+      console.log('PASS mid-game reload and Test Play preview');
+      await context.close();
+    }
+    console.log('PASS: fresh trivia, no repeats, every game and bonus kind playable with feedback');
+  } catch (e) { console.error('FAIL:', e && e.stack || e); process.exitCode = 1; }
+  finally { await browser.close(); server.close(); }
+})();

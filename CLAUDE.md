@@ -1,5 +1,41 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Daily trivia: fresh levels, a Bonus puzzle, sharper games (November 25, 2026)
+
+Evan: "Every time the trivia game has used the game where the user has to match the players with the team, all of the
+correct answers have been on one side. Ensure they are mixed up and make another big pass on the trivia. Provide a bunch of
+new levels and ensure that no game is repeated ... smooth transitions and feedback when clicking on stuff or moving the
+needle ... text ... more flashy ... Include a new feature that allows players to do a bonus puzzle ... Wordscapes ... A
+crossword puzzle. Unscrambling letters ... guessing the score of a game this season." Everyone. Causes: Team Connections'
+fixed tile order (`[3,0,4,1,5,2]`) put each group down one column, and the v5 days cycled 4 hand-written sets and replayed
+October's College/Mystery/Journey/Grid source days. Today's old-format Connections now deals a seeded order with neither
+group in one column (`views/daily-challenges.js`).
+From puzzle day `daily.FRESH_FROM` (60, local midnight Nov 26 2026) every day is "fresh" (`day.nv === 6`, still `v: 5`):
+the same four-game rotation plus a 5th game, the Bonus (1,000 points). Levels come from `data/trivia-v6.json` (built by
+`tools/puzzles/trivia_v6.py`, append-only: a rerun keeps every level in place and only adds; rerun it with later weeks'
+ESPN scoreboards to add Score Match levels), loaded by `daily.ensure` with the puzzles (`daily.TV`). `freshDay(pnum)` gives
+each game the next unused level (`usesBefore`): College/Mystery/Journey/Grid from puzzle days never played (not days 1-46,
+not the sources days 47-59 borrowed, no repeated mystery or journey player: `TV.classic`), Higher or Lower `hl` (4 career
+match-ups from the stars' career lines, retired players, sacks from 1982), Team Connections `cn` (3 groups of 3: drafted by
+a franchise with relocated-name rules, college, first overall pick, first name; each player fits only his group), Number
+Trivia `nq` (2 questions: career totals, draft picks on whole-round dials, hand-checked records), Bonus `bx` ({kind, n, d}:
+`BONUS_KINDS` wheel, scramble, cross, score in turn). Nothing repeats for 214 days (Journey runs out first, then Score
+Match at 219 unless more weeks are added); later they wrap. Pro Bowl counts in the data are unreliable and never used.
+Screens (`views/trivia.js`, `views/bonus.js`, `css/views/trivia.css`; `challengeModule` hands fresh days to them, the run's
+slug `bonus`): Higher or Lower (4 rounds, the hidden total counts up, glow, +50), Team Connections (9 tiles in a seeded
+deal with no group in one row or column, Shuffle, Clear, 3 lives, "One away", groups drop into coloured bands; 0/70/140/
+200), Number Trivia (a gradient dial moved in place while dragging, ticks with haptics, − + nudges and arrow keys, Lock in
+sweeps the answer onto the dial; 100 a question by distance), Bonus: Word Wheel (drag across letters with a traced line, or
+tap then ✓; every common word in the letters; bonus words), Unscramble (player/team/coach/player, tap tiles or type, 3
+tries, Skip; 50 each), Crossword (criss-cross grid, tap squares or clues, on-screen keyboard, solved words lock green;
+Finish reveals), Score Match (3 of this season's finals: put the 6 scores on their teams, Lock in). Progress per game in
+`DS[stats|connections|numbers|bonus]` via `saveChallengeState`; board entries' `b` carries every fresh game's points.
+Test Play previews the fresh days (`setTest`: today or day 60 on). The classic games' cards, names and right/wrong answers
+get the same glass, condensed glowing names and pulse/shake (trivia.css, end). Icons in `board.js` `STEP_ICON`. Verify
+`node tools/puzzles/check-trivia-v6.cjs` (optional `--shots=<dir>`: 200 days without a repeat, the deal, every game and bonus
+kind played through, results, reload, Test Play), `check-rollout.cjs`, `PUZZLE_DAY=5 check-challenges.cjs` and the home and
+case-flip checks.
+
 ## Scores: the NCAA logo alone (November 25, 2026)
 
 Evan, with the Scores tab on College: "Remove the college text underneath the logo in scores." Everyone. `views/live.js`

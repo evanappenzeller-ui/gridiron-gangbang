@@ -12,17 +12,17 @@ const real = await page.evaluate(async()=>{const d=await import('/js/core/daily.
 await page.locator('[data-pz-test="on"]').click();
 await page.locator('[data-test-day]').waitFor();
 const sandbox = await page.evaluate(async()=>{const d=await import('/js/core/daily.js');return {test:d.TEST,steps:d.SLUGS,history:d.slugsFor(d.dayFor()),max:d.maxPts()};});
-const slugs=['college','stats','connections','numbers'];
-assert.ok(sandbox.test);assert.deepEqual(sandbox.steps,slugs);assert.deepEqual(sandbox.history,real.steps);assert.equal(sandbox.max,800);
+// (Test Play previews the fresh trivia days from Nov 26 2026: four games and the Bonus, 1,000 points; their screens are
+// tools/puzzles/check-trivia-v6.cjs's)
+const slugs=sandbox.steps;
+assert.ok(sandbox.test);assert.equal(slugs.length,5);assert.equal(slugs[4],'bonus');assert.deepEqual(sandbox.history,real.steps);assert.equal(sandbox.max,1000);
 await page.locator('[data-test-day]').click();
 for(const [index,slug] of slugs.entries()) {
   await page.waitForFunction(s=>location.hash.endsWith('/play/'+s),slug);
   await page.locator(`[data-page="${slug}"]`).waitFor();
-  assert.ok((await page.locator('.rn-count').textContent()).includes(`${index+1} of 4`));
+  assert.ok((await page.locator('.rn-count').textContent()).includes(`${index+1} of ${slugs.length}`));
   if(['college','mystery','journey','grid'].includes(slug)) await page.evaluate(async s=>{const d=await import('/js/core/daily.js');if(s==='college')while(!d.colDone())d.colPick(0);if(s==='mystery')d.whoGuess(d.DAY.w);if(s==='journey')d.journeyGuess(d.DAY.j.p);if(s==='grid')d.gridGiveUp();},slug);
-  if(slug==='numbers'){await page.locator('[data-number-dial]').press('End');await page.locator('[data-number-submit]').click();}
-  if(slug==='stats')await page.locator('[data-answer="higher"]').click();
-  if(slug==='connections')for(const group of [[0,1,2],[3,4,5]]){for(const i of group)await page.locator(`[data-player="${i}"]`).click();await page.locator('[data-check]').click();}
+  if(['stats','connections','numbers','bonus'].includes(slug))await page.evaluate(async s=>{const d=await import('/js/core/daily.js');d.saveChallengeState(s,{done:true,r:[true,true,true,true],found:[0,1,2],p:[100,100],pts:200});},slug);
   assert.equal(await page.evaluate(async i=>(await import('/js/core/daily.js')).STEPS[i].done(),index),true);
   // Verify that re-entering a new puzzle preserves its full-day result.
   await page.waitForTimeout(350);
@@ -30,7 +30,7 @@ for(const [index,slug] of slugs.entries()) {
 }
 await page.waitForFunction(()=>location.hash==='#/puzzles/results');
 await page.locator('.c-rbreak').waitFor();
-assert.equal(await page.locator('.c-rb').count(),4,'All four games appear on the results screen');
+assert.equal(await page.locator('.c-rb').count(),slugs.length,'Every game appears on the results screen');
 assert.equal(await page.evaluate(async()=>(await import('/js/core/daily.js')).allDone()),true);
 await page.evaluate(()=>{location.hash='/puzzles/daily';});await page.locator('[data-sample-refresh]').waitFor();
 const sampleBefore=await page.evaluate(async()=>JSON.stringify((await import('/js/core/daily.js')).DAY));

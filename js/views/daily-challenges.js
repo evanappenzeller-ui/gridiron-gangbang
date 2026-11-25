@@ -3,6 +3,7 @@ import * as daily from '../core/daily.js';
 import * as data from '../core/data.js';
 import * as ui from '../core/ui.js';
 import {profileKey} from '../core/realm-active.js';
+import {freshModule} from './trivia.js';
 const esc = data.esc;
 export const TYPES = [['stats','Higher or Lower','Compare two historic NFL seasons.'],['connections','Team Connections','Find two groups of three players.'],['numbers','Number Trivia','Dial in your answer. Closer earns more points.']];
 // Fixed historical seasons and completed team tenures; never presented as current stats.
@@ -28,8 +29,9 @@ export function openChallenge(id, after=()=>{}, inline=null) {
  const date=day(), profile=profileKey(), title=TYPES.find(t=>t[0]===id)[1];
  let n=(testing||live)?daily.DAY.challengeSeed:number(date), set=SETS[((n%SETS.length)+SETS.length)%SETS.length];
  let all=live?daily.DS:read(date), state=((!testing||inline)&&all[id])||{picks:[],found:[],attempts:0}, selected=[], stop=()=>{};
- // Stable shuffled positions, identical for the day and after reload.
- const order=[3,0,4,1,5,2];
+ // Stable shuffled positions, identical for the day and after reload. Never a group down one column of the two
+ // (Nov 25 2026, Evan: "all of the correct answers have been on one side"; the fixed order alternated the groups).
+ const order=(()=>{let x=(n*2654435761)>>>0;const r=()=>{x=(x*1664525+1013904223)>>>0;return x/4294967296;};for(let k=0;k<100;k++){const o=[0,1,2,3,4,5];for(let i=5;i>0;i--){const j=Math.floor(r()*(i+1));[o[i],o[j]]=[o[j],o[i]];}if([0,1].every(g=>new Set(o.map((v,i)=>Math.floor(v/3)===g?i%2:-1).filter(c=>c>=0)).size>1))return o;}return [0,3,1,4,5,2];})();
  const valid=()=>(live?daily.dayVersion()===5&&daily.hasStep(id):data.isOwner())&&profileKey()===profile&&day()===date&&daily.TEST===testing&&daily.TEST_RUN===run;
  const sh=inline?{body:inline,close:()=>stop()}:ui.openSheet({title,body:'',detents:['large'],onClose:()=>stop()});
  sh.body.classList.add('dc-game');
@@ -73,9 +75,11 @@ export function openChallenge(id, after=()=>{}, inline=null) {
 }
 
 // Reuse the same puzzle UI inside the complete test-day run.
+// From daily.FRESH_FROM (Nov 26 2026) the day's games are the fresh ones (views/trivia.js, views/bonus.js).
 export const challengeModule = id => ({
-  render: () => '<div class="dc-game"></div>',
+  render: ctx => daily.isFresh() ? freshModule(id).render(ctx) : '<div class="dc-game"></div>',
   mount: (el, ctx, api) => {
+    if (daily.isFresh()) return freshModule(id).mount(el, ctx, api);
     const inst = openChallenge(id, () => api.refreshChrome(), el.querySelector('.dc-game'));
     const off = daily.subscribe(() => { if ((!daily.TEST && daily.dayVersion()!==5) || (daily.TEST && !data.isOwner())) ctx.nav('/puzzles/daily'); });
     return {unmount: () => { off(); inst?.unmount(); }};
