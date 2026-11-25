@@ -147,7 +147,7 @@ function mainHTML(s) {
       : pr.length ? rowHTML('Press Conferences', pr.map(r => (r.x ? cardHTML(r.x) : noShowHTML(r.n))).join(''), {sub: 'The Matchup of the Week loser faces the media'}) : '';
     out += loadingM ? `<section class="mr-row"><h2 class="mr-row-h">The Happy Meal Challenge</h2>${skRail(3, 'is-poster')}</section>`
       : C.meals.length ? rowHTML('The Happy Meal Challenge', C.meals.map(topHTML).join(''), {cls: 'is-top', sub: s.draft ? `The race that set the ${s.draft.year || ''} draft order`.replace('  ', ' ') : ''}) : '';
-    // (no season-by-week poster row: Nov 25 2026, Evan: "Remove the 2027 week by week section")
+    // (no season-by-week poster row: Nov 25 2026, Evan: "Remove the 2026 week by week section")
     out += draftHTML(s.draft);
   } else if (f === 'press') {
     const eps = C.pressers.map(x => ({x, k: x.year * 100 + x.week})).concat(C.shows.map(n => ({n, k: n.year * 100 + n.week}))).sort((a, b) => b.k - a.k);

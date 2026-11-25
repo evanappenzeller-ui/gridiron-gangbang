@@ -13,7 +13,7 @@ own bar (Back, the MEDIA ROOM wordmark, clear over the billboard and solid once 
 Meals (`gg-media-filter`); the billboard (newest presser, or the 1st pick's Happy Meal) with Play/Resume and Info; All has
 Continue Watching, Press Conferences (newest first, the week 7 no-show among them), The Happy Meal Challenge (Top-10 style, the
 draft pick in big numerals, in draft order) and the 2026 Draft Order card (the season's week-by-week poster row was
-removed Nov 25 2026, Evan: "Remove the 2027 week by week section"); the other filters list every
+removed Nov 25 2026, Evan: "Remove the 2026 week by week section"); the other filters list every
 episode. A poster opens its title page (a dark sheet): the app's own player (play/pause, 10 s back/on, slider, time, full
 screen; YouTube's for a presser with only a link), Play/Resume/Start over, the story, Starring, From the Press (the questions,
 read only) or The Times, and More Episodes (tap plays). Where each video got to is kept per profile on the phone
