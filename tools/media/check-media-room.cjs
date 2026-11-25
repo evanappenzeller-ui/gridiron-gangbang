@@ -86,7 +86,7 @@ const meals = JSON.parse(fs.readFileSync(path.join(root, 'data/media.json'))).ha
     assert.match(page.hero, new RegExp(newest.who, 'i'), 'the billboard is the newest press conference');
     assert.equal(page.press, pressers.length + 1, 'every press conference and the no-show in its row');
     assert.equal(page.noshow, 1, "Corbin's week 7 no-show");
-    assert.deepEqual(page.tops, Array.from({length: meals.length}, (_, i) => String(i + 1)), 'every Happy Meal in draft order (the shared one at 11)');
+    assert.deepEqual(page.tops, Array.from({length: meals.length}, (_, i) => (i === meals.length - 1 ? '11&12' : String(i + 1))), 'every Happy Meal in draft order (the shared one 11&12)');
     // every pick's numeral shows whole beside its poster (Nov 25 2026, Evan: "10 and 11 happy meals are hidden and look like 1"):
     // the poster covers at most the last digit's edge (22 px)
     const hidden = await p.evaluate(() => [...document.querySelectorAll('section.screen.v-media .mr-top')].map(t => {
@@ -152,6 +152,7 @@ const meals = JSON.parse(fs.readFileSync(path.join(root, 'data/media.json'))).ha
     await p.locator('.v-media [data-mr-filter="meals"]').click();
     await p.waitForTimeout(500);
     assert.equal(await p.$$eval('.v-media .mr-ep', e => e.length), meals.length, 'Happy Meals lists every one');
+    assert.match(await p.$$eval('.v-media .mr-ep .mr-ep-tx b', b => b[b.length - 1].textContent), /^11 & 12\. Jackson & Jacob's Happy Meal$/, 'the shared video has both its picks');
     await p.locator('.v-media [data-mr-filter="all"]').click();
     await p.waitForTimeout(500);
 
