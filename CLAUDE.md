@@ -1,5 +1,25 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Bonus: Word Wheel fixes, misses and double words (November 27, 2026)
+
+Evan: "For the Wordscapes bonus game, the letters need to be centered on the bubbles. There should be a limited number of
+attempts. Football themed words gain double points. After each word, the screen keeps moving to the top, fix that."
+Everyone (`views/bonus.js` `wheelMount`, `css/views/trivia.css`). The letters sat about 22 px left of centre: the global
+button reset gives buttons `display: block; text-align: start`, so `.tv-wl` (and the ⟲) are now centred grids. Misses:
+`WHEEL_MISSES` (5) wrong words, a miss being 3+ letters that are neither a slot's word nor a bonus word (repeats, a bonus word
+again and anything under 3 letters cost nothing); a red dot goes per miss under the slots ("Misses left"), and the last ends
+the wheel ("Out of tries") with the points found, the other words shown. DS.bonus gains `miss`; it counts as started.
+Double words: `wheelWeight` 2 for the level's base word or a word in `FOOTBALL` (tools/puzzles/trivia_v6.py's
+`FOOTBALL_WORDS` word for word, every wheel's base among them, plus the game's short terms: END, REF, RUN, PAD, GAP, KICK,
+GOAL, PASS, PLAY, RUSH, SACK, SNAP, ZONE, CATCH, BLOCK, COACH, SCORE, POINT, SCOUT, TRADE, RIVAL...), 1 otherwise;
+`wheelPts` shares the 200 by weight, so every word found is still 200. Football slots wear a gold edge and a ×2 tag, the
+pop says "+27 ×2", and the subtitle names the rule when the level has one. A finished save's points stand. No jump: a
+found word fills its slot in place, a bonus word, a miss and Shuffle patch only what changed; the board is rebuilt only on
+opening and once the wheel ends (then the header and slots are revealed). Clear and Enter keep their icon on the line.
+Data unchanged (trivia-v7.json). Verify `node tools/puzzles/check-trivia-v6.cjs` (centred letters, the ×2 tags and weights,
+the same wheel and scroll after a drag, a bonus word, a miss and Shuffle at 375x667; day 66 runs out of misses and
+reloads ended; every wheel base in `FOOTBALL`) and the checks listed under the trivia pass below.
+
 ## Bonus: Gridword, one football word (November 25, 2026)
 
 Evan: "Add another bonus game mode like wordle but with football terms, only one word." Everyone. A fifth Bonus kind,

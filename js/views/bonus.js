@@ -5,7 +5,8 @@
 // its kind turns daily (daily.BONUS_KINDS), its level is daily.DAY.bx.d, its progress daily.DS.bonus ({done, pts, line,
 // ...the kind's own}):
 //   wheel     A letter wheel: drag a finger across the letters (or tap them, then ✓) to spell words; every common word in
-//             the letters fills its slot. got: the words found; extra words count as bonus finds, no points.
+//             the letters fills its slot, football words (×2) worth double. got: the words found; extra words count as
+//             bonus finds, no points; miss: wrong words, WHEEL_MISSES of them end the wheel.
 //   scramble  Four words to spell from their letters (a player, a team, a coach, a player), each with its clue: tap the
 //             tiles (or type), 50 a word, three tries each, Skip reveals it. i, ok.
 //   cross     A criss-cross mini crossword: tap a square or a clue, type on the keyboard below; a word right turns green
@@ -167,35 +168,88 @@ function gridwordMount(box, api, ctx) {
 }
 
 // ============================================================================ Word Wheel
+// Word Wheel follow-up (Evan, Nov 27 2026: "the letters need to be centered on the bubbles. There should be a limited
+// number of attempts. Football themed words gain double points. After each word, the screen keeps moving to the top"):
+// WHEEL_MISSES wrong words end the wheel; a football word (the level's own base word, or one in FOOTBALL) weighs double,
+// the wheel still worth 200 in all; a found word patches its slot in place (the board is never rebuilt mid-game).
+export const WHEEL_MISSES = 5;
+/** Football words: tools/puzzles/trivia_v6.py's FOOTBALL_WORDS word for word (every wheel's base comes from it; keep the two
+ *  in step), then the game's own short terms. */
+export const FOOTBALL = new Set(('TACKLE PUNTER KICKER HUDDLE FUMBLE SAFETY CENTER ROOKIE LEAGUE SEASON PLAYOFF HELMET JERSEY STADIUM COACHES DRAFTED '
+  + 'TROPHY ROSTER SNAPPER SPIRAL TARGET RUSHING PASSING BLOCKER LINEMAN DEFENSE OFFENSE KICKOFF LATERAL SCREEN SLANTS '
+  + 'FUMBLES TACKLES PUNTED KICKED CHARGE BLITZES SACKED SNAPPED REFEREE UMPIRE WHISTLE TIMEOUT PLAYERS CAPTAIN HUDDLES '
+  + 'CLEATS PADDED GOALIE POINTS YARDAGE SCORED SCORES STRIPES TAILBACK FULLBACK RECEIVER WIDEOUT RUNNING DEFENDER RUSHER '
+  + 'LINEMEN KICKING PUNTING ROOKIES LEAGUES SEASONS TROPHIES ROSTERS TARGETS CENTERS SAFETIES HELMETS JERSEYS STADIUMS '
+  + 'DRAFTS STARTER STARTERS BACKUP COACHING TRAINER TRAINERS PIGSKIN ENDZONE GRIDIRON SIDELINE TAILGATE CHEERS CHEERING '
+  + 'MASCOT BANNER TRENCHES POCKET SCRAMBLE PYLON PYLONS STIFFARM SPIKE SPIKED ONSIDE INTERIOR ZEBRAS FLAGS PENALTY '
+  + 'HOLDING OFFSIDE ILLEGAL TACKLED BLOCKED BLOCKING CATCHES CATCHER RECEPTION AUDIBLE OPTION COUNTER DRAW SWEEP SWEEPS '
+  + 'REVERSE BOOTLEG SHOTGUN PISTOL WILDCAT NICKEL DIME CORNER CORNERS LINEBACKER NOSETACKLE TIGHT STRONG WEAKSIDE OUTSIDE '
+  + 'INSIDE CHAINS CHAINSAW MEASURED TRIUMPH VICTORY VICTORIES WINNERS LOSERS RIVALS RIVALRY CONTEST CHAMPION CHAMPIONS '
+  + 'TITLE TITLES PARADE RINGER MEDAL PENNANT BANNERS STANDS BLEACHER TICKETS TICKET NACHOS PRETZEL HOTDOGS MUSTARD '
+  + 'TAILGATES GRILLS COOLERS PARKING FANTASY WAIVERS TRADES TRADED CONTRACT SALARY SIGNING AGENTS VETERAN VETERANS '
+  + 'RETIRED LEGENDS LEGEND HONORS CLEATED STRETCH WORKOUT PRACTICE TRAINING COMBINE SPRINTS DASHES BENCH SHUTTLE '
+  + 'BROADJUMP VERTICAL SCOUTS SCOUTING PROSPECT PROSPECTS COLLEGES COLLEGE SENIOR SENIORS JUNIOR JUNIORS TRANSFER DOMES '
+  + 'TURF GRASS WEATHER SNOWY RAINY FROZEN LAMBEAU THUNDER LIGHTNING '
+  // the game's own short words
+  + 'END REF RUN PAD GAP TEE KICK GOAL PASS PLAY RUSH SACK SNAP ZONE DASH GAIN PUNT TEAM YARD BALL DOWN FIELD CATCH BLOCK COACH SCORE '
+  + 'POINT SCOUT TRADE RIVAL DRAFT AGENT CLEAT BLITZ ROUTE SLANT HIKE HUDDLE ZEBRA PLAYER LOCKER WINNER LOSER KICKS SACKS SNAPS PUNTS GOALS '
+  + 'PASSER PLAYS TEAMS YARDS DOWNS').split(/\s+/));
+/** A wheel word's weight: football words count double. */
+export const wheelWeight = (w, base) => (w === base || FOOTBALL.has(w) ? 2 : 1);
+/** The points for the words found on a wheel level ([letters, targets, extras, base]): 200 for all of them. */
+export function wheelPts(level, got) {
+  const [, targets, , base] = level, W = targets.reduce((t, w) => t + wheelWeight(w, base), 0);
+  return W ? Math.round(200 * got.filter(w => targets.includes(w)).reduce((t, w) => t + wheelWeight(w, base), 0) / W) : 0;
+}
 function wheelMount(box, api) {
-  const [letters, targets, extras] = daily.DAY.bx.d;
+  const level = daily.DAY.bx.d, [letters, targets, extras, base] = level;
   let order = letters.split(''), path = [], drag = null, taps = false;
-  const total = targets.length;
-  const ptsOf = got => Math.round(200 * got.length / total);
+  const total = targets.length, fb = w => wheelWeight(w, base) === 2, anyFb = targets.some(fb);
+  const missOf = s => Math.min(WHEEL_MISSES, Math.max(0, s.miss | 0));
+  const eyebrow = n => `BONUS · WORD WHEEL · ${n} OF ${total}`;
+  function slotHTML(w, s, got) {
+    const have = got.has(w), show = have || s.done;
+    return `<span class="tv-word${have ? ' is-got' : s.done ? ' is-missed' : ''}${fb(w) ? ' is-fb' : ''}" data-word="${w}">${w.split('').map(c => `<i>${show ? c : ''}</i>`).join('')}`
+      + `${fb(w) ? '<b class="tv-x2" aria-hidden="true">×2</b>' : ''}</span>`;
+  }
   function slotsHTML(s) {
     const got = new Set(s.got || []);
     const lens = [...new Set(targets.map(w => w.length))];
-    return `<div class="tv-slots">${lens.map(L => `<div class="tv-slot-row">${targets.filter(w => w.length === L).map(w => {
-      const have = got.has(w), show = have || s.done;
-      return `<span class="tv-word${have ? ' is-got' : s.done ? ' is-missed' : ''}" data-word="${w}">${w.split('').map(c => `<i>${show ? c : ''}</i>`).join('')}</span>`;
-    }).join('')}</div>`).join('')}</div>`;
+    return `<div class="tv-slots">${lens.map(L => `<div class="tv-slot-row">${targets.filter(w => w.length === L).map(w => slotHTML(w, s, got)).join('')}</div>`).join('')}</div>`;
   }
-  function wheelHTML() {
-    const n = order.length, R = 38;
-    return `<div class="tv-wheel" data-wheel><svg class="tv-wheel-line" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points="" data-line/></svg>`
-      + order.map((c, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return `<button type="button" class="tv-wl" data-wl="${i}" style="left:${50 + R * Math.cos(a)}%;top:${50 + R * Math.sin(a)}%" aria-label="${c}">${c}</button>`; }).join('')
-      + `<button type="button" class="tv-wheel-mid" data-wshuffle aria-label="Shuffle letters">⟲</button></div>`;
-  }
-  function draw(fx) {
+  const livesHTML = miss => `<span>Misses left</span>${[...Array(WHEEL_MISSES).keys()].map(k => `<span class="tv-life${k < WHEEL_MISSES - miss ? '' : ' is-gone'}"></span>`).join('')}`;
+  const lettersHTML = () => order.map((c, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / order.length, R = 38; return `<button type="button" class="tv-wl" data-wl="${i}" style="left:${50 + R * Math.cos(a)}%;top:${50 + R * Math.sin(a)}%" aria-label="${c}">${c}</button>`; }).join('');
+  const wheelHTML = () => `<div class="tv-wheel" data-wheel><svg class="tv-wheel-line" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points="" data-line/></svg>`
+    + lettersHTML() + `<button type="button" class="tv-wheel-mid" data-wshuffle aria-label="Shuffle letters">⟲</button></div>`;
+  const extraText = s => ((s.extra || []).length ? `Bonus words: ${(s.extra || []).join(', ')}` : '');
+  /** The whole board: on opening, and once the wheel ends. Mid-game changes patch it in place (no jump in the scroll). */
+  function draw() {
     if (!ok()) return;
-    const s = stateOf(), got = s.got || [];
-    box.innerHTML = tvHead(`BONUS · WORD WHEEL · ${got.length} OF ${total}`, s.done ? (got.length === total ? 'Every word found!' : 'Wheel finished') : 'Swipe the letters to spell words',
-      s.done ? `${s.pts || 0} points` : 'Drag across the letters without lifting, or tap them and press ✓.')
+    const s = stateOf(), got = s.got || [], miss = missOf(s);
+    const title = s.done ? (got.length === total ? 'Every word found!' : miss >= WHEEL_MISSES ? 'Out of tries' : 'Wheel finished') : 'Swipe the letters to spell words';
+    const sub = s.done ? `${s.pts || 0} points · ${got.length} of ${total} words` : `Drag across the letters without lifting, or tap them and press ✓.${anyFb ? ' Football words (×2) score double.' : ''}`;
+    box.innerHTML = tvHead(eyebrow(got.length), title, sub)
       + slotsHTML(s)
-      + (s.done ? '' : `<div class="tv-wword" data-wword aria-live="polite"></div>${wheelHTML()}<div class="tv-row"><button type="button" class="tv-btn tv-btn-ghost" data-wclear>⌫ Clear</button><button type="button" class="tv-btn tv-btn-go" data-wsubmit>✓ Enter</button><button type="button" class="tv-btn tv-btn-ghost" data-finish>Finish</button></div>`)
-      + ((s.extra || []).length ? `<p class="tv-fact">Bonus words: ${(s.extra || []).map(esc).join(', ')}</p>` : '');
-    if (fx) { const w = box.querySelector(`[data-word="${fx}"]`); if (w) { w.querySelectorAll('i').forEach((c, k) => ui.animate(c, [{transform: 'rotateX(90deg)', opacity: 0}, {transform: 'none', opacity: 1}], {duration: 320, delay: k * 60, fill: 'backwards'})); pop(w, `+${Math.round(200 / total)}`, 'is-gold'); } }
+      + (s.done ? '' : `<div class="tv-lives" data-wlives aria-label="${WHEEL_MISSES - miss} misses left">${livesHTML(miss)}</div>`
+        + `<div class="tv-wword" data-wword aria-live="polite"></div>${wheelHTML()}<div class="tv-row"><button type="button" class="tv-btn tv-btn-ghost" data-wclear>⌫ Clear</button><button type="button" class="tv-btn tv-btn-go" data-wsubmit>✓ Enter</button><button type="button" class="tv-btn tv-btn-ghost" data-finish>Finish</button></div>`)
+      + `<p class="tv-fact" data-wextra${extraText(s) ? '' : ' hidden'}>${esc(extraText(s))}</p>`;
   }
+  /** A word found: its slot flips in, the count and the points pop; nothing else on the page moves. */
+  function found(w, gain) {
+    const s = stateOf(), el = box.querySelector(`[data-word="${w}"]`);
+    const eb = box.querySelector('.tv-eyebrow'); if (eb) eb.textContent = eyebrow((s.got || []).length);
+    if (!el) return;
+    el.classList.add('is-got');
+    el.querySelectorAll('i').forEach((c, k) => { c.textContent = w[k]; ui.animate(c, [{transform: 'rotateX(90deg)', opacity: 0}, {transform: 'none', opacity: 1}], {duration: 320, delay: k * 60, fill: 'backwards'}); });
+    pop(el, `+${gain}${fb(w) ? ' ×2' : ''}`, 'is-gold');
+  }
+  function lives(miss) {
+    const l = box.querySelector('[data-wlives]'); if (!l) return;
+    l.setAttribute('aria-label', `${WHEEL_MISSES - miss} misses left`);
+    l.querySelectorAll('.tv-life').forEach((d, k) => d.classList.toggle('is-gone', k >= WHEEL_MISSES - miss));
+  }
+  /** The wheel ends (every word, out of tries or Finish): the board shows every word; the slots come into view. */
+  function end() { draw(); const sl = box.querySelector('.tv-slots'); api.reveal([box.querySelector('.tv-head'), sl]); }
   const word = () => path.map(i => order[i]).join('');
   function paint() {
     box.querySelectorAll('[data-wl]').forEach(b => b.classList.toggle('is-on', path.includes(+b.dataset.wl)));
@@ -210,16 +264,32 @@ function wheelMount(box, api) {
   function submit() {
     const w = word(), s = stateOf(), got = s.got || [];
     path = []; taps = false;
+    if (s.done || !ok()) { paint(); return; }
     if (w.length < 3) { paint(); return; }
     const ww = box.querySelector('[data-wword]');
-    if (got.includes(w)) { ui.haptic('warning'); shake(ww); pop(ww, 'Already found'); setTimeout(paint, 380); return; }
+    if (got.includes(w) || (s.extra || []).includes(w)) { ui.haptic('warning'); shake(ww); pop(ww, 'Already found'); setTimeout(paint, 380); return; }
     if (targets.includes(w)) {
-      const ng = [...got, w], next = {...s, got: ng, pts: ptsOf(ng), line: `${ng.length} of ${total} words`, done: ng.length === total};
-      if (!bsave(next, api)) return;
-      ui.haptic('success'); ui.announce(`${w}. ${ng.length} of ${total}.`); draw(w); return;
+      const ng = [...got, w], pts = wheelPts(level, ng), all = ng.length === total;
+      if (!bsave({...s, got: ng, pts, line: `${ng.length} of ${total} words`, done: all}, api)) return;
+      ui.haptic('success'); ui.announce(`${w}${fb(w) ? ', a football word, double points' : ''}. ${ng.length} of ${total}.`);
+      found(w, pts - wheelPts(level, got)); paint();
+      if (all) setTimeout(() => { if (box.isConnected) end(); }, ui.RM ? 0 : 900);
+      return;
     }
-    if (extras.includes(w) && !(s.extra || []).includes(w)) { bsave({...s, extra: [...(s.extra || []), w]}, api); ui.haptic('light'); pop(ww, 'Bonus word!', 'is-blue'); setTimeout(() => draw(), 600); return; }
-    ui.haptic('error'); shake(ww); setTimeout(paint, 380);
+    if (extras.includes(w)) {
+      const ex = [...(s.extra || []), w];
+      if (!bsave({...s, extra: ex}, api)) return;
+      ui.haptic('light'); pop(ww, 'Bonus word!', 'is-blue');
+      const p = box.querySelector('[data-wextra]'); if (p) { p.textContent = extraText({extra: ex}); p.hidden = false; }
+      setTimeout(paint, 600); return;
+    }
+    // a miss: one of WHEEL_MISSES gone; the last ends the wheel with the words found so far
+    const miss = missOf(s) + 1, out = miss >= WHEEL_MISSES;
+    if (!bsave({...s, miss, got, pts: wheelPts(level, got), line: `${got.length} of ${total} words`, done: out}, api)) return;
+    ui.haptic('error'); shake(ww); lives(miss);
+    const l = box.querySelector('[data-wlives]'); pop(l, out ? 'Out of tries' : `${WHEEL_MISSES - miss} left`, 'is-red');
+    ui.announce(out ? 'Out of tries.' : `Not a word. ${WHEEL_MISSES - miss} misses left.`);
+    if (out) setTimeout(() => { if (box.isConnected) end(); }, ui.RM ? 0 : 700); else setTimeout(paint, 380);
   }
   function letterAt(x, y) {
     let best = -1, bd = 1e9;
@@ -253,9 +323,18 @@ function wheelMount(box, api) {
   };
   box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
   box.addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b || !ok()) return;
+    const b = e.target.closest('button'); if (!b || !ok() || stateOf().done) return;
     if (b.hasAttribute('data-wl') && e.detail === 0) { const i = +b.dataset.wl; if (!path.includes(i)) path.push(i); taps = true; paint(); return; } // keyboard
-    if (b.hasAttribute('data-wshuffle')) { order = shuffled(order, Math.random); path = []; ui.haptic('light'); const s = stateOf(); draw(); ui.animate(box.querySelector('[data-wheel]'), [{transform: 'rotate(-90deg) scale(.9)', opacity: .4}, {transform: 'none', opacity: 1}], {spring: 'smooth'}); void s; return; }
+    if (b.hasAttribute('data-wshuffle')) {
+      // only the letters change: the wheel, and the page round it, stay where they are
+      order = shuffled(order, Math.random); path = []; taps = false; ui.haptic('light');
+      const wheel = box.querySelector('[data-wheel]');
+      wheel.querySelectorAll('[data-wl]').forEach(x => x.remove());
+      wheel.querySelector('[data-wshuffle]').insertAdjacentHTML('beforebegin', lettersHTML());
+      paint();
+      ui.animate(wheel, [{transform: 'rotate(-90deg) scale(.9)', opacity: .4}, {transform: 'none', opacity: 1}], {spring: 'smooth'});
+      return;
+    }
     if (b.hasAttribute('data-wclear')) { path = []; taps = false; paint(); ui.haptic('light'); return; }
     if (b.hasAttribute('data-wsubmit')) { submit(); return; }
     if (b.hasAttribute('data-finish')) { finish(b); }
@@ -263,7 +342,7 @@ function wheelMount(box, api) {
   function finish(b) {
     if (!b.classList.contains('is-confirm')) { b.classList.add('is-confirm'); b.textContent = 'Sure? Tap again'; setTimeout(() => { b.classList.remove('is-confirm'); b.textContent = 'Finish'; }, 2600); return; }
     const s = stateOf(), got = s.got || [];
-    if (bsave({...s, got, pts: ptsOf(got), line: `${got.length} of ${total} words`, done: true}, api)) { ui.haptic('medium'); draw(); }
+    if (bsave({...s, got, pts: wheelPts(level, got), line: `${got.length} of ${total} words`, done: true}, api)) { ui.haptic('medium'); end(); }
   }
   draw();
 }

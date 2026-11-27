@@ -9,6 +9,8 @@
 //      a miss then all three groups, Number Trivia with the dial and the nudges, and each bonus kind: a real drag on
 //      the Word Wheel, Unscramble, Crossword typing, Score Match), points as the rules say, results, a reload keeps it.
 //   4. phone widths 320/390 and a tablet: no sideways scroll.
+//   5. the Word Wheel (Nov 27 2026): letters centred on their bubbles, football words double, a found word, a bonus word,
+//      a miss and Shuffle leave the wheel and the scroll where they were, and its misses run out on day 66.
 // Usage: node tools/puzzles/check-trivia-v6.cjs [--shots=<dir>]
 const fs = require('fs'), path = require('path'), http = require('http'), assert = require('assert/strict');
 const root = path.resolve(__dirname, '../..'), pw = require('playwright');
@@ -195,7 +197,25 @@ async function playBonus(page, day) {
     return;
   }
   if (kind === 'wheel') {
-    const [letters, targets] = d;
+    const [letters, targets, extras, base] = d;
+    // Nov 27 2026 (Evan: "the letters need to be centered on the bubbles"): each letter sits on its bubble's centre
+    const off = await page.$$eval('.tv-bonus [data-wl]', bs => bs.map(b => { const r = b.getBoundingClientRect(), g = document.createRange(); g.selectNodeContents(b); const t = g.getBoundingClientRect(); return Math.max(Math.abs(t.left + t.width / 2 - r.left - r.width / 2), Math.abs(t.top + t.height / 2 - r.top - r.height / 2)); }));
+    assert.ok(off.every(x => x < 1.5), 'the letters are centred on their bubbles: ' + off.map(x => x.toFixed(1)));
+    // football words weigh double, the whole wheel still 200; each football slot is tagged ×2
+    const W = await page.evaluate(async lv => { const b = await import('/js/views/bonus.js'); return {fb: lv[1].filter(w => b.wheelWeight(w, lv[3]) === 2), one: lv[1].map(w => b.wheelPts(lv, [w])), all: b.wheelPts(lv, lv[1]), misses: b.WHEEL_MISSES, base: b.FOOTBALL.has(lv[3])}; }, d);
+    assert.equal(W.all, 200, 'every word is 200');
+    assert.ok(W.base && W.fb.includes(base) === targets.includes(base), 'the base word is a football word');
+    assert.equal(await page.locator('.tv-bonus .tv-word.is-fb .tv-x2').count(), W.fb.length, 'each football word is tagged ×2');
+    const unit = Math.min(...W.one);
+    targets.forEach((w, k) => { if (W.fb.includes(w)) assert.ok(W.one[k] >= 2 * unit - 1, `${w} is worth double: ${W.one[k]} vs ${unit}`); });
+    // the screen stays put after a word (Evan: "After each word, the screen keeps moving to the top"): the wheel is the
+    // same element and the scroll the same once a word is found, a bonus word and a miss are spelled
+    await page.setViewportSize({width: 375, height: 667});
+    await page.locator('.tv-bonus [data-wheel]').evaluate(el => { el.__keep = 1; el.scrollIntoView({block: 'center'}); });
+    await page.waitForTimeout(300);
+    const scrollY = () => page.evaluate(() => document.querySelector('.screen.v-run').scrollTop);
+    const y0 = await scrollY();
+    assert.ok(y0 > 50, 'the wheel is scrolled to: ' + y0);
     // a real drag across the letters for the first word
     const spell = async w => {
       const used = new Set(), pts = [];
@@ -205,19 +225,55 @@ async function playBonus(page, day) {
       }
       return pts;
     };
-    const p = await spell(targets[targets.length - 1]);
+    const tap = async w => {
+      const used = new Set();
+      for (const c of w) { const i = [...letters].findIndex((x, k) => x === c && !used.has(k)); used.add(i); await page.locator(`.tv-bonus [data-wl="${i}"]`).evaluate(el => el.click()); } // (a keyboard press: detail 0)
+      await page.locator('.tv-bonus [data-wsubmit]').evaluate(el => el.click());
+      await page.waitForTimeout(120);
+    };
+    const first = targets[targets.length - 1];
+    const p = await spell(first);
     await page.mouse.move(...p[0]); await page.mouse.down();
     for (const q of p.slice(1)) await page.mouse.move(...q, {steps: 6});
     if (shots) await page.screenshot({path: path.join(shots, 'wheel-drag.png')});
     await page.mouse.up();
-    await page.waitForTimeout(300);
-    assert.deepEqual((await ds(page, 'bonus')).got, [targets[targets.length - 1]], 'a drag spells a word');
+    await page.waitForTimeout(500);
+    assert.deepEqual((await ds(page, 'bonus')).got, [first], 'a drag spells a word');
+    assert.equal((await ds(page, 'bonus')).pts, W.one[targets.length - 1], 'its points by weight');
+    const after = await page.evaluate(() => ({keep: document.querySelector('.tv-bonus [data-wheel]').__keep, slot: document.querySelector(`.tv-bonus [data-word="${document.querySelector('.tv-bonus .tv-word.is-got').dataset.word}"]`).textContent}));
+    assert.equal(after.keep, 1, 'the wheel is not rebuilt after a word');
+    assert.ok(after.slot.startsWith(first), 'the found word fills its slot in place');
+    assert.equal(await scrollY(), y0, 'the screen stays where it was after a word');
+    // a repeat and a bonus word cost nothing; a wrong word costs a miss
+    await tap(first);
+    const bonusWord = extras.find(w => w.length >= 3);
+    if (bonusWord) { await tap(bonusWord); await page.waitForTimeout(700); await tap(bonusWord); }
+    let s0 = await ds(page, 'bonus');
+    assert.equal(s0.miss || 0, 0, 'a repeat and a bonus word are not misses');
+    if (bonusWord) assert.deepEqual(s0.extra, [bonusWord]);
+    const words = new Set([...targets, ...extras]);
+    const perms = s => (s.length <= 1 ? [s] : [...s].flatMap((c, i) => perms(s.slice(0, i) + s.slice(i + 1)).map(r => c + r)));
+    const wrong = perms(letters.slice(0, 3)).concat(perms(letters.slice(1, 4))).filter(w => !words.has(w));
+    await tap(wrong[0]); await page.waitForTimeout(450);
+    s0 = await ds(page, 'bonus');
+    assert.equal(s0.miss, 1, 'a wrong word is a miss');
+    assert.equal(await page.locator('.tv-bonus .tv-life.is-gone').count(), 1, 'a life goes');
+    assert.equal(await page.evaluate(() => document.querySelector('.tv-bonus [data-wheel]').__keep), 1, 'still the same wheel after a miss and a bonus word');
+    assert.equal(await scrollY(), y0, 'the screen stays where it was after a miss and a bonus word');
+    // Shuffle moves only the letters
+    await page.locator('.tv-bonus [data-wshuffle]').evaluate(el => el.click()); await page.waitForTimeout(450);
+    assert.equal(await page.evaluate(() => document.querySelector('.tv-bonus [data-wheel]').__keep), 1, 'Shuffle keeps the wheel');
+    assert.equal(await scrollY(), y0, 'Shuffle keeps the screen where it was');
+    const order = (await page.$$eval('.tv-bonus [data-wl]', bs => bs.map(b => b.textContent))).join('');
     for (const w of targets.slice(0, -1)) {
       const used = new Set();
-      for (const c of w) { const i = [...letters].findIndex((x, k) => x === c && !used.has(k)); used.add(i); await page.locator(`.tv-bonus [data-wl="${i}"]`).evaluate(el => el.click()); } // (a keyboard press: detail 0)
-      await page.locator('.tv-bonus [data-wsubmit]').click();
+      for (const c of w) { const i = [...order].findIndex((x, k) => x === c && !used.has(k)); used.add(i); await page.locator(`.tv-bonus [data-wl="${i}"]`).evaluate(el => el.click()); }
+      await page.locator('.tv-bonus [data-wsubmit]').evaluate(el => el.click());
       await page.waitForTimeout(80);
     }
+    await page.waitForTimeout(1100);
+    assert.match(await page.locator('.tv-bonus .tv-title').innerText(), /every word/i);
+    await page.setViewportSize({width: 390, height: 844});
   } else if (kind === 'scramble') {
     for (let i = 0; i < 4; i++) {
       const word = d[i][0];
@@ -323,6 +379,48 @@ async function playBonus(page, day) {
       await context.close();
     }
     assert.ok(['gridword', 'wheel', 'scramble', 'cross', 'score'].every(k => played[k]), 'every bonus kind played: ' + Object.keys(played));
+    // the Word Wheel runs out of tries: day 66 (a wheel), one word then WHEEL_MISSES wrong words end it with that word's points
+    {
+      const {context, page, errors} = await open(browser, url, 66);
+      const D0 = await dayOf(page);
+      assert.equal(D0.bx.kind, 'wheel');
+      const [letters, targets, extras] = D0.bx.d;
+      await go(page, 'bonus');
+      const tap = async w => {
+        const order = (await page.$$eval('.tv-bonus [data-wl]', bs => bs.map(b => b.textContent))).join(''), used = new Set();
+        for (const c of w) { const i = [...order].findIndex((x, k) => x === c && !used.has(k)); used.add(i); await page.locator(`.tv-bonus [data-wl="${i}"]`).evaluate(el => el.click()); }
+        await page.locator('.tv-bonus [data-wsubmit]').evaluate(el => el.click());
+        await page.waitForTimeout(450);
+      };
+      const lv = D0.bx.d, M = await page.evaluate(async () => (await import('/js/views/bonus.js')).WHEEL_MISSES);
+      const fbw = await page.evaluate(async lv => { const b = await import('/js/views/bonus.js'); return lv[1].find(w => b.wheelWeight(w, lv[3]) === 2) || lv[1][0]; }, lv);
+      await tap(fbw);
+      const want = await page.evaluate(async ([lv, w]) => (await import('/js/views/bonus.js')).wheelPts(lv, [w]), [lv, fbw]);
+      const words = new Set([...targets, ...extras]);
+      const perms = s => (s.length <= 1 ? [s] : [...s].flatMap((c, i) => perms(s.slice(0, i) + s.slice(i + 1)).map(r => c + r)));
+      const wrong = [...new Set(perms(letters.slice(0, 3)).concat(perms(letters.slice(2, 5)), perms(letters.slice(3, 6))))].filter(w => !words.has(w));
+      assert.ok(wrong.length >= M, 'enough wrong words to try');
+      for (let k = 0; k < M; k++) {
+        await tap(letters.slice(0, 2)); // too short: never a miss
+        await tap(wrong[k]);
+        if (k < M - 1) assert.equal((await ds(page, 'bonus')).miss, k + 1, 'miss ' + (k + 1));
+      }
+      await page.waitForTimeout(900);
+      const s = await ds(page, 'bonus');
+      assert.deepEqual({done: s.done, miss: s.miss, pts: s.pts, got: s.got}, {done: true, miss: M, pts: want, got: [fbw]}, 'out of tries: the wheel ends with the points found');
+      assert.match(await page.locator('.tv-bonus .tv-title').innerText(), /out of tries/i);
+      assert.equal(await page.locator('.tv-bonus [data-wheel]').count(), 0, 'the wheel is gone');
+      assert.equal(await page.locator('.tv-bonus .tv-word.is-missed').count(), targets.length - 1, 'the words not found show');
+      if (shots) await page.screenshot({path: path.join(shots, 'wheel-out.png')});
+      await page.reload(); await ready(page); await go(page, 'bonus');
+      assert.match(await page.locator('.tv-bonus .tv-title').innerText(), /out of tries/i, 'a reload keeps it ended');
+      // every wheel level: its base word is a football word
+      const bad = await page.evaluate(async () => { const b = await import('/js/views/bonus.js'), d = await import('/js/core/daily.js'); return d.TV.bonus.wheel.filter(l => !b.FOOTBALL.has(l[3])).map(l => l[3]); });
+      assert.deepEqual(bad, [], 'every wheel base is in FOOTBALL');
+      assert.deepEqual(errors, []);
+      console.log(`PASS the Word Wheel's ${M} misses end it (${fbw} kept, ${want} points), double words, a still screen, centred letters`);
+      await context.close();
+    }
     // 4. a game in progress survives a reload (Connections mid-way) and Test Play previews the fresh days
     {
       const {context, page, errors} = await open(browser, url, 65);

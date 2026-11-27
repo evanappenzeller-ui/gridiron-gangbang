@@ -273,7 +273,7 @@ function freshSteps(day) {
     numbers: {id: 'numbers', label: 'Number Trivia', max: 200, done: (ds = DS) => !!ds.numbers?.done, started: (ds = DS) => nqOf(ds).length > 0,
       pts: (ds = DS) => nqOf(ds).reduce((a, b) => a + (b || 0), 0), result: (ds = DS) => `${nqOf(ds).reduce((a, b) => a + (b || 0), 0)} of 200`},
     bonus: {id: 'bonus', label: day.bx ? 'Bonus: ' + BONUS_LABEL[day.bx.kind] : 'Bonus', max: 200, done: (ds = DS) => !!ds.bonus?.done,
-      started: (ds = DS) => { const b = ds.bonus; return !!b && !!(b.done || b.got?.length || b.g?.length || b.ok?.length || b.tries?.some(Boolean) || (b.f && Object.keys(b.f).length) || b.place?.some(x => x != null) || b.extra?.length); },
+      started: (ds = DS) => { const b = ds.bonus; return !!b && !!(b.done || b.got?.length || b.g?.length || b.ok?.length || b.tries?.some(Boolean) || (b.f && Object.keys(b.f).length) || b.place?.some(x => x != null) || b.extra?.length || b.miss); },
       pts: (ds = DS) => Math.max(0, Math.min(200, ds.bonus?.pts || 0)), result: (ds = DS) => ds.bonus?.line || (ds.bonus?.done ? 'Done' : 'Not played')}
   };
   return ['stats', 'connections', 'numbers', 'bonus'].filter(id => day.t.includes(id)).map(id => steps[id]);

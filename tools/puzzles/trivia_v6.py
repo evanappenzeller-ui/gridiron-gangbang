@@ -259,6 +259,8 @@ def word_lists():
     common -= BAD
     return common, zipf_frequency
 
+# js/views/bonus.js FOOTBALL copies this list word for word (the Word Wheel's double-points words); check-trivia-v6.cjs
+# fails if a wheel's base is missing there.
 FOOTBALL_WORDS = ['tackle', 'punter', 'kicker', 'huddle', 'fumble', 'safety', 'center', 'rookie', 'league', 'season', 'playoff', 'helmet',
     'jersey', 'stadium', 'coaches', 'drafted', 'trophy', 'roster', 'snapper', 'spiral', 'target', 'rushing', 'passing', 'blocker', 'lineman',
     'defense', 'offense', 'kickoff', 'lateral', 'screen', 'slants', 'fumbles', 'tackles', 'punted', 'kicked', 'charge', 'blitzes', 'sacked',
