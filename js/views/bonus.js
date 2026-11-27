@@ -1,11 +1,12 @@
-// The Bonus puzzle (Nov 26 2026 on; Evan, Nov 25 2026: "Include a new feature that allows players to do a bonus puzzle.
+// The word puzzles (Nov 26 2026 on; Evan, Nov 25 2026: "Include a new feature that allows players to do a bonus puzzle.
 // This can be some such as Wordscapes to find all the words by dragging your finger across the letters to find all the
 // correct words. A crossword puzzle. Unscrambling letters to spell a players name, team name, coaches name, and guessing
-// the score of a game this season and assigning the correct numbers to the team"). The day's last step, up to 200 points;
-// its kind turns daily (daily.BONUS_KINDS), its level is daily.DAY.bx.d, its progress daily.DS.bonus ({done, pts, line,
-// ...the kind's own}):
+// the score of a game this season and assigning the correct numbers to the team"; Nov 27 2026: "Do not specify "bonus"
+// puzzles. They should just be mixed in the rotation"). Inside the app still the 'bonus' step: up to 200 points; its kind
+// comes from the day's list (daily.bonusKindOf), its level is daily.DAY.bx.d, its progress daily.DS.bonus ({done, pts, line,
+// ...the kind's own}); on screen it is only ever its name:
 //   wheel     A letter wheel: drag a finger across the letters (or tap them, then ✓) to spell words; every common word in
-//             the letters fills its slot, football words (×2) worth double. got: the words found; extra: bonus finds, no
+//             the letters fills its slot, football words (×2) worth double. got: the words found; extra: extra finds, no
 //             points; miss: wrong words (bad: the last few), WHEEL_MISSES of them end the wheel; w: 2 (1: flat scoring).
 //   scramble  Four words to spell from their letters (a player, a team, a coach, a player), each with its clue: tap the
 //             tiles (or type), 50 a word, three tries each, Skip reveals it. i, ok.
@@ -73,7 +74,7 @@ function gridwordMount(box, api, ctx) {
     return `<div class="tv-gw-row${cur ? ' is-cur' : ''}" data-gwrow="${r}" role="group" aria-label="${esc(label)}">${[...letters].map((c, i) =>
       `<span class="tv-gw-t${g ? ' is-' + marks[i] : c.trim() ? ' is-typed' : ''}${flip ? ' is-flip' : ''}" style="--i:${i}" aria-hidden="true">${c.trim() ? c : ''}</span>`).join('')}</div>`;
   }
-  const headOf = s => tvHead(`BONUS · GRIDWORD · ${s.done ? 'FINAL' : `GUESS ${(s.g || []).length + 1} OF 6`}`,
+  const headOf = s => tvHead(`GRIDWORD · ${s.done ? 'FINAL' : `GUESS ${(s.g || []).length + 1} OF 6`}`,
     s.done ? (s.won ? `Got it in ${s.g.length}!` : `It was ${answer}`) : 'Guess the football word',
     s.done ? `${s.pts || 0} points` : 'Six tries. Green: right spot. Gold: wrong spot.');
   /** The whole screen (on mount, and once the word is over). */
@@ -95,7 +96,7 @@ function gridwordMount(box, api, ctx) {
     if (row) row.outerHTML = rowHTML(r, g[r], false, !ui.RM);
     const next = box.querySelector(`[data-gwrow="${r + 1}"]`);
     if (next && !s.done) next.outerHTML = rowHTML(r + 1, null, true, false);
-    const eb = box.querySelector('.tv-eyebrow'); if (eb && !s.done) eb.textContent = `BONUS · GRIDWORD · GUESS ${g.length + 1} OF 6`;
+    const eb = box.querySelector('.tv-eyebrow'); if (eb && !s.done) eb.textContent = `GRIDWORD · GUESS ${g.length + 1} OF 6`;
     busy = true;
     setTimeout(() => {
       busy = false;
@@ -196,7 +197,7 @@ function wheelMount(box, api) {
   const s0 = stateOf(), flat = !Array.isArray(level[5]) || s0.w === 1 || (!s0.w && (!!s0.done || (s0.got || []).length > 0));
   const W = flat ? 1 : 2, total = targets.length, fb = w => wheelWeight(w, level, flat) === 2, anyFb = targets.some(fb);
   const missOf = s => Math.min(WHEEL_MISSES, Math.max(0, s.miss | 0));
-  const eyebrow = n => `BONUS · WORD WHEEL · ${n} OF ${total}`;
+  const eyebrow = n => `WORD WHEEL · ${n} OF ${total}`;
   const wsave = next => bsave({...next, w: W}, api);
   function slotHTML(w, s, got) {
     const have = got.has(w), show = have || s.done;
@@ -213,7 +214,7 @@ function wheelMount(box, api) {
   const lettersHTML = () => order.map((c, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / order.length, R = 38; return `<button type="button" class="tv-wl" data-wl="${i}" style="left:${50 + R * Math.cos(a)}%;top:${50 + R * Math.sin(a)}%" aria-label="${c}">${c}</button>`; }).join('');
   const wheelHTML = () => `<div class="tv-wheel" data-wheel><svg class="tv-wheel-line" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points="" data-line/></svg>`
     + lettersHTML() + `<button type="button" class="tv-wheel-mid" data-wshuffle aria-label="Shuffle letters">⟲</button></div>`;
-  const extraText = s => ((s.extra || []).length ? `Bonus words: ${(s.extra || []).join(', ')}` : '');
+  const extraText = s => ((s.extra || []).length ? `Extra words: ${(s.extra || []).join(', ')}` : '');
   const titleOf = s => ((s.got || []).length === total ? 'Every word found!' : missOf(s) >= WHEEL_MISSES ? 'Out of tries' : 'Wheel finished');
   /** The whole board: on opening, and once the wheel ends. Mid-game changes patch it in place (no jump in the scroll). */
   function draw() {
@@ -295,7 +296,7 @@ function wheelMount(box, api) {
     if (extras.includes(w)) {
       const ex = [...(s.extra || []), w];
       if (!wsave({...s, extra: ex})) return;
-      ui.haptic('light'); say(`${w}: bonus word!`, 'note'); ui.announce(`${w}, a bonus word.`);
+      ui.haptic('light'); say(`${w}: extra word!`, 'note'); ui.announce(`${w}, an extra word.`);
       const p = box.querySelector('[data-wextra]'); if (p) { p.textContent = extraText({extra: ex}); p.hidden = false; }
       return;
     }
@@ -378,12 +379,12 @@ function scrambleMount(box, api) {
     if (!ok()) return;
     const s = stateOf(), okv = s.ok || [], i = showing >= 0 ? showing : okv.length;
     if (s.done && showing < 0) {
-      box.innerHTML = tvHead('BONUS · UNSCRAMBLE · FINAL', `${okv.filter(Boolean).length} of 4 spelled`, `${s.pts || 0} points`)
+      box.innerHTML = tvHead('UNSCRAMBLE · FINAL', `${okv.filter(Boolean).length} of 4 spelled`, `${s.pts || 0} points`)
         + `<ol class="tv-recap">${items.map((w, k) => `<li class="${okv[k] ? 'is-ok' : 'is-no'}"><b>${esc(w[0])}</b><span>${esc(w[1])}</span></li>`).join('')}</ol>`;
       return;
     }
     const w = items[i], done = i < okv.length, letters = w[2].split(''), tries = (s.tries || [])[i] || 0;
-    box.innerHTML = tvHead(`BONUS · UNSCRAMBLE · ${i + 1} OF 4`, done ? (okv[i] ? 'Spelled it!' : `It was ${w[0]}`) : 'Unscramble the name', '')
+    box.innerHTML = tvHead(`UNSCRAMBLE · ${i + 1} OF 4`, done ? (okv[i] ? 'Spelled it!' : `It was ${w[0]}`) : 'Unscramble the name', '')
       + `<p class="tv-clue is-${KIND(w)}"><b>${esc(w[1].split(':')[0])}</b>${esc(w[1].split(':').slice(1).join(':'))}</p>`
       + `<div class="tv-ans${done ? (okv[i] ? ' is-ok' : ' is-no') : ''}" data-ans>${letters.map((_, k) => `<button type="button" class="tv-sq" data-sq="${k}" ${done ? 'disabled' : ''}>${done ? w[0][k] : typed[k] != null ? letters[typed[k]] : ''}</button>`).join('')}</div>`
       + (done ? `<button type="button" class="tv-btn tv-btn-go" data-snext>${okv.length >= 4 ? 'See final' : 'Next word ›'}</button>`
@@ -464,7 +465,7 @@ function crossMount(box, api) {
     const clue = wi => `${numOf.get(W[wi][2] + ',' + W[wi][3])} ${W[wi][4] === 'a' ? 'Across' : 'Down'}`;
     const list = d => W.map((x, wi) => [x, wi]).filter(([x]) => x[4] === d).sort((a, b) => numOf.get(a[0][2] + ',' + a[0][3]) - numOf.get(b[0][2] + ',' + b[0][3]))
       .map(([x, wi]) => `<li><button type="button" class="tv-x-clue${okw.includes(wi) ? ' is-ok' : ''}${wi === sel.w ? ' is-on' : ''}" data-xw="${wi}"><b>${numOf.get(x[2] + ',' + x[3])}</b> ${esc(x[1])} <small>(${x[0].length})</small></button></li>`).join('');
-    box.innerHTML = tvHead(`BONUS · CROSSWORD · ${okw.length} OF ${W.length}`, s.done ? (okw.length === W.length ? 'Grid complete!' : 'Crossword finished') : 'Mini crossword', s.done ? `${s.pts || 0} points` : '')
+    box.innerHTML = tvHead(`CROSSWORD · ${okw.length} OF ${W.length}`, s.done ? (okw.length === W.length ? 'Grid complete!' : 'Crossword finished') : 'Mini crossword', s.done ? `${s.pts || 0} points` : '')
       + `<div class="tv-x-grid" style="--cols:${X.w}">${grid}</div>`
       + (s.done ? '' : `<p class="tv-x-bar"><b>${clue(sel.w)}</b> ${esc(W[sel.w][1])}</p><div class="tv-kb">${KEYS.map((row, ri) => `<div>${row.split('').map(k => `<button type="button" data-xk="${k}">${k}</button>`).join('')}${ri === 2 ? '<button type="button" class="is-wide" data-xk="⌫" aria-label="Delete">⌫</button>' : ''}</div>`).join('')}</div>`)
       + `<div class="tv-x-lists"><div><h3>Across</h3><ol>${list('a')}</ol></div><div><h3>Down</h3><ol>${list('d')}</ol></div></div>`
@@ -545,7 +546,7 @@ function scoreMount(box, api) {
       const c = place[k], right = s.done && c != null && chips[c].v === truth[k];
       return `<button type="button" class="tv-sslot${c != null ? ' is-full' : ''}${s.done ? (right ? ' is-ok' : ' is-no') : ''}${held != null && c == null ? ' is-target' : ''}" data-slot="${k}" ${s.done ? 'disabled' : ''}>${c != null ? chips[c].v : '—'}${s.done && !right ? `<small>${truth[k]}</small>` : ''}</button>`;
     };
-    box.innerHTML = tvHead('BONUS · SCORE MATCH', s.done ? `${(s.right || 0)} of 6 right` : 'Who scored what?', s.done ? `${s.pts || 0} points` : 'Three finals from this season. Tap a score, then the team that put it up.')
+    box.innerHTML = tvHead('SCORE MATCH', s.done ? `${(s.right || 0)} of 6 right` : 'Who scored what?', s.done ? `${s.pts || 0} points` : 'Three finals from this season. Tap a score, then the team that put it up.')
       + `<div class="tv-games">${G.map((g, gi) => `<div class="tv-game"><p class="tv-game-meta">Week ${g[0]} · ${new Date(g[1] + 'T12:00:00').toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</p>`
         + `<div class="tv-team">${logo(g[4], g[3])}<b>${esc(g[2])}</b>${slot(gi * 2)}</div><div class="tv-team">${logo(g[8], g[7])}<b>${esc(g[6])}</b> <small>home</small>${slot(gi * 2 + 1)}</div></div>`).join('')}</div>`
       + (s.done ? '' : `<div class="tv-chips">${chips.map((c, k) => `<button type="button" class="tv-chip${placed.has(k) ? ' is-used' : ''}${held === k ? ' is-held' : ''}" data-chip="${k}" ${placed.has(k) ? 'disabled' : ''}>${c.v}</button>`).join('')}</div>`
@@ -582,12 +583,12 @@ export const bonusModule = {
   mount(el, ctx, api) {
     if (!el.querySelector('.tv')) el.innerHTML = '<div class="tv tv-bonus" tabindex="-1"></div>';
     const box = el.querySelector('.tv');
-    if (!ok()) { box.innerHTML = tvHead('BONUS', 'No bonus today', ''); return {unmount() {}}; }
+    if (!ok()) { box.innerHTML = tvHead('PUZZLE', 'No puzzle today', ''); return {unmount() {}}; }
     box.classList.add('tv-b-' + daily.DAY.bx.kind);
     // progress saved for another kind of bonus (a phone that ran an older build that day): its result stands, read only
     const was = daily.DS && daily.DS.bonus;
     if (was && was.kind && was.kind !== daily.DAY.bx.kind) {
-      box.innerHTML = tvHead('BONUS', 'Today’s bonus is played', `${was.pts || 0} points · ${was.line || 'Done'}`);
+      box.innerHTML = tvHead('PUZZLE', 'Today’s puzzle is played', `${was.pts || 0} points · ${was.line || 'Done'}`);
       return {unmount() {}};
     }
     const done = KINDS[daily.DAY.bx.kind](box, api, ctx);

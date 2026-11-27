@@ -219,7 +219,7 @@ const DAILY_LINEUPS = [
 // the user has to match the players with the team, all of the correct answers have been on one side ... Provide a bunch
 // of new levels and ensure that no game is repeated ... Include a new feature that allows players to do a bonus puzzle"):
 // each day keeps the four-game rotation and adds a Bonus puzzle (Gridword, Word Wheel, Unscramble, Crossword, Score Match in
-// turn); from THREE_FROM (Nov 28 2026), three games and the puzzle.
+// turn); from MIX_FROM (Nov 28 2026), 3-4 a day with the word puzzles mixed in (below).
 // Every game takes the next unused level of data/trivia-v6.json (TV): College, Mystery, Journey and Grid from puzzle days
 // never played before (TV.classic), Higher or Lower 4 career match-ups (hl), Team Connections 3 groups of 3 (cn), Number
 // Trivia 2 questions (nq), the bonus its kind's next level (bx). A day before FRESH_FROM is exactly as it was.
@@ -227,24 +227,31 @@ export const FRESH_FROM = 60;
 // (Gridword joined on Nov 25 2026, before any fresh day was played, so the rotation could still change: it leads it)
 export const BONUS_KINDS = ['gridword', 'wheel', 'scramble', 'cross', 'score'];
 export const BONUS_LABEL = {gridword: 'Gridword', wheel: 'Word Wheel', scramble: 'Unscramble', cross: 'Crossword', score: 'Score Match'};
+const PUZZLE_ICON = {gridword: 'letters', wheel: 'sparkle', scramble: 'swap', cross: 'table', score: 'versus'};
 const CHALLENGE_IDS = ['stats', 'connections', 'numbers', 'bonus'];
-// Three games and a puzzle (Evan, Nov 27 2026: "Each day should have 3 game modes and a puzzle "Wordscapes, crosswords,
-// etc""): from puzzle day THREE_FROM (local midnight Nov 28 2026) a fresh day is three of the seven games, then the Bonus
-// puzzle (800 points). FRESH_LINEUPS turns weekly: each game three times a week, every day a classic (College, Mystery,
-// Journey, Grid) and a newer game (Higher or Lower, Team Connections, Number Trivia), no game two days running. Days
-// 60-61 (already played) keep their four games.
-export const THREE_FROM = 62;
+// Puzzles mixed in (Evan, Nov 27 2026: "Each day should have 3 game modes and a puzzle "Wordscapes, crosswords, etc"",
+// then "Do not specify "bonus" puzzles. They should just be mixed in the rotation. 3-4 puzzles a day. When there is a
+// complex puzzle like the crosswords, there should only be 3 puzzles but they do not need to appear every day"): from
+// puzzle day MIX_FROM (local midnight Nov 28 2026) a fresh day is FRESH_LINEUPS' list, in its own order: games and at most
+// one word puzzle (a BONUS_KINDS name; inside the app still the 'bonus' step, DS.bonus). The long puzzles (Crossword, Word
+// Wheel) come with two games, the others with three; two days a week are four games and no word puzzle: 3-4 a day, 600 or
+// 800 points. Weekly: each game three times, each word puzzle once, every day a classic (College, Mystery, Journey, Grid)
+// and a newer game (Higher or Lower, Team Connections, Number Trivia), no game two days running. Days 60-61 (played)
+// keep four games and the puzzle last.
+export const MIX_FROM = 62;
 const FRESH_LINEUPS = [
-  ['col', 'stats', 'connections'],
-  ['who', 'grid', 'numbers'],
-  ['jr', 'col', 'stats'],
-  ['grid', 'connections', 'numbers'],
-  ['who', 'jr', 'stats'],
-  ['col', 'grid', 'connections'],
-  ['who', 'jr', 'numbers']
+  ['who', 'gridword', 'connections', 'numbers'],
+  ['col', 'jr', 'grid', 'stats'],
+  ['who', 'cross', 'connections'],
+  ['jr', 'scramble', 'grid', 'numbers'],
+  ['col', 'wheel', 'stats'],
+  ['who', 'grid', 'connections', 'numbers'],
+  ['col', 'jr', 'score', 'stats']
 ];
 const mod = (a, n) => ((a % n) + n) % n;
-const lineupOf = pnum => (pnum >= THREE_FROM ? FRESH_LINEUPS[mod(pnum - THREE_FROM, FRESH_LINEUPS.length)]
+const mixOf = pnum => FRESH_LINEUPS[mod(pnum - MIX_FROM, FRESH_LINEUPS.length)];
+/** The games of a fresh day (no word puzzle), in its order. */
+const lineupOf = pnum => (pnum >= MIX_FROM ? mixOf(pnum).filter(x => !BONUS_KINDS.includes(x))
   : DAILY_LINEUPS[mod(pnum - TRIVIA_FROM, DAILY_LINEUPS.length)]);
 const nth = (list, i) => list[((i % list.length) + list.length) % list.length];
 /** How many days from FRESH_FROM up to (not including) pnum play game id: that game's next level is this one. */
@@ -252,12 +259,16 @@ function usesBefore(id, pnum) { let c = 0; for (let q = FRESH_FROM; q < pnum; q+
 /** The day's bonus kind: BONUS_KINDS in turn, fixed whatever the loaded file holds (a kind without levels: no bonus
  *  that day, never a shifted rotation). */
 export function bonusKindOf(pnum) {
-  const k = pnum - FRESH_FROM, kind = BONUS_KINDS[((k % BONUS_KINDS.length) + BONUS_KINDS.length) % BONUS_KINDS.length];
+  const kind = pnum >= MIX_FROM ? mixOf(pnum).find(x => BONUS_KINDS.includes(x)) : BONUS_KINDS[mod(pnum - FRESH_FROM, BONUS_KINDS.length)];
+  if (!kind) return null;
   return TV && TV.bonus[kind] && TV.bonus[kind].length ? kind : null;
 }
 function freshDay(pnum, test = false) {
-  const t = [...lineupOf(pnum)], kind = bonusKindOf(pnum);
-  const day = {v: 5, nv: 6, pnum, t: kind ? [...t, 'bonus'] : t, challengeSeed: pnum - TRIVIA_FROM, test};
+  const t = [...lineupOf(pnum)], kind = bonusKindOf(pnum), mix = pnum >= MIX_FROM;
+  // mixed days: the word puzzle in its place in the list (none if its kind has no levels); before, last
+  const order = mix ? mixOf(pnum).map(x => (BONUS_KINDS.includes(x) ? (kind ? 'bonus' : null) : x)).filter(Boolean) : kind ? [...t, 'bonus'] : t;
+  const day = {v: 5, nv: 6, pnum, t: order, challengeSeed: pnum - TRIVIA_FROM, test};
+  if (mix) day.mix = true;
   for (const [id, field] of [['col', 'c'], ['who', 'w'], ['jr', 'j'], ['grid', 'g']]) {
     if (!t.includes(id)) continue;
     const src = PZ.days[nth(TV.classic[id], usesBefore(id, pnum))];
@@ -290,7 +301,7 @@ function freshSteps(day) {
       result: (ds = DS) => `${cnOf(ds).length} of 3 groups`},
     numbers: {id: 'numbers', label: 'Number Trivia', max: 200, done: (ds = DS) => !!ds.numbers?.done, started: (ds = DS) => nqOf(ds).length > 0,
       pts: (ds = DS) => nqOf(ds).reduce((a, b) => a + (b || 0), 0), result: (ds = DS) => `${nqOf(ds).reduce((a, b) => a + (b || 0), 0)} of 200`},
-    bonus: {id: 'bonus', label: day.bx ? 'Bonus: ' + BONUS_LABEL[day.bx.kind] : 'Bonus', max: 200, done: (ds = DS) => !!ds.bonus?.done,
+    bonus: {id: 'bonus', label: day.bx ? BONUS_LABEL[day.bx.kind] : 'Puzzle', icon: day.bx ? PUZZLE_ICON[day.bx.kind] : 'letters', max: 200, done: (ds = DS) => !!ds.bonus?.done,
       started: (ds = DS) => { const b = ds.bonus; return !!b && !!(b.done || b.got?.length || b.g?.length || b.ok?.length || b.tries?.some(Boolean) || (b.f && Object.keys(b.f).length) || b.place?.some(x => x != null) || b.extra?.length || b.miss); },
       pts: (ds = DS) => Math.max(0, Math.min(200, ds.bonus?.pts || 0)), result: (ds = DS) => ds.bonus?.line || (ds.bonus?.done ? 'Done' : 'Not played')}
   };
@@ -771,7 +782,9 @@ function fullSet(day) {
     const types = Array.isArray(day.t) ? day.t : [];
     const classic = V3_STEPS.filter(s => types.includes(s.id));
     const bonus = day.nv === 6 ? freshSteps(day) : TEST_BONUS_STEPS.filter(s => types.includes(s.id));
-    TEST_SETS.set(day, {steps: Object.freeze([...classic, ...bonus]), slugs: Object.freeze([...classic.map(s=>V2_SLUGS[V3_STEPS.indexOf(s)]), ...bonus.map(s=>s.id)])});
+    const pairs = [...classic.map(s => [s, V2_SLUGS[V3_STEPS.indexOf(s)]]), ...bonus.map(s => [s, s.id])];
+    if (day.mix) pairs.sort((x, y) => types.indexOf(x[0].id) - types.indexOf(y[0].id)); // a mixed day: in its list's order
+    TEST_SETS.set(day, {steps: Object.freeze(pairs.map(x => x[0])), slugs: Object.freeze(pairs.map(x => x[1]))});
   }
   return TEST_SETS.get(day);
 }

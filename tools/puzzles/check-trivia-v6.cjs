@@ -366,39 +366,56 @@ async function playBonus(page, day) {
         return {dup: dup.slice(0, 10), ndup: dup.length, days, kinds, first, before: !before.nv, steps: d.slugsFor(d.dayFor(F))};
       });
       assert.equal(r.before, true, 'days before FRESH_FROM keep their format');
-      const rot = await page.evaluate(async () => { const d = await import('/js/core/daily.js'); return {kinds: [60, 61, 62, 63, 64, 65].map(d.bonusKindOf), file: performance.getEntriesByType('resource').some(e => e.name.endsWith('/data/trivia-v8.json'))}; });
-      assert.deepEqual(rot, {kinds: ['gridword', 'wheel', 'scramble', 'cross', 'score', 'gridword'], file: true}, 'the rotation is fixed and the bank is trivia-v8.json');
-      assert.ok(r.steps.includes('bonus'), 'the fresh days end with the Bonus');
-      // three games and a puzzle from Nov 28 2026 (day 62; Evan, Nov 27 2026: "Each day should have 3 game modes and a
-      // puzzle"): each game three times a week, a classic and a newer game every day, none two days running; 60-61 as played
-      const L = await page.evaluate(async () => { const d = await import('/js/core/daily.js'); return Array.from({length: 16}, (_, k) => d.dayFor(60 + k).t); });
-      assert.deepEqual(L.slice(0, 2).map(t => t.length), [5, 5], 'days 60 and 61 keep four games and the Bonus');
-      assert.ok(L.slice(2).every(t => t.length === 4 && t[3] === 'bonus'), 'from day 62: three games and the puzzle: ' + JSON.stringify(L.slice(2, 4)));
-      const wk = {}; L.slice(2, 9).flat().filter(x => x !== 'bonus').forEach(g => { wk[g] = (wk[g] || 0) + 1; });
+      const rot = await page.evaluate(async () => { const d = await import('/js/core/daily.js'); return {kinds: [60, 61, 62, 63, 64, 65, 66, 67, 68].map(d.bonusKindOf), file: performance.getEntriesByType('resource').some(e => e.name.endsWith('/data/trivia-v8.json'))}; });
+      assert.deepEqual(rot, {kinds: ['gridword', 'wheel', 'gridword', null, 'cross', 'scramble', 'wheel', null, 'score'], file: true}, 'the word puzzles turn as set and the bank is trivia-v8.json');
+      // the word puzzles mixed in from Nov 28 2026 (day 62; Evan, Nov 27 2026: "Do not specify "bonus" puzzles. They should
+      // just be mixed in the rotation. 3-4 puzzles a day. When there is a complex puzzle like the crosswords, there should
+      // only be 3 puzzles but they do not need to appear every day"): 3-4 a day in the list's order, 3 with a Crossword or a
+      // Word Wheel, two days a week without a word puzzle; each game three times a week, each word puzzle once; a classic
+      // and a newer game every day, none two days running; no step called Bonus; days 60-61 as played
+      const L = await page.evaluate(async () => { const d = await import('/js/core/daily.js'); return Array.from({length: 23}, (_, k) => { const x = d.dayFor(60 + k); return {t: x.t, kind: x.bx ? x.bx.kind : null, labels: d.stepsFor(x).map(s => s.label), slugs: d.slugsFor(x)}; }); });
+      assert.deepEqual(L.slice(0, 2).map(x => [x.t.length, x.t[4]]), [[5, 'bonus'], [5, 'bonus']], 'days 60 and 61 keep four games and the puzzle last');
+      const M = L.slice(2);
+      assert.ok(M.every(x => x.t.length >= 3 && x.t.length <= 4), '3-4 a day: ' + M.map(x => x.t.length));
+      assert.ok(M.every(x => !['cross', 'wheel'].includes(x.kind) || x.t.length === 3), 'a Crossword or Word Wheel day has 3');
+      const week = M.slice(0, 7);
+      assert.equal(week.filter(x => !x.kind).length, 2, 'two days a week without a word puzzle');
+      assert.deepEqual(week.map(x => x.kind).filter(Boolean).sort(), ['cross', 'gridword', 'score', 'scramble', 'wheel'], 'each word puzzle once a week');
+      const wk = {}; week.flatMap(x => x.t).filter(x => x !== 'bonus').forEach(g => { wk[g] = (wk[g] || 0) + 1; });
       assert.deepEqual(Object.values(wk).sort(), [3, 3, 3, 3, 3, 3, 3], 'each game three times a week: ' + JSON.stringify(wk));
       const classic = ['col', 'who', 'jr', 'grid'];
-      assert.ok(L.slice(2).every(t => t.some(g => classic.includes(g)) && t.some(g => g !== 'bonus' && !classic.includes(g))), 'a classic and a newer game every day');
-      assert.ok(L.slice(2).every((t, k, a) => k === 0 || !t.some(g => g !== 'bonus' && a[k - 1].includes(g))), 'no game two days running');
+      assert.ok(M.every(x => x.t.some(g => classic.includes(g)) && x.t.some(g => g !== 'bonus' && !classic.includes(g))), 'a classic and a newer game every day');
+      assert.ok(M.every((x, k) => k === 0 || !x.t.some(g => g !== 'bonus' && M[k - 1].t.includes(g))), 'no game two days running');
+      assert.ok(M.some(x => x.kind && x.t.indexOf('bonus') < x.t.length - 1), 'a word puzzle is not always last');
+      assert.ok(M.every(x => x.slugs.indexOf('bonus') === x.t.indexOf('bonus')), 'the steps run in the list\'s order');
+      assert.ok(L.every(x => x.labels.every(l => !/bonus/i.test(l))), 'no step is called Bonus: ' + L[0].labels);
       assert.equal(r.ndup, 0, 'no repeats in 200 days: ' + JSON.stringify(r.dup));
       console.log(`PASS 200 fresh days: no game repeated, none of days 1-59's puzzles; first repeat (days in): ${JSON.stringify(r.first)}; bonus kinds in 400 days ${JSON.stringify(r.kinds)}`);
       assert.deepEqual(errors, []);
       await context.close();
     }
-    // 3. whole days through the screens: 60 (wheel), 61 (scramble, stats, connections, numbers), 62 (cross), 63 (score)
+    // 3. whole days through the screens: 61 (Word Wheel), 60 (Gridword), then from day 62 the first day of each other word
+    // puzzle and a day without one
     const played = {};
-    for (const day of [61, 60, 62, 63, 64]) {
+    const toPlay = await (async () => {
+      const {context, page} = await open(browser, url, 61);
+      const ks = await page.evaluate(async () => { const d = await import('/js/core/daily.js'); return Array.from({length: 14}, (_, k) => d.bonusKindOf(62 + k)); });
+      await context.close();
+      const first = k => 62 + ks.indexOf(k);
+      return [61, 60, first('scramble'), first('cross'), first('score'), first(null)];
+    })();
+    for (const day of toPlay) {
       const {context, page, errors} = await open(browser, url, day);
       const D0 = await dayOf(page);
       if (D0.t.includes('stats')) await playStats(page, D0);
       if (D0.t.includes('connections')) await playConnections(page, D0);
       if (D0.t.includes('numbers') && !played.numbers) { await playNumbers(page, D0); played.numbers = 1; }
-      await playBonus(page, D0);
-      played[D0.bx.kind] = 1;
+      if (D0.bx) { await playBonus(page, D0); played[D0.bx.kind] = 1; }
       // the rest of the day, then its results
       await page.evaluate(async () => { const d = await import('/js/core/daily.js'); d.lockIn && d.lockIn(); d.saveDS(); });
       const e = await page.evaluate(async () => { const d = await import('/js/core/daily.js'); return {entry: d.boardEntry(), all: d.allDone(), max: d.maxPts(), total: d.totalPts()}; });
       assert.equal(e.max, D0.t.length * 200, 'the day is worth its games and puzzle'); assert.equal(e.all, true);
-      assert.ok(e.entry.b && 'bonus' in e.entry.b, 'the board entry carries the bonus points');
+      assert.ok(e.entry.b && ('bonus' in e.entry.b) === !!D0.bx, 'the board entry carries the word puzzle\'s points (when the day has one)');
       await page.evaluate(() => { location.hash = '/puzzles/results'; });
       await page.locator('.c-rbreak').waitFor();
       assert.equal(await page.locator('.c-rb').count(), D0.t.length, 'every game on the results');
@@ -406,9 +423,10 @@ async function playBonus(page, day) {
       const total = e.total;
       await page.reload(); await ready(page);
       assert.equal(await page.evaluate(async () => (await import('/js/core/daily.js')).totalPts()), total, 'a reload keeps the day');
-      for (const w of [320, 390, 820]) { await page.setViewportSize({width: w, height: 844}); await go(page, 'bonus'); assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `no sideways scroll at ${w}`); }
+      const fresh = D0.t.includes('bonus') ? 'bonus' : D0.t.find(x => ['stats', 'connections', 'numbers'].includes(x));
+      for (const w of [320, 390, 820]) { await page.setViewportSize({width: w, height: 844}); await go(page, fresh); assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `no sideways scroll at ${w}`); }
       assert.deepEqual(errors, [], 'no errors on day ' + day);
-      console.log(`PASS day ${day}: ${D0.t.join(', ')} (bonus ${D0.bx.kind}) played through, ${total} of ${D0.t.length * 200}, results and reload`);
+      console.log(`PASS day ${day}: ${D0.t.join(', ')} (${D0.bx ? D0.bx.kind : 'no word puzzle'}) played through, ${total} of ${D0.t.length * 200}, results and reload`);
       await context.close();
     }
     assert.ok(['gridword', 'wheel', 'scramble', 'cross', 'score'].every(k => played[k]), 'every bonus kind played: ' + Object.keys(played));
@@ -471,12 +489,13 @@ async function playBonus(page, day) {
       console.log(`PASS the Word Wheel's ${M} misses end it (${fbw} kept, ${want} points), real words free, every level sound`);
       await context.close();
     }
-    // double words (day 81, SHOTGUN, a wheel with them): weight, tag and message; an old save (no w) stays flat and shows no
+    // double words (the first Word Wheel day with them: SHOTGUN): weight, tag and message; an old save (no w) stays flat and shows no
     // tags; reduced motion still shows what became of a word; at 320x568 the word display, wheel and buttons fit together
     {
-      const {context, page, errors} = await open(browser, url, 81);
+      const DD = await (async () => { const {context, page} = await open(browser, url, 61); const n = await page.evaluate(async () => { const d = await import('/js/core/daily.js'); for (let p = 62; p < 400; p++) { const x = d.dayFor(p); if (x.bx && x.bx.kind === 'wheel' && x.bx.d[5].length) return p; } return 0; }); await context.close(); return n; })();
+      const {context, page, errors} = await open(browser, url, DD);
       const D0 = await dayOf(page), lv = D0.bx.d;
-      assert.equal(D0.bx.kind, 'wheel'); assert.ok(lv[5].length >= 1, 'day 81 has double words: ' + lv[5]);
+      assert.equal(D0.bx.kind, 'wheel'); assert.ok(lv[5].length >= 1, `day ${DD} has double words: ` + lv[5]);
       await go(page, 'bonus');
       const tap = async w => {
         const order = (await page.$$eval('.tv-bonus [data-wl]', bs => bs.map(b => b.textContent))).join(''), used = new Set();
@@ -519,7 +538,7 @@ async function playBonus(page, day) {
       await ctx2.addInitScript(() => { localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-release-3.0:evan', '1'); sessionStorage.setItem('gg-skip-title', '1'); });
       const p2 = await ctx2.newPage(), e2 = [];
       p2.on('pageerror', e => e2.push(e.message));
-      await p2.goto(`${url}/?day=81#/puzzles/play/bonus`); await p2.waitForFunction(() => window.__ggBooted); await ready(p2);
+      await p2.goto(`${url}/?day=${DD}#/puzzles/play/bonus`); await p2.waitForFunction(() => window.__ggBooted); await ready(p2);
       await p2.locator('.tv-bonus [data-wheel]').waitFor();
       const fit = await p2.evaluate(() => {
         const s = document.querySelector('.screen.v-run'), row = document.querySelector('.tv-bonus .tv-row'), ww = document.querySelector('.tv-bonus [data-wword]');
@@ -542,11 +561,11 @@ async function playBonus(page, day) {
       assert.deepEqual(e2, []);
       await ctx2.close();
       assert.deepEqual(errors, []);
-      console.log(`PASS double words on day 81 (${lv[5]}), an old save flat and untagged, reduced motion and 320x568`);
+      console.log(`PASS double words on day ${DD} (${lv[5]}), an old save flat and untagged, reduced motion and 320x568`);
     }
     // 4. a game in progress survives a reload (Connections mid-way) and Test Play previews the fresh days
     {
-      const {context, page, errors} = await open(browser, url, 65);
+      const {context, page, errors} = await open(browser, url, 64); // (a day with Team Connections)
       const D0 = await dayOf(page);
       if (D0.t.includes('connections')) {
         await go(page, 'connections');

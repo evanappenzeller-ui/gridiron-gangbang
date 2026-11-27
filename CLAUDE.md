@@ -1,16 +1,25 @@
 # Gridiron Gangbang: rules for working on this app
 
-## Daily trivia: three games and a puzzle (November 27, 2026)
+## Daily trivia: 3-4 a day, word puzzles mixed in (November 27, 2026)
 
-Evan: "Each day should have 3 game modes and a puzzle "Wordscapes, crosswords, etc"." Everyone. From puzzle day
-`daily.THREE_FROM` (62, local midnight Nov 28 2026) a fresh day is three games, then the Bonus puzzle (Gridword, Word Wheel,
-Unscramble, Crossword, Score Match in turn, unchanged): 800 points. `FRESH_LINEUPS` (`daily.js` `lineupOf`) turns weekly:
-each of the seven games three times a week, every day a classic (College, Mystery, Journey, Grid) and a newer game
-(Higher or Lower, Team Connections, Number Trivia), no game two days running. Days 60 and 61 (already played) keep their
-four games and the Bonus (1,000). Levels still come from `usesBefore`, so nothing repeats for 216 days now (Journey first,
-then Score Match at 274). The day's total, grades and share card follow `maxPts` (the steps' sum); `board.js` `countWord`
-says "four". Verify `node tools/puzzles/check-trivia-v6.cjs` (the lineups of days 60-75, whole days 60-64 with their
-totals and results) and the checks listed under the trivia pass below.
+Evan: "Each day should have 3 game modes and a puzzle "Wordscapes, crosswords, etc"", then "Do not specify "bonus" puzzles.
+They should just be mixed in the rotation. 3-4 puzzles a day. When there is a complex puzzle like the crosswords, there
+should only be 3 puzzles but they do not need to appear every day." Everyone. From puzzle day `daily.MIX_FROM` (62, local
+midnight Nov 28 2026) a fresh day is `FRESH_LINEUPS`' list in its own order (`daily.js` `mixOf`, `lineupOf`; `fullSet`
+sorts a `mix` day's steps by its `t`): games and at most one word puzzle (Gridword, Word Wheel, Unscramble, Crossword,
+Score Match; inside the app still the `bonus` step and DS.bonus). The long ones (Crossword, Word Wheel) come with two games
+(3 a day, 600 points), the others with three (4, 800); two days a week are four games and no word puzzle. Weekly: Mystery,
+Gridword, Connections, Number Trivia · College, Journey, Grid, Higher or Lower · Mystery, Crossword, Connections · Journey,
+Unscramble, Grid, Number Trivia · College, Word Wheel, Higher or Lower · Mystery, Grid, Connections, Number Trivia ·
+College, Journey, Score Match, Higher or Lower: each game three times, each word puzzle once, a classic and a newer game
+every day, none two days running. `bonusKindOf` reads the list (a kind without levels: that day has no word puzzle).
+Nothing says Bonus: a word puzzle's step is its name ("Crossword") with its own icon (`PUZZLE_ICON`: letters, sparkle,
+swap, table, versus; `board.js` `stepIcon` reads `step.icon`), its header line names it ("CROSSWORD · 2 OF 6"), the Word
+Wheel's extra finds are "Extra words", a read-only save of another kind says "Today's puzzle is played". Days 60 and 61
+(played) keep four games and the puzzle last (1,000). Levels still come from `usesBefore`: nothing repeats for 215 days
+(Journey first). The day's total, grades and share card follow `maxPts`; `countWord` says "four". Verify
+`node tools/puzzles/check-trivia-v6.cjs` (the lists of days 60-82, whole days 60, 61, 63, 64, 65 and 68 with totals and
+results, every word puzzle) and the checks listed under the trivia pass below.
 
 ## Bonus: Word Wheel fixes, misses and double words (November 27, 2026)
 

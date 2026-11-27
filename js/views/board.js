@@ -116,7 +116,7 @@ export const gradeGold = g => g === 'ALL-PRO' || g === 'PERFECT DAY';
 export const STEP_ICON = {col: 'grad-cap', sil: 'silhouette', who: 'mystery', jr: 'route', grid: 'grid-3', play: 'football', stats: 'chart', connections: 'grid-3-fill', numbers: 'number', bonus: 'star'};
 export const PUZZLE_ICON = ['grad-cap', 'mystery', 'grid-3'];
 /** Icon of step i of the loaded day. */
-export const stepIcon = i => { const s = steps()[i]; return (s && STEP_ICON[s.id]) || PUZZLE_ICON[i] || 'football'; };
+export const stepIcon = i => { const s = steps()[i]; return (s && (s.icon || STEP_ICON[s.id])) || PUZZLE_ICON[i] || 'football'; };
 
 /** Runs fn once el is at least 60% visible (IntersectionObserver), or at once without IO. Returns cancel. */
 export function whenVisible(el, fn, {threshold = .6} = {}) {
