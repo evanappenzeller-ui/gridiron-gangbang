@@ -52,7 +52,7 @@ const SHELL = [
   'img/kick/holder.webp', 'img/kick/holder-empty.webp', 'img/kick/kicker.webp', 'img/kick/kicker-follow.webp', 'img/kick/line.webp', 'img/kick/football.webp',
   'img/drill/players.webp', 'img/drill/players-mask.webp',
   'icons/hub-192.png', 'icons/hub-512.png', 'icons/hub-maskable-512.png', 'icons/hub-apple-180.png',
-  'data/league.json', 'data/pressers.json', 'data/media.json', 'data/lay.json', 'data/puzzles-v4.json', 'data/trivia-v7.json', 'data/nfl-players.json', 'data/seventeen.json', 'data/drill.json', 'data/dynasty.json',
+  'data/league.json', 'data/pressers.json', 'data/media.json', 'data/lay.json', 'data/puzzles-v4.json', 'data/trivia-v8.json', 'data/nfl-players.json', 'data/seventeen.json', 'data/drill.json', 'data/dynasty.json',
   'img/games/media-cover-v4.webp', 'img/games/media-book-v1.webp', 'img/games/media-disc-v1.webp',
   'img/games/dynasty-cover-v3.webp', 'img/games/dynasty-book-v4.webp', 'img/games/dynasty-disc-v4.webp', 'img/games/dynasty-back-v2.webp', 'img/rivals/card-back-v1.webp',
   ...['common', 'rare', 'epic', 'legendary', 'mythic'].map(r => `img/rivals/field-${r}.svg`)

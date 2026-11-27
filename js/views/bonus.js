@@ -5,8 +5,8 @@
 // its kind turns daily (daily.BONUS_KINDS), its level is daily.DAY.bx.d, its progress daily.DS.bonus ({done, pts, line,
 // ...the kind's own}):
 //   wheel     A letter wheel: drag a finger across the letters (or tap them, then ✓) to spell words; every common word in
-//             the letters fills its slot, football words (×2) worth double. got: the words found; extra words count as
-//             bonus finds, no points; miss: wrong words, WHEEL_MISSES of them end the wheel.
+//             the letters fills its slot, football words (×2) worth double. got: the words found; extra: bonus finds, no
+//             points; miss: wrong words (bad: the last few), WHEEL_MISSES of them end the wheel; w: 2 (1: flat scoring).
 //   scramble  Four words to spell from their letters (a player, a team, a coach, a player), each with its clue: tap the
 //             tiles (or type), 50 a word, three tries each, Skip reveals it. i, ok.
 //   cross     A criss-cross mini crossword: tap a square or a clue, type on the keyboard below; a word right turns green
@@ -170,43 +170,33 @@ function gridwordMount(box, api, ctx) {
 // ============================================================================ Word Wheel
 // Word Wheel follow-up (Evan, Nov 27 2026: "the letters need to be centered on the bubbles. There should be a limited
 // number of attempts. Football themed words gain double points. After each word, the screen keeps moving to the top"):
-// WHEEL_MISSES wrong words end the wheel; a football word (the level's own base word, or one in FOOTBALL) weighs double,
-// the wheel still worth 200 in all; a found word patches its slot in place (the board is never rebuilt mid-game).
+// WHEEL_MISSES wrong words end the wheel; a level's football words (its `double` list, tools/puzzles/trivia_v6.py
+// WHEEL_DOUBLE) weigh double, the wheel still worth 200 in all; a found word patches its slot in place (the board is never
+// rebuilt mid-game). A level is [letters, targets, extras, base, ok, double] (trivia-v8.json): a real word that is neither a
+// slot nor a bonus word (ok, or any 5-letter word in TV.w5) costs nothing; only a non-word is a miss, and only once.
 export const WHEEL_MISSES = 5;
-/** Football words: tools/puzzles/trivia_v6.py's FOOTBALL_WORDS word for word (every wheel's base comes from it; keep the two
- *  in step), then the game's own short terms. */
-export const FOOTBALL = new Set(('TACKLE PUNTER KICKER HUDDLE FUMBLE SAFETY CENTER ROOKIE LEAGUE SEASON PLAYOFF HELMET JERSEY STADIUM COACHES DRAFTED '
-  + 'TROPHY ROSTER SNAPPER SPIRAL TARGET RUSHING PASSING BLOCKER LINEMAN DEFENSE OFFENSE KICKOFF LATERAL SCREEN SLANTS '
-  + 'FUMBLES TACKLES PUNTED KICKED CHARGE BLITZES SACKED SNAPPED REFEREE UMPIRE WHISTLE TIMEOUT PLAYERS CAPTAIN HUDDLES '
-  + 'CLEATS PADDED GOALIE POINTS YARDAGE SCORED SCORES STRIPES TAILBACK FULLBACK RECEIVER WIDEOUT RUNNING DEFENDER RUSHER '
-  + 'LINEMEN KICKING PUNTING ROOKIES LEAGUES SEASONS TROPHIES ROSTERS TARGETS CENTERS SAFETIES HELMETS JERSEYS STADIUMS '
-  + 'DRAFTS STARTER STARTERS BACKUP COACHING TRAINER TRAINERS PIGSKIN ENDZONE GRIDIRON SIDELINE TAILGATE CHEERS CHEERING '
-  + 'MASCOT BANNER TRENCHES POCKET SCRAMBLE PYLON PYLONS STIFFARM SPIKE SPIKED ONSIDE INTERIOR ZEBRAS FLAGS PENALTY '
-  + 'HOLDING OFFSIDE ILLEGAL TACKLED BLOCKED BLOCKING CATCHES CATCHER RECEPTION AUDIBLE OPTION COUNTER DRAW SWEEP SWEEPS '
-  + 'REVERSE BOOTLEG SHOTGUN PISTOL WILDCAT NICKEL DIME CORNER CORNERS LINEBACKER NOSETACKLE TIGHT STRONG WEAKSIDE OUTSIDE '
-  + 'INSIDE CHAINS CHAINSAW MEASURED TRIUMPH VICTORY VICTORIES WINNERS LOSERS RIVALS RIVALRY CONTEST CHAMPION CHAMPIONS '
-  + 'TITLE TITLES PARADE RINGER MEDAL PENNANT BANNERS STANDS BLEACHER TICKETS TICKET NACHOS PRETZEL HOTDOGS MUSTARD '
-  + 'TAILGATES GRILLS COOLERS PARKING FANTASY WAIVERS TRADES TRADED CONTRACT SALARY SIGNING AGENTS VETERAN VETERANS '
-  + 'RETIRED LEGENDS LEGEND HONORS CLEATED STRETCH WORKOUT PRACTICE TRAINING COMBINE SPRINTS DASHES BENCH SHUTTLE '
-  + 'BROADJUMP VERTICAL SCOUTS SCOUTING PROSPECT PROSPECTS COLLEGES COLLEGE SENIOR SENIORS JUNIOR JUNIORS TRANSFER DOMES '
-  + 'TURF GRASS WEATHER SNOWY RAINY FROZEN LAMBEAU THUNDER LIGHTNING '
-  // the game's own short words
-  + 'END REF RUN PAD GAP TEE KICK GOAL PASS PLAY RUSH SACK SNAP ZONE DASH GAIN PUNT TEAM YARD BALL DOWN FIELD CATCH BLOCK COACH SCORE '
-  + 'POINT SCOUT TRADE RIVAL DRAFT AGENT CLEAT BLITZ ROUTE SLANT HIKE HUDDLE ZEBRA PLAYER LOCKER WINNER LOSER KICKS SACKS SNAPS PUNTS GOALS '
-  + 'PASSER PLAYS TEAMS YARDS DOWNS').split(/\s+/));
-/** A wheel word's weight: football words count double. */
-export const wheelWeight = (w, base) => (w === base || FOOTBALL.has(w) ? 2 : 1);
-/** The points for the words found on a wheel level ([letters, targets, extras, base]): 200 for all of them. */
-export function wheelPts(level, got) {
-  const [, targets, , base] = level, W = targets.reduce((t, w) => t + wheelWeight(w, base), 0);
-  return W ? Math.round(200 * got.filter(w => targets.includes(w)).reduce((t, w) => t + wheelWeight(w, base), 0) / W) : 0;
+/** A wheel word's weight: the level's football words count double (flat: a save begun before double words, all 1). */
+export const wheelWeight = (w, level, flat = false) => (!flat && (level[5] || []).includes(w) ? 2 : 1);
+/** The points for the words found on a wheel level: 200 for all of them. */
+export function wheelPts(level, got, flat = false) {
+  const targets = level[1], W = targets.reduce((t, w) => t + wheelWeight(w, level, flat), 0);
+  return W ? Math.round(200 * got.filter(w => targets.includes(w)).reduce((t, w) => t + wheelWeight(w, level, flat), 0) / W) : 0;
+}
+/** Is w a real word this wheel doesn't ask for (no points, no try lost)? */
+export function wheelReal(w, level) {
+  if ((level[4] || []).includes(w)) return true;
+  const w5 = w.length === 5 && daily.TV && daily.TV.w5;
+  return !!w5 && (' ' + w5 + ' ').includes(' ' + w + ' ');
 }
 function wheelMount(box, api) {
-  const level = daily.DAY.bx.d, [letters, targets, extras, base] = level;
-  let order = letters.split(''), path = [], drag = null, taps = false;
-  const total = targets.length, fb = w => wheelWeight(w, base) === 2, anyFb = targets.some(fb);
+  const level = daily.DAY.bx.d, [letters, targets, extras] = level;
+  let order = letters.split(''), path = [], drag = null, taps = false, held = 0;
+  // a wheel begun before double words (saved with no `w`) keeps its flat scoring, so its points never drop
+  const s0 = stateOf(), flat = s0.w === 1 || (!s0.w && !s0.done && (s0.got || []).length > 0);
+  const W = flat ? 1 : 2, total = targets.length, fb = w => wheelWeight(w, level, flat) === 2, anyFb = targets.some(fb);
   const missOf = s => Math.min(WHEEL_MISSES, Math.max(0, s.miss | 0));
   const eyebrow = n => `BONUS · WORD WHEEL · ${n} OF ${total}`;
+  const wsave = next => bsave({...next, w: W}, api);
   function slotHTML(w, s, got) {
     const have = got.has(w), show = have || s.done;
     return `<span class="tv-word${have ? ' is-got' : s.done ? ' is-missed' : ''}${fb(w) ? ' is-fb' : ''}" data-word="${w}">${w.split('').map(c => `<i>${show ? c : ''}</i>`).join('')}`
@@ -217,43 +207,59 @@ function wheelMount(box, api) {
     const lens = [...new Set(targets.map(w => w.length))];
     return `<div class="tv-slots">${lens.map(L => `<div class="tv-slot-row">${targets.filter(w => w.length === L).map(w => slotHTML(w, s, got)).join('')}</div>`).join('')}</div>`;
   }
-  const livesHTML = miss => `<span>Misses left</span>${[...Array(WHEEL_MISSES).keys()].map(k => `<span class="tv-life${k < WHEEL_MISSES - miss ? '' : ' is-gone'}"></span>`).join('')}`;
+  const leftText = miss => `${WHEEL_MISSES - miss} ${WHEEL_MISSES - miss === 1 ? 'miss' : 'misses'} left`;
+  const livesHTML = miss => `<span aria-hidden="true">Misses left</span>${[...Array(WHEEL_MISSES).keys()].map(k => `<span class="tv-life${k < WHEEL_MISSES - miss ? '' : ' is-gone'}" aria-hidden="true"></span>`).join('')}<span class="sr-only" data-wleft>${leftText(miss)}</span>`;
   const lettersHTML = () => order.map((c, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / order.length, R = 38; return `<button type="button" class="tv-wl" data-wl="${i}" style="left:${50 + R * Math.cos(a)}%;top:${50 + R * Math.sin(a)}%" aria-label="${c}">${c}</button>`; }).join('');
   const wheelHTML = () => `<div class="tv-wheel" data-wheel><svg class="tv-wheel-line" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points="" data-line/></svg>`
     + lettersHTML() + `<button type="button" class="tv-wheel-mid" data-wshuffle aria-label="Shuffle letters">⟲</button></div>`;
   const extraText = s => ((s.extra || []).length ? `Bonus words: ${(s.extra || []).join(', ')}` : '');
+  const titleOf = s => ((s.got || []).length === total ? 'Every word found!' : missOf(s) >= WHEEL_MISSES ? 'Out of tries' : 'Wheel finished');
   /** The whole board: on opening, and once the wheel ends. Mid-game changes patch it in place (no jump in the scroll). */
   function draw() {
     if (!ok()) return;
     const s = stateOf(), got = s.got || [], miss = missOf(s);
-    const title = s.done ? (got.length === total ? 'Every word found!' : miss >= WHEEL_MISSES ? 'Out of tries' : 'Wheel finished') : 'Swipe the letters to spell words';
     const sub = s.done ? `${s.pts || 0} points · ${got.length} of ${total} words` : `Drag across the letters without lifting, or tap them and press ✓.${anyFb ? ' Football words (×2) score double.' : ''}`;
-    box.innerHTML = tvHead(eyebrow(got.length), title, sub)
+    box.innerHTML = tvHead(eyebrow(got.length), s.done ? titleOf(s) : 'Swipe the letters to spell words', sub)
       + slotsHTML(s)
-      + (s.done ? '' : `<div class="tv-lives" data-wlives aria-label="${WHEEL_MISSES - miss} misses left">${livesHTML(miss)}</div>`
-        + `<div class="tv-wword" data-wword aria-live="polite"></div>${wheelHTML()}<div class="tv-row"><button type="button" class="tv-btn tv-btn-ghost" data-wclear>⌫ Clear</button><button type="button" class="tv-btn tv-btn-go" data-wsubmit>✓ Enter</button><button type="button" class="tv-btn tv-btn-ghost" data-finish>Finish</button></div>`)
+      + (s.done ? '' : `<div class="tv-lives" data-wlives>${livesHTML(miss)}</div>`
+        + `<div class="tv-wword" data-wword aria-live="polite"><span data-wtext></span></div>${wheelHTML()}<div class="tv-row"><button type="button" class="tv-btn tv-btn-ghost" data-wclear>⌫ Clear</button><button type="button" class="tv-btn tv-btn-go" data-wsubmit>✓ Enter</button><button type="button" class="tv-btn tv-btn-ghost" data-finish>Finish</button></div>`)
       + `<p class="tv-fact" data-wextra${extraText(s) ? '' : ' hidden'}>${esc(extraText(s))}</p>`;
   }
-  /** A word found: its slot flips in, the count and the points pop; nothing else on the page moves. */
+  /** A word found: its slot flips in, and the word stays lit in gold by the wheel with its points; nothing else moves. */
   function found(w, gain) {
-    const s = stateOf(), el = box.querySelector(`[data-word="${w}"]`);
+    const s = stateOf(), el = box.querySelector(`[data-word="${w}"]`), ww = box.querySelector('[data-wword]');
     const eb = box.querySelector('.tv-eyebrow'); if (eb) eb.textContent = eyebrow((s.got || []).length);
-    if (!el) return;
-    el.classList.add('is-got');
-    el.querySelectorAll('i').forEach((c, k) => { c.textContent = w[k]; ui.animate(c, [{transform: 'rotateX(90deg)', opacity: 0}, {transform: 'none', opacity: 1}], {duration: 320, delay: k * 60, fill: 'backwards'}); });
-    pop(el, `+${gain}${fb(w) ? ' ×2' : ''}`, 'is-gold');
+    if (el) {
+      el.classList.add('is-got');
+      el.querySelectorAll('i').forEach((c, k) => { c.textContent = w[k]; ui.animate(c, [{transform: 'scale(.2)', opacity: 0}, {transform: 'none', opacity: 1}], {duration: 300, delay: k * 50, fill: 'backwards'}); });
+      pop(el, `+${gain}`, 'is-gold');
+    }
+    if (ww) { ww.querySelector('[data-wtext]').textContent = w; ww.classList.add('is-on', 'is-got'); pop(ww, fb(w) ? `+${gain} · DOUBLE` : `+${gain}`, 'is-gold'); }
+    hold(700);
   }
+  /** Keep the word display as it is for ms (a found word lit in gold), unless a new word starts. */
+  function hold(ms) { const k = ++held; setTimeout(() => { if (k === held && !path.length) paint(); }, ui.RM ? Math.min(ms, 400) : ms); }
   function lives(miss) {
     const l = box.querySelector('[data-wlives]'); if (!l) return;
-    l.setAttribute('aria-label', `${WHEEL_MISSES - miss} misses left`);
     l.querySelectorAll('.tv-life').forEach((d, k) => d.classList.toggle('is-gone', k >= WHEEL_MISSES - miss));
+    const t = l.querySelector('[data-wleft]'); if (t) t.textContent = leftText(miss);
   }
-  /** The wheel ends (every word, out of tries or Finish): the board shows every word; the slots come into view. */
-  function end() { draw(); const sl = box.querySelector('.tv-slots'); api.reveal([box.querySelector('.tv-head'), sl]); }
+  /** The wheel ends (every word, out of tries or Finish): the board shows every word, the slots come into view, focus stays. */
+  function end() {
+    const had = box.contains(document.activeElement);
+    draw();
+    if (had) { try { box.focus({preventScroll: true}); } catch (_) {} }
+    api.reveal([box.querySelector('.tv-head'), box.querySelector('.tv-slots')]);
+    const s = stateOf();
+    ui.announce(`${titleOf(s)} ${s.pts || 0} points, ${(s.got || []).length} of ${total} words.`);
+  }
   const word = () => path.map(i => order[i]).join('');
-  function paint() {
+  /** The wheel's lit letters and line, and (unless wheelOnly: a word just sent stays up a moment) the word being spelled.
+   *  The word's own span takes the text, so a pop on the display outlives a repaint. */
+  function paint(wheelOnly = false) {
     box.querySelectorAll('[data-wl]').forEach(b => b.classList.toggle('is-on', path.includes(+b.dataset.wl)));
-    const ww = box.querySelector('[data-wword]'); if (ww) { ww.textContent = word(); ww.classList.toggle('is-on', !!path.length); }
+    const ww = box.querySelector('[data-wword]');
+    if (ww && (!wheelOnly || path.length)) { ww.querySelector('[data-wtext]').textContent = word(); ww.classList.toggle('is-on', !!path.length); ww.classList.remove('is-got'); }
     const wheel = box.querySelector('[data-wheel]'), line = box.querySelector('[data-line]');
     if (!wheel || !line) return;
     const r = wheel.getBoundingClientRect();
@@ -261,35 +267,40 @@ function wheelMount(box, api) {
     if (drag && drag.x != null && path.length) pts.push(`${((drag.x - r.left) / r.width * 100).toFixed(1)},${((drag.y - r.top) / r.height * 100).toFixed(1)}`);
     line.setAttribute('points', pts.join(' '));
   }
+  /** A word that costs nothing: shake, a pop by the word, then clear. */
+  function nothing(ww, text, cls = '') { ui.haptic('warning'); shake(ww); pop(ww, text, cls); ui.announce(`${text}.`); hold(380); }
   function submit() {
     const w = word(), s = stateOf(), got = s.got || [];
     path = []; taps = false;
     if (s.done || !ok()) { paint(); return; }
+    paint(true); // the wheel lets go at once; the word stays up while it's judged
     if (w.length < 3) { paint(); return; }
     const ww = box.querySelector('[data-wword]');
-    if (got.includes(w) || (s.extra || []).includes(w)) { ui.haptic('warning'); shake(ww); pop(ww, 'Already found'); setTimeout(paint, 380); return; }
+    if (got.includes(w) || (s.extra || []).includes(w)) { nothing(ww, 'Already found'); return; }
     if (targets.includes(w)) {
-      const ng = [...got, w], pts = wheelPts(level, ng), all = ng.length === total;
-      if (!bsave({...s, got: ng, pts, line: `${ng.length} of ${total} words`, done: all}, api)) return;
+      const ng = [...got, w], pts = wheelPts(level, ng, flat), all = ng.length === total;
+      if (!wsave({...s, got: ng, pts, line: `${ng.length} of ${total} words`, done: all})) return;
       ui.haptic('success'); ui.announce(`${w}${fb(w) ? ', a football word, double points' : ''}. ${ng.length} of ${total}.`);
-      found(w, pts - wheelPts(level, got)); paint();
+      found(w, pts - wheelPts(level, got, flat));
       if (all) setTimeout(() => { if (box.isConnected) end(); }, ui.RM ? 0 : 900);
       return;
     }
     if (extras.includes(w)) {
       const ex = [...(s.extra || []), w];
-      if (!bsave({...s, extra: ex}, api)) return;
-      ui.haptic('light'); pop(ww, 'Bonus word!', 'is-blue');
+      if (!wsave({...s, extra: ex})) return;
+      ui.haptic('light'); pop(ww, 'Bonus word!', 'is-blue'); ui.announce(`${w}, a bonus word.`);
       const p = box.querySelector('[data-wextra]'); if (p) { p.textContent = extraText({extra: ex}); p.hidden = false; }
-      setTimeout(paint, 600); return;
+      hold(600); return;
     }
+    if (wheelReal(w, level)) { nothing(ww, 'Not on this wheel', 'is-blue'); return; }
+    if ((s.bad || []).includes(w)) { nothing(ww, 'Already tried'); return; }
     // a miss: one of WHEEL_MISSES gone; the last ends the wheel with the words found so far
     const miss = missOf(s) + 1, out = miss >= WHEEL_MISSES;
-    if (!bsave({...s, miss, got, pts: wheelPts(level, got), line: `${got.length} of ${total} words`, done: out}, api)) return;
+    if (!wsave({...s, miss, bad: [...(s.bad || []), w].slice(-WHEEL_MISSES), got, pts: wheelPts(level, got, flat), line: `${got.length} of ${total} words`, done: out})) return;
     ui.haptic('error'); shake(ww); lives(miss);
-    const l = box.querySelector('[data-wlives]'); pop(l, out ? 'Out of tries' : `${WHEEL_MISSES - miss} left`, 'is-red');
-    ui.announce(out ? 'Out of tries.' : `Not a word. ${WHEEL_MISSES - miss} misses left.`);
-    if (out) setTimeout(() => { if (box.isConnected) end(); }, ui.RM ? 0 : 700); else setTimeout(paint, 380);
+    pop(box.querySelector('[data-wlives]'), out ? 'Out of tries' : `${WHEEL_MISSES - miss} left`, 'is-red');
+    ui.announce(out ? 'Not a word. Out of tries.' : `Not a word. ${leftText(miss)}.`);
+    if (out) setTimeout(() => { if (box.isConnected) end(); }, ui.RM ? 0 : 700); else hold(380);
   }
   function letterAt(x, y) {
     let best = -1, bd = 1e9;
@@ -298,7 +309,7 @@ function wheelMount(box, api) {
   }
   box.addEventListener('pointerdown', e => {
     const l = e.target.closest('[data-wl]'); if (!l || stateOf().done) return;
-    e.preventDefault(); box.setPointerCapture(e.pointerId);
+    e.preventDefault(); try { box.setPointerCapture(e.pointerId); } catch (_) {}
     const i = +l.dataset.wl;
     if (!taps) path = [];
     drag = {id: e.pointerId, moved: false, x: e.clientX, y: e.clientY, start: i};
@@ -316,12 +327,16 @@ function wheelMount(box, api) {
     }
     paint();
   });
-  const up = e => {
-    if (!drag || (e && drag.id !== e.pointerId)) return;
+  box.addEventListener('pointerup', e => {
+    if (!drag || drag.id !== e.pointerId) return;
     const moved = drag.moved; drag = null;
     if (moved && path.length > 1) submit(); else { taps = true; paint(); }
-  };
-  box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
+  });
+  // a drag the system cancelled (a call, a notification, the home gesture) is dropped, never sent
+  box.addEventListener('pointercancel', e => {
+    if (!drag || drag.id !== e.pointerId) return;
+    drag = null; path = []; taps = false; paint();
+  });
   box.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || !ok() || stateOf().done) return;
     if (b.hasAttribute('data-wl') && e.detail === 0) { const i = +b.dataset.wl; if (!path.includes(i)) path.push(i); taps = true; paint(); return; } // keyboard
@@ -340,9 +355,9 @@ function wheelMount(box, api) {
     if (b.hasAttribute('data-finish')) { finish(b); }
   });
   function finish(b) {
-    if (!b.classList.contains('is-confirm')) { b.classList.add('is-confirm'); b.textContent = 'Sure? Tap again'; setTimeout(() => { b.classList.remove('is-confirm'); b.textContent = 'Finish'; }, 2600); return; }
+    if (!b.classList.contains('is-confirm')) { b.classList.add('is-confirm'); b.textContent = 'Sure? Tap again'; setTimeout(() => { if (b.isConnected) { b.classList.remove('is-confirm'); b.textContent = 'Finish'; } }, 2600); return; }
     const s = stateOf(), got = s.got || [];
-    if (bsave({...s, got, pts: wheelPts(level, got), line: `${got.length} of ${total} words`, done: true}, api)) { ui.haptic('medium'); end(); }
+    if (wsave({...s, got, pts: wheelPts(level, got, flat), line: `${got.length} of ${total} words`, done: true})) { ui.haptic('medium'); end(); }
   }
   draw();
 }

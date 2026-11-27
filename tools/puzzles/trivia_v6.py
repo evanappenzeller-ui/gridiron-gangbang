@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds data/trivia-v7.json (data/trivia-v6.json before Gridword, kept as it was for older builds): the daily trivia's levels from November 26, 2026 on (Evan, Nov 25 2026: "Provide a bunch
+"""Builds data/trivia-v8.json (v7 before the Word Wheel's double words and tries, v6 before Gridword, both kept as they were for older builds): the daily trivia's levels from November 26, 2026 on (Evan, Nov 25 2026: "Provide a bunch
 of new levels and ensure that no game is repeated ... Include a new feature that allows players to do a bonus puzzle").
 
 Every level is used once, in order, one day after another (js/core/daily.js freshDay), so no game repeats:
@@ -259,8 +259,8 @@ def word_lists():
     common -= BAD
     return common, zipf_frequency
 
-# js/views/bonus.js FOOTBALL copies this list word for word (the Word Wheel's double-points words); check-trivia-v6.cjs
-# fails if a wheel's base is missing there.
+# The words a Word Wheel is built round (its 6-7 letter bases): football and game-day words. Which words score double is
+# WHEEL_DOUBLE's, below.
 FOOTBALL_WORDS = ['tackle', 'punter', 'kicker', 'huddle', 'fumble', 'safety', 'center', 'rookie', 'league', 'season', 'playoff', 'helmet',
     'jersey', 'stadium', 'coaches', 'drafted', 'trophy', 'roster', 'snapper', 'spiral', 'target', 'rushing', 'passing', 'blocker', 'lineman',
     'defense', 'offense', 'kickoff', 'lateral', 'screen', 'slants', 'fumbles', 'tackles', 'punted', 'kicked', 'charge', 'blitzes', 'sacked',
@@ -300,6 +300,66 @@ def build_wheel(rng):
         extra = [w for w in words if w not in targets]
         out.append([''.join(lt), sorted([w.upper() for w in targets], key=lambda w: (len(w), w)), [w.upper() for w in extra], base.upper()])
     rng.shuffle(out)
+    return out
+
+# Word Wheel, Nov 27 2026 (Evan: "There should be a limited number of attempts. Football themed words gain double
+# points"): football words score double, a wrong word costs one of five tries, so a real word must never be taken for a
+# wrong one. Each level grows two lists (trivia-v8.json): [letters, targets, extras, base, ok, double]
+#   ok      every other real word the letters spell (plurals and verb forms too): no points, no try lost
+#   double  the targets that score double: WHEEL_DOUBLE's words, football terms only (no food, weather or fan words, no
+#           everyday words like END or RUN)
+# Levels not yet played (index >= WHEEL_PLAYED) also get their base and every WHEEL_DOUBLE word the letters spell as targets.
+WHEEL_PLAYED = 1  # level 0 is Nov 27 2026's, played under v7: its targets and extras stay as they were
+WHEEL_DOUBLE = set("""
+tackle tackles tackled tackler tacklers punt punts punted punter punters punting kick kicks kicked kicker kickers kicking kickoff
+kickoffs huddle huddles huddled fumble fumbles fumbled safety safeties center centers rookie rookies playoff playoffs helmet helmets
+jersey jerseys stadium stadiums coach coaches coached coaching draft drafts drafted roster rosters snap snaps snapped snapper spiral
+spirals target targets targeted rush rushed rusher rushers rushes rushing pass passed passer passers passes passing block blocks
+blocked blocker blockers blocking lineman linemen defense offense lateral laterals screen slant slants blitz blitzed blitzes sack
+sacks sacked ref refs referee referees umpire whistle whistles timeout timeouts captain captains cleat cleats cleated yard yards
+yardage score scored scores scoring stripes tailback fullback receiver wideout wideouts defender pigskin endzone gridiron sideline
+trenches pocket scramble pylon pylons stiffarm spike spikes spiked onside zebra zebras flag flags penalty holding offside catch
+catches audible option counter draw sweep sweeps reverse bootleg shotgun pistol wildcat nickel dime corner corners weakside chains
+goal goals goalpost hike hiked hut tee toss sneak sneaks route routes waivers combine shuttle scout scouts scouted scouting
+prospect turf tailgate tailgates lambeau touchback handoff overtime huddling tackling linebacker interception starter starters
+backup backups illegal
+""".split())
+
+def real_words():
+    """Every real word of 3-8 letters a player might spell: the dictionary, its plurals and verb forms, and any frequent word."""
+    from wordfreq import zipf_frequency, top_n_list
+    from english_words import get_english_words_set
+    raw = {w for w in get_english_words_set(['web2'], lower=False, alpha=True) if w.islower() and 3 <= len(w) <= 8}
+    ok = {w for w in raw if zipf_frequency(w, 'en') >= 1.0}
+    def forms(w):
+        out = {w + 's', w + 'es', w + 'ed', w + 'd', w + 'ing', w + 'er', w + 'ers', w + 'est'}
+        if w.endswith('e'): out.add(w[:-1] + 'ing')
+        if w.endswith('y'): out |= {w[:-1] + 'ies', w[:-1] + 'ied'}
+        if len(w) >= 3 and w[-1] not in 'aeiouwxy' and w[-2] in 'aeiou' and w[-3] not in 'aeiou': out |= {w + w[-1] + 'ed', w + w[-1] + 'ing', w + w[-1] + 'er'}
+        return out
+    for w in list(raw):
+        ok |= {f for f in forms(w) if len(f) <= 8 and zipf_frequency(f, 'en') >= 1.5}
+    ok |= {w for w in top_n_list('en', 60000) if w.isascii() and w.isalpha() and w.islower() and 3 <= len(w) <= 8 and zipf_frequency(w, 'en') >= 3.0 and any(c in 'aeiouy' for c in w)}
+    return ok | WHEEL_DOUBLE
+
+def upgrade_wheel(levels):
+    """v7 levels [letters, targets, extras, base] -> v8 [..., ok, double]; a level already upgraded stays as it is."""
+    from collections import Counter
+    pool, out = None, []
+    for i, l in enumerate(levels):
+        if len(l) >= 6: out.append(l); continue
+        pool = pool or real_words()
+        letters, targets, extras, base = l[0], list(l[1]), list(l[2]), l[3]
+        C = Counter(base.lower())
+        fits = lambda w: 3 <= len(w) and not (Counter(w.lower()) - C)
+        if i >= WHEEL_PLAYED:
+            add = {base} | {w.upper() for w in WHEEL_DOUBLE if fits(w)}
+            targets = sorted(set(targets) | add, key=lambda w: (len(w), w))
+            extras = [w for w in extras if w not in add]
+        have = set(targets) | set(extras)
+        ok = sorted(w.upper() for w in pool if fits(w) and w.upper() not in have)
+        double = [w for w in targets if w.lower() in WHEEL_DOUBLE]
+        out.append([letters, targets, extras, base, ok, double])
     return out
 
 # ------------------------------------------------------------------------------------------------ Bonus: crossword
@@ -529,7 +589,16 @@ def build_classic():
         out[t] = lst
     return out
 
+def upgrade_only():
+    """`trivia_v6.py --wheel`: the bank as it stands (v8, else v7) with its wheel levels upgraded, nothing rebuilt."""
+    path = os.path.join(ROOT, 'data/trivia-v8.json')
+    bank = json.load(open(path if os.path.exists(path) else os.path.join(ROOT, 'data/trivia-v7.json')))
+    bank['bonus']['wheel'] = upgrade_wheel(bank['bonus']['wheel'])
+    json.dump(bank, open(path, 'w'), separators=(',', ':'), ensure_ascii=False)
+    print(path, os.path.getsize(path), 'bytes')
+
 def main():
+    if sys.argv[1:] == ['--wheel']: return upgrade_only()
     espn = sys.argv[1] if len(sys.argv) > 1 else None
     bank = {'v': 1, 'from': '2026-11-26',
             'hl': build_hl(random.Random(601)), 'conn': build_conn(random.Random(602)), 'num': build_num(random.Random(603)),
@@ -537,20 +606,24 @@ def main():
             'bonus': {'gridword': build_gridword(random.Random(608)), 'wheel': build_wheel(random.Random(604)), 'cross': build_cross(random.Random(605)),
                       'scramble': build_scramble(random.Random(606)), 'score': build_scores(random.Random(607), espn) if espn else []},
             'classic': build_classic()}
-    path = os.path.join(ROOT, 'data/trivia-v7.json')  # (v6: the file before Gridword, kept for older builds)
+    # v8 (Nov 27 2026): the Word Wheel's levels gain their real-word and double lists (upgrade_wheel). v7 (Gridword) and v6
+    # (before it) stay as they were for older builds; a first run here starts from v7's levels.
+    path = os.path.join(ROOT, 'data/trivia-v8.json')
+    prev = path if os.path.exists(path) else os.path.join(ROOT, 'data/trivia-v7.json')
     # Append-only: a level once in the file keeps its place (days already played never change); a rerun (say with
-    # more weeks of scores) only adds the new levels after them.
-    if os.path.exists(path):
-        old = json.load(open(path))
-        def merge(a, b):
-            seen = {json.dumps(x, sort_keys=True) for x in a}
-            return a + [x for x in b if json.dumps(x, sort_keys=True) not in seen]
+    # more weeks of scores) only adds the new levels after them. A wheel level is known by its base word.
+    if os.path.exists(prev):
+        old = json.load(open(prev))
+        def merge(a, b, key=lambda x: json.dumps(x, sort_keys=True)):
+            seen = {key(x) for x in a}
+            return a + [x for x in b if key(x) not in seen]
         for k in ('hl', 'conn', 'num'): bank[k] = merge(old.get(k, []), bank[k])
-        for k in bank['bonus']: bank['bonus'][k] = merge(old.get('bonus', {}).get(k, []), bank['bonus'][k])
+        for k in bank['bonus']: bank['bonus'][k] = merge(old.get('bonus', {}).get(k, []), bank['bonus'][k], (lambda x: x[3]) if k == 'wheel' else (lambda x: json.dumps(x, sort_keys=True)))
         for k in bank['classic']: bank['classic'][k] = merge(old.get('classic', {}).get(k, []), bank['classic'][k])
         if old.get('bonus', {}).get('score') and espn:  # only games not in a score set yet make new sets
             used = {(g[0], g[3], g[7]) for st in old['bonus']['score'] for g in st}
             bank['bonus']['score'] = old['bonus']['score'] + build_scores(random.Random(607 + len(used)), espn, used)
+    bank['bonus']['wheel'] = upgrade_wheel(bank['bonus']['wheel'])
     json.dump(bank, open(path, 'w'), separators=(',', ':'), ensure_ascii=False)
     print(path, os.path.getsize(path), 'bytes')
     print({k: len(v) for k, v in bank.items() if isinstance(v, list)}, {k: len(v) for k, v in bank['bonus'].items()}, {k: len(v) for k, v in bank['classic'].items()})

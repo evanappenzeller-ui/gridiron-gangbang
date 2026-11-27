@@ -4,21 +4,30 @@
 
 Evan: "For the Wordscapes bonus game, the letters need to be centered on the bubbles. There should be a limited number of
 attempts. Football themed words gain double points. After each word, the screen keeps moving to the top, fix that."
-Everyone (`views/bonus.js` `wheelMount`, `css/views/trivia.css`). The letters sat about 22 px left of centre: the global
-button reset gives buttons `display: block; text-align: start`, so `.tv-wl` (and the ⟲) are now centred grids. Misses:
-`WHEEL_MISSES` (5) wrong words, a miss being 3+ letters that are neither a slot's word nor a bonus word (repeats, a bonus word
-again and anything under 3 letters cost nothing); a red dot goes per miss under the slots ("Misses left"), and the last ends
-the wheel ("Out of tries") with the points found, the other words shown. DS.bonus gains `miss`; it counts as started.
-Double words: `wheelWeight` 2 for the level's base word or a word in `FOOTBALL` (tools/puzzles/trivia_v6.py's
-`FOOTBALL_WORDS` word for word, every wheel's base among them, plus the game's short terms: END, REF, RUN, PAD, GAP, KICK,
-GOAL, PASS, PLAY, RUSH, SACK, SNAP, ZONE, CATCH, BLOCK, COACH, SCORE, POINT, SCOUT, TRADE, RIVAL...), 1 otherwise;
-`wheelPts` shares the 200 by weight, so every word found is still 200. Football slots wear a gold edge and a ×2 tag, the
-pop says "+27 ×2", and the subtitle names the rule when the level has one. A finished save's points stand. No jump: a
-found word fills its slot in place, a bonus word, a miss and Shuffle patch only what changed; the board is rebuilt only on
-opening and once the wheel ends (then the header and slots are revealed). Clear and Enter keep their icon on the line.
-Data unchanged (trivia-v7.json). Verify `node tools/puzzles/check-trivia-v6.cjs` (centred letters, the ×2 tags and weights,
-the same wheel and scroll after a drag, a bonus word, a miss and Shuffle at 375x667; day 66 runs out of misses and
-reloads ended; every wheel base in `FOOTBALL`) and the checks listed under the trivia pass below.
+Everyone (`views/bonus.js` `wheelMount`, `css/views/trivia.css`). Centring: the global button reset gives buttons
+`display: block; text-align: start` (letters sat 22 px left), so `.tv-wl` and the ⟲ are centred grids. Tries:
+`WHEEL_MISSES` (5) wrong words end the wheel ("Out of tries") with the points found and the other words shown; a red dot
+goes per miss ("Misses left", read out). Only a non-word is a miss: a real word that is neither a slot nor a bonus word
+says "Not on this wheel" (the level's `ok` list, or any 5-letter word in `TV.w5`), and a repeat (found, bonus or the same
+wrong word: `bad`), anything under 3 letters and a drag the system cancels (pointercancel) cost nothing. Double: a level's
+`double` words weigh 2, the rest 1 (`wheelWeight`, `wheelPts`: every word found is still 200); football slots wear a gold
+edge and a ×2 tag, a found one pops "+27 · DOUBLE" by the wheel, and the subtitle names the rule on levels that have one.
+The double words are `trivia_v6.py` `WHEEL_DOUBLE`: football terms only (no food, weather or fan words, nothing like END
+or RUN); `FOOTBALL_WORDS` only picks the wheels' base words. A wheel begun before this (a save with words and no `w`)
+keeps flat points (`w: 1`), so nothing drops; new saves carry `w: 2`; finished saves stand. No jump: a found word fills
+its slot in place and shows lit in gold by the wheel; a bonus word, a miss and Shuffle patch only what changed; the board
+is rebuilt only on opening and when the wheel ends (focus stays in the card, the result is announced, header and slots
+revealed). The jump never showed in Chromium; the old full rebuild after every word is the likely cause on iPhones.
+DS.bonus gains `miss`, `bad`, `w` (a wheel with only misses counts as started).
+Data: `data/trivia-v8.json` (`daily.TRIVIA_URL`; v7 and v6 stay as deployed), made by `trivia_v6.py --wheel` (the bank as it
+stands, wheel levels upgraded, nothing rebuilt; a full run writes v8 too, wheel levels merged by base word): each level is
+[letters, targets, extras, base, ok, double]. Levels from 1 on (`WHEEL_PLAYED`) also gained their base word and every
+`WHEEL_DOUBLE` word their letters spell as slots (HUDDLES, WIDEOUT, BLITZES, CLEATED had none); level 0 (today's, TACKLES)
+keeps its slots and bonus words. 85 of 125 wheels have double words. An upgraded level never changes on a rerun.
+Verify `node tools/puzzles/check-trivia-v6.cjs` (centred letters, the ×2 tags and weights, the same wheel and scroll after
+a drag, a bonus word, real words, a miss and Shuffle at 375x667, a repeated wrong word and a cancelled touch drag free,
+day 66 running out of misses and reloading ended, an old save kept flat, every v8 level sound, v7 unchanged) and the checks
+listed under the trivia pass below.
 
 ## Bonus: Gridword, one football word (November 25, 2026)
 
