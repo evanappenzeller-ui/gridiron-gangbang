@@ -8,26 +8,35 @@ Everyone (`views/bonus.js` `wheelMount`, `css/views/trivia.css`). Centring: the 
 `display: block; text-align: start` (letters sat 22 px left), so `.tv-wl` and the ⟲ are centred grids. Tries:
 `WHEEL_MISSES` (5) wrong words end the wheel ("Out of tries") with the points found and the other words shown; a red dot
 goes per miss ("Misses left", read out). Only a non-word is a miss: a real word that is neither a slot nor a bonus word
-says "Not on this wheel" (the level's `ok` list, or any 5-letter word in `TV.w5`), and a repeat (found, bonus or the same
-wrong word: `bad`), anything under 3 letters and a drag the system cancels (pointercancel) cost nothing. Double: a level's
-`double` words weigh 2, the rest 1 (`wheelWeight`, `wheelPts`: every word found is still 200); football slots wear a gold
-edge and a ×2 tag, a found one pops "+27 · DOUBLE" by the wheel, and the subtitle names the rule on levels that have one.
-The double words are `trivia_v6.py` `WHEEL_DOUBLE`: football terms only (no food, weather or fan words, nothing like END
-or RUN); `FOOTBALL_WORDS` only picks the wheels' base words. A wheel begun before this (a save with words and no `w`)
-keeps flat points (`w: 1`), so nothing drops; new saves carry `w: 2`; finished saves stand. No jump: a found word fills
-its slot in place and shows lit in gold by the wheel; a bonus word, a miss and Shuffle patch only what changed; the board
-is rebuilt only on opening and when the wheel ends (focus stays in the card, the result is announced, header and slots
-revealed). The jump never showed in Chromium; the old full rebuild after every word is the likely cause on iPhones.
-DS.bonus gains `miss`, `bad`, `w` (a wheel with only misses counts as started).
-Data: `data/trivia-v8.json` (`daily.TRIVIA_URL`; v7 and v6 stay as deployed), made by `trivia_v6.py --wheel` (the bank as it
-stands, wheel levels upgraded, nothing rebuilt; a full run writes v8 too, wheel levels merged by base word): each level is
-[letters, targets, extras, base, ok, double]. Levels from 1 on (`WHEEL_PLAYED`) also gained their base word and every
-`WHEEL_DOUBLE` word their letters spell as slots (HUDDLES, WIDEOUT, BLITZES, CLEATED had none); level 0 (today's, TACKLES)
-keeps its slots and bonus words. 85 of 125 wheels have double words. An upgraded level never changes on a rerun.
-Verify `node tools/puzzles/check-trivia-v6.cjs` (centred letters, the ×2 tags and weights, the same wheel and scroll after
-a drag, a bonus word, real words, a miss and Shuffle at 375x667, a repeated wrong word and a cancelled touch drag free,
-day 66 running out of misses and reloading ended, an old save kept flat, every v8 level sound, v7 unchanged) and the checks
-listed under the trivia pass below.
+says "Not on this wheel" (the level's `ok` list, or any 5-letter word in `TV.w5`); a repeat (found, bonus or the same wrong
+word: `bad`), anything under 3 letters and a drag the system cancels (pointercancel) cost nothing. What became of a word
+is said in the word display by the wheel, in place of the word, for about a second: gold "SHOTGUN +25 · DOUBLE", blue "Not
+on this wheel" / "Already found" / "…: bonus word!", red "Not a word · 4 misses left" (no pops: they landed on the misses
+row and vanished under reduced motion). The wheel is sized by the screen's height (`max(210px, 100svh - 330px)`), so at
+320x568 the misses row, the display, the wheel and the buttons fit between the run's bars. Double: a level's `double` words
+weigh 2, the rest 1 (`wheelWeight`, `wheelPts`: every word found is still 200); their slots wear a gold edge and a ×2 tag
+and the subtitle names the rule on levels that have them. They are `trivia_v6.py` `WHEEL_DOUBLE`: a wheel's base when it
+names a football thing (a position, play, formation, penalty, official or gear) and words whose first meaning is football
+(KICK, SACK, SNAP, BLITZ, ZONE, CATCH...); no food, weather or fan words, nothing like END, RUN, HUT or TEE. `FOOTBALL_WORDS`
+only picks the wheels' base words. Nov 27 2026's own wheel (level 0, TACKLES, played under v7) has no double words, one
+rule for its whole board; they start with the Dec 2 wheel. A save with words and no `w`, done or not, or a level without
+its lists keeps flat points (`w: 1`) and shows no tags, so nothing drops; new saves carry `w: 2`. No jump: a found word
+fills its slot in place; a bonus word, a miss and Shuffle patch only what changed; the board is rebuilt only on opening
+and when the wheel ends (focus stays in the card, the result is announced, header and slots revealed). The jump never
+showed in Chromium; the old full rebuild after every word is the likely cause on iPhones. DS.bonus gains `miss`, `bad`, `w`
+(a wheel with only misses counts as started).
+Data: `data/trivia-v8.json` (`daily.TRIVIA_URL`, the service worker's shell; v7 and v6 stay as deployed), made by
+`trivia_v6.py --wheel` (the bank as it stands, wheel levels upgraded, nothing rebuilt; a full run writes v8 too, wheel
+levels merged by base word): each level is [letters, targets, extras, base, ok, double]. `ok` comes from `real_words()`:
+ENABLE (`tools/puzzles/enable1.txt`, the public-domain word-game list, plurals and verb forms in it), web2 and its forms,
+and very frequent words (zipf 4+, so abbreviations like ACL stay out). Levels from 1 on (`WHEEL_PLAYED`) also gained their
+base word and every `WHEEL_DOUBLE` word their letters spell as slots (HUDDLES, WIDEOUT, BLITZES, CLEATED had none);
+level 0 keeps its slots and bonus words. 80 of 125 wheels have double words. An upgraded level never changes on a rerun.
+Verify `node tools/puzzles/check-trivia-v6.cjs` (day 61: centred letters, no doubles, the same wheel and scroll after a
+drag, a bonus word, real words, a miss and Shuffle at 375x667, a repeated wrong word and a cancelled touch drag free; day
+66 runs out of misses and reloads ended; day 81: a double word's points, tag and message, an old save flat and untagged
+(finished too), reduced motion and 320x568; every v8 level sound, v7 unchanged) and the checks listed under the trivia
+pass below.
 
 ## Bonus: Gridword, one football word (November 25, 2026)
 
@@ -42,8 +51,8 @@ the answers); a refused guess shakes and costs nothing. 200/170/140/110/80/50 po
 (`GW_PTS`), 0 on a miss; the answer's football meaning shows at the end. DS.bonus {g, won, done, pts, line}. Words:
 `tools/puzzles/gridword-words.json` (110 [ANSWER, meaning], BLITZ first; an adversarial review dropped generic words and
 corrected meanings; a meaning never contains its answer), built into `data/trivia-v6.json` `bonus.gridword` by
-`trivia_v6.py` (append-only as before). The bank is now `data/trivia-v7.json` (`daily.TRIVIA_URL`; v6 stays as deployed for
-older builds: a file whose meaning changes gets a new name, since the service worker can answer from an older cache), and
+`trivia_v6.py` (append-only as before). The bank was `data/trivia-v7.json` (`daily.TRIVIA_URL`; `data/trivia-v8.json` since Nov 27 2026, above; v7 and v6
+stay as deployed for older builds: a file whose meaning changes gets a new name, since the service worker can answer from an older cache), and
 `bonusKindOf` indexes the fixed `BONUS_KINDS` (a kind without levels gives no bonus, never a shifted rotation). Every bonus
 save carries its `kind`; a save of another kind on the day shows read only. The real keyboard is taken only while the word
 is under way, with no sheet open and the screen visible, and never from a focused button outside the board (Enter on the run's
@@ -52,7 +61,7 @@ stays), the board and keyboard are sized by the screen's height and revealed bet
 at 320 (the typing bonuses' card bleeds into the gutter on phones), ruled-out keys 7.6:1. The bonus step counts any kind's
 progress as started. Styles: `css/views/trivia.css` (Gridword). Verify `node tools/puzzles/check-trivia-v6.cjs` (marks with
 repeated letters, refused guesses, colours, focus, a sheet on top, Enter on Next, 390x844 and 320x568 fits, key width, a
-real-keyboard win, the meaning, another kind's save, the fixed rotation and v7 file; all five kinds).
+real-keyboard win, the meaning, another kind's save, the fixed rotation and the bank file (v8 now); all five kinds).
 
 ## Daily trivia: fresh levels, a Bonus puzzle, sharper games (November 25, 2026)
 

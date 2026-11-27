@@ -151,8 +151,12 @@
   color: #2A1700; background: linear-gradient(180deg, #FFE69A, #FFC23D); box-shadow: 0 2px 6px rgba(0,0,0,.45), 0 0 8px rgba(255,194,61,.5); pointer-events: none; }
 .tv-wword { position: relative; min-height: 44px; margin: 2px auto 6px; text-align: center; font: 800 34px/44px "Barlow Condensed", sans-serif; letter-spacing: .18em;
   color: #fff; text-shadow: 0 0 18px rgba(62,232,255,.7); }
+/* what became of a word, in place of it: found (gold), no cost (blue), a miss (red); one line, the height unchanged */
+.tv-wword.is-msg { font: 800 21px/44px var(--font-text); letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tv-wword.is-got { color: var(--tv-gold); text-shadow: 0 0 22px rgba(255,194,61,.85); }
-.tv-wheel { position: relative; width: min(84vw, 290px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none;
+.tv-wword.is-note { color: var(--tv-cyan); text-shadow: 0 0 16px rgba(62,232,255,.6); }
+.tv-wword.is-bad { color: #FF8FA2; text-shadow: 0 0 16px rgba(255,84,112,.7); }
+.tv-wheel { position: relative; width: min(84vw, 290px, max(210px, calc(100svh - 330px))); aspect-ratio: 1; margin: 0 auto; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none;
   background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.14), rgba(255,255,255,.03) 60%), #0E1A40; border: 1px solid var(--tv-edge);
   box-shadow: 0 16px 40px rgba(0,0,0,.45), inset 0 0 40px rgba(62,232,255,.12), 0 0 0 6px rgba(255,255,255,.03); }
 /* the wheel's buttons share the row; Clear and Enter keep their icon beside the word */

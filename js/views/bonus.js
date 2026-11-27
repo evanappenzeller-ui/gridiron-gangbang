@@ -191,8 +191,9 @@ export function wheelReal(w, level) {
 function wheelMount(box, api) {
   const level = daily.DAY.bx.d, [letters, targets, extras] = level;
   let order = letters.split(''), path = [], drag = null, taps = false, held = 0;
-  // a wheel begun before double words (saved with no `w`) keeps its flat scoring, so its points never drop
-  const s0 = stateOf(), flat = s0.w === 1 || (!s0.w && !s0.done && (s0.got || []).length > 0);
+  // a wheel begun (or finished) before double words, saved with no `w`, keeps flat scoring so its points never drop; so
+  // does a level without its lists (an older bank answering from a cache)
+  const s0 = stateOf(), flat = !Array.isArray(level[5]) || s0.w === 1 || (!s0.w && (!!s0.done || (s0.got || []).length > 0));
   const W = flat ? 1 : 2, total = targets.length, fb = w => wheelWeight(w, level, flat) === 2, anyFb = targets.some(fb);
   const missOf = s => Math.min(WHEEL_MISSES, Math.max(0, s.miss | 0));
   const eyebrow = n => `BONUS · WORD WHEEL · ${n} OF ${total}`;
@@ -225,20 +226,26 @@ function wheelMount(box, api) {
         + `<div class="tv-wword" data-wword aria-live="polite"><span data-wtext></span></div>${wheelHTML()}<div class="tv-row"><button type="button" class="tv-btn tv-btn-ghost" data-wclear>⌫ Clear</button><button type="button" class="tv-btn tv-btn-go" data-wsubmit>✓ Enter</button><button type="button" class="tv-btn tv-btn-ghost" data-finish>Finish</button></div>`)
       + `<p class="tv-fact" data-wextra${extraText(s) ? '' : ' hidden'}>${esc(extraText(s))}</p>`;
   }
-  /** A word found: its slot flips in, and the word stays lit in gold by the wheel with its points; nothing else moves. */
+  /** What became of a word, said in the word display by the wheel (always in view while playing, whatever the motion
+   *  setting): gold for a found word and its points, blue for no cost, red for a miss; it clears once a new word starts. */
+  function say(text, tone, ms = 1100) {
+    const ww = box.querySelector('[data-wword]'); if (!ww) return;
+    ww.querySelector('[data-wtext]').textContent = text;
+    ww.className = `tv-wword is-msg is-${tone}`;
+    hold(ms);
+  }
+  /** A word found: its slot flips in, and the word display says it with its points; nothing else on the page moves. */
   function found(w, gain) {
-    const s = stateOf(), el = box.querySelector(`[data-word="${w}"]`), ww = box.querySelector('[data-wword]');
+    const s = stateOf(), el = box.querySelector(`[data-word="${w}"]`);
     const eb = box.querySelector('.tv-eyebrow'); if (eb) eb.textContent = eyebrow((s.got || []).length);
     if (el) {
       el.classList.add('is-got');
       el.querySelectorAll('i').forEach((c, k) => { c.textContent = w[k]; ui.animate(c, [{transform: 'scale(.2)', opacity: 0}, {transform: 'none', opacity: 1}], {duration: 300, delay: k * 50, fill: 'backwards'}); });
-      pop(el, `+${gain}`, 'is-gold');
     }
-    if (ww) { ww.querySelector('[data-wtext]').textContent = w; ww.classList.add('is-on', 'is-got'); pop(ww, fb(w) ? `+${gain} · DOUBLE` : `+${gain}`, 'is-gold'); }
-    hold(700);
+    say(`${w} +${gain}${fb(w) ? ' · DOUBLE' : ''}`, 'got');
   }
-  /** Keep the word display as it is for ms (a found word lit in gold), unless a new word starts. */
-  function hold(ms) { const k = ++held; setTimeout(() => { if (k === held && !path.length) paint(); }, ui.RM ? Math.min(ms, 400) : ms); }
+  /** Keep the word display as it is for ms, unless a new word starts. */
+  function hold(ms) { const k = ++held; setTimeout(() => { if (k === held && !path.length) paint(); }, ms); }
   function lives(miss) {
     const l = box.querySelector('[data-wlives]'); if (!l) return;
     l.querySelectorAll('.tv-life').forEach((d, k) => d.classList.toggle('is-gone', k >= WHEEL_MISSES - miss));
@@ -251,7 +258,7 @@ function wheelMount(box, api) {
     if (had) { try { box.focus({preventScroll: true}); } catch (_) {} }
     api.reveal([box.querySelector('.tv-head'), box.querySelector('.tv-slots')]);
     const s = stateOf();
-    ui.announce(`${titleOf(s)} ${s.pts || 0} points, ${(s.got || []).length} of ${total} words.`);
+    ui.announce(`${titleOf(s).replace(/[.!]$/, '')}. ${s.pts || 0} points, ${(s.got || []).length} of ${total} words.`);
   }
   const word = () => path.map(i => order[i]).join('');
   /** The wheel's lit letters and line, and (unless wheelOnly: a word just sent stays up a moment) the word being spelled.
@@ -259,7 +266,7 @@ function wheelMount(box, api) {
   function paint(wheelOnly = false) {
     box.querySelectorAll('[data-wl]').forEach(b => b.classList.toggle('is-on', path.includes(+b.dataset.wl)));
     const ww = box.querySelector('[data-wword]');
-    if (ww && (!wheelOnly || path.length)) { ww.querySelector('[data-wtext]').textContent = word(); ww.classList.toggle('is-on', !!path.length); ww.classList.remove('is-got'); }
+    if (ww && (!wheelOnly || path.length)) { ww.querySelector('[data-wtext]').textContent = word(); ww.className = `tv-wword${path.length ? ' is-on' : ''}`; }
     const wheel = box.querySelector('[data-wheel]'), line = box.querySelector('[data-line]');
     if (!wheel || !line) return;
     const r = wheel.getBoundingClientRect();
@@ -267,8 +274,8 @@ function wheelMount(box, api) {
     if (drag && drag.x != null && path.length) pts.push(`${((drag.x - r.left) / r.width * 100).toFixed(1)},${((drag.y - r.top) / r.height * 100).toFixed(1)}`);
     line.setAttribute('points', pts.join(' '));
   }
-  /** A word that costs nothing: shake, a pop by the word, then clear. */
-  function nothing(ww, text, cls = '') { ui.haptic('warning'); shake(ww); pop(ww, text, cls); ui.announce(`${text}.`); hold(380); }
+  /** A word that costs nothing: a shake, and the display says why. */
+  function nothing(ww, text) { ui.haptic('warning'); shake(ww); say(text, 'note'); ui.announce(`${text}.`); }
   function submit() {
     const w = word(), s = stateOf(), got = s.got || [];
     path = []; taps = false;
@@ -282,15 +289,15 @@ function wheelMount(box, api) {
       if (!wsave({...s, got: ng, pts, line: `${ng.length} of ${total} words`, done: all})) return;
       ui.haptic('success'); ui.announce(`${w}${fb(w) ? ', a football word, double points' : ''}. ${ng.length} of ${total}.`);
       found(w, pts - wheelPts(level, got, flat));
-      if (all) setTimeout(() => { if (box.isConnected) end(); }, ui.RM ? 0 : 900);
+      if (all) setTimeout(() => { if (box.isConnected) end(); }, 1100);
       return;
     }
     if (extras.includes(w)) {
       const ex = [...(s.extra || []), w];
       if (!wsave({...s, extra: ex})) return;
-      ui.haptic('light'); pop(ww, 'Bonus word!', 'is-blue'); ui.announce(`${w}, a bonus word.`);
+      ui.haptic('light'); say(`${w}: bonus word!`, 'note'); ui.announce(`${w}, a bonus word.`);
       const p = box.querySelector('[data-wextra]'); if (p) { p.textContent = extraText({extra: ex}); p.hidden = false; }
-      hold(600); return;
+      return;
     }
     if (wheelReal(w, level)) { nothing(ww, 'Not on this wheel', 'is-blue'); return; }
     if ((s.bad || []).includes(w)) { nothing(ww, 'Already tried'); return; }
@@ -298,9 +305,9 @@ function wheelMount(box, api) {
     const miss = missOf(s) + 1, out = miss >= WHEEL_MISSES;
     if (!wsave({...s, miss, bad: [...(s.bad || []), w].slice(-WHEEL_MISSES), got, pts: wheelPts(level, got, flat), line: `${got.length} of ${total} words`, done: out})) return;
     ui.haptic('error'); shake(ww); lives(miss);
-    pop(box.querySelector('[data-wlives]'), out ? 'Out of tries' : `${WHEEL_MISSES - miss} left`, 'is-red');
+    say(out ? 'Not a word · out of tries' : `Not a word · ${leftText(miss)}`, 'bad');
     ui.announce(out ? 'Not a word. Out of tries.' : `Not a word. ${leftText(miss)}.`);
-    if (out) setTimeout(() => { if (box.isConnected) end(); }, ui.RM ? 0 : 700); else hold(380);
+    if (out) setTimeout(() => { if (box.isConnected) end(); }, 1100);
   }
   function letterAt(x, y) {
     let best = -1, bd = 1e9;

@@ -246,15 +246,16 @@ async function playBonus(page, day) {
     assert.equal(after.keep, 1, 'the wheel is not rebuilt after a word');
     assert.ok(after.slot.startsWith(first), 'the found word fills its slot in place');
     assert.equal(await scrollY(), y0, 'the screen stays where it was after a word');
-    assert.deepEqual(await page.evaluate(() => ({word: document.querySelector('.tv-bonus [data-wword].is-got [data-wtext]')?.textContent, lit: document.querySelectorAll('.tv-bonus .tv-wl.is-on').length})), {word: first, lit: 0}, 'the found word shows in gold by the wheel, the wheel let go');
+    assert.deepEqual(await page.evaluate(() => ({word: document.querySelector('.tv-bonus [data-wword].is-got [data-wtext]')?.textContent, lit: document.querySelectorAll('.tv-bonus .tv-wl.is-on').length})), {word: `${first} +${W.one[targets.length - 1]}`, lit: 0}, 'the found word and its points show in gold by the wheel, the wheel let go');
     // a repeat, a bonus word and a real word that isn't on the wheel cost nothing; a non-word costs a miss, once
     await tap(first);
     const bonusWord = extras.find(w => w.length >= 3);
     if (bonusWord) { await tap(bonusWord); await page.waitForTimeout(700); await tap(bonusWord); }
     const reals = ['CATS', 'CLEATS', 'TAKES', 'LACKS', 'TEAS', 'CLEAT'].filter(w => !targets.includes(w) && !extras.includes(w) && [...w].every(c => letters.includes(c)));
     assert.ok(base !== 'TACKLES' || reals.length === 6, 'day 61 is the TACKLES wheel: ' + reals);
+    assert.deepEqual(d[5], base === 'TACKLES' ? [] : d[5], 'Nov 27 2026\'s wheel (played under v7) has no double words: one rule on its board');
     for (const w of reals) await tap(w);
-    if (reals.length) { await tap(reals[0]); await page.waitForTimeout(250); assert.ok(await page.locator('.tv-bonus [data-wword] .tv-pop').count() >= 1, 'the "Not on this wheel" note outlives the repaint'); }
+    if (reals.length) { await tap(reals[0]); await page.waitForTimeout(250); assert.equal(await page.locator('.tv-bonus [data-wword].is-note [data-wtext]').textContent(), 'Not on this wheel', 'a real word is answered by the wheel'); }
     let s0 = await ds(page, 'bonus');
     assert.equal(s0.miss || 0, 0, 'a repeat, a bonus word and real words (' + reals + ') are not misses');
     if (bonusWord) assert.deepEqual(s0.extra, [bonusWord]);
@@ -436,20 +437,6 @@ async function playBonus(page, day) {
       if (shots) await page.screenshot({path: path.join(shots, 'wheel-out.png')});
       await page.reload(); await ready(page); await go(page, 'bonus');
       assert.match(await page.locator('.tv-bonus .tv-title').innerText(), /out of tries/i, 'a reload keeps it ended');
-      // a wheel begun before double words keeps its flat points: an old save (no w) of 3 words, then a miss and a word
-      {
-        const lv0 = await page.evaluate(async () => (await import('/js/core/daily.js')).DAY.bx.d), g3 = lv0[1].filter(w => !lv0[5].includes(w)).slice(0, 3);
-        const flatPts = Math.round(200 * 3 / lv0[1].length);
-        await page.evaluate(async ([g, p]) => { const d = await import('/js/core/daily.js'); d.DS.bonus = {kind: 'wheel', got: g, pts: p, line: '3 words'}; d.saveDS(); }, [g3, flatPts]);
-        await page.reload(); await ready(page); await go(page, 'bonus');
-        assert.equal(await page.locator('.tv-bonus .tv-x2').count(), 0, 'no ×2 on a flat wheel');
-        await tap(wrong[0]);
-        assert.equal((await ds(page, 'bonus')).pts, flatPts, 'a miss never lowers an old save');
-        const nxt = lv0[1].find(w => !g3.includes(w));
-        await tap(nxt);
-        const sf = await ds(page, 'bonus');
-        assert.deepEqual({pts: sf.pts, w: sf.w}, {pts: Math.round(200 * 4 / lv0[1].length), w: 1}, 'its words stay flat');
-      }
       // the bank: every wheel's lists; levels from 1 on have their base and every double word they spell as slots;
       // level 0 (Nov 27 2026, played under v7) kept its slots and bonus words
       const bank = await page.evaluate(async () => { const d = await import('/js/core/daily.js'); return d.TV.bonus.wheel; });
@@ -471,8 +458,81 @@ async function playBonus(page, day) {
       assert.ok(bank.filter(l => l[5].length).length >= 80, 'most wheels have double words');
       assert.ok(fs.readFileSync(path.join(root, 'data/trivia-v7.json'), 'utf8') === require('child_process').execSync('git show HEAD:data/trivia-v7.json', {cwd: root, maxBuffer: 1 << 26}).toString(), 'trivia-v7.json is as deployed');
       assert.deepEqual(errors, []);
-      console.log(`PASS the Word Wheel's ${M} misses end it (${fbw} kept, ${want} points), real words free, old saves flat, every level sound`);
+      console.log(`PASS the Word Wheel's ${M} misses end it (${fbw} kept, ${want} points), real words free, every level sound`);
       await context.close();
+    }
+    // double words (day 81, SHOTGUN, a wheel with them): weight, tag and message; an old save (no w) stays flat and shows no
+    // tags; reduced motion still shows what became of a word; at 320x568 the word display, wheel and buttons fit together
+    {
+      const {context, page, errors} = await open(browser, url, 81);
+      const D0 = await dayOf(page), lv = D0.bx.d;
+      assert.equal(D0.bx.kind, 'wheel'); assert.ok(lv[5].length >= 1, 'day 81 has double words: ' + lv[5]);
+      await go(page, 'bonus');
+      const tap = async w => {
+        const order = (await page.$$eval('.tv-bonus [data-wl]', bs => bs.map(b => b.textContent))).join(''), used = new Set();
+        for (const c of w) { const i = [...order].findIndex((x, k) => x === c && !used.has(k)); used.add(i); await page.locator(`.tv-bonus [data-wl="${i}"]`).evaluate(el => el.click()); }
+        await page.locator('.tv-bonus [data-wsubmit]').evaluate(el => el.click());
+        await page.waitForTimeout(250);
+      };
+      const n = lv[1].length + lv[5].length, dw = lv[5][0], plain = lv[1].filter(w => !lv[5].includes(w));
+      assert.equal(await page.locator('.tv-bonus .tv-word.is-fb .tv-x2').count(), lv[5].length, 'the double words are tagged ×2');
+      assert.match(await page.locator('.tv-bonus .tv-sub').innerText(), /×2/, 'the subtitle names the rule');
+      await tap(dw);
+      let s = await ds(page, 'bonus');
+      assert.deepEqual({pts: s.pts, w: s.w}, {pts: Math.round(200 * 2 / n), w: 2}, 'a football word is worth double');
+      assert.equal(await page.locator('.tv-bonus [data-wtext]').textContent(), `${dw} +${s.pts} · DOUBLE`, 'and says so');
+      await page.waitForTimeout(1200);
+      await tap(plain[0]);
+      assert.equal((await ds(page, 'bonus')).pts, Math.round(200 * 3 / n), 'a plain word once');
+      // an old save: flat points, no tags, a miss never lowers it
+      const flat3 = Math.round(200 * 3 / lv[1].length);
+      await page.evaluate(async ([g, p]) => { const d = await import('/js/core/daily.js'); d.DS.bonus = {kind: 'wheel', got: g, pts: p, line: '3 words'}; d.saveDS(); }, [plain.slice(0, 3), flat3]);
+      await page.reload(); await ready(page); await go(page, 'bonus');
+      assert.equal(await page.locator('.tv-bonus .tv-x2').count(), 0, 'no ×2 on an old save');
+      const words = new Set([...lv[1], ...lv[2], ...lv[4]]);
+      const perms = x => (x.length <= 1 ? [x] : [...x].flatMap((c, i) => perms(x.slice(0, i) + x.slice(i + 1)).map(r => c + r)));
+      const wrong = [...new Set(perms(lv[0].slice(0, 3)).concat(perms(lv[0].slice(2, 5))))].filter(w => !words.has(w));
+      await tap(wrong[0]);
+      s = await ds(page, 'bonus');
+      assert.deepEqual({pts: s.pts, miss: s.miss, w: s.w}, {pts: flat3, miss: 1, w: 1}, 'a miss never lowers an old save');
+      await page.waitForTimeout(1200);
+      await tap(dw);
+      assert.equal((await ds(page, 'bonus')).pts, Math.round(200 * 4 / lv[1].length), 'its words stay flat, the football word too');
+      // an old finished save shows no tags either
+      await page.evaluate(async g => { const d = await import('/js/core/daily.js'); d.DS.bonus = {kind: 'wheel', got: g, pts: 43, line: '3 words', done: true}; d.saveDS(); }, [dw, ...plain.slice(0, 2)]);
+      await page.reload(); await ready(page); await go(page, 'bonus');
+      assert.equal(await page.locator('.tv-bonus .tv-x2').count(), 0, 'no ×2 on an old finished save');
+      await context.close();
+      // reduced motion, 320x568: a fresh wheel
+      const ctx2 = await browser.newContext({viewport: {width: 320, height: 568}, serviceWorkers: 'block', reducedMotion: 'reduce'});
+      await ctx2.route('**/*', r => (new URL(r.request().url()).origin === url ? r.continue() : r.abort()));
+      await ctx2.addInitScript(() => { localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-release-3.0:evan', '1'); sessionStorage.setItem('gg-skip-title', '1'); });
+      const p2 = await ctx2.newPage(), e2 = [];
+      p2.on('pageerror', e => e2.push(e.message));
+      await p2.goto(`${url}/?day=81#/puzzles/play/bonus`); await p2.waitForFunction(() => window.__ggBooted); await ready(p2);
+      await p2.locator('.tv-bonus [data-wheel]').waitFor();
+      const fit = await p2.evaluate(() => {
+        const s = document.querySelector('.screen.v-run'), row = document.querySelector('.tv-bonus .tv-row'), ww = document.querySelector('.tv-bonus [data-wword]');
+        const top = document.querySelector('.rn-top, .rn-bar, header')?.getBoundingClientRect().bottom || 0;
+        const bot = document.querySelector('.rn-bottom').getBoundingClientRect().top;
+        s.scrollTop += row.getBoundingClientRect().bottom - bot + 4;
+        return {word: ww.getBoundingClientRect().top - Math.max(top, document.querySelector('.rn-bottom') ? 0 : 0), topBar: top, row: row.getBoundingClientRect().bottom, bot};
+      });
+      const tb = await p2.evaluate(() => { const els = [...document.querySelectorAll('.v-run > *, .v-run header, [class*="rn-top"], [class*="rn-head"]')].filter(e => getComputedStyle(e).position === 'fixed' || getComputedStyle(e).position === 'sticky'); return Math.max(0, ...els.filter(e => e.getBoundingClientRect().top < 50).map(e => e.getBoundingClientRect().bottom)); });
+      const wtop = await p2.evaluate(() => document.querySelector('.tv-bonus [data-wword]').getBoundingClientRect().top);
+      assert.ok(wtop >= tb - 1, `at 320x568 the word display (${wtop}) shows with the buttons (bar to ${tb})`);
+      const order = (await p2.$$eval('.tv-bonus [data-wl]', bs => bs.map(b => b.textContent))).join('');
+      const realw = lv[4].find(w => w.length >= 3) || lv[2][0], used = new Set();
+      for (const c of realw) { const i = [...order].findIndex((x, k) => x === c && !used.has(k)); used.add(i); await p2.locator(`.tv-bonus [data-wl="${i}"]`).evaluate(el => el.click()); }
+      await p2.locator('.tv-bonus [data-wsubmit]').evaluate(el => el.click());
+      await p2.waitForTimeout(500);
+      const msg = await p2.evaluate(() => { const t = document.querySelector('.tv-bonus [data-wtext]'), r = t.getBoundingClientRect(); return {text: t.textContent, op: getComputedStyle(t.parentElement).opacity, w: r.width}; });
+      assert.ok(/not on this wheel|bonus word/i.test(msg.text) && msg.op === '1', 'reduced motion: the display says what became of the word: ' + JSON.stringify(msg));
+      if (shots) await p2.screenshot({path: path.join(shots, 'wheel-320-rm.png')});
+      assert.deepEqual(e2, []);
+      await ctx2.close();
+      assert.deepEqual(errors, []);
+      console.log(`PASS double words on day 81 (${lv[5]}), an old save flat and untagged, reduced motion and 320x568`);
     }
     // 4. a game in progress survives a reload (Connections mid-way) and Test Play previews the fresh days
     {
