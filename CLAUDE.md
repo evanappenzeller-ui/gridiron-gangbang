@@ -1,5 +1,17 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Daily trivia: three games and a puzzle (November 27, 2026)
+
+Evan: "Each day should have 3 game modes and a puzzle "Wordscapes, crosswords, etc"." Everyone. From puzzle day
+`daily.THREE_FROM` (62, local midnight Nov 28 2026) a fresh day is three games, then the Bonus puzzle (Gridword, Word Wheel,
+Unscramble, Crossword, Score Match in turn, unchanged): 800 points. `FRESH_LINEUPS` (`daily.js` `lineupOf`) turns weekly:
+each of the seven games three times a week, every day a classic (College, Mystery, Journey, Grid) and a newer game
+(Higher or Lower, Team Connections, Number Trivia), no game two days running. Days 60 and 61 (already played) keep their
+four games and the Bonus (1,000). Levels still come from `usesBefore`, so nothing repeats for 216 days now (Journey first,
+then Score Match at 274). The day's total, grades and share card follow `maxPts` (the steps' sum); `board.js` `countWord`
+says "four". Verify `node tools/puzzles/check-trivia-v6.cjs` (the lineups of days 60-75, whole days 60-64 with their
+totals and results) and the checks listed under the trivia pass below.
+
 ## Bonus: Word Wheel fixes, misses and double words (November 27, 2026)
 
 Evan: "For the Wordscapes bonus game, the letters need to be centered on the bubbles. There should be a limited number of
@@ -74,7 +86,7 @@ fixed tile order (`[3,0,4,1,5,2]`) put each group down one column, and the v5 da
 October's College/Mystery/Journey/Grid source days. Today's old-format Connections now deals a seeded order with neither
 group in one column (`views/daily-challenges.js`).
 From puzzle day `daily.FRESH_FROM` (60, local midnight Nov 26 2026) every day is "fresh" (`day.nv === 6`, still `v: 5`):
-the same four-game rotation plus a 5th game, the Bonus (1,000 points). Levels come from `data/trivia-v6.json` (built by
+the same four-game rotation plus a 5th game, the Bonus (1,000 points; three games and the Bonus from Nov 28 2026, above). Levels come from `data/trivia-v6.json` (built by
 `tools/puzzles/trivia_v6.py`, append-only: a rerun keeps every level in place and only adds; rerun it with later weeks'
 ESPN scoreboards to add Score Match levels), loaded by `daily.ensure` with the puzzles (`daily.TV`). `freshDay(pnum)` gives
 each game the next unused level (`usesBefore`): College/Mystery/Journey/Grid from puzzle days never played (not days 1-46,

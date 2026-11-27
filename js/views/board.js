@@ -59,8 +59,8 @@ export function itemCount(id) {
   if (id === 'grid') return daily.gridShape().n;
   return 0;
 }
-const NUM_WORD = {3: 'three', 5: 'five'};
-/** 'three' / 'five': how many puzzles the loaded day has. */
+const NUM_WORD = {3: 'three', 4: 'four', 5: 'five'};
+/** 'three' / 'four' / 'five': how many puzzles the loaded day has. */
 export const countWord = () => NUM_WORD[steps().length] || String(steps().length || 3);
 /** A finished College or Silhouettes count line: 'All five answered', or 'Both answered' on a two-item day. */
 export const allAnswered = n => (n === 2 ? 'Both answered' : `All ${NUM_WORD[n] || n} answered`);

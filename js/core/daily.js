@@ -219,7 +219,7 @@ const DAILY_LINEUPS = [
 // the user has to match the players with the team, all of the correct answers have been on one side ... Provide a bunch
 // of new levels and ensure that no game is repeated ... Include a new feature that allows players to do a bonus puzzle"):
 // each day keeps the four-game rotation and adds a Bonus puzzle (Gridword, Word Wheel, Unscramble, Crossword, Score Match in
-// turn).
+// turn); from THREE_FROM (Nov 28 2026), three games and the puzzle.
 // Every game takes the next unused level of data/trivia-v6.json (TV): College, Mystery, Journey and Grid from puzzle days
 // never played before (TV.classic), Higher or Lower 4 career match-ups (hl), Team Connections 3 groups of 3 (cn), Number
 // Trivia 2 questions (nq), the bonus its kind's next level (bx). A day before FRESH_FROM is exactly as it was.
@@ -228,7 +228,24 @@ export const FRESH_FROM = 60;
 export const BONUS_KINDS = ['gridword', 'wheel', 'scramble', 'cross', 'score'];
 export const BONUS_LABEL = {gridword: 'Gridword', wheel: 'Word Wheel', scramble: 'Unscramble', cross: 'Crossword', score: 'Score Match'};
 const CHALLENGE_IDS = ['stats', 'connections', 'numbers', 'bonus'];
-const lineupOf = pnum => DAILY_LINEUPS[((pnum - TRIVIA_FROM) % DAILY_LINEUPS.length + DAILY_LINEUPS.length) % DAILY_LINEUPS.length];
+// Three games and a puzzle (Evan, Nov 27 2026: "Each day should have 3 game modes and a puzzle "Wordscapes, crosswords,
+// etc""): from puzzle day THREE_FROM (local midnight Nov 28 2026) a fresh day is three of the seven games, then the Bonus
+// puzzle (800 points). FRESH_LINEUPS turns weekly: each game three times a week, every day a classic (College, Mystery,
+// Journey, Grid) and a newer game (Higher or Lower, Team Connections, Number Trivia), no game two days running. Days
+// 60-61 (already played) keep their four games.
+export const THREE_FROM = 62;
+const FRESH_LINEUPS = [
+  ['col', 'stats', 'connections'],
+  ['who', 'grid', 'numbers'],
+  ['jr', 'col', 'stats'],
+  ['grid', 'connections', 'numbers'],
+  ['who', 'jr', 'stats'],
+  ['col', 'grid', 'connections'],
+  ['who', 'jr', 'numbers']
+];
+const mod = (a, n) => ((a % n) + n) % n;
+const lineupOf = pnum => (pnum >= THREE_FROM ? FRESH_LINEUPS[mod(pnum - THREE_FROM, FRESH_LINEUPS.length)]
+  : DAILY_LINEUPS[mod(pnum - TRIVIA_FROM, DAILY_LINEUPS.length)]);
 const nth = (list, i) => list[((i % list.length) + list.length) % list.length];
 /** How many days from FRESH_FROM up to (not including) pnum play game id: that game's next level is this one. */
 function usesBefore(id, pnum) { let c = 0; for (let q = FRESH_FROM; q < pnum; q++) if (lineupOf(q).includes(id)) c++; return c; }
