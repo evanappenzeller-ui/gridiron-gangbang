@@ -152,7 +152,7 @@
 .tv-wword { position: relative; min-height: 44px; margin: 2px auto 6px; text-align: center; font: 800 34px/44px "Barlow Condensed", sans-serif; letter-spacing: .18em;
   color: #fff; text-shadow: 0 0 18px rgba(62,232,255,.7); }
 /* what became of a word, in place of it: found (gold), no cost (blue), a miss (red); one line, the height unchanged */
-.tv-wword.is-msg { font: 800 21px/44px var(--font-text); letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-wword.is-msg { font: 800 min(21px, 5.6vw)/44px var(--font-text); letter-spacing: .02em; white-space: nowrap; }
 .tv-wword.is-got { color: var(--tv-gold); text-shadow: 0 0 22px rgba(255,194,61,.85); }
 .tv-wword.is-note { color: var(--tv-cyan); text-shadow: 0 0 16px rgba(62,232,255,.6); }
 .tv-wword.is-bad { color: #FF8FA2; text-shadow: 0 0 16px rgba(255,84,112,.7); }

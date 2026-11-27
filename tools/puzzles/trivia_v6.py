@@ -311,7 +311,8 @@ def build_wheel(rng):
 #           meaning is football (KICK, SACK, SNAP, BLITZ, ZONE...); no food, weather or fan words, nothing like END, RUN, HUT or TEE
 # Levels not yet played (index >= WHEEL_PLAYED) also get their base and every WHEEL_DOUBLE word the letters spell as targets.
 WHEEL_PLAYED = 1  # level 0 is Nov 27 2026's, played under v7: its targets and extras stay as they were, and no word on it
-                  # scores double (one scoring rule for everyone on that day's board; double words start with level 1)
+                  # scores double (one scoring rule for everyone on that day's board). Levels 1-3 (CONTEST, PARADE, TICKET)
+                  # spell no football word: the first double words come with level 4, SHOTGUN.
 WHEEL_DOUBLE = set("""
 tackle tackles tackled tackler tacklers punt punts punted punter punters punting kick kicks kicked kicker kickers kicking kickoff
 kickoffs huddle huddles huddled fumble fumbles fumbled safety safeties center centers rookie rookies playoff playoffs helmet helmets
@@ -327,42 +328,51 @@ prospect turf tailgate tailgates lambeau touchback handoff overtime huddling tac
 backup backups illegal
 """.split())
 
+# words newer than the word lists that a player might spell
+WHEEL_MODERN = set("email emails blog blogs app apps online website selfie wifi texted texting emoji emojis podcast vlog".split())
+
 def real_words():
-    """Every real word of 3-8 letters a player might spell: ENABLE (the public-domain word-game list, tools/puzzles/enable1.txt,
-    plurals and verb forms included), web2 and their forms, and any frequent word that is a word (not an abbreviation)."""
-    from wordfreq import zipf_frequency, top_n_list
+    """The words a player might spell (3-8 letters): ENABLE (the public-domain word-game list, tools/puzzles/enable1.txt,
+    plurals and verb forms in it), common web2 words it lacks (zipf 3+), a few newer words, and WHEEL_DOUBLE."""
+    from wordfreq import zipf_frequency
     from english_words import get_english_words_set
     enable = {w.strip() for w in open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'enable1.txt')) if 3 <= len(w.strip()) <= 8}
     raw = {w for w in get_english_words_set(['web2'], lower=False, alpha=True) if w.islower() and 3 <= len(w) <= 8}
-    ok = set(enable) | {w for w in raw if zipf_frequency(w, 'en') >= 1.0}
-    def forms(w):
-        out = {w + 's', w + 'es', w + 'ed', w + 'd', w + 'ing', w + 'er', w + 'ers', w + 'est'}
-        if w.endswith('e'): out |= {w[:-1] + 'ing', w + 'r', w + 'st'}
-        if w.endswith('y'): out |= {w[:-1] + 'ies', w[:-1] + 'ied', w[:-1] + 'ier', w[:-1] + 'iest'}
-        if len(w) >= 3 and w[-1] not in 'aeiouwxy' and w[-2] in 'aeiou' and w[-3] not in 'aeiou': out |= {w + w[-1] + 'ed', w + w[-1] + 'ing', w + w[-1] + 'er'}
-        return out
-    for w in list(raw):
-        ok |= {f for f in forms(w) if len(f) <= 8 and zipf_frequency(f, 'en') >= 1.0}
-    # frequent words no list has yet (email, blog): only very frequent ones, so abbreviations (ACL, TSA) stay out
-    ok |= {w for w in top_n_list('en', 60000) if w.isascii() and w.isalpha() and w.islower() and 3 <= len(w) <= 8 and zipf_frequency(w, 'en') >= 4.0 and any(c in 'aeiouy' for c in w)}
-    return {w for w in ok if w in enable or any(c in 'aeiouy' for c in w)} | WHEEL_DOUBLE  # (TSK, PSST: ENABLE's)
+    return enable | {w for w in raw if zipf_frequency(w, 'en') >= 3.0} | WHEEL_MODERN | WHEEL_DOUBLE
 
 def upgrade_wheel(levels):
     """v7 levels [letters, targets, extras, base] -> v8 [..., ok, double]; a level already upgraded stays as it is."""
     from collections import Counter
-    pool, out = None, []
+    pool, strict, out = None, None, []
     for i, l in enumerate(levels):
         if len(l) >= 6: out.append(l); continue
         pool = pool or real_words()
+        strict = strict or ({w.strip() for w in open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'enable1.txt'))} | WHEEL_DOUBLE | WHEEL_MODERN)
         letters, targets, extras, base = l[0], list(l[1]), list(l[2]), l[3]
         C = Counter(base.lower())
         fits = lambda w: 3 <= len(w) and not (Counter(w.lower()) - C)
+        moved = []
         if i >= WHEEL_PLAYED:
             add = {base} | {w.upper() for w in WHEEL_DOUBLE if fits(w)}
             targets = sorted(set(targets) | add, key=lambda w: (len(w), w))
             extras = [w for w in extras if w not in add]
+            # a slot or extra word must be a real word: ING, HUD, SAO, ERIC (word fragments, names) cost a player tries to
+            # hunt for once wrong words cost one; they move to ok (no points, no try lost)
+            moved = [w for w in targets + extras if w.lower() not in strict]
+            targets = [w for w in targets if w not in moved]
+            extras = [w for w in extras if w not in moved]
+            # a thin wheel is topped up to 6 slots with the most common dictionary words its letters spell (in ENABLE and in
+            # web2 in lower case, so no names)
+            if len(targets) < 6:
+                from wordfreq import zipf_frequency
+                from english_words import get_english_words_set
+                web2 = {w for w in get_english_words_set(['web2'], lower=False, alpha=True) if w.islower()}
+                more = sorted((w.upper() for w in strict if w in web2 and fits(w) and w.upper() not in targets and zipf_frequency(w, 'en') >= 2.5),
+                              key=lambda w: (-zipf_frequency(w.lower(), 'en'), w))[:6 - len(targets)]
+                targets = sorted(targets + more, key=lambda w: (len(w), w))
+                extras = [w for w in extras if w not in more]
         have = set(targets) | set(extras)
-        ok = sorted(w.upper() for w in pool if fits(w) and w.upper() not in have)
+        ok = sorted({w.upper() for w in pool if fits(w) and w.upper() not in have} | set(moved))
         double = [w for w in targets if w.lower() in WHEEL_DOUBLE] if i >= WHEEL_PLAYED else []
         out.append([letters, targets, extras, base, ok, double])
     return out

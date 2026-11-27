@@ -469,6 +469,7 @@ async function playBonus(page, day) {
       // level 0 (Nov 27 2026, played under v7) kept its slots and bonus words
       const bank = await page.evaluate(async () => { const d = await import('/js/core/daily.js'); return d.TV.bonus.wheel; });
       const v7 = JSON.parse(fs.readFileSync(path.join(root, 'data/trivia-v7.json'))).bonus.wheel;
+      const ENABLE = new Set(fs.readFileSync(path.join(root, 'tools/puzzles/enable1.txt'), 'utf8').split(/\s+/));
       assert.deepEqual(bank[0].slice(0, 4), v7[0], 'level 0 is as it was');
       const fits = (w, b) => { const c = {}; for (const x of b) c[x] = (c[x] || 0) + 1; for (const x of w) { if (!c[x]) return false; c[x]--; } return true; };
       const bad = [];
@@ -479,7 +480,9 @@ async function playBonus(page, day) {
         if ([...tg, ...ex, ...okw].some(w => !fits(w, b) || w.length < 3)) bad.push(i + ' a word the letters do not spell');
         if (all.size !== tg.length + ex.length + okw.length) bad.push(i + ' overlap');
         if (i >= 1 && !tg.includes(b)) bad.push(i + ' base ' + b + ' not a slot');
-        if (i >= 1 && v7[i] && v7[i][1].some(w => !tg.includes(w))) bad.push(i + ' lost a slot');
+        if (i >= 1 && v7[i] && v7[i][1].some(w => !tg.includes(w) && ENABLE.has(w.toLowerCase()))) bad.push(i + ' lost a word slot');
+        if (i >= 1 && [...tg, ...ex].some(w => !ENABLE.has(w.toLowerCase()) && !dbl.includes(w))) bad.push(i + ' a slot or extra word that is not a word: ' + [...tg, ...ex].filter(w => !ENABLE.has(w.toLowerCase()) && !dbl.includes(w)));
+        if (i >= 1 && tg.length < 6) bad.push(i + ' under 6 slots');
         if ([...lt].sort().join('') !== [...b].sort().join('')) bad.push(i + ' letters');
       });
       assert.deepEqual(bad, [], 'every wheel level is sound');
@@ -488,6 +491,31 @@ async function playBonus(page, day) {
       assert.deepEqual(errors, []);
       console.log(`PASS the Word Wheel's ${M} misses end it (${fbw} kept, ${want} points), real words free, every level sound`);
       await context.close();
+    }
+    // a small wheel (320x568): straight swipes from a letter to the one after next (LEAST, EAST, TAKE on TACKLES) never pick
+    // up or take back the letter between
+    {
+      const ctx3 = await browser.newContext({viewport: {width: 320, height: 568}, serviceWorkers: 'block'});
+      await ctx3.route('**/*', r => (new URL(r.request().url()).origin === url ? r.continue() : r.abort()));
+      await ctx3.addInitScript(() => { localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-release-3.0:evan', '1'); sessionStorage.setItem('gg-skip-title', '1'); });
+      const p3 = await ctx3.newPage(), e3 = [];
+      p3.on('pageerror', e => e3.push(e.message));
+      await p3.goto(`${url}/?day=61#/puzzles/play/bonus`); await p3.waitForFunction(() => window.__ggBooted); await ready(p3);
+      await p3.locator('.tv-bonus [data-wheel]').evaluate(el => el.scrollIntoView({block: 'center'})); await p3.waitForTimeout(300);
+      const size = await p3.locator('.tv-bonus [data-wheel]').evaluate(el => el.offsetWidth);
+      const order = (await p3.$$eval('.tv-bonus [data-wl]', bs => bs.map(b => b.textContent))).join('');
+      for (const w of ['LEAST', 'EAST', 'TAKE']) {
+        const used = new Set(), pts = [];
+        for (const c of w) { const i = [...order].findIndex((x, k) => x === c && !used.has(k)); used.add(i); const b = await p3.locator(`.tv-bonus [data-wl="${i}"]`).boundingBox(); pts.push([b.x + b.width / 2, b.y + b.height / 2]); }
+        await p3.mouse.move(...pts[0]); await p3.mouse.down();
+        for (const q of pts.slice(1)) await p3.mouse.move(...q, {steps: 12});
+        await p3.mouse.up(); await p3.waitForTimeout(1300);
+      }
+      const s3 = await ds(p3, 'bonus');
+      assert.deepEqual({got: (s3.got || []).slice().sort(), miss: s3.miss || 0}, {got: ['EAST', 'LEAST', 'TAKE'], miss: 0}, `straight swipes on a ${size} px wheel spell what they cross`);
+      assert.deepEqual(e3, []);
+      await ctx3.close();
+      console.log(`PASS straight swipes on a ${size} px wheel at 320x568`);
     }
     // double words (the first Word Wheel day with them: SHOTGUN): weight, tag and message; an old save (no w) stays flat and shows no
     // tags; reduced motion still shows what became of a word; at 320x568 the word display, wheel and buttons fit together
@@ -558,6 +586,16 @@ async function playBonus(page, day) {
       const msg = await p2.evaluate(() => { const t = document.querySelector('.tv-bonus [data-wtext]'), r = t.getBoundingClientRect(); return {text: t.textContent, op: getComputedStyle(t.parentElement).opacity, w: r.width}; });
       assert.ok(/not on this wheel|bonus word/i.test(msg.text) && msg.op === '1', 'reduced motion: the display says what became of the word: ' + JSON.stringify(msg));
       if (shots) await p2.screenshot({path: path.join(shots, 'wheel-320-rm.png')});
+      // a miss's message fits the display at 320
+      const wr = lv[0], words2 = new Set([...lv[1], ...lv[2], ...lv[4]]);
+      const perms2 = x => (x.length <= 1 ? [x] : [...x].flatMap((c, i) => perms2(x.slice(0, i) + x.slice(i + 1)).map(r => c + r)));
+      const bad2 = perms2(wr.slice(0, 3)).find(w => !words2.has(w));
+      await p2.waitForTimeout(1200);
+      { const o = (await p2.$$eval('.tv-bonus [data-wl]', bs => bs.map(b => b.textContent))).join(''), u = new Set();
+        for (const c of bad2) { const i = [...o].findIndex((x, k) => x === c && !u.has(k)); u.add(i); await p2.locator(`.tv-bonus [data-wl="${i}"]`).evaluate(el => el.click()); }
+        await p2.locator('.tv-bonus [data-wsubmit]').evaluate(el => el.click()); await p2.waitForTimeout(200); }
+      const fitMsg = await p2.evaluate(() => { const w = document.querySelector('.tv-bonus [data-wword]'), t = w.querySelector('[data-wtext]'); return {text: t.textContent, over: t.getBoundingClientRect().width - w.getBoundingClientRect().width}; });
+      assert.ok(/not a word/i.test(fitMsg.text) && fitMsg.over <= 0, 'a miss\'s message fits at 320: ' + JSON.stringify(fitMsg));
       assert.deepEqual(e2, []);
       await ctx2.close();
       assert.deepEqual(errors, []);

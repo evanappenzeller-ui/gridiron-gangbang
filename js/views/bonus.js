@@ -185,8 +185,8 @@ export function wheelPts(level, got, flat = false) {
 }
 /** Is w a real word this wheel doesn't ask for (no points, no try lost)? */
 export function wheelReal(w, level) {
-  if ((level[4] || []).includes(w)) return true;
-  const w5 = w.length === 5 && daily.TV && daily.TV.w5;
+  if (Array.isArray(level[4])) return level[4].includes(w);
+  const w5 = w.length === 5 && daily.TV && daily.TV.w5; // (a level without its list: an older bank)
   return !!w5 && (' ' + w5 + ' ').includes(' ' + w + ' ');
 }
 function wheelMount(box, api) {
@@ -210,6 +210,7 @@ function wheelMount(box, api) {
     return `<div class="tv-slots">${lens.map(L => `<div class="tv-slot-row">${targets.filter(w => w.length === L).map(w => slotHTML(w, s, got)).join('')}</div>`).join('')}</div>`;
   }
   const leftText = miss => `${WHEEL_MISSES - miss} ${WHEEL_MISSES - miss === 1 ? 'miss' : 'misses'} left`;
+  const leftShort = miss => `${WHEEL_MISSES - miss} left`;
   const livesHTML = miss => `<span aria-hidden="true">Misses left</span>${[...Array(WHEEL_MISSES).keys()].map(k => `<span class="tv-life${k < WHEEL_MISSES - miss ? '' : ' is-gone'}" aria-hidden="true"></span>`).join('')}<span class="sr-only" data-wleft>${leftText(miss)}</span>`;
   const lettersHTML = () => order.map((c, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / order.length, R = 38; return `<button type="button" class="tv-wl" data-wl="${i}" style="left:${50 + R * Math.cos(a)}%;top:${50 + R * Math.sin(a)}%" aria-label="${c}">${c}</button>`; }).join('');
   const wheelHTML = () => `<div class="tv-wheel" data-wheel><svg class="tv-wheel-line" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points="" data-line/></svg>`
@@ -306,13 +307,20 @@ function wheelMount(box, api) {
     const miss = missOf(s) + 1, out = miss >= WHEEL_MISSES;
     if (!wsave({...s, miss, bad: [...(s.bad || []), w].slice(-WHEEL_MISSES), got, pts: wheelPts(level, got, flat), line: `${got.length} of ${total} words`, done: out})) return;
     ui.haptic('error'); shake(ww); lives(miss);
-    say(out ? 'Not a word · out of tries' : `Not a word · ${leftText(miss)}`, 'bad');
+    say(out ? 'Out of tries' : `Not a word · ${leftShort(miss)}`, 'bad');
     ui.announce(out ? 'Not a word. Out of tries.' : `Not a word. ${leftText(miss)}.`);
     if (out) setTimeout(() => { if (box.isConnected) end(); }, 1100);
   }
+  /** The letter under a finger. Its catch circle is smaller than the gap a swipe from one letter to the one after next
+   *  passes its neighbour by, so on a small wheel a straight swipe never picks up (or takes back) the letter between. */
   function letterAt(x, y) {
+    const wheel = box.querySelector('[data-wheel]'); if (!wheel) return -1;
+    const R = .38 * wheel.offsetWidth, n = order.length, gap = R * (1 - Math.cos(2 * Math.PI / n));
     let best = -1, bd = 1e9;
-    box.querySelectorAll('[data-wl]').forEach(b => { const r = b.getBoundingClientRect(), d = Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2)); if (d < r.width * .62 && d < bd) { bd = d; best = +b.dataset.wl; } });
+    box.querySelectorAll('[data-wl]').forEach(b => {
+      const r = b.getBoundingClientRect(), d = Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2));
+      if (d < Math.min(b.offsetWidth * .62, gap * .85) && d < bd) { bd = d; best = +b.dataset.wl; }
+    });
     return best;
   }
   box.addEventListener('pointerdown', e => {
@@ -363,7 +371,7 @@ function wheelMount(box, api) {
     if (b.hasAttribute('data-finish')) { finish(b); }
   });
   function finish(b) {
-    if (!b.classList.contains('is-confirm')) { b.classList.add('is-confirm'); b.textContent = 'Sure? Tap again'; setTimeout(() => { if (b.isConnected) { b.classList.remove('is-confirm'); b.textContent = 'Finish'; } }, 2600); return; }
+    if (!b.classList.contains('is-confirm')) { b.classList.add('is-confirm'); b.textContent = 'Sure?'; setTimeout(() => { if (b.isConnected) { b.classList.remove('is-confirm'); b.textContent = 'Finish'; } }, 2600); return; }
     const s = stateOf(), got = s.got || [];
     if (wsave({...s, got, pts: wheelPts(level, got, flat), line: `${got.length} of ${total} words`, done: true})) { ui.haptic('medium'); end(); }
   }

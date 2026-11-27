@@ -29,18 +29,21 @@ Everyone (`views/bonus.js` `wheelMount`, `css/views/trivia.css`). Centring: the 
 `display: block; text-align: start` (letters sat 22 px left), so `.tv-wl` and the ⟲ are centred grids. Tries:
 `WHEEL_MISSES` (5) wrong words end the wheel ("Out of tries") with the points found and the other words shown; a red dot
 goes per miss ("Misses left", read out). Only a non-word is a miss: a real word that is neither a slot nor a bonus word
-says "Not on this wheel" (the level's `ok` list, or any 5-letter word in `TV.w5`); a repeat (found, bonus or the same wrong
+says "Not on this wheel" (the level's `ok` list; `TV.w5` only for a level without one); a repeat (found, bonus or the same wrong
 word: `bad`), anything under 3 letters and a drag the system cancels (pointercancel) cost nothing. What became of a word
 is said in the word display by the wheel, in place of the word, for about a second: gold "SHOTGUN +25 · DOUBLE", blue "Not
-on this wheel" / "Already found" / "…: bonus word!", red "Not a word · 4 misses left" (no pops: they landed on the misses
-row and vanished under reduced motion). The wheel is sized by the screen's height (`max(210px, 100svh - 330px)`), so at
+on this wheel" / "Already found" / "…: extra word!", red "Not a word · 4 left" (no pops: they landed on the misses row and
+vanished under reduced motion; the line shrinks to fit 320 px). A letter's catch circle is smaller than the gap a straight
+swipe to the letter after next passes its neighbour by (`letterAt`), so on a small wheel a swipe never picks up or takes
+back the letter between; Finish asks "Sure?". The wheel is sized by the screen's height (`max(210px, 100svh - 330px)`), so at
 320x568 the misses row, the display, the wheel and the buttons fit between the run's bars. Double: a level's `double` words
 weigh 2, the rest 1 (`wheelWeight`, `wheelPts`: every word found is still 200); their slots wear a gold edge and a ×2 tag
 and the subtitle names the rule on levels that have them. They are `trivia_v6.py` `WHEEL_DOUBLE`: a wheel's base when it
 names a football thing (a position, play, formation, penalty, official or gear) and words whose first meaning is football
 (KICK, SACK, SNAP, BLITZ, ZONE, CATCH...); no food, weather or fan words, nothing like END, RUN, HUT or TEE. `FOOTBALL_WORDS`
 only picks the wheels' base words. Nov 27 2026's own wheel (level 0, TACKLES, played under v7) has no double words, one
-rule for its whole board; they start with the Dec 2 wheel. A save with words and no `w`, done or not, or a level without
+rule for its whole board; levels 1-3 (CONTEST, PARADE, TICKET) spell no football word, so the first ×2 words come with
+level 4, SHOTGUN (Dec 23 2026 in the mixed rotation). A save with words and no `w`, done or not, or a level without
 its lists keeps flat points (`w: 1`) and shows no tags, so nothing drops; new saves carry `w: 2`. No jump: a found word
 fills its slot in place; a bonus word, a miss and Shuffle patch only what changed; the board is rebuilt only on opening
 and when the wheel ends (focus stays in the card, the result is announced, header and slots revealed). The jump never
@@ -49,14 +52,17 @@ showed in Chromium; the old full rebuild after every word is the likely cause on
 Data: `data/trivia-v8.json` (`daily.TRIVIA_URL`, the service worker's shell; v7 and v6 stay as deployed), made by
 `trivia_v6.py --wheel` (the bank as it stands, wheel levels upgraded, nothing rebuilt; a full run writes v8 too, wheel
 levels merged by base word): each level is [letters, targets, extras, base, ok, double]. `ok` comes from `real_words()`:
-ENABLE (`tools/puzzles/enable1.txt`, the public-domain word-game list, plurals and verb forms in it), web2 and its forms,
-and very frequent words (zipf 4+, so abbreviations like ACL stay out). Levels from 1 on (`WHEEL_PLAYED`) also gained their
-base word and every `WHEEL_DOUBLE` word their letters spell as slots (HUDDLES, WIDEOUT, BLITZES, CLEATED had none);
-level 0 keeps its slots and bonus words. 80 of 125 wheels have double words. An upgraded level never changes on a rerun.
+ENABLE (`tools/puzzles/enable1.txt`, the public-domain word-game list, plurals and verb forms in it), common web2 words it
+lacks (zipf 3+), `WHEEL_MODERN` (email, blog, app...) and `WHEEL_DOUBLE`. Levels from 1 on (`WHEEL_PLAYED`) also gained
+their base word and every `WHEEL_DOUBLE` word their letters spell as slots (HUDDLES, WIDEOUT, BLITZES, CLEATED had none);
+their slots and extra words that are not words (ING, HUD, SAO, ERIC: fragments and names from v7) moved to `ok`, and a wheel
+left with under 6 slots is topped up with common dictionary words. Level 0 keeps its slots and extra words. 80 of 125
+wheels have double words. An upgraded level never changes on a rerun.
 Verify `node tools/puzzles/check-trivia-v6.cjs` (day 61: centred letters, no doubles, the same wheel and scroll after a
 drag, a bonus word, real words, a miss and Shuffle at 375x667, a repeated wrong word and a cancelled touch drag free; day
 66 runs out of misses and reloads ended; day 81: a double word's points, tag and message, an old save flat and untagged
-(finished too), reduced motion and 320x568; every v8 level sound, v7 unchanged) and the checks listed under the trivia
+(finished too), reduced motion and 320x568 with a miss's message fitting; straight swipes LEAST, EAST, TAKE on the 238 px
+wheel at 320x568; every v8 level sound: slots and extra words real words, 6+ slots, v7 unchanged) and the checks listed under the trivia
 pass below.
 
 ## Bonus: Gridword, one football word (November 25, 2026)
