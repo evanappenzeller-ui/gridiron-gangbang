@@ -17,9 +17,16 @@ Nothing says Bonus: a word puzzle's step is its name ("Crossword") with its own 
 swap, table, versus; `board.js` `stepIcon` reads `step.icon`), its header line names it ("CROSSWORD · 2 OF 6"), the Word
 Wheel's extra finds are "Extra words", a read-only save of another kind says "Today's puzzle is played". Days 60 and 61
 (played) keep four games and the puzzle last (1,000). Levels still come from `usesBefore`: nothing repeats for 215 days
-(Journey first). The day's total, grades and share card follow `maxPts`; `countWord` says "four". Verify
+(Journey first). The day's total, grades and share card follow `maxPts`; `countWord` says "four". The mixed days carry
+release 1 (`relOf`: `MIX_FROM` sits beside `RERELEASED`), so a save or board entry made by a build from before (which built
+another list for day 62 on, e.g. a phone on a slow network whose old service worker answered) never counts for them. The
+share image names every row by its step (`sharecard.js`: the newer games and word puzzles had all drawn as "GRID 0 PTS").
+A word puzzle locked in untouched reads "Not played". Gridword takes the keyboard when focus is on the run's bottom button
+or an arrow that was clicked or tapped (it now sits mid-run; Chromium shows a clicked button as keyboard-focused once a
+key is typed, so it tracks presses, not `:focus-visible`); one reached by Tab keeps its Enter. Verify
 `node tools/puzzles/check-trivia-v6.cjs` (the lists of days 60-82, whole days 60, 61, 63, 64, 65 and 68 with totals and
-results, every word puzzle) and the checks listed under the trivia pass below.
+results, every word puzzle; the release stamp, Gridword after a click on the bottom button, Not played, the share image's
+rows) and the checks listed under the trivia pass below.
 
 ## Bonus: Word Wheel fixes, misses and double words (November 27, 2026)
 

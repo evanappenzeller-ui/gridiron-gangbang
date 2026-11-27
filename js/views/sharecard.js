@@ -203,6 +203,17 @@ export async function renderShareCard(o = {}) {
       const a = (ds.play && ds.play.a) || [];
       label('PLAYS', daily.ptsPlay(ds, day), y + 34);
       squares(daily.playRounds(day).map((q, r) => a[r] == null ? null : a[r] === q.a), y);
+    } else if (id !== 'grid') {
+      // The newer games and the word puzzles (Higher or Lower, Team Connections, Number Trivia, Gridword, Crossword...):
+      // the step's own name, points and result line
+      const st = daily.stepsFor(day).find(x => x.id === id), pts = st ? st.pts(ds, day) : 0;
+      label(String(st ? st.label : id).toUpperCase(), pts, y + 34);
+      c.textAlign = 'right';
+      spacing(c, 2);
+      c.fillStyle = st && pts >= st.max ? C.tint : pts > 0 ? C.ink2 : C.wrong;
+      c.font = `800 40px ${NUM}`;
+      c.fillText(String(st ? st.result(ds, day) : '').toUpperCase(), R, y + 52);
+      spacing(c, 0);
     } else {
       // Grid: its squares in the day's shape (3 x 3, or 1 x 2 on a v3 or v4 day)
       label('GRID', daily.ptsGrid(ds, day), y + 34);

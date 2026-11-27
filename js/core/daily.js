@@ -161,7 +161,10 @@ const stampOk = (raw, day, pnum) => {
 // number (r); anything from the old puzzle (no r, or another r) no longer counts for the day.
 // Day 4 (Thu Oct 1 2026) was swapped for a new puzzle when the league reset the board (see SCORE_FROM).
 export const RERELEASED = {4: 1};
-export const relOf = pnum => RERELEASED[pnum] || 0;
+// From MIX_FROM (Nov 28 2026) each day's list changed (3-4 a day, the word puzzles mixed in): those days carry release 1,
+// so a score or save made by a build from before, which built another list for the day, never counts for it.
+export const MIX_FROM = 62;
+export const relOf = pnum => (pnum >= MIX_FROM ? 1 : RERELEASED[pnum] || 0);
 
 function readDS(key, day, pnum) {
   let raw = {};
@@ -237,8 +240,7 @@ const CHALLENGE_IDS = ['stats', 'connections', 'numbers', 'bonus'];
 // Wheel) come with two games, the others with three; two days a week are four games and no word puzzle: 3-4 a day, 600 or
 // 800 points. Weekly: each game three times, each word puzzle once, every day a classic (College, Mystery, Journey, Grid)
 // and a newer game (Higher or Lower, Team Connections, Number Trivia), no game two days running. Days 60-61 (played)
-// keep four games and the puzzle last.
-export const MIX_FROM = 62;
+// keep four games and the puzzle last. (MIX_FROM is with relOf: those days carry release 1.)
 const FRESH_LINEUPS = [
   ['who', 'gridword', 'connections', 'numbers'],
   ['col', 'jr', 'grid', 'stats'],
@@ -303,7 +305,7 @@ function freshSteps(day) {
       pts: (ds = DS) => nqOf(ds).reduce((a, b) => a + (b || 0), 0), result: (ds = DS) => `${nqOf(ds).reduce((a, b) => a + (b || 0), 0)} of 200`},
     bonus: {id: 'bonus', label: day.bx ? BONUS_LABEL[day.bx.kind] : 'Puzzle', icon: day.bx ? PUZZLE_ICON[day.bx.kind] : 'letters', max: 200, done: (ds = DS) => !!ds.bonus?.done,
       started: (ds = DS) => { const b = ds.bonus; return !!b && !!(b.done || b.got?.length || b.g?.length || b.ok?.length || b.tries?.some(Boolean) || (b.f && Object.keys(b.f).length) || b.place?.some(x => x != null) || b.extra?.length || b.miss); },
-      pts: (ds = DS) => Math.max(0, Math.min(200, ds.bonus?.pts || 0)), result: (ds = DS) => ds.bonus?.line || (ds.bonus?.done ? 'Done' : 'Not played')}
+      pts: (ds = DS) => Math.max(0, Math.min(200, ds.bonus?.pts || 0)), result: (ds = DS) => ds.bonus?.line || 'Not played'}
   };
   return ['stats', 'connections', 'numbers', 'bonus'].filter(id => day.t.includes(id)).map(id => steps[id]);
 }

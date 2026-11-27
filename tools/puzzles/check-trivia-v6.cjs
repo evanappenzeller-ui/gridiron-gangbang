@@ -492,6 +492,44 @@ async function playBonus(page, day) {
       console.log(`PASS the Word Wheel's ${M} misses end it (${fbw} kept, ${want} points), real words free, every level sound`);
       await context.close();
     }
+    // the mixed days carry release 1: a save or a board entry from a build that made another list for day 62 never counts;
+    // the share image names every row; an untouched word puzzle locked in says Not played; Gridword types after a click
+    // on the bottom button (focus left on it)
+    {
+      await (async () => {
+        const ctx = await browser.newContext({viewport: {width: 390, height: 844}, serviceWorkers: 'block'});
+        await ctx.route('**/*', r => (new URL(r.request().url()).origin === url ? r.continue() : r.abort()));
+        await ctx.addInitScript(() => { localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-release-3.0:evan', '1'); sessionStorage.setItem('gg-skip-title', '1');
+          // a save from the build before for day 62 (Mystery, Journey, Grid, Number Trivia, Unscramble then): no r
+          if (!sessionStorage.getItem('seeded')) { localStorage.setItem('gg-v3-daily-62', JSON.stringify({v: 5, bonus: {kind: 'scramble', ok: [true, false], pts: 50, line: '1 of 4 spelled'}})); sessionStorage.setItem('seeded', '1'); } });
+        const pg = await ctx.newPage(), er = [];
+        pg.on('pageerror', e => er.push(e.message));
+        await pg.goto(`${url}/?day=62#/puzzles/daily`); await pg.waitForFunction(() => window.__ggBooted); await ready(pg);
+        const st = await pg.evaluate(async () => { const d = await import('/js/core/daily.js'); return {r: d.DS.r, bonus: d.DS.bonus || null, old: d.entryFor({days: {62: {v: 5, p: 950}}}, 62), now: !!d.entryFor({days: {62: {v: 5, p: 600, r: 1}}}, 62)}; });
+        assert.deepEqual(st, {r: 1, bonus: null, old: null, now: true}, 'day 62 carries release 1; an older build\'s save and entry for it never count');
+        // Gridword (step 2): reached by clicking the bottom button on Mystery, the keyboard still types the word
+        await pg.evaluate(async () => { const d = await import('/js/core/daily.js'); location.hash = '/puzzles/play/' + d.slugsFor(d.DAY)[0]; }); await pg.locator('[data-rn-next]').waitFor(); await pg.waitForTimeout(400);
+        await pg.locator('[data-rn-next]').click(); await pg.locator('.tv-bonus [data-gk]').first().waitFor(); await pg.waitForTimeout(500);
+        assert.equal(await pg.evaluate(() => document.activeElement && document.activeElement.matches('[data-rn-next]')), true, 'focus stays on the bottom button');
+        await pg.keyboard.type('train'); await pg.keyboard.press('Enter'); await pg.waitForTimeout(700);
+        assert.deepEqual({hash: await pg.evaluate(() => location.hash), g: ((await ds(pg, 'bonus')) || {}).g}, {hash: '#/puzzles/play/bonus', g: ['TRAIN']}, 'the word types and Enter guesses, not skips');
+        // lock the day in (word puzzle untouched on a fresh save): results say Not played, the share image names each row
+        await pg.evaluate(async () => { const d = await import('/js/core/daily.js'); d.DS.bonus = undefined; delete d.DS.bonus; d.lockIn(); d.saveDS(); });
+        const res = await pg.evaluate(async () => { const d = await import('/js/core/daily.js'); return d.STEPS.map(x => [x.label, x.result()]); });
+        assert.ok(res.some(([l, r]) => l === 'Gridword' && r === 'Not played'), 'an untouched word puzzle reads Not played: ' + JSON.stringify(res));
+        const texts = await pg.evaluate(async () => {
+          const seen = [], orig = CanvasRenderingContext2D.prototype.fillText;
+          CanvasRenderingContext2D.prototype.fillText = function (t, ...a) { seen.push(String(t)); return orig.call(this, t, ...a); };
+          try { await (await import('/js/views/sharecard.js')).renderShareCard({rank: 1, streak: 1}); } finally { CanvasRenderingContext2D.prototype.fillText = orig; }
+          return seen;
+        });
+        for (const t of ['MYSTERY', 'GRIDWORD', 'TEAM CONNECTIONS', 'NUMBER TRIVIA', 'NOT PLAYED']) assert.ok(texts.includes(t), `the share image says ${t}: ` + texts.join('|'));
+        assert.ok(!texts.includes('GRID'), 'and no row is called Grid on a day without one');
+        assert.deepEqual(er, []);
+        await ctx.close();
+      })();
+      console.log('PASS release stamp on the mixed days, Gridword after the bottom button, Not played, the share image rows');
+    }
     // a small wheel (320x568): straight swipes from a letter to the one after next (LEAST, EAST, TAKE on TACKLES) never pick
     // up or take back the letter between
     {

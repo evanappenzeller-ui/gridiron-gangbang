@@ -150,22 +150,33 @@ function gridwordMount(box, api, ctx) {
   // A real keyboard too, only while the word takes input (not once it's over, under a sheet, or off screen), and only
   // keys not aimed at something else: a focused button or link outside the board keeps its Enter, a focused key on the
   // on-screen keyboard its own click; text fields are never touched.
+  // the on-screen key or run button last pressed by a tap or click (Tab clears it): its Enter is the word's. (:focus-visible
+  // can't tell: Chromium shows a clicked button as keyboard-focused once a key is typed)
+  let pressed = null;
+  { // arriving by a click on the run's bottom button or an arrow: focus is still on it, not shown as keyboard focus
+    const f = document.activeElement, c = f && f.closest ? f.closest('[data-rn-next], .rn-arrow') : null;
+    if (c && !c.matches(':focus-visible')) pressed = c;
+  }
+  const onDown = e => { pressed = e.target && e.target.closest ? e.target.closest('[data-gk], [data-rn-next], .rn-arrow') : null; };
   const onKey = e => {
+    if (e.key === 'Tab') pressed = null;
     if (!box.isConnected || box.offsetParent === null || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
     const t = e.target, el = t && t.closest ? t : null;
     if (el && el.closest('input, textarea, select, [contenteditable="true"]')) return;
     const k = e.key === 'Enter' ? 'ENTER' : e.key === 'Backspace' ? 'DEL' : /^[a-z]$/i.test(e.key) ? e.key.toUpperCase() : null;
     if (!k || !taking()) return;
     const mine = !el || el === document.body || el === document.documentElement || el === box || (box.contains(el) && !el.closest('button, a, [tabindex]:not([tabindex="-1"])'));
-    // (a key on the on-screen keyboard reached by Tab keeps its own Enter; one focused by a tap or click doesn't)
-    const key = el && el.closest('[data-gk]');
-    if (!mine && !(key && (k !== 'ENTER' || !key.matches(':focus-visible')))) return;
+    // (a key on the on-screen keyboard, or the run's own bottom button or arrows, reached by Tab keeps its own Enter; one
+    // focused by a tap or click doesn't: tapping "Skip to Gridword" leaves focus on that button, and the word still types)
+    const key = el && el.closest('[data-gk], [data-rn-next], .rn-arrow');
+    if (!mine && !(key && (k !== 'ENTER' || key === pressed))) return;
     e.preventDefault(); press(k);
   };
   window.addEventListener('keydown', onKey);
+  window.addEventListener('pointerdown', onDown, true);
   draw();
   requestAnimationFrame(() => show(false));
-  return () => window.removeEventListener('keydown', onKey);
+  return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('pointerdown', onDown, true); };
 }
 
 // ============================================================================ Word Wheel
