@@ -17,3 +17,5 @@ output/return-performance/
 output/return-reset/
 # Daily trivia preview screenshots (tools/puzzles/check-trivia-v6.cjs --shots)
 output/trivia-preview/
+# Python bytecode (importing tools/puzzles/trivia_v6.py)
+__pycache__/
