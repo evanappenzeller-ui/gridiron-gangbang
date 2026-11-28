@@ -7,6 +7,7 @@
 .v-league .hl-seg { margin: 10px 0 0; }
 /* Five segments since Media (Nov 11 2026): tighter labels so "Standings" fits on a phone. */
 .v-league .hl-seg .seg > button { padding: 0 2px; font-size: 12.5px; letter-spacing: -.01em; }
+@media (max-width: 360px) { .v-league .hl-seg .seg > button { padding: 0 1px; font-size: 11px; letter-spacing: -.025em; } } /* five segments at 320 (Seasons, Nov 28 2026) */
 .v-league .hl-body { min-width: 0; }
 .v-league .hl-tro, .v-league .hl-rec { min-width: 0; }
 .v-league .hl-empty { margin-top: 16px; background: var(--surface-1); border-radius: var(--r-card); }

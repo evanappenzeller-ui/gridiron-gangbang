@@ -109,9 +109,9 @@ function seasonRow(s, r, me) {
 }
 const lineHtml = label => `<div class="sea-line" role="separator" aria-label="${esc(label)}"><span>${esc(label)}</span></div>`;
 
-function tableHtml(R) {
-  const s = R.s;
-  if (!s.table.length) return ui.empty({icon: 'calendar', title: 'No games yet.', body: 'The table fills in after week 1.'});
+/** A season's regular-season table: seed, manager, team, record, points for and against, how the season ended, with the
+ *  bye and playoff lines. Shared with League › Seasons (views/league-seasons.js). */
+export function standingsHtml(s) {
   const me = data.me();
   const {cut, byes} = shape(s);
   let rows = '';
@@ -121,17 +121,24 @@ function tableHtml(R) {
     if (!last && !s.live && byes > 0 && r.seed === byes) rows += lineHtml('Bye line');
     if (!last && cut > 0 && r.seed === cut) rows += lineHtml('Playoff line');
   });
+  return `<div class="sea-colh" aria-hidden="true"><span>${s.live ? 'Rank' : 'Seed'}</span><span>Record</span></div>` + ui.group(rows, {cls: 'sea-group'});
+}
+/** How many teams made the playoffs and how many had byes (from the season, else the last season that had playoffs). */
+export const playoffShape = s => shape(s);
+
+function tableHtml(R) {
+  const s = R.s;
+  if (!s.table.length) return ui.empty({icon: 'calendar', title: 'No games yet.', body: 'The table fills in after week 1.'});
   return (!s.live && s.champion ? podiumHtml(s) : '')
-    + `<div data-enter><div class="sea-colh" aria-hidden="true"><span>${s.live ? 'Rank' : 'Seed'}</span><span>Record</span></div>`
-    + ui.group(rows, {cls: 'sea-group'})
-    + '</div>'
+    + `<div data-enter>${standingsHtml(s)}</div>`
     + (s.live
       ? ''
       : `<a class="card sea-review" href="#/standings/${s.year}/review"><span class="sea-rv-ic" aria-hidden="true">${ui.icon('sparkle', {size: 22})}</span><span class="sea-rv-t"><span class="card-ovl">Season in review</span><span class="card-title">${s.year}: the awards</span></span>${ui.icon('chevron-right', {cls: 'chev'})}</a>`);
 }
 
 // ---------------------------------------------------------------- Weeks
-function bugCard(s, g, weekGames, {hero = false, foot = true} = {}) {
+/** A game's score card (taps open the matchup sheet: data-game="year:index"). Shared with League › Seasons. */
+export function bugCard(s, g, weekGames, {hero = false, foot = true} = {}) {
   const i = s.games.indexOf(g);
   const kinds = gameBadges(g, weekGames);
   // Only playoff and consolation cards carry a round overline; the week header already names a regular week

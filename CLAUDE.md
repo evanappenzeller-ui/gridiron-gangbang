@@ -1,5 +1,25 @@
 # Gridiron Gangbang: rules for working on this app
 
+## League › Seasons: past standings and playoff brackets (November 28, 2026)
+
+Evan: "Add a regular season standings and playoff bracket for previous seasons under the league tab." Everyone. The League
+tab's control is Standings · Seasons · Trophies · Records · Shame (`views/league.js` `SEGS`; `app.js` `LEAGUE_SEGS`; at 360 px
+and under the five labels shrink to 11 px so none is cut off, `css/views/hall.css`). Seasons (`views/league-seasons.js`,
+`#/league/seasons?y=<year>&v=standings|bracket`, the choice also kept per phone in `gg-league-seasons`) is every finished
+season (`data.DONE`, newest first) as a chip rail, a line with the champion, the top seed and a link to the full season page,
+and a Standings · Bracket switch. Standings is the regular-season table the season page draws (`season.js`
+`standingsHtml`, now shared): seed (record, ties half, then points for), record, PF/PA, how the season ended, the bye and
+playoff lines. Bracket is drawn top to bottom in two columns (`bracketOf`, `miniCard`): the byes over their side, each
+quarterfinal over the semifinal it fed (the league reseeds, so the columns follow the real semifinals: the top seed's on
+the left), a connector row carrying the Semifinals label, the join into the championship (the champion crowned, his path in
+gold), the champion's name, third place, then the consolation games by week (`season.js` `bugCard`). A season of another
+shape falls back to its rounds as cards. Any game opens its matchup sheet. Styles: `css/views/season.css` (the shared row
+and card rules now also cover `.v-league .ls`; League › Seasons at the end). The season page (`#/standings/<year>`) and the
+Standings segment's Seasons rail are unchanged. Verify `node tools/league/check-seasons.cjs` (optional `--shots=<dir>`: five
+segments uncut at 320/360/390, every finished season's table against its games, seeds against the real quarterfinals, every
+bracket's games, crown, byes, columns, gold path, third place and consolation, the matchup sheet, reload, a deep link, the
+choice kept across segments, no sideways scroll and the tree inside 320), `tools/nav/check-swipe-back.cjs` and the home checks.
+
 ## Daily trivia: 3-4 a day, word puzzles mixed in (November 27, 2026)
 
 Evan: "Each day should have 3 game modes and a puzzle "Wordscapes, crosswords, etc"", then "Do not specify "bonus" puzzles.
