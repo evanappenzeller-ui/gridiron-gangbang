@@ -169,6 +169,62 @@ const body = page => page.locator('.v-league .hl-body[data-seg="seasons"]');
       await context.close();
       console.log('PASS deep link, the season and view kept across segments, no sideways scroll, the tree fits at 320');
     }
+    // the review's fixes (Nov 28 2026): lines readable on a dark and a light skin, the gold icons and dimmed losers apply,
+    // PF and PA whole at 320, a 44 px tap target on Full season
+    const lum = c => { const [r, g, b] = c.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * r + .7152 * g + .0722 * b; };
+    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
+    for (const skin of ['prime', 'oldschool']) {
+      const {context, page, errors} = await open(browser, url, '/league/seasons?y=2025&v=bracket', {width: 320, height: 900}, {'gg-skin': skin, 'gg-skin-prime': '1'});
+      const st = await page.evaluate(() => {
+        const css = (sel, p) => { const e = document.querySelector(sel); return e ? getComputedStyle(e)[p] : null; };
+        const scr = document.querySelector('.screen.v-league');
+        return {skin: document.documentElement.getAttribute('data-skin'), line: css('.ls-join > span:not(.is-champ)', 'borderBottomColor'), bg: getComputedStyle(scr).backgroundColor,
+          champ: css('.ls-champ b', 'color'), sumIc: css('.ls-sum-i .ic', 'color'), gold: getComputedStyle(document.documentElement).getPropertyValue('--gold').trim(), lose: css('.ls-side.is-lose .av', 'opacity')};
+      });
+      assert.equal(st.skin, skin);
+      assert.ok(ratio(st.line, st.bg) >= 3, `${skin}: the bracket lines are readable (${st.line} on ${st.bg}: ${ratio(st.line, st.bg).toFixed(2)})`);
+      assert.ok(ratio(st.champ, st.bg) >= 4.5, `${skin}: the champion's name is readable: ${ratio(st.champ, st.bg).toFixed(2)}`);
+      assert.equal(st.lose, '0.55', `${skin}: a loser's avatar is dimmed`);
+      assert.equal(st.sumIc.replace(/\s/g, '').toLowerCase(), 'rgb(' + [1, 3, 5].map(i => parseInt(st.gold.slice(i, i + 2), 16)).join(',') + ')', `${skin}: the summary's icons are gold`);
+      // PF and PA whole on the standings at 320; the Full season link's tap target
+      await page.locator('[data-seg="ls-view"] > button[data-value="standings"]').click(); await page.waitForTimeout(300);
+      const cut = await page.$$eval('.ls .sea-pf', es => es.filter(e => e.scrollWidth > e.clientWidth + 1).length);
+      assert.equal(cut, 0, `${skin}: PF and PA are whole at 320`);
+      const hit = await page.evaluate(() => { const a = document.querySelector('.ls-full'), r = a.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; return [-13, 13].every(d => { const e = document.elementFromPoint(x, y + d); return !!e && !!e.closest('.ls-full'); }); });
+      assert.ok(hit, `${skin}: Full season is a 44 px tap target`);
+      if (shots) await page.screenshot({path: path.join(shots, `skin-${skin}.png`)});
+      assert.deepEqual(errors, []);
+      await context.close();
+    }
+    console.log('PASS readable lines and names on Prime and Old School, dimmed losers, PF/PA whole at 320, the link\'s tap target');
+    // another playoff shape falls back to the rounds as cards: an 8-team playoff (4 quarterfinals) and a 4-team one (no
+    // quarterfinals, so no byes): two made-up finished seasons copied from 2021's regular season
+    {
+      const base = LEAGUE.seasons.find(x => x.year === 2021), seedOf = tableOf(base).map(r => r.id), sd = n => seedOf[n - 1];
+      const reg = base.matchups.filter(g => g.type === 'reg');
+      const s8 = {year: 2019, teams: base.teams, matchups: [...reg,
+        {week: 15, type: 'quarter', a: sd(1), b: sd(8), sa: 120, sb: 100}, {week: 15, type: 'quarter', a: sd(2), b: sd(7), sa: 120, sb: 100},
+        {week: 15, type: 'quarter', a: sd(3), b: sd(6), sa: 120, sb: 100}, {week: 15, type: 'quarter', a: sd(4), b: sd(5), sa: 120, sb: 100},
+        {week: 16, type: 'semi', a: sd(1), b: sd(4), sa: 120, sb: 100}, {week: 16, type: 'semi', a: sd(2), b: sd(3), sa: 120, sb: 100},
+        {week: 17, type: 'final', a: sd(1), b: sd(2), sa: 120, sb: 100}, {week: 17, type: 'third', a: sd(3), b: sd(4), sa: 120, sb: 100}]};
+      const s4 = {year: 2018, teams: base.teams, matchups: [...reg,
+        {week: 15, type: 'semi', a: sd(1), b: sd(4), sa: 120, sb: 100}, {week: 15, type: 'semi', a: sd(2), b: sd(3), sa: 120, sb: 100},
+        {week: 16, type: 'final', a: sd(1), b: sd(2), sa: 120, sb: 100}, {week: 16, type: 'third', a: sd(3), b: sd(4), sa: 120, sb: 100}]};
+      const L2 = JSON.parse(JSON.stringify(LEAGUE)); L2.seasons = [s4, s8, ...L2.seasons];
+      const context = await browser.newContext({viewport: {width: 390, height: 900}, serviceWorkers: 'block'});
+      await context.route('**/*', r => { const u = new URL(r.request().url()); if (u.origin === url && /\/data\/league\.json$/.test(u.pathname)) return r.fulfill({contentType: 'application/json', body: JSON.stringify(L2)}); return u.origin === url || ['data:', 'blob:'].includes(u.protocol) ? r.continue() : r.abort(); });
+      await context.addInitScript(() => { localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-release-3.0:evan', '1'); sessionStorage.setItem('gg-skip-title', '1'); });
+      const page = await context.newPage(), errors = [];
+      page.on('pageerror', e => errors.push(e.message));
+      for (const [y, games] of [[2019, 8], [2018, 4]]) {
+        await page.goto(`${url}/#/league/seasons?y=${y}&v=bracket`); await page.waitForFunction(() => window.__ggBooted); await page.locator('.ls-body').waitFor(); await page.waitForTimeout(400);
+        const r = await page.evaluate(() => ({tree: document.querySelectorAll('.ls-tree').length, rounds: document.querySelectorAll('.ls-round [data-game]').length, byes: document.querySelectorAll('.ls-bye').length}));
+        assert.deepEqual(r, {tree: 0, rounds: games, byes: 0}, `${y}: another shape shows every playoff game as cards, no bye made up`);
+      }
+      assert.deepEqual(errors, []);
+      await context.close();
+      console.log('PASS an 8-team and a 4-team playoff fall back to their rounds as cards, every game shown');
+    }
     console.log('PASS: League › Seasons');
   } catch (e) {
     console.error('FAIL:', e); process.exitCode = 1;

@@ -13,12 +13,17 @@ playoff lines. Bracket is drawn top to bottom in two columns (`bracketOf`, `mini
 quarterfinal over the semifinal it fed (the league reseeds, so the columns follow the real semifinals: the top seed's on
 the left), a connector row carrying the Semifinals label, the join into the championship (the champion crowned, his path in
 gold), the champion's name, third place, then the consolation games by week (`season.js` `bugCard`). A season of another
-shape falls back to its rounds as cards. Any game opens its matchup sheet. Styles: `css/views/season.css` (the shared row
+shape (not two quarterfinals each feeding one semifinal, e.g. 8 or 4 teams) falls back to its rounds as cards, so no game is
+dropped and no bye is made up. Any game opens its matchup sheet. The tree's lines are the skin's `--ink-3` (a separator tone
+was 1.3:1; readable on light skins too), the champion's name is ink with a gold trophy, losers' avatars dim, PF/PA wrap at
+360 px and under (the season page too), and Full season has a 44 px tap target. Styles: `css/views/season.css` (the shared row
 and card rules now also cover `.v-league .ls`; League › Seasons at the end). The season page (`#/standings/<year>`) and the
 Standings segment's Seasons rail are unchanged. Verify `node tools/league/check-seasons.cjs` (optional `--shots=<dir>`: five
 segments uncut at 320/360/390, every finished season's table against its games, seeds against the real quarterfinals, every
 bracket's games, crown, byes, columns, gold path, third place and consolation, the matchup sheet, reload, a deep link, the
-choice kept across segments, no sideways scroll and the tree inside 320), `tools/nav/check-swipe-back.cjs` and the home checks.
+choice kept across segments, no sideways scroll and the tree inside 320; line and name contrast on Prime and Old School, PF/PA
+whole at 320, the link's tap target; made-up 8- and 4-team seasons falling back), `tools/nav/check-swipe-back.cjs` and the
+home checks.
 
 ## Daily trivia: 3-4 a day, word puzzles mixed in (November 27, 2026)
 

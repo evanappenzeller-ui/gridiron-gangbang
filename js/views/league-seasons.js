@@ -43,8 +43,9 @@ export function bracketOf(s) {
   const seeds = seedsOf(s), sd = id => (seeds[id] == null ? 99 : seeds[id]);
   const qf = of('quarter'), fin = of('final')[0] || null, third = of('third')[0] || null;
   const sf = of('semi').slice().sort((x, y) => Math.min(sd(x.a), sd(x.b)) - Math.min(sd(y.a), sd(y.b)));
-  if (sf.length !== 2 || !fin) return null;
+  if (sf.length !== 2 || !fin || qf.length !== 2) return null; // another shape: the rounds as cards
   const feed = sf.map(x => qf.find(q => [x.a, x.b].includes(winnerOf(q))) || null);
+  if (!feed.every(Boolean) || new Set(feed).size !== 2) return null; // every quarterfinal drawn exactly once
   const bye = sf.map((x, i) => { const f = feed[i] && winnerOf(feed[i]); return [x.a, x.b].find(id => id !== f && !qf.some(q => q.a === id || q.b === id)) || null; });
   return {qf, sf, fin, third, feed, bye, seeds};
 }
