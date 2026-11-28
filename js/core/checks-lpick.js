@@ -118,6 +118,25 @@ export async function lpickChecks(check) {
     return {pass: stay && champ, detail: `both lost week 7: ${stay ? 'both still in' : 'WRONG'}; one left: ${champ ? `${nickOf('ben')} wins` : 'WRONG'}`};
   });
 
+  check('Survivor: the last two, one losing before the other has played (Nov 28 2026: Jayton\'s Dallas lost on Thanksgiving, Evan\'s Denver the day after): the loser waits (still in, no winner yet); the other losing too keeps both in and the pool names the week; the other winning wins', () => {
+    const wk8x = (at, sunRes) => ({games: [G('81', 'KC', 'LV', thuK, 'away', at), G('82', 'DEN', 'SF', sunK, sunRes, at), G('83', 'GB', 'CHI', lateK, null, at)]});
+    const b = (at, res) => new Map([[7, wk7(at)], [8, wk8x(at, res)]]);
+    const two = [sv('t1', nickOf('ben'), {7: P('BUF', '72', before), 8: P('LV', '81', thuSave)}), sv('t2', nickOf('mitch'), {7: P('BUF', '72', before), 8: P('DEN', '82', thuSave)})];
+    const row = (q, id) => q.rows.find(x => x.name === nickOf(id)) || {};
+    // Saturday: Ben's LV lost Thursday night, Mitch's DEN plays Sunday
+    const r1 = SV.pool(2026, 8, b(sat, 'home'), two, sat);
+    const wait = row(r1, 'ben').alive === true && row(r1, 'ben').risk === 8 && r1.champion === null && r1.alive === 2;
+    // the Monday after: DEN lost too (SF won): both stay in, the week named
+    const mon = Z(10, 3, 12);
+    const r2 = SV.pool(2026, 8, b(mon, 'home'), two, mon);
+    const both = r2.alive === 2 && r2.champion === null && ['ben', 'mitch'].every(id => row(r2, id).saved === 8 && !row(r2, id).risk && row(r2, id).weeks === 2)
+      && !!r2.saved && r2.saved.w === 8 && r2.saved.keys.length === 2;
+    // or DEN won: Ben out in week 8, Mitch the winner
+    const r3 = SV.pool(2026, 8, b(mon, 'away'), two, mon);
+    const win = row(r3, 'ben').alive === false && row(r3, 'ben').out === 8 && row(r3, 'ben').why === 'L' && (r3.rows.find(x => x.key === r3.champion) || {}).name === nickOf('mitch');
+    return {pass: wait && both && win, detail: `Saturday: ${wait ? 'Ben waits, no winner' : 'WRONG ' + JSON.stringify(row(r1, 'ben'))}; both lost: ${both ? 'both still in, week 8 named' : 'WRONG'}; DEN won: ${win ? 'Mitch wins' : 'WRONG'}`};
+  });
+
   check('Survivor: a pick locked in is final: a later save on another phone doesn\'t count; one locked in after the week\'s lock doesn\'t either; a pick on a game before Sunday\'s is final once it kicks off', () => {
     const L = (k, g, t) => ({k, g, t, l: 1});
     const two = [ // one member on two phones: locked in KC on one, DEN saved later on the other

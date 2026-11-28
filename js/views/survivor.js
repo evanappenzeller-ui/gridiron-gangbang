@@ -70,16 +70,23 @@ function heroHTML(d, P, me, used, board, v) {
     return `<section class="card su-hero is-out"><p class="ovl">${esc(left)}</p><h2 class="su-h">You’re out</h2><p class="su-l">${esc(`${why[0].toUpperCase()}${why.slice(1)}. You lasted ${plural(me.weeks, 'week')}.`)}</p></section>`;
   }
   const pick = me.pick;
-  const line = pick
+  // this week's pick lost: waiting on the rest of the week, or everyone still in lost it too (so everyone stays in)
+  const lostLine = pick && (me.risk === d.cur || me.saved === d.cur) ? (() => {
+    const t = teamOf(board, pick.k), lost = resWord[(me.picks.find(x => x.w === d.cur) || {}).res] || 'lost';
+    return me.saved === d.cur
+      ? `${t.short} ${lost}, but so did everyone else still in, so you all stay in. Week ${d.cur + 1}’s picks open once Week ${d.cur}’s games are over.`
+      : `${t.short} ${lost}. If everyone else still in loses this week too, you all stay in; if anyone still in wins, you’re out.`;
+  })() : null;
+  const line = lostLine || (pick
     ? (() => { const m = SV.gameOf(board, pick.k), t = teamOf(board, pick.k), o = m ? m.g[m.side === 'home' ? 'away' : 'home'] : null;
       return `${t.short}${o ? ` ${m.side === 'home' ? 'vs' : 'at'} ${o.short}` : ''}${m && m.g.state === 'pre' ? `, ${kickText(m.g.kickoff)}` : ''}.${v.locked ? '' : v.kicked ? ' Its game has kicked off: it’s final for the week.' : v.final ? ' Locked in: it’s final for the week.' : ` ${lockLine(board)}`}`; })()
-    : `Pick a team below. ${lockLine(board)}`;
+    : `Pick a team below. ${lockLine(board)}`);
   // lock in a saved pick (not one still saving) before the week locks
   const btn = pick && !v.final && !v.locked && v.saved
     ? ui.button({label: 'Lock in pick', kind: 'secondary', size: 's', icon: 'lock', cls: 'su-lockin', attrs: {'data-su-lockin': '', 'aria-label': `Lock in ${teamOf(board, pick.k).name} as your Week ${d.cur} pick`}}) : '';
   const tag = pick && v.final && !v.locked && !v.kicked ? `<span class="su-final">${ui.icon('lock')}Locked in</span>` : '';
   return `<section class="card su-hero is-in">${pick ? `<span class="su-pick">${logoHTML(teamOf(board, pick.k), 48)}</span>` : ''}`
-    + `<p class="ovl">${esc(`You’re in · ${left}`)}</p><h2 class="su-h">${esc(pick ? `Week ${d.cur}: ${teamOf(board, pick.k).name}` : `Week ${d.cur}: no pick yet`)}</h2>`
+    + `<p class="ovl">${esc(`${me.risk === d.cur ? 'You’re in for now' : 'You’re in'} · ${left}`)}</p><h2 class="su-h">${esc(pick ? `Week ${d.cur}: ${teamOf(board, pick.k).name}` : `Week ${d.cur}: no pick yet`)}</h2>`
     + `<p class="su-l">${esc(line)}</p>${tag}${btn}${used.size ? `<p class="su-used">${esc(`Used: ${[...used.keys()].join(', ')}`)}</p>` : ''}</section>`;
 }
 function sideHTML(g, side, v) {
@@ -125,14 +132,19 @@ function poolHTML(d, P) {
       if (!p) { cells.push(r.out === w && r.why === 'none' ? `<span class="su-c is-miss" title="Week ${w}: no pick">–</span>` : ''); continue; }
       if (!p.shown) { cells.push(`<span class="su-c is-hid" title="Week ${w}: ${p.l ? 'locked in' : 'picked'}">${ui.icon('lock')}</span>`); continue; }
       const t = teamOf(d.boards.get(w), p.k);
-      cells.push(`<span class="su-c${p.res === 'W' || p.res === 'C' ? ' is-w' : p.res === 'L' || p.res === 'T' ? ' is-l' : ''}" title="Week ${w}: ${esc(t.short)}${p.res ? ' ' + resWord[p.res] : ''}">${logoHTML(t, 22)}</span>`);
+      const keep = (p.res === 'L' || p.res === 'T') && !!r.savedWeeks && r.savedWeeks.includes(w);
+      cells.push(`<span class="su-c${p.res === 'W' || p.res === 'C' ? ' is-w' : p.res === 'L' || p.res === 'T' ? ' is-l' : ''}${keep ? ' is-saved' : ''}" title="Week ${w}: ${esc(t.short)}${p.res ? ' ' + resWord[p.res] : ''}${keep ? ', but everyone still in lost: stayed in' : r.risk === w ? ', waiting on the rest of the week' : ''}">${logoHTML(t, 22)}</span>`);
     }
-    const tag = r.alive ? `<span class="su-tag is-in">${r.key === P.champion ? 'Winner' : 'In'}</span>` : `<span class="su-tag is-out">Out W${r.out}</span>`;
-    const label = `${r.name}${r.you ? ', you' : ''}: ${r.alive ? 'still in' : `out in week ${r.out}`}, ${plural(r.weeks, 'week')} survived`;
+    const tag = r.risk ? `<span class="su-tag is-risk">Lost · waiting</span>` : r.alive ? `<span class="su-tag is-in">${r.key === P.champion ? 'Winner' : 'In'}</span>` : `<span class="su-tag is-out">Out W${r.out}</span>`;
+    const label = `${r.name}${r.you ? ', you' : ''}: ${r.risk ? `lost in week ${r.risk}, still in unless someone still in wins that week` : r.alive ? 'still in' : `out in week ${r.out}`}, ${plural(r.weeks, 'week')} survived`;
     return `<li class="su-r${r.you ? ' is-me' : ''}${r.alive ? '' : ' is-out'}" aria-label="${esc(label)}">${whoAvatar(r, 30)}`
       + `<span class="su-r-n"><span class="su-r-t">${esc(r.name)}${r.you ? ' <i class="lp-you">YOU</i>' : r.guest ? ' <i class="lp-you is-g">GUEST</i>' : ''}</span><span class="su-cells" aria-hidden="true">${cells.join('')}</span></span>${tag}</li>`;
   }).join('');
-  return `<section class="su-pool"><h2 class="pk-sl-h"><span class="ovl">The pool</span><span class="pk-sl-r">${esc(`${P.alive} of ${P.entered} in`)}</span></h2><ol class="card su-rows">${rows}</ol></section>`;
+  // the latest week everyone still in lost together: say so, so nobody reads their loss as the end
+  const names = P.saved ? P.saved.keys.map(k => (P.rows.find(x => x.key === k) || {}).name).filter(Boolean) : [];
+  const both = names.length === 2 ? `${names[0]} and ${names[1]} both` : names.length > 2 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} all` : '';
+  const note = P.saved && !P.champion && both ? `<p class="su-note">${ui.icon('info')}<span>${esc(`Week ${P.saved.w}: ${both} lost, so everyone still in stays in. Survivor goes on until one is left.`)}</span></p>` : '';
+  return `<section class="su-pool"><h2 class="pk-sl-h"><span class="ovl">The pool</span><span class="pk-sl-r">${esc(`${P.alive} of ${P.entered} in`)}</span></h2>${note}<ol class="card su-rows">${rows}</ol></section>`;
 }
 function bodyHTML(st) {
   const d = memo.d;

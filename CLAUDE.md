@@ -1,5 +1,23 @@
 # Gridiron Gangbang: rules for working on this app
 
+## Survivor: a shared loss keeps everyone in, and nobody is out early (November 28, 2026)
+
+Evan: "Reset the survivor since both Jayton and I lost the same week. There needs to be a winner." Everyone. Evan and Jayton
+were the last two (12 entered) and both lost week 12: Jayton's Dallas on Thanksgiving (38-39 to Philadelphia), Evan's
+Denver the day after (5-27 to Pittsburgh). The rule already in `core/survivor.js` `pool` (everyone still in who picked
+losing the same week all stay in) keeps them both in for week 13, so Survivor goes on until one is left; nothing was reset
+on the board. What went wrong was the day between: a loss was marked out at once even while someone else still in had yet
+to play, so from Thursday night to Friday Jayton showed Out W12 and Evan the winner. Now a loss in a week not settled yet
+(someone still in hasn't played, or hasn't picked before the lock) leaves its player in with `risk` (the week): the pool tags
+them "Lost · waiting", their card says they stay in if everyone left loses and go out if anyone still in wins, and there is
+no champion while the last one standing's week is open. A missed pick still goes out at the lock, as before. A week everyone
+still in lost together is named: `pool` returns `saved` ({w, keys}; each row `saved`, `savedWeeks`), the pool shows "Week 12:
+Evan and Jayton both lost, so everyone still in stays in. Survivor goes on until one is left.", those cells wear a gold
+ring, and your card says "Broncos lost, but so did everyone else still in, so you all stay in. Week 13's picks open once
+Week 12's games are over." (`views/survivor.js`, `css/views/pickem.css`). The kit check "Survivor: the last two, one losing
+before the other has played…" (`js/core/checks-lpick.js`) covers the wait, both losing and the other winning; the earlier
+Survivor kit checks still pass.
+
 ## League › Seasons: past standings and playoff brackets (November 28, 2026)
 
 Evan: "Add a regular season standings and playoff bracket for previous seasons under the league tab." Everyone. The League

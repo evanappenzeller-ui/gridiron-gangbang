@@ -610,3 +610,8 @@ html.rm .c-pk-dot::after { animation: none; }
 .v-pickem .su-tag { flex: none; padding: 3px 9px; border-radius: 999px; font: 800 11px/16px var(--font-text); letter-spacing: .06em; text-transform: uppercase; }
 .v-pickem .su-tag.is-in { background: var(--tint-soft); color: var(--tint); }
 .v-pickem .su-tag.is-out { background: var(--surface-2); color: var(--ink-3); }
+/* Survivor: a loss waiting on the rest of the week; a week everyone still in lost together (Nov 28 2026) */
+.v-pickem .su-tag.is-risk { background: var(--gold-soft); color: var(--gold); }
+.v-pickem .su-c.is-saved { box-shadow: inset 0 0 0 1.5px var(--gold); background: var(--gold-soft); }
+.v-pickem .su-note { display: flex; align-items: flex-start; gap: 8px; margin: 0 4px 10px; color: var(--ink-2); font: 400 13px/18px var(--font-text); }
+.v-pickem .su-note .ic { flex: none; width: 16px; height: 16px; margin-top: 1px; color: var(--gold); }

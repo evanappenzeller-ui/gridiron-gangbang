@@ -1,6 +1,7 @@
 // Survivor (the owner's ask, Oct 2026): every week, pick one NFL team to win its game. A team can be picked once a
 // season. Your team loses (or ties), or you don't pick before the week locks, and you're out; last one standing wins.
-// If everyone still in who picked loses the same week, they all stay in (a missed week still goes out). Pure logic +
+// If everyone still in who picked loses the same week, they all stay in (a missed week still goes out), and a loss isn't
+// out until the week is settled (everyone still in has played or missed the lock). Pure logic +
 // the one write; no DOM. Its screen is views/survivor.js, the Pick'em tab's "Survivor".
 //
 // The weeks are the NFL's, from FIRST on. Every league member (the season's teams) is in from the first week, so a
@@ -131,9 +132,12 @@ export function membersOf(year) {
 /**
  * Everyone's season: boards = Map(week -> the week's board {games}) for FIRST through the current week (cur). ->
  * {rows: [{key, name, managerId, guest, you, alive, out (the week they went out, or null), why ('L' | 'T' | 'none'),
+ * saved (the latest week they lost with everyone else still in, so stayed in; savedWeeks: every such week), risk (the week they lost while it isn't
+ * settled yet: still in for now),
  * weeks (survived), picks: [{w, k, res ('W'|'L'|'T'|'C'|null), shown (whether this phone may see it yet), l (locked
- * in)}], used (Set of teams), pick (this week's {k, g, t, l} or null)}], alive (how many), entered, champion (key, or
- * null), saved}
+ * in)}], used (Set of teams), pick (this week's {k, g, t, l} or null)}], alive (how many, those at risk among them),
+ * entered, champion (key, or null: never while the last one standing's week isn't settled), saved ({w, keys}: the latest
+ * week everyone still in lost together, or null)}
  * Every member (members: manager ids, default the season's) is in from the first week, picked or not; anyone else
  * only if they picked in it.
  * Rows ranked: in first (most weeks survived), then out by the week they went (latest first), then the name.
@@ -172,14 +176,22 @@ export function pool(year, cur, boards, list, at = now(), members = membersOf(ye
     // everyone still in who picked lost (or tied) the same week: they all go on; a missed week is never saved
     const all = decided && goers.length === still && goers.some(([, why]) => why !== 'none');
     goers.forEach(([r, why]) => {
-      if (all && why !== 'none') { r.weeks++; r.saved = w; } else { r.alive = false; r.out = w; r.why = why; }
+      if (all && why !== 'none') { r.weeks++; r.saved = w; (r.savedWeeks = r.savedWeeks || []).push(w); }
+      // a loss in a week not settled yet (someone still in hasn't played, or hasn't picked before the lock) isn't out
+      // yet: if everyone left loses too, they all stay in (Nov 28 2026: Jayton's Dallas lost on Thanksgiving, Evan's
+      // Denver the day after; in between the pool had Jayton out and Evan the winner)
+      else if (!decided && why !== 'none') r.risk = w;
+      else { r.alive = false; r.out = w; r.why = why; }
     });
   }
   rows.forEach(r => { delete r.ds; });
   rows.sort((x, y) => (y.alive - x.alive) || (x.alive ? y.weeks - x.weeks : (y.out || 0) - (x.out || 0)) || x.name.localeCompare(y.name));
   rows.forEach((r, i) => { const q = rows[i - 1]; r.rank = q && q.alive === r.alive && q.weeks === r.weeks && q.out === r.out ? q.rank : i + 1; });
   const alive = rows.filter(r => r.alive);
-  return {rows, alive: alive.length, entered: rows.length, champion: rows.length > 1 && alive.length === 1 ? alive[0].key : null};
+  // the week everyone still in lost together (the latest), and their keys: so the screens can say why they're all still in
+  const sw = Math.max(0, ...rows.map(r => r.saved || 0));
+  const saved = sw ? {w: sw, keys: rows.filter(r => r.saved === sw).map(r => r.key)} : null;
+  return {rows, alive: alive.length, entered: rows.length, champion: rows.length > 1 && alive.length === 1 && !alive[0].risk ? alive[0].key : null, saved};
 }
 /** Your teams used so far this season (picks before the current week), from your docs. */
 export function usedBy(year, cur, boards, list) {
